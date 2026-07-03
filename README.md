@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Verbaly" width="360" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo.png" />
+    <img src="assets/logo-light.png" alt="Verbaly" width="360" />
+  </picture>
 </p>
 
 <p align="center">

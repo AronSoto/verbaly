@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createVerbaly } from 'verbaly';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { VerbalyProvider, useLocale, useT } from '../src/index';
+import { Trans, VerbalyProvider, useLocale, useT } from '../src/index';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -99,5 +99,68 @@ describe('@verbaly/react', () => {
     });
     expect(container.textContent).toBe('en');
     expect(v.locale).toBe('en');
+  });
+});
+
+describe('@verbaly/react <Trans>', () => {
+  it('wraps a named tag in its component', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { agree: 'Lee los <terms>términos</terms> ya' } } });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="agree" components={{ terms: <a href="/terms" /> }} />
+        </VerbalyProvider>,
+      );
+    });
+    const a = container.querySelector('a')!;
+    expect(a.getAttribute('href')).toBe('/terms');
+    expect(a.textContent).toBe('términos');
+    expect(container.textContent).toBe('Lee los términos ya');
+  });
+
+  it('interpolates params alongside tags', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { hi: 'Hola {name}, ve al <link>panel</link>' } },
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="hi" values={{ name: 'Aron' }} components={{ link: <a href="/x" /> }} />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Hola Aron, ve al panel');
+    expect(container.querySelector('a')!.textContent).toBe('panel');
+  });
+
+  it('degrades unknown tags to inner text', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <b>bold</b> c' } } });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="m" />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('a bold c');
+    expect(container.querySelector('b')).toBeNull();
+  });
+
+  it('re-renders tags on locale change', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { m: 've al <l>panel</l>' }, en: { m: 'go to the <l>panel</l>' } },
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="m" components={{ l: <a href="/p" /> }} />
+        </VerbalyProvider>,
+      );
+    });
+    act(() => v.setLocale('en'));
+    expect(container.textContent).toBe('go to the panel');
+    expect(container.querySelector('a')!.textContent).toBe('panel');
   });
 });

@@ -1,0 +1,56 @@
+{
+  "name": "@verbaly/compiler",
+  "version": "0.1.0",
+  "description": "Message extraction and type-safe codegen for Verbaly.",
+  "keywords": [
+    "i18n",
+    "compiler",
+    "codegen",
+    "verbaly"
+  ],
+  "license": "Apache-2.0",
+  "author": "Aron Soto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AronSoto/verbaly.git",
+    "directory": "packages/compiler"
+  },
+  "homepage": "https://github.com/AronSoto/verbaly#readme",
+  "bugs": {
+    "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "verbaly": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@babel/parser": "^8.0.0",
+    "magic-string": "^0.30.21",
+    "tinyglobby": "^0.2.17",
+    "verbaly": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  }
+}

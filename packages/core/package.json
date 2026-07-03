@@ -1,0 +1,56 @@
+{
+  "name": "verbaly",
+  "version": "0.1.0",
+  "description": "Effortless i18n — write natural text, ship type-safe, tree-shakeable translations.",
+  "keywords": [
+    "i18n",
+    "internationalization",
+    "localization",
+    "l10n",
+    "translation",
+    "type-safe",
+    "compiler"
+  ],
+  "license": "Apache-2.0",
+  "author": "Aron Soto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AronSoto/verbaly.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/AronSoto/verbaly#readme",
+  "bugs": {
+    "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.10.6"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  }
+}

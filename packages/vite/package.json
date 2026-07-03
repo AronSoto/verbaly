@@ -1,0 +1,57 @@
+{
+  "name": "@verbaly/vite",
+  "version": "0.1.0",
+  "description": "Zero-config Vite plugin for Verbaly — extraction, codegen and HMR.",
+  "keywords": [
+    "i18n",
+    "vite-plugin",
+    "verbaly"
+  ],
+  "license": "Apache-2.0",
+  "author": "Aron Soto",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AronSoto/verbaly.git",
+    "directory": "packages/vite"
+  },
+  "homepage": "https://github.com/AronSoto/verbaly#readme",
+  "bugs": {
+    "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@verbaly/compiler": "workspace:*"
+  },
+  "peerDependencies": {
+    "verbaly": "workspace:^",
+    "vite": "^7.0.0 || ^8.0.0"
+  },
+  "devDependencies": {
+    "verbaly": "workspace:*",
+    "vite": "^8.1.2"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  }
+}

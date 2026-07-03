@@ -1,0 +1,73 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+export interface VerbalyConfig {
+  root?: string;
+  dir?: string;
+  sourceLocale?: string;
+  locales?: string[];
+  include?: string[];
+  exclude?: string[];
+}
+
+export interface ResolvedConfig {
+  root: string;
+  dir: string;
+  sourceLocale: string;
+  locales: string[];
+  include: string[];
+  exclude: string[];
+}
+
+export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
+  const root = resolve(config.root ?? process.cwd());
+  const dir = resolve(root, config.dir ?? 'locales');
+  const sourceLocale = config.sourceLocale ?? 'en';
+
+  const locales = new Set<string>([sourceLocale, ...(config.locales ?? [])]);
+  if (existsSync(dir)) {
+    for (const file of readdirSync(dir)) {
+      if (file.endsWith('.json')) locales.add(file.slice(0, -5));
+    }
+  }
+
+  return {
+    root,
+    dir,
+    sourceLocale,
+    locales: [...locales],
+    include: config.include ?? ['src/**/*.{js,jsx,ts,tsx,mjs,mts}'],
+    exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],
+  };
+}
+
+export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
+  for (const name of ['verbaly.config.js', 'verbaly.config.mjs']) {
+    const path = join(root, name);
+    if (existsSync(path)) {
+      const mod = (await import(pathToFileURL(path).href)) as { default?: VerbalyConfig };
+      return mod.default ?? {};
+    }
+  }
+  const jsonPath = join(root, 'verbaly.config.json');
+  if (existsSync(jsonPath)) {
+    return JSON.parse(readFileSync(jsonPath, 'utf8')) as VerbalyConfig;
+  }
+  return {};
+}
+
+// file config + inline overrides
+export async function loadConfig(
+  root: string,
+  overrides: VerbalyConfig = {},
+): Promise<ResolvedConfig> {
+  const fileConfig = await loadConfigFile(root);
+  return resolveConfig({ ...fileConfig, ...definedOnly(overrides), root });
+}
+
+function definedOnly(config: VerbalyConfig): VerbalyConfig {
+  return Object.fromEntries(
+    Object.entries(config).filter(([, value]) => value !== undefined),
+  ) as VerbalyConfig;
+}

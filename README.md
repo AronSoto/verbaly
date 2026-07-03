@@ -77,10 +77,10 @@ Plain HTML, no framework? Bind by attribute:
 | Package | Version | Description |
 |---------|---------|-------------|
 | [`verbaly`](packages/core) | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly) | Core runtime — `t`, locale store, `Intl` formatting, DOM interpreter |
-| [`@verbaly/compiler`](packages/compiler) | — | Message extraction, type-safe codegen and CLI |
-| [`@verbaly/vite`](packages/vite) | — | Zero-config Vite plugin with live extraction |
-| [`@verbaly/react`](packages/react) | — | React hooks — `useT`, `useLocale` |
-| [`@verbaly/vue`](packages/vue) | — | Vue 3 composables — `useT`, `useLocale` |
+| [`@verbaly/compiler`](packages/compiler) | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler) | Message extraction, type-safe codegen and CLI |
+| [`@verbaly/vite`](packages/vite) | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite) | Zero-config Vite plugin with live extraction |
+| [`@verbaly/react`](packages/react) | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react) | React hooks (`useT`, `useLocale`) + `<Trans>` |
+| [`@verbaly/vue`](packages/vue) | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue) | Vue 3 composables (`useT`, `useLocale`) + `<Trans>` |
 
 ---
 
@@ -100,11 +100,11 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (98 tests)
+pnpm test       # Vitest (106 tests)
 pnpm typecheck
 ```
 
-> ⚠️ Early development. `v0.1` published — API not stable yet.
+> ⚠️ Early development. `v0.2` published — API not stable yet.
 
 ## License
 

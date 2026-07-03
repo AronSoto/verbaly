@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.2.0] — 2026-07-03
+Ecosystem goes public + rich text. First npm publish of the compiler, Vite plugin and framework adapters; `<Trans>` for rich-text translation in React/Vue. Aligned versioning — all packages at 0.2.0. → [details](./0.2.0.md)
+
+### Added
+- `@verbaly/react` + `@verbaly/vue`: `<Trans>` — interpolate elements/links inside a translated message via named tags (`Read the <terms>terms</terms>`).
+- First npm publish of `@verbaly/compiler`, `@verbaly/vite`, `@verbaly/react`, `@verbaly/vue`.
+- npm README for the `verbaly` core.
+
+### Changed
+- All packages aligned at `0.2.0`.
+
+---
+
 ## [0.1.0] — 2026-07-02
 First public release. Compiler + runtime i18n: write natural text, a build plugin extracts stable keys, types, and per-locale catalogs. Tiny, tree-shakeable runtime. → [details](./0.1.0.md)
 

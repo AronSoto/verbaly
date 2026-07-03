@@ -24,7 +24,7 @@ function formatParam(node: ParamNode, ctx: FormatContext): string {
   if (value === undefined) return `{${node.name}}`;
 
   if (node.variants) {
-    const chosen = pickVariant(node.variants, value, ctx.locale);
+    const chosen = pickVariant(node.variants, value, ctx.locale, node.ordinal);
     if (!chosen) return '';
     return formatNodes(chosen, { ...ctx, hashValue: value });
   }
@@ -36,11 +36,12 @@ function pickVariant(
   variants: [string, MessageNode[]][],
   value: unknown,
   locale: string,
+  ordinal?: boolean,
 ): MessageNode[] | undefined {
   const raw = String(value);
   if (typeof value === 'number') {
     for (const [key, nodes] of variants) if (key === `=${raw}`) return nodes;
-    const category = pluralRules(locale).select(value);
+    const category = pluralRules(locale, ordinal ? 'ordinal' : 'cardinal').select(value);
     for (const [key, nodes] of variants) if (key === category) return nodes;
   } else {
     for (const [key, nodes] of variants) if (key === raw) return nodes;
@@ -49,7 +50,12 @@ function pickVariant(
   return undefined;
 }
 
-function applyFormat(value: unknown, format: string, arg: string | undefined, ctx: FormatContext): string {
+function applyFormat(
+  value: unknown,
+  format: string,
+  arg: string | undefined,
+  ctx: FormatContext,
+): string {
   const custom = ctx.formatters[format];
   if (custom) return custom(value, ctx.locale, arg);
 

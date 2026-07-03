@@ -1,13 +1,13 @@
-export type MessageNode =
-  | { kind: 'text'; value: string }
-  | { kind: 'hash' }
-  | ParamNode;
+import { isIcu, parseIcu } from './icu';
+
+export type MessageNode = { kind: 'text'; value: string } | { kind: 'hash' } | ParamNode;
 
 export interface ParamNode {
   kind: 'param';
   name: string;
   format?: string;
   arg?: string;
+  ordinal?: boolean;
   variants?: [string, MessageNode[]][];
 }
 
@@ -16,7 +16,7 @@ const astCache = new Map<string, MessageNode[]>();
 export function parse(message: string): MessageNode[] {
   let cached = astCache.get(message);
   if (!cached) {
-    cached = parseMessage(message, false);
+    cached = isIcu(message) ? parseIcu(message) : parseMessage(message, false);
     astCache.set(message, cached);
   }
   return cached;

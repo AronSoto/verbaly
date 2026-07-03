@@ -13,7 +13,14 @@ import {
   type VNodeChild,
   type WritableComputedRef,
 } from 'vue';
-import type { DictionaryInput, Params, TFunction, Verbaly } from 'verbaly';
+import {
+  parseTags,
+  type DictionaryInput,
+  type Params,
+  type TagNode,
+  type TFunction,
+  type Verbaly,
+} from 'verbaly';
 
 const KEY: InjectionKey<Verbaly> = Symbol('verbaly');
 
@@ -88,41 +95,18 @@ export const Trans = defineComponent({
         props.id,
         props.values,
       );
-      return h(Fragment, renderTags(text, props.components));
+      return h(Fragment, toNodes(parseTags(text), props.components));
     };
   },
 });
 
-const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
-
-function renderTags(text: string, components: TransComponents): VNodeChild[] {
-  const tag = new RegExp(TAG.source, 'g');
-  let pos = 0;
-
-  const walk = (stop: string | null): VNodeChild[] => {
-    const out: VNodeChild[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = tag.exec(text)) !== null) {
-      const [full, closing, name, selfClose] = m;
-      if (m.index > pos) out.push(text.slice(pos, m.index));
-      pos = m.index + full.length;
-      if (closing) {
-        if (name === stop) return out;
-        out.push(full); // stray close → literal
-      } else if (selfClose) {
-        const fn = components[name!];
-        out.push(fn ? fn([]) : full);
-      } else {
-        const children = walk(name!);
-        const fn = components[name!];
-        if (fn) out.push(fn(children));
-        else out.push(...children); // unknown tag → text
-      }
-    }
-    if (pos < text.length) out.push(text.slice(pos));
-    return out;
-  };
-  return walk(null);
+function toNodes(nodes: TagNode[], components: TransComponents): VNodeChild[] {
+  return nodes.map((node) => {
+    if (typeof node === 'string') return node;
+    const children = toNodes(node.children, components);
+    const fn = components[node.name];
+    return fn ? fn(children) : children;
+  });
 }
 
 export type { Params, TFunction, Verbaly };

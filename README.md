@@ -100,7 +100,7 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (106 tests)
+pnpm test       # Vitest (120 tests)
 pnpm typecheck
 ```
 

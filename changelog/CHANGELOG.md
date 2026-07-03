@@ -6,6 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.3.0] — 2026-07-03
+Opt-in ICU MessageFormat support (zero-dep) + robustness fixes. No breaking changes. → [details](./0.3.0.md)
+
+### Added
+- **ICU escape-hatch** (core): write `{count, plural, one {#} other {#}}` / `select` / `selectordinal` / `{n, number, …}` and it's parsed into the native AST — auto-detected, zero dependencies.
+- `parseTags` + `TagNode` core exports — the shared, hardened `<Trans>` tokenizer.
+
+### Changed
+- `@verbaly/react` + `@verbaly/vue` `<Trans>` now share the core tokenizer (deduped, hardened for malformed tags).
+
+### Fixed
+- Key-collision detection warns at build time (`@verbaly/compiler`) instead of silently dropping a message.
+- `@verbaly/vite` clears keys on file delete (watcher `unlink`); dev `vite` bumped to 8.1.3.
+
+---
+
 ## [0.2.0] — 2026-07-03
 Ecosystem goes public + rich text. First npm publish of the compiler, Vite plugin and framework adapters; `<Trans>` for rich-text translation in React/Vue. Aligned versioning — all packages at 0.2.0. → [details](./0.2.0.md)
 

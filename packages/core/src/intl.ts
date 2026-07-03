@@ -2,7 +2,10 @@ const nfCache = new Map<string, Intl.NumberFormat>();
 const dtfCache = new Map<string, Intl.DateTimeFormat>();
 const prCache = new Map<string, Intl.PluralRules>();
 
-export function numberFormat(locale: string, options?: Intl.NumberFormatOptions): Intl.NumberFormat {
+export function numberFormat(
+  locale: string,
+  options?: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
   const key = locale + (options ? JSON.stringify(options) : '');
   let fmt = nfCache.get(key);
   if (!fmt) {
@@ -25,11 +28,15 @@ export function dateTimeFormat(
   return fmt;
 }
 
-export function pluralRules(locale: string): Intl.PluralRules {
-  let rules = prCache.get(locale);
+export function pluralRules(
+  locale: string,
+  type: Intl.PluralRuleType = 'cardinal',
+): Intl.PluralRules {
+  const key = locale + type;
+  let rules = prCache.get(key);
   if (!rules) {
-    rules = new Intl.PluralRules(locale);
-    prCache.set(locale, rules);
+    rules = new Intl.PluralRules(locale, { type });
+    prCache.set(key, rules);
   }
   return rules;
 }

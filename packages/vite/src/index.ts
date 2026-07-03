@@ -92,6 +92,12 @@ export default function verbaly(options: VerbalyConfig = {}): Plugin {
         onCatalogFile(file, file.split(/[\\/]/).pop()?.slice(0, -5)),
       );
       devServer.watcher.on('add', (file) => onCatalogFile(file));
+      devServer.watcher.on('unlink', (file) => {
+        if (SOURCE_RE.test(file) && !file.includes('node_modules')) {
+          registry.remove(file);
+          scheduleFlush();
+        }
+      });
     },
 
     resolveId(id) {

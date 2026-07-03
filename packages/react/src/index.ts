@@ -8,7 +8,14 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import type { DictionaryInput, Params, TFunction, Verbaly } from 'verbaly';
+import {
+  parseTags,
+  type DictionaryInput,
+  type Params,
+  type TagNode,
+  type TFunction,
+  type Verbaly,
+} from 'verbaly';
 
 const VerbalyContext = createContext<Verbaly | null>(null);
 
@@ -65,38 +72,16 @@ export interface TransProps {
 export function Trans(props: TransProps): ReactElement {
   const t = useT();
   const text = (t as unknown as (id: string, values?: Params) => string)(props.id, props.values);
-  return createElement(Fragment, null, ...renderTags(text, props.components ?? {}));
+  return createElement(Fragment, null, ...toNodes(parseTags(text), props.components ?? {}));
 }
 
-const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
-
-function renderTags(text: string, components: Record<string, ReactElement>): ReactNode[] {
-  const tag = new RegExp(TAG.source, 'g');
-  let pos = 0;
-  let key = 0;
-
-  const walk = (stop: string | null): ReactNode[] => {
-    const out: ReactNode[] = [];
-    let m: RegExpExecArray | null;
-    while ((m = tag.exec(text)) !== null) {
-      const [full, closing, name, selfClose] = m;
-      if (m.index > pos) out.push(text.slice(pos, m.index));
-      pos = m.index + full.length;
-      if (closing) {
-        if (name === stop) return out;
-        out.push(full); // stray close → literal
-      } else if (selfClose) {
-        const el = components[name!];
-        out.push(el ? cloneElement(el, { key: key++ }) : full);
-      } else {
-        const children = walk(name!);
-        const el = components[name!];
-        if (el) out.push(cloneElement(el, { key: key++ }, ...children));
-        else out.push(...children); // unknown tag → text
-      }
-    }
-    if (pos < text.length) out.push(text.slice(pos));
-    return out;
-  };
-  return walk(null);
+function toNodes(nodes: TagNode[], components: Record<string, ReactElement>): ReactNode[] {
+  return nodes.map((node, i) => {
+    if (typeof node === 'string') return node;
+    const children = toNodes(node.children, components);
+    const el = components[node.name];
+    return el
+      ? cloneElement(el, { key: i }, ...children)
+      : createElement(Fragment, { key: i }, ...children);
+  });
 }

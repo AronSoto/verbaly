@@ -15,7 +15,17 @@ export class MessageRegistry {
     const out = new Map<string, TaggedMessage>();
     for (const analysis of this.files.values()) {
       for (const msg of analysis.tagged) {
-        if (!out.has(msg.key)) out.set(msg.key, msg);
+        const existing = out.get(msg.key);
+        if (existing) {
+          if (existing.message !== msg.message) {
+            console.warn(
+              `[verbaly] key collision "${msg.key}": ` +
+                `${JSON.stringify(existing.message)} vs ${JSON.stringify(msg.message)} — second dropped.`,
+            );
+          }
+          continue;
+        }
+        out.set(msg.key, msg);
       }
     }
     return out;

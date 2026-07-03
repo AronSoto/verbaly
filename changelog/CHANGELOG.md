@@ -1,39 +1,39 @@
 # Changelog
 
-Historial de versiones del paquete **Verbaly**. Resumen por versión; el **detalle completo del desarrollo** de cada una vive en su archivo hermano `X.Y.Z.md` (ej. [`0.1.0.md`](./0.1.0.md)).
+Version history of the **Verbaly** package. This file is a per-version summary; the **full development detail** of each version lives in its sibling `X.Y.Z.md` file (e.g. [`0.1.0.md`](./0.1.0.md)).
 
-El formato sigue [Keep a Changelog](https://keepachangelog.com/) y [Semantic Versioning](https://semver.org/). Pre-1.0: la API aún puede romper entre minors (se anota explícitamente).
+Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly).
 
 ---
 
 ## [0.1.0] — 2026-07-02
-Primer release público. i18n compilador+runtime: escribes texto natural, un plugin de build extrae keys estables, tipos y catálogos por locale. Runtime diminuto y tree-shakeable. → [detalle](./0.1.0.md)
+First public release. Compiler + runtime i18n: write natural text, a build plugin extracts stable keys, types, and per-locale catalogs. Tiny, tree-shakeable runtime. → [details](./0.1.0.md)
 
 ### Added
-- `verbaly` (core): formato de mensaje con `Intl`, locale store reactivo, `t` dual (key + tagged template), DOM interpreter `bindDom`, params type-safe.
-- `@verbaly/compiler`: extracción AST, keys estables, catálogos JSON, `check`/`extract`/`--prune`, CLI, codegen tipado.
-- `@verbaly/vite`: virtual modules, HMR, build bloqueado si faltan traducciones.
-- `@verbaly/react` + `@verbaly/vue`: adapters finos sobre el core.
+- `verbaly` (core): message format backed by `Intl`, reactive locale store, dual `t` (key + tagged template), `bindDom` DOM interpreter, type-safe params.
+- `@verbaly/compiler`: AST extraction, stable keys, flat JSON catalogs, `check`/`extract`/`--prune`, CLI, typed codegen.
+- `@verbaly/vite`: virtual modules, HMR, build blocked when translations are missing.
+- `@verbaly/react` + `@verbaly/vue`: thin adapters over the core.
 
 ---
 
-## Convención (cómo se llena esto)
-1. Cada versión publicada/mejorada → una entrada resumen aquí **y** un `X.Y.Z.md` con el detalle por paquete (Added/Changed/Simplified/Removed, API, breaking changes, impacto en docs, tests).
-2. Al cerrar una versión, avisar a **`verbaly-web`** para sincronizar docs/playground (ver `.claude/PLAN.md` → Reglas → Alineación). Skill: `verbaly-changelog`.
+## Convention (how this is maintained)
+1. Every published/improved version → one summary entry here **and** an `X.Y.Z.md` with the per-package detail (Added/Changed/Simplified/Removed, API, breaking changes, docs impact, tests).
+2. When a version closes, signal **`verbaly-web`** to sync docs/playground (see `.claude/PLAN.md` → Rules → Alignment). Skill: `verbaly-changelog`.
 
-### Plantilla de `X.Y.Z.md`
+### `X.Y.Z.md` template
 ```md
-# vX.Y.Z — <título corto>
-Fecha: YYYY-MM-DD · Estado: publicado | en desarrollo
+# vX.Y.Z — <short title>
+Date: YYYY-MM-DD · Status: published | in development
 
-## Resumen
-## Por paquete
+## Summary
+## Per package
 ### verbaly (core)   — Added / Changed / Simplified / Removed
 ### @verbaly/compiler
 ### @verbaly/vite
 ### @verbaly/react · @verbaly/vue
 ## Breaking changes
-## API nueva / firmas
-## Impacto en docs (para verbaly-web)
-## Tests / verificación
+## New API / signatures
+## Docs impact (for verbaly-web)
+## Tests / verification
 ```

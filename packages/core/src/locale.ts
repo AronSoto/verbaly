@@ -12,16 +12,23 @@ export function resolveLocale(options: ResolveLocaleOptions): string {
 
   if (storageKey) {
     const stored = getStorage()?.getItem(storageKey);
-    if (stored && supported.includes(stored)) return stored;
+    const match = stored && matchSupported(stored, supported);
+    if (match) return match;
   }
 
   for (const lang of preferredLanguages()) {
-    if (supported.includes(lang)) return lang;
-    const base = lang.split('-')[0]!;
-    if (supported.includes(base)) return base;
+    const match = matchSupported(lang, supported);
+    if (match) return match;
   }
 
   return fallback;
+}
+
+// exact, then BCP-47 base (es-PE → es)
+function matchSupported(lang: string, supported: string[]): string | undefined {
+  if (supported.includes(lang)) return lang;
+  const base = lang.split('-')[0]!;
+  return supported.includes(base) ? base : undefined;
 }
 
 export function persistLocale(locale: string, storageKey: string | false = DEFAULT_KEY): void {

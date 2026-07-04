@@ -25,6 +25,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
 
   let locale = options.locale ?? detectLocale();
   let version = 0;
+  let chainCache: string[] | null = null;
 
   if (options.messages) {
     for (const [loc, tree] of Object.entries(options.messages)) {
@@ -33,6 +34,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   }
 
   function chain(): string[] {
+    if (chainCache) return chainCache;
     const result: string[] = [];
     // narrow BCP-47 subtags
     const parts = locale.split('-');
@@ -41,6 +43,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
       parts.pop();
     }
     for (const fb of fallbacks) if (!result.includes(fb)) result.push(fb);
+    chainCache = result;
     return result;
   }
 
@@ -98,6 +101,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     setLocale(next: string) {
       if (next === locale) return;
       locale = next;
+      chainCache = null;
       notify();
     },
     addMessages(loc: string, messages: MessageTree) {

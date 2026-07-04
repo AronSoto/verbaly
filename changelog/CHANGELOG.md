@@ -6,6 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.5.0] — 2026-07-04
+
+Hardening + performance with receipts: defensibility audit fixed, benchmarks published. No breaking changes. → [details](./0.5.0.md)
+
+### Added
+
+- `pnpm bench` (core): hot-path benchmarks vs i18next — lookup **31×**, interpolation **10×**, plural **5×**, currency **4.5×** faster (Node 22).
+
+### Changed
+
+- Core hot path memoized further: fallback chain cached (invalidated on `setLocale`), DOM args cached per element, AST cache capped at 2000.
+
+### Fixed
+
+- `resolveLocale` now narrows a stored regional locale (`es-PE` → `es`).
+- `@verbaly/vite`: stale self-write entries no longer swallow external catalog edits (content compare against disk).
+
+---
+
 ## [0.4.0] — 2026-07-04
 Dogfooding release: rich text in the DOM interpreter + locale bootstrap helpers. No breaking changes. → [details](./0.4.0.md)
 

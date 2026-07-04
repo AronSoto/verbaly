@@ -96,12 +96,12 @@ persistLocale('es'); // localStorage + <html lang>
 
 ## Ecosystem
 
-| Package                           | Description                 |
-| --------------------------------- | --------------------------- |
-| `verbaly`                         | Core runtime (this package) |
-| `@verbaly/vite`                   | Zero-config Vite plugin     |
-| `@verbaly/compiler`               | Extraction + codegen + CLI  |
-| `@verbaly/react` · `@verbaly/vue` | Framework adapters          |
+| Package                                               | Description                 |
+| ----------------------------------------------------- | --------------------------- |
+| `verbaly`                                             | Core runtime (this package) |
+| `@verbaly/vite`                                       | Zero-config Vite plugin     |
+| `@verbaly/compiler`                                   | Extraction + codegen + CLI  |
+| `@verbaly/react` · `@verbaly/vue` · `@verbaly/svelte` | Framework adapters          |
 
 📖 **Docs & live playground:** https://verbaly-web.vercel.app
 

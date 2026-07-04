@@ -81,6 +81,7 @@ Plain HTML, no framework? Bind by attribute:
 | [`@verbaly/vite`](packages/vite)         | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite)         | Zero-config Vite plugin with live extraction                         |
 | [`@verbaly/react`](packages/react)       | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react)       | React hooks (`useT`, `useLocale`) + `<Trans>`                        |
 | [`@verbaly/vue`](packages/vue)           | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)           | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                  |
+| [`@verbaly/svelte`](packages/svelte)     | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)     | Svelte stores (`useT`, `useLocale`) — 4 & 5                          |
 
 ---
 
@@ -101,7 +102,7 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (143 tests)
+pnpm test       # Vitest (169 tests)
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 ```

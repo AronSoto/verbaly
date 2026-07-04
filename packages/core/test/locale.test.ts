@@ -27,6 +27,12 @@ describe('resolveLocale', () => {
     expect(resolveLocale({ supported: SUPPORTED })).toBe('es');
   });
 
+  it('narrows a stored regional locale', () => {
+    localStorage.setItem('verbaly-locale', 'es-PE');
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: SUPPORTED })).toBe('es');
+  });
+
   it('reads a custom storage key', () => {
     localStorage.setItem('my-locale', 'pt');
     stubNavigator(['en']);

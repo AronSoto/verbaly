@@ -91,7 +91,8 @@ persistLocale('es'); // localStorage + <html lang>
 - **Type-safe params** — `{name}`, plurals, currency and dates inferred from the message; wrong/missing params fail to compile.
 - **`Intl`-powered format** — number/currency/date/time + CLDR plurals and select/gender, tiny surface.
 - **Plain, portable JSON catalogs** — no proprietary format, no lock-in.
-- **DOM interpreter** for framework-less HTML.
+- **DOM interpreter** for framework-less HTML — with opt-in rich text (whitelist-based, XSS-safe).
+- **Fast, with receipts** — fully memoized hot path, benchmarked every release: 5–31× faster than i18next on lookup, interpolation and plurals.
 
 ## Ecosystem
 

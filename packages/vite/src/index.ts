@@ -16,11 +16,20 @@ import {
   type ResolvedConfig,
   type VerbalyConfig,
 } from '@verbaly/compiler';
+import { readFileSync } from 'node:fs';
 import type { Plugin, ViteDevServer } from 'vite';
 
 const RESOLVED = '\0' + VIRTUAL_ID;
 const LOCALE_PREFIX = `${RESOLVED}/locale/`;
 const SOURCE_RE = /\.[cm]?[jt]sx?$/;
+
+function safeRead(file: string): string | undefined {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
 
 export type { VerbalyConfig } from '@verbaly/compiler';
 
@@ -82,16 +91,20 @@ export default function verbaly(options: VerbalyConfig = {}): Plugin {
       devServer.watcher.add(cfg.dir);
       const onCatalogFile = (file: string, locale?: string): void => {
         if (!file.startsWith(cfg.dir) || !file.endsWith('.json')) return;
-        if (locale && selfWrites.get(locale) !== undefined) {
-          selfWrites.delete(locale);
-          return;
+        if (locale) {
+          const expected = selfWrites.get(locale);
+          if (expected !== undefined) {
+            selfWrites.delete(locale);
+            // content compare — a stale entry must not swallow an external edit
+            if (safeRead(file) === expected) return;
+          }
         }
         void reloadFromDisk();
       };
-      devServer.watcher.on('change', (file) =>
-        onCatalogFile(file, file.split(/[\\/]/).pop()?.slice(0, -5)),
-      );
-      devServer.watcher.on('add', (file) => onCatalogFile(file));
+      const localeOf = (file: string): string | undefined =>
+        file.split(/[\\/]/).pop()?.slice(0, -5);
+      devServer.watcher.on('change', (file) => onCatalogFile(file, localeOf(file)));
+      devServer.watcher.on('add', (file) => onCatalogFile(file, localeOf(file)));
       devServer.watcher.on('unlink', (file) => {
         if (SOURCE_RE.test(file) && !file.includes('node_modules')) {
           registry.remove(file);

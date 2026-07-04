@@ -12,10 +12,12 @@ export interface ParamNode {
 }
 
 const astCache = new Map<string, MessageNode[]>();
+const AST_CACHE_MAX = 2000; // dynamic/CMS messages can't grow it unbounded
 
 export function parse(message: string): MessageNode[] {
   let cached = astCache.get(message);
   if (!cached) {
+    if (astCache.size >= AST_CACHE_MAX) astCache.clear();
     cached = isIcu(message) ? parseIcu(message) : parseMessage(message, false);
     astCache.set(message, cached);
   }

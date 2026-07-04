@@ -20,6 +20,17 @@ describe('locale resolution', () => {
     expect(v.t('onlyEn')).toBe('English only');
   });
 
+  it('recomputes the chain after setLocale', () => {
+    const v = createVerbaly({
+      locale: 'es-MX',
+      messages: { es: { a: 'Hola' }, 'pt-BR': { a: 'Oi' }, pt: { b: 'Base' } },
+    });
+    expect(v.t('a')).toBe('Hola');
+    v.setLocale('pt-BR');
+    expect(v.t('a')).toBe('Oi');
+    expect(v.t('b')).toBe('Base');
+  });
+
   it('reports key existence', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: { a: 'x' } } });
     expect(v.has('a')).toBe(true);

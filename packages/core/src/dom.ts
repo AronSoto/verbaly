@@ -41,6 +41,16 @@ export function bindDom<D extends DictionaryInput>(
   const attrsAttr = `${attr}-attr`;
   const richAttr = `${attr}-rich`;
   const richTags = new Set(options.richTags ?? RICH_TAGS);
+  const argsCache = new WeakMap<Element, { raw: string | null; params: Params | undefined }>();
+
+  function cachedArgs(el: Element): Params | undefined {
+    const raw = el.getAttribute(argsAttr);
+    const hit = argsCache.get(el);
+    if (hit && hit.raw === raw) return hit.params;
+    const params = parseArgs(raw);
+    argsCache.set(el, { raw, params });
+    return params;
+  }
 
   function renderRich(el: Element, nodes: TagNode[]): void {
     for (const node of nodes) {
@@ -57,7 +67,7 @@ export function bindDom<D extends DictionaryInput>(
   }
 
   function render(el: Element): void {
-    const args = parseArgs(el.getAttribute(argsAttr));
+    const args = cachedArgs(el);
     const key = el.getAttribute(attr);
     if (key) {
       const text = t(key, args);

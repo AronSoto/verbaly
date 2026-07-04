@@ -36,3 +36,42 @@ describe('transformCode', () => {
     expect(result?.map.mappings.length).toBeGreaterThan(0);
   });
 });
+
+describe('transformCode <Trans>', () => {
+  it('rewrites plain text to an id', () => {
+    const key = stableKey('Hello world');
+    const result = transformCode('const A = () => <Trans>Hello world</Trans>;', 'App.tsx');
+    expect(result?.code).toBe(`const A = () => <Trans id=${JSON.stringify(key)} />;`);
+  });
+
+  it('passes params via values', () => {
+    const key = stableKey('Hello {name}');
+    const result = transformCode('const A = () => <Trans>Hello {user.name}</Trans>;', 'App.tsx');
+    expect(result?.code).toBe(
+      `const A = () => <Trans id=${JSON.stringify(key)} values={{ "name": user.name }} />;`,
+    );
+  });
+
+  it('passes elements via components with attributes intact', () => {
+    const key = stableKey('Read the <a>terms</a>');
+    const result = transformCode(
+      'const A = () => <Trans>Read the <a href="/terms">terms</a></Trans>;',
+      'App.tsx',
+    );
+    expect(result?.code).toBe(
+      `const A = () => <Trans id=${JSON.stringify(key)} components={{ "a": <a href="/terms" /> }} />;`,
+    );
+  });
+
+  it('leaves runtime-first Trans untouched', () => {
+    const code = 'const A = () => <Trans id="home.title" />;';
+    expect(transformCode(code, 'App.tsx')).toBeNull();
+  });
+
+  it('rewrites tagged templates and Trans in the same file', () => {
+    const code = 'const a = t`Hola`; const A = () => <Trans>Bye</Trans>;';
+    const result = transformCode(code, 'App.tsx');
+    expect(result?.code).toContain(`t(${JSON.stringify(stableKey('Hola'))})`);
+    expect(result?.code).toContain(`<Trans id=${JSON.stringify(stableKey('Bye'))} />`);
+  });
+});

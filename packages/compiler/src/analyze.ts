@@ -7,6 +7,11 @@ export interface TaggedParam {
   end: number;
 }
 
+export interface TransComponent {
+  name: string;
+  source: string;
+}
+
 export interface TaggedMessage {
   key: string;
   message: string;
@@ -16,6 +21,7 @@ export interface TaggedMessage {
   tagStart: number;
   tagEnd: number;
   file: string;
+  jsx?: { name: string; components: TransComponent[] };
 }
 
 export interface UsedKey {
@@ -73,10 +79,126 @@ export function analyze(code: string, file: string): Analysis {
       if (first?.type === 'StringLiteral') {
         usedKeys.push({ key: first.value as string, file });
       }
+    } else if (node.type === 'JSXElement') {
+      handleTrans(code, node, file, tagged, usedKeys);
     }
   });
 
   return { tagged, usedKeys };
+}
+
+function handleTrans(
+  code: string,
+  node: AstNode,
+  file: string,
+  tagged: TaggedMessage[],
+  usedKeys: UsedKey[],
+): void {
+  const opening = node.openingElement as AstNode;
+  const nameNode = opening.name as AstNode;
+  if (nameNode.type !== 'JSXIdentifier' || nameNode.name !== 'Trans') return;
+
+  const attrs = opening.attributes as AstNode[];
+  const idAttr = attrs.find((a) => a.type === 'JSXAttribute' && (a.name as AstNode).name === 'id');
+  if (idAttr) {
+    const value = idAttr.value as AstNode | null;
+    if (value?.type === 'StringLiteral') usedKeys.push({ key: value.value as string, file });
+    return; // runtime-first, untouched
+  }
+  if (attrs.length > 0) return; // hand-written props → don't guess
+
+  const children = node.children as AstNode[] | undefined;
+  if (!children?.length) return;
+
+  const built = buildTransMessage(code, children);
+  if (!built || !built.text.trim()) return;
+
+  tagged.push({
+    key: stableKey(built.text),
+    message: built.text,
+    params: built.params,
+    start: node.start,
+    end: node.end,
+    tagStart: nameNode.start,
+    tagEnd: nameNode.end,
+    file,
+    jsx: { name: nameNode.name as string, components: built.components },
+  });
+}
+
+interface BuiltTrans {
+  text: string;
+  params: TaggedParam[];
+  components: TransComponent[];
+}
+
+function buildTransMessage(code: string, children: AstNode[]): BuiltTrans | undefined {
+  const params: TaggedParam[] = [];
+  const components: TransComponent[] = [];
+  const takenParams = new Map<string, string>();
+  const takenTags = new Map<string, string>();
+
+  function walkChildren(nodes: AstNode[]): string | undefined {
+    let text = '';
+    for (const child of nodes) {
+      if (child.type === 'JSXText') {
+        text += escapeText(cleanJsxText(child.value as string));
+      } else if (child.type === 'JSXExpressionContainer') {
+        const expr = child.expression as AstNode;
+        if (expr.type === 'JSXEmptyExpression') continue;
+        if (expr.type === 'StringLiteral') {
+          text += escapeText(expr.value as string);
+          continue;
+        }
+        if (expr.type === 'TaggedTemplateExpression') return undefined; // overlap hazard
+        const source = code.slice(expr.start, expr.end);
+        const name = uniqueName(deriveName(expr, params.length), source, takenParams);
+        params.push({ name, start: expr.start, end: expr.end });
+        text += `{${name}}`;
+      } else if (child.type === 'JSXElement') {
+        const opening = child.openingElement as AstNode;
+        const nameNode = opening.name as AstNode;
+        if (nameNode.type !== 'JSXIdentifier' || nameNode.name === 'Trans') return undefined;
+        const source = selfClosedSource(code, opening);
+        const tag = uniqueName((nameNode.name as string).toLowerCase(), source, takenTags);
+        if (!components.some((c) => c.name === tag)) components.push({ name: tag, source });
+        if (!child.closingElement) {
+          text += `<${tag}/>`;
+        } else {
+          const inner = walkChildren(child.children as AstNode[]);
+          if (inner === undefined) return undefined;
+          text += `<${tag}>${inner}</${tag}>`;
+        }
+      } else {
+        return undefined; // fragments / spread children → bail
+      }
+    }
+    return text;
+  }
+
+  const text = walkChildren(children);
+  if (text === undefined) return undefined;
+  return { text, params, components };
+}
+
+// JSX text semantics: newline-indent boundaries removed, interior joins = one space
+function cleanJsxText(raw: string): string {
+  const lines = raw.split(/\r\n|[\r\n]/);
+  let out = '';
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i]!.replace(/\t/g, ' ');
+    if (i !== 0) line = line.replace(/^ +/, '');
+    if (i !== lines.length - 1) line = line.replace(/ +$/, '');
+    if (!line) continue;
+    if (out && i !== 0) out += ' ';
+    out += line;
+  }
+  return out;
+}
+
+function selfClosedSource(code: string, opening: AstNode): string {
+  const src = code.slice(opening.start, opening.end);
+  return src.endsWith('/>') ? src : `${src.slice(0, -1).trimEnd()} />`;
 }
 
 function isTReference(node: AstNode): boolean {

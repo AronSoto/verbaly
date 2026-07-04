@@ -50,11 +50,38 @@ export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
       return mod.default ?? {};
     }
   }
+  for (const name of ['verbaly.config.ts', 'verbaly.config.mts']) {
+    const path = join(root, name);
+    if (existsSync(path)) return loadTsConfig(path);
+  }
   const jsonPath = join(root, 'verbaly.config.json');
   if (existsSync(jsonPath)) {
     return JSON.parse(readFileSync(jsonPath, 'utf8')) as VerbalyConfig;
   }
   return {};
+}
+
+async function loadTsConfig(path: string): Promise<VerbalyConfig> {
+  try {
+    const { bundleRequire } = await import('bundle-require');
+    const { mod } = await bundleRequire<{ default?: VerbalyConfig }>({ filepath: path });
+    return mod.default ?? {};
+  } catch (error) {
+    if (isModuleNotFound(error, 'esbuild')) {
+      throw new Error(`[verbaly] ${path} needs esbuild — install it: pnpm add -D esbuild`, {
+        cause: error,
+      });
+    }
+    throw error;
+  }
+}
+
+function isModuleNotFound(error: unknown, name: string): boolean {
+  return (
+    error instanceof Error &&
+    (error as { code?: string }).code === 'ERR_MODULE_NOT_FOUND' &&
+    error.message.includes(name)
+  );
 }
 
 // file config + inline overrides

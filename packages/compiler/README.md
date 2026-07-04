@@ -11,7 +11,7 @@
 
 ---
 
-The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `t\`...\`` into stable hashed keys, flat JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
+The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `t\`...\``**and JSX`<Trans>` children** into stable hashed keys, flat JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
 
 > Most projects don't install this directly — [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) wraps it with zero config. Reach for it when scripting extraction/checks yourself.
 
@@ -23,7 +23,7 @@ npx verbaly check          # exit 1 if anything is missing (CI)
 npx verbaly extract --prune  # drop orphaned keys
 ```
 
-Reads `verbaly.config.{js,mjs,json}`. Generates `locales/<locale>.json` (flat, portable — no proprietary format) and `verbaly.d.ts` with params typed per key.
+Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (flat, portable — no proprietary format) and `verbaly.d.ts` with params typed per key.
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/cli**
 

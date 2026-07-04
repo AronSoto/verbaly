@@ -99,7 +99,10 @@ describe('@verbaly/vue', () => {
 
 describe('@verbaly/vue <Trans>', () => {
   it('wraps a named tag via its render function', () => {
-    const v = createVerbaly({ locale: 'es', messages: { es: { agree: 'Lee los <terms>términos</terms> ya' } } });
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { agree: 'Lee los <terms>términos</terms> ya' } },
+    });
     const comp = defineComponent({
       setup() {
         return () =>

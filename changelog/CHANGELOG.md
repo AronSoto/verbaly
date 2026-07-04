@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.4.0] — 2026-07-04
+Dogfooding release: rich text in the DOM interpreter + locale bootstrap helpers. No breaking changes. → [details](./0.4.0.md)
+
+### Added
+- **Rich text in `bindDom`** (core): `data-verbaly-rich` renders tagged messages (`'The build <em>gate</em>'`) as real elements — phrasing-tag whitelist, built programmatically (never `innerHTML`), attributes never come from messages; non-whitelisted tags unwrap to inert text. `richTags` option to override.
+- `resolveLocale({ supported, fallback?, storageKey? })` + `persistLocale(locale, storageKey?)` (core): storage → `navigator.languages` (BCP-47 narrowing) → fallback, and persistence + `<html lang>` sync. SSR-safe.
+- `locales` getter on the instance — loaded locales for language switchers.
+
+---
+
 ## [0.3.0] — 2026-07-03
 Opt-in ICU MessageFormat support (zero-dep) + robustness fixes. No breaking changes. → [details](./0.3.0.md)
 

@@ -19,7 +19,11 @@ export interface CheckResult {
   unknown: UnknownEntry[];
 }
 
-export function check(cfg: ResolvedConfig, catalogs: Catalogs, registry: MessageRegistry): CheckResult {
+export function check(
+  cfg: ResolvedConfig,
+  catalogs: Catalogs,
+  registry: MessageRegistry,
+): CheckResult {
   const source = catalogs[cfg.sourceLocale] ?? {};
   const extracted = registry.messages();
 

@@ -1,7 +1,13 @@
 export { analyze } from './analyze';
 export { loadCatalogs, readCatalog, catalogPath, serializeCatalog, writeCatalog } from './catalog';
 export { check, formatCheckResult } from './check';
-export { VIRTUAL_ID, generateDts, generateLocaleModule, generateRuntimeModule, writeDts } from './codegen';
+export {
+  VIRTUAL_ID,
+  generateDts,
+  generateLocaleModule,
+  generateRuntimeModule,
+  writeDts,
+} from './codegen';
 export { loadConfig, loadConfigFile, resolveConfig } from './config';
 export { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export { stableKey } from './key';

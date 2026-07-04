@@ -24,10 +24,7 @@ describe('loadConfig', () => {
 
   it('reads verbaly.config.mjs', async () => {
     const root = makeRoot();
-    writeFileSync(
-      join(root, 'verbaly.config.mjs'),
-      "export default { sourceLocale: 'pt' };\n",
-    );
+    writeFileSync(join(root, 'verbaly.config.mjs'), "export default { sourceLocale: 'pt' };\n");
     const cfg = await loadConfig(root);
     expect(cfg.sourceLocale).toBe('pt');
   });

@@ -20,7 +20,7 @@ Most i18n tools make you maintain key files by hand — keys drift from the code
 
 ```ts
 // You write this:
-t`Hello ${name}, you have ${count} messages`
+t`Hello ${name}, you have ${count} messages`;
 
 // The compiler generates: a stable key + inferred types + per-locale entries.
 t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
@@ -68,10 +68,21 @@ v.t('greeting', { name: 'Aron' }); // "Hello Aron"
 
 ```html
 <h1 data-verbaly="home.title"></h1>
+<p data-verbaly="home.intro" data-verbaly-rich></p>
+<!-- rich: 'The build <em>gate</em>' renders a real <em> — whitelist, XSS-safe -->
 ```
+
 ```ts
-import { createVerbaly } from 'verbaly';
-createVerbaly({ /* … */ }).bindDom(); // textContent-only, re-renders on locale change
+import { bindDom, createVerbaly, persistLocale, resolveLocale } from 'verbaly';
+
+const v = createVerbaly({
+  locale: resolveLocale({ supported: ['en', 'es', 'pt'] }), // storage → navigator → fallback
+  /* … */
+});
+bindDom(v); // renders + re-renders on locale change
+
+v.setLocale('es');
+persistLocale('es'); // localStorage + <html lang>
 ```
 
 ## What you get
@@ -84,12 +95,12 @@ createVerbaly({ /* … */ }).bindDom(); // textContent-only, re-renders on local
 
 ## Ecosystem
 
-| Package | Description |
-|---------|-------------|
-| `verbaly` | Core runtime (this package) |
-| `@verbaly/vite` | Zero-config Vite plugin |
-| `@verbaly/compiler` | Extraction + codegen + CLI |
-| `@verbaly/react` · `@verbaly/vue` | Framework adapters |
+| Package                           | Description                 |
+| --------------------------------- | --------------------------- |
+| `verbaly`                         | Core runtime (this package) |
+| `@verbaly/vite`                   | Zero-config Vite plugin     |
+| `@verbaly/compiler`               | Extraction + codegen + CLI  |
+| `@verbaly/react` · `@verbaly/vue` | Framework adapters          |
 
 📖 **Docs & live playground:** https://verbaly-web.vercel.app
 

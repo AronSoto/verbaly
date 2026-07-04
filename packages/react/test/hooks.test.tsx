@@ -104,7 +104,10 @@ describe('@verbaly/react', () => {
 
 describe('@verbaly/react <Trans>', () => {
   it('wraps a named tag in its component', () => {
-    const v = createVerbaly({ locale: 'es', messages: { es: { agree: 'Lee los <terms>términos</terms> ya' } } });
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { agree: 'Lee los <terms>términos</terms> ya' } },
+    });
     act(() => {
       root.render(
         <VerbalyProvider instance={v}>

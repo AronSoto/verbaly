@@ -29,10 +29,10 @@ Most i18n tools make you **maintain key files by hand** — keys drift from the 
 
 ```ts
 // You write this:
-t`Hello ${name}, you have ${count} messages`
+t`Hello ${name}, you have ${count} messages`;
 
 // The compiler generates: a stable key + inferred types + per-locale entries.
-t('EMo3ph4u', { name, count }) //  ← fully typed, tree-shakeable
+t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
 ```
 
 Missing a translation? **The build fails** — raw keys never reach production.
@@ -58,8 +58,8 @@ export default {
 // anywhere in your app
 import { t, setLocale } from 'virtual:verbaly';
 
-t`Hello ${name}`;          // extracted + typed on save
-await setLocale('es');     // per-locale bundle loaded on demand
+t`Hello ${name}`; // extracted + typed on save
+await setLocale('es'); // per-locale bundle loaded on demand
 ```
 
 Plain HTML, no framework? Bind by attribute:
@@ -74,13 +74,13 @@ Plain HTML, no framework? Bind by attribute:
 
 ## Packages
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| [`verbaly`](packages/core) | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly) | Core runtime — `t`, locale store, `Intl` formatting, DOM interpreter |
-| [`@verbaly/compiler`](packages/compiler) | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler) | Message extraction, type-safe codegen and CLI |
-| [`@verbaly/vite`](packages/vite) | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite) | Zero-config Vite plugin with live extraction |
-| [`@verbaly/react`](packages/react) | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react) | React hooks (`useT`, `useLocale`) + `<Trans>` |
-| [`@verbaly/vue`](packages/vue) | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue) | Vue 3 composables (`useT`, `useLocale`) + `<Trans>` |
+| Package                                  | Version                                                                                                          | Description                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`verbaly`](packages/core)               | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly)                     | Core runtime — `t`, locale store, `Intl` formatting, DOM interpreter |
+| [`@verbaly/compiler`](packages/compiler) | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler) | Message extraction, type-safe codegen and CLI                        |
+| [`@verbaly/vite`](packages/vite)         | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite)         | Zero-config Vite plugin with live extraction                         |
+| [`@verbaly/react`](packages/react)       | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react)       | React hooks (`useT`, `useLocale`) + `<Trans>`                        |
+| [`@verbaly/vue`](packages/vue)           | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)           | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                  |
 
 ---
 
@@ -90,7 +90,7 @@ Plain HTML, no framework? Bind by attribute:
 - **Type-safe params** — `{name}`, plurals, currency and dates are inferred from the message itself. Wrong or missing params fail to compile.
 - **Tiny & tree-shakeable** — ~3KB gzip core, zero dependencies, per-locale code-splitting.
 - **No proprietary format** — plain, portable JSON catalogs. No lock-in.
-- **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case.
+- **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
 - **Fails the build on missing translations** — the #1 i18n pain, gone.
 
 ---
@@ -100,11 +100,11 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (120 tests)
+pnpm test       # Vitest (141 tests)
 pnpm typecheck
 ```
 
-> ⚠️ Early development. `v0.2` published — API not stable yet.
+> ⚠️ Early development. `0.x` published — API not stable yet.
 
 ## License
 

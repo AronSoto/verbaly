@@ -108,3 +108,90 @@ describe('bindDom', () => {
     expect(el.getAttribute('title')).toBe('Hola');
   });
 });
+
+function setupRich() {
+  document.body.innerHTML = '';
+  return createVerbaly({
+    locale: 'es',
+    messages: {
+      es: {
+        gate: 'El <em>gate</em> del build',
+        nested: 'usa <strong>texto <code>plano</code></strong> aquí',
+        inbox: 'tienes <strong>{count}</strong> mensajes',
+        evil: 'hola <script>alert(1)</script> mundo',
+        custom: 'texto <q>citado</q>',
+      },
+      en: {
+        gate: 'The build <em>gate</em>',
+      },
+    },
+  });
+}
+
+function richEl(key: string, args?: string): HTMLElement {
+  const el = document.createElement('p');
+  el.setAttribute('data-verbaly', key);
+  el.setAttribute('data-verbaly-rich', '');
+  if (args) el.setAttribute('data-verbaly-args', args);
+  document.body.appendChild(el);
+  return el;
+}
+
+describe('bindDom rich', () => {
+  it('builds whitelisted elements', () => {
+    const v = setupRich();
+    const el = richEl('gate');
+    unbind = bindDom(v);
+    expect(el.innerHTML).toBe('El <em>gate</em> del build');
+    expect(el.querySelector('em')?.textContent).toBe('gate');
+  });
+
+  it('renders nested tags', () => {
+    const v = setupRich();
+    const el = richEl('nested');
+    unbind = bindDom(v);
+    expect(el.querySelector('strong code')?.textContent).toBe('plano');
+    expect(el.textContent).toBe('usa texto plano aquí');
+  });
+
+  it('formats params inside tags', () => {
+    const v = setupRich();
+    const el = richEl('inbox', '{"count":3}');
+    unbind = bindDom(v);
+    expect(el.querySelector('strong')?.textContent).toBe('3');
+  });
+
+  it('re-renders on locale change', () => {
+    const v = setupRich();
+    const el = richEl('gate');
+    unbind = bindDom(v);
+    v.setLocale('en');
+    expect(el.innerHTML).toBe('The build <em>gate</em>');
+    expect(el.querySelectorAll('em')).toHaveLength(1);
+  });
+
+  it('unwraps non-whitelisted tags as inert text', () => {
+    const v = setupRich();
+    const el = richEl('evil');
+    unbind = bindDom(v);
+    expect(el.querySelector('script')).toBeNull();
+    expect(el.textContent).toBe('hola alert(1) mundo');
+  });
+
+  it('accepts a custom whitelist', () => {
+    const v = setupRich();
+    const el = richEl('custom');
+    unbind = bindDom(v, { richTags: ['q'] });
+    expect(el.querySelector('q')?.textContent).toBe('citado');
+  });
+
+  it('without the rich attribute tags stay literal', () => {
+    const v = setupRich();
+    const el = document.createElement('p');
+    el.setAttribute('data-verbaly', 'gate');
+    document.body.appendChild(el);
+    unbind = bindDom(v);
+    expect(el.textContent).toBe('El <em>gate</em> del build');
+    expect(el.querySelector('em')).toBeNull();
+  });
+});

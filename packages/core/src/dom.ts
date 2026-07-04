@@ -1,9 +1,31 @@
+import { parseTags, type TagNode } from './tags';
 import type { DictionaryInput, Params, Verbaly } from './types';
 
 export interface BindDomOptions {
   root?: ParentNode;
   attribute?: string;
+  richTags?: string[];
 }
+
+// phrasing-only, attribute-less → XSS-safe
+const RICH_TAGS = [
+  'em',
+  'strong',
+  'code',
+  'b',
+  'i',
+  'u',
+  's',
+  'small',
+  'mark',
+  'sub',
+  'sup',
+  'span',
+  'kbd',
+  'abbr',
+  'br',
+  'wbr',
+];
 
 export function bindDom<D extends DictionaryInput>(
   instance: Verbaly<D>,
@@ -17,11 +39,35 @@ export function bindDom<D extends DictionaryInput>(
   const attr = options.attribute ?? 'data-verbaly';
   const argsAttr = `${attr}-args`;
   const attrsAttr = `${attr}-attr`;
+  const richAttr = `${attr}-rich`;
+  const richTags = new Set(options.richTags ?? RICH_TAGS);
+
+  function renderRich(el: Element, nodes: TagNode[]): void {
+    for (const node of nodes) {
+      if (typeof node === 'string') {
+        el.append(node);
+      } else if (richTags.has(node.name)) {
+        const child = el.ownerDocument.createElement(node.name);
+        renderRich(child, node.children);
+        el.append(child);
+      } else {
+        renderRich(el, node.children); // unknown tag → unwrap
+      }
+    }
+  }
 
   function render(el: Element): void {
     const args = parseArgs(el.getAttribute(argsAttr));
     const key = el.getAttribute(attr);
-    if (key) el.textContent = t(key, args);
+    if (key) {
+      const text = t(key, args);
+      if (el.hasAttribute(richAttr)) {
+        el.textContent = '';
+        renderRich(el, parseTags(text));
+      } else {
+        el.textContent = text;
+      }
+    }
 
     const attrMap = parseArgs(el.getAttribute(attrsAttr));
     if (attrMap) {
@@ -58,7 +104,7 @@ export function bindDom<D extends DictionaryInput>(
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: [attr, argsAttr, attrsAttr],
+    attributeFilter: [attr, argsAttr, attrsAttr, richAttr],
   });
 
   return () => {

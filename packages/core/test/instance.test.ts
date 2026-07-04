@@ -25,6 +25,13 @@ describe('locale resolution', () => {
     expect(v.has('a')).toBe(true);
     expect(v.has('b')).toBe(false);
   });
+
+  it('lists loaded locales', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { a: 'x' }, en: { a: 'y' } } });
+    expect(v.locales).toEqual(['es', 'en']);
+    v.addMessages('pt', { a: 'z' });
+    expect(v.locales).toEqual(['es', 'en', 'pt']);
+  });
 });
 
 describe('missing keys', () => {

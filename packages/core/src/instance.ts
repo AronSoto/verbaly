@@ -88,6 +88,9 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     get locale() {
       return locale;
     },
+    get locales() {
+      return Object.keys(dict);
+    },
     get version() {
       return version;
     },

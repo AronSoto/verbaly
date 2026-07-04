@@ -7,11 +7,7 @@ describe('parseTags', () => {
   });
 
   it('named tag', () => {
-    expect(parseTags('a <b>bold</b> c')).toEqual([
-      'a ',
-      { name: 'b', children: ['bold'] },
-      ' c',
-    ]);
+    expect(parseTags('a <b>bold</b> c')).toEqual(['a ', { name: 'b', children: ['bold'] }, ' c']);
   });
 
   it('nested tags', () => {

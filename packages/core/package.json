@@ -18,7 +18,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/AronSoto/verbaly#readme",
+  "homepage": "https://verbaly-web.vercel.app/",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ## [0.7.0] — 2026-07-04
 
-**Svelte joins the ecosystem.** New `@verbaly/svelte` adapter — six packages now, aligned. Ready to publish. No breaking changes. (Release-process cleanup shipped alongside: Changesets removed, changelog consolidated into this single file.)
+**Svelte joins the ecosystem.** New `@verbaly/svelte` adapter — six packages now, aligned. Published. No breaking changes. (Release-process cleanup shipped alongside: Changesets removed, changelog consolidated into this single file.)
 
 ### Added
 

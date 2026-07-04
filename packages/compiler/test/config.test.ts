@@ -41,6 +41,25 @@ describe('loadConfig', () => {
     expect(cfg.sourceLocale).toBe('en');
     expect(cfg.locales).toEqual(['en']);
   });
+
+  it('reads verbaly.config.ts', async () => {
+    const root = makeRoot();
+    writeFileSync(
+      join(root, 'verbaly.config.ts'),
+      "const locales: string[] = ['en', 'pt'];\nexport default { sourceLocale: 'pt', locales };\n",
+    );
+    const cfg = await loadConfig(root);
+    expect(cfg.sourceLocale).toBe('pt');
+    expect(cfg.locales).toContain('en');
+  });
+
+  it('prefers mjs over ts when both exist', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.mjs'), "export default { sourceLocale: 'es' };\n");
+    writeFileSync(join(root, 'verbaly.config.ts'), "export default { sourceLocale: 'pt' };\n");
+    const cfg = await loadConfig(root);
+    expect(cfg.sourceLocale).toBe('es');
+  });
 });
 
 describe('pruneCatalogs', () => {

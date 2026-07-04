@@ -35,14 +35,18 @@ function Inbox() {
 
 ### Rich text — `<Trans>`
 
-Interpolate elements with named tags in the message:
+Write the source text in place — the compiler extracts it (key, catalogs, props):
 
 ```tsx
 import { Trans } from '@verbaly/react';
 
-// message: Read the <terms>terms</terms> first
-<Trans id="agree" components={{ terms: <a href="/terms" /> }} />;
+// you write:
+<Trans>Read the <a href="/terms">terms</a> before continuing</Trans>
+// the compiler rewrites it to:
+<Trans id="x7Ka9q2f" components={{ "a": <a href="/terms" /> }} />
 ```
+
+Runtime-first still works — pass `id` (+ `values`/`components`) yourself and nothing is touched. JSX whitespace rules apply: a line break between an element and text renders no space (use `{' '}`).
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 

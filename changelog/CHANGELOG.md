@@ -6,6 +6,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.6.0] — 2026-07-04
+
+The compiler understands your whole codebase: JSX `<Trans>` extraction + `verbaly.config.ts`. No breaking changes. → [details](./0.6.0.md)
+
+### Added
+
+- **JSX `<Trans>` extraction** (`@verbaly/compiler`): write the text inline — `<Trans>Read the <a href="/terms">terms</a></Trans>` — and the compiler extracts the message, key and catalogs, rewriting to `<Trans id components values />`. React-faithful whitespace; safe bails; runtime-first `<Trans id>` untouched.
+- **`verbaly.config.ts` / `.mts`** via `bundle-require` (`esbuild` as optional peer).
+
+### Fixed
+
+- `<Trans id="x">` now counts as a used key — `check` no longer flags it unknown and `--prune` no longer deletes it.
+
+---
+
 ## [0.5.0] — 2026-07-04
 
 Hardening + performance with receipts: defensibility audit fixed, benchmarks published. No breaking changes. → [details](./0.5.0.md)

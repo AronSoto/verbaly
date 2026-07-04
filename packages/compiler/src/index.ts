@@ -15,7 +15,7 @@ export { collectParams, renderParamType } from './params';
 export { MessageRegistry } from './registry';
 export { transformCode } from './transform';
 
-export type { Analysis, TaggedMessage, TaggedParam, UsedKey } from './analyze';
+export type { Analysis, TaggedMessage, TaggedParam, TransComponent, UsedKey } from './analyze';
 export type { Catalog, Catalogs } from './catalog';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';
 export type { ResolvedConfig, VerbalyConfig } from './config';

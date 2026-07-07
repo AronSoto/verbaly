@@ -1,10 +1,48 @@
 # Changelog
 
-Version history of **Verbaly** — one file, full detail per version, newest first. The five packages share one version number (aligned releases).
+Version history of **Verbaly** — one file, full detail per version, newest first. The seven packages share one version number (aligned releases).
 
 Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.10.0] — 2026-07-07
+
+**Static sites ship translated + Verbaly beyond Vite.** `verbaly render` pre-fills built HTML per locale (the SSG FOUC fix, flagship), new `@verbaly/unplugin` package brings the compiler to webpack/Rollup/esbuild/Rspack, `<Trans>` lands in Svelte, and `verbaly pseudo` adds i18n QA. Ready to publish. No breaking changes; core runtime untouched in behavior (~3KB intact).
+
+### Added
+
+- **SSG per-locale output — `verbaly render`** (`@verbaly/compiler` CLI): walks the built site (`--site <path>`, default `dist`) and pre-fills every `data-verbaly` element **per locale** with the real runtime (`createVerbaly` per locale — plurals, `Intl` formatting, `data-verbaly-args`, attribute translation via `data-verbaly-attr` with the `on*` block, `data-verbaly-rich` with the same phrasing whitelist). Source locale is filled in place; every other locale is mirrored to `dist/<locale>/…` with `<html lang>` set. Static HTML ships already translated — **no flash of untranslated content** — and the runtime attributes stay, so client-side switching keeps working. Exported API: `renderHtml(html, opts)` / `renderSite(cfg, opts)` (+ option/result types). Safety: message text is HTML-escaped (no injection), `""` entries fall back to source, missing keys are reported and left untouched, comments/`<script>`/`<style>` bodies are opaque to the scanner, nested same-name elements handled. Idempotent — re-runs exclude locale subdirs. Zero new deps (magic-string + tinyglobby already there).
+- **New package `@verbaly/unplugin`**: the compiler wrapped with [unplugin](https://github.com/unjs/unplugin) — same `virtual:verbaly` module, tagged-template transform and **missing-translation build gate** (`failOnMissing: false` opts out) on **webpack 5, Rollup, esbuild and Rspack**. Build-focused: run `verbaly extract` in the dev loop/CI; live extraction + HMR remain `@verbaly/vite`'s value. ESM-only (like compiler/vite — use `webpack.config.mjs`). Deps: `unplugin ^3.3.0`, `@verbaly/compiler`; peer `verbaly`.
+- **`<Trans>` for Svelte** (`@verbaly/svelte`): raw `.svelte` components shipped in `dist` under the subpath `@verbaly/svelte/Trans.svelte` (`svelte` export condition + hand-written `.d.ts` — no svelte-package), legacy syntax compatible with Svelte 4 **and** 5. Renders message tags as real elements via `<svelte:element>` against the **same whitelist as `data-verbaly-rich`** (unknown tags unwrap to inert text; `richTags` prop overrides; `instance` prop or `provideVerbaly` context; `values` for params; re-renders on locale change, unsubscribes on unmount). No `components` map in v1 — passing components across Svelte 4/5 is fragile (roadmap note).
+- **Pseudo-localization — `verbaly pseudo`** (`@verbaly/compiler` CLI): regenerates a QA catalog (default `en-XA`, `--locale <id>` to change) from the source locale: accented letters, `⟦…⟧` markers, ~33% `~` padding — exposes hardcoded strings, clipped layouts and concatenation bugs. Params, variant blocks, tags and escape sequences survive verbatim, guaranteed by the same `structureMatches` validation as `translate`. Exported: `pseudoLocalize`, `pseudoCatalogs`, `PSEUDO_LOCALE`.
+- **Coverage** (repo): root `pnpm coverage` (vitest projects + `@vitest/coverage-v8`, lcov). CI now runs coverage instead of plain tests and uploads to Codecov; coverage badge in the README. (~90% lines at cut.)
+
+### Changed
+
+- **Packaging: node16-clean dual packages** (`verbaly`, `@verbaly/react`, `@verbaly/vue`): `exports` split into `import`/`require` conditions, each with its own `types` (`.d.cts` for CJS — tsup already emitted it). Fixes publint's "types interpreted as ESM under require" warning and arethetypeswrong's **"Masquerading as ESM"** (node16-from-CJS now 🟢). No runtime change.
+- **`verbaly` (core)**: `RICH_TAGS` (the phrasing whitelist behind `data-verbaly-rich`) is now exported — single source of truth reused by the compiler's static renderer. Additive.
+- **README (repo)**: "How it compares" table (vs i18next/Lingui/Paraglide/typesafe-i18n), CI + coverage badges, unplugin row, SSG/QA bullets. Core `package.json` keywords expanded (npm SEO).
+
+### Notes
+
+- 238 tests (core 88 · compiler 99 · svelte 18 · vue 10 · react 8 · unplugin 8 · vite 7) — was 197.
+- Bench re-run (ritual): lookup **36.2×**, interpolation **16.8×**, plural **5.5×**, currency **5.2×** vs i18next 26.
+- publint + arethetypeswrong green on core/react/vue (dual) and compiler/unplugin (ESM-only). `@verbaly/svelte/Trans.svelte` shows attw node10 "resolution failed" — expected: `.svelte` files resolve via bundler (🟢), which is the only way Svelte components are consumed.
+- New devDeps: `@vitest/coverage-v8` (root), `@sveltejs/vite-plugin-svelte` + `happy-dom` (svelte tests). Svelte tests need `resolve.conditions: ['browser']` (else Svelte 5 resolves its server build under vitest).
+- Codecov: the badge/upload go live once Aron authorizes the repo on codecov.io (GitHub login; tokenless upload works for public repos).
+- Seven aligned packages now — `@verbaly/unplugin` joins at 0.10.0.
+
+### Docs impact (pending)
+
+- `docs/cli`: add `pseudo` and `render` command rows + a **"Static rendering (SSG)"** section (per-locale output, `--site`, in-place source fill, `<html lang>`, FOUC fix, idempotency) + a **"Pseudo-localization"** section (`en-XA`, what survives verbatim, `--locale`).
+- `docs/frameworks`: **Svelte `<Trans>`** section (import from `@verbaly/svelte/Trans.svelte`, whitelist semantics = `data-verbaly-rich`, `values`/`instance`/`richTags` props, Svelte 4/5). Mirror of the React/Vue `<Trans>` sections.
+- `docs/vite` (or a new bundlers note): `@verbaly/unplugin` — webpack/Rollup/esbuild/Rspack usage, `verbaly extract` in the dev loop, `failOnMissing`, "use @verbaly/vite on Vite".
+- Landing: add the **"How it compares"** comparison as a landing section (Aron approved 2026-07-07); packages count is now **7**; any "6 packages"/test-count mentions refresh (238).
+- `/changelog`: 0.10.0 entry. Bump web to `verbaly@^0.10.0` post-publish (`pnpm install`).
+- Post-publish dogfooding (roadmap): wire `verbaly render` into verbaly-web's Astro build to kill its own FOUC.
 
 ---
 

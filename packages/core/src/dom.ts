@@ -8,7 +8,7 @@ export interface BindDomOptions {
 }
 
 // phrasing-only, attribute-less → XSS-safe
-const RICH_TAGS = [
+export const RICH_TAGS = [
   'em',
   'strong',
   'code',

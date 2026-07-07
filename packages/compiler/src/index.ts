@@ -13,6 +13,8 @@ export { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export { stableKey } from './key';
 export { collectParams, renderParamType } from './params';
 export { claudeProvider } from './providers/claude';
+export { PSEUDO_LOCALE, pseudoCatalogs, pseudoLocalize } from './pseudo';
+export { renderHtml, renderSite } from './render';
 export { MessageRegistry } from './registry';
 export { transformCode } from './transform';
 export { structureMatches, translateCatalogs } from './translate';
@@ -22,6 +24,12 @@ export type { Catalog, Catalogs } from './catalog';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';
 export type { ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
 export type { SyncResult } from './extract';
+export type {
+  RenderHtmlOptions,
+  RenderHtmlResult,
+  RenderSiteOptions,
+  RenderSiteResult,
+} from './render';
 export type { ClaudeProviderOptions } from './providers/claude';
 export type {
   TranslateOptions,

@@ -1,5 +1,5 @@
 export { createVerbaly } from './instance';
-export { bindDom } from './dom';
+export { bindDom, RICH_TAGS } from './dom';
 export { resolveLocale, persistLocale } from './locale';
 export { parse } from './parse';
 export { flatten } from './flatten';

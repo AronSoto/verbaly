@@ -1,11 +1,14 @@
 {
-  "name": "@verbaly/compiler",
+  "name": "@verbaly/unplugin",
   "version": "0.10.0",
-  "description": "Message extraction and type-safe codegen for Verbaly.",
+  "description": "Verbaly for webpack, Rollup, esbuild and Rspack — extraction, virtual modules and build gate via unplugin.",
   "keywords": [
     "i18n",
-    "compiler",
-    "codegen",
+    "unplugin",
+    "webpack",
+    "rollup",
+    "esbuild",
+    "rspack",
     "verbaly"
   ],
   "license": "Apache-2.0",
@@ -13,9 +16,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AronSoto/verbaly.git",
-    "directory": "packages/compiler"
+    "directory": "packages/unplugin"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/cli",
+  "homepage": "https://verbaly-web.vercel.app/docs/vite",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },
@@ -26,9 +29,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
-  },
-  "bin": {
-    "verbaly": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -42,27 +42,14 @@
     "access": "public"
   },
   "dependencies": {
-    "@babel/parser": "^8.0.0",
-    "bundle-require": "^5.1.0",
-    "magic-string": "^0.30.21",
-    "tinyglobby": "^0.2.17",
-    "verbaly": "workspace:*"
+    "@verbaly/compiler": "workspace:*",
+    "unplugin": "^3.3.0"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": ">=0.110.0",
-    "esbuild": ">=0.18"
-  },
-  "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "esbuild": {
-      "optional": true
-    }
+    "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
-    "esbuild": "^0.28.1"
+    "verbaly": "workspace:*"
   },
   "scripts": {
     "build": "tsup",

@@ -26,4 +26,8 @@ jobs:
 
       - run: pnpm lint
 
-      - run: pnpm test
+      - run: pnpm coverage # full test suite + lcov report
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: coverage/lcov.info

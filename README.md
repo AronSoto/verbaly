@@ -14,6 +14,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
+  <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
   <a href="https://bundlephobia.com/package/verbaly"><img src="https://img.shields.io/bundlephobia/minzip/verbaly?label=gzip" alt="bundle size" /></a>
   <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero dependencies" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
@@ -80,6 +81,7 @@ Plain HTML, no framework? Bind by attribute:
 | [`verbaly`](packages/core)               | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly)                     | Core runtime — `t`, locale store, `Intl` formatting, DOM interpreter |
 | [`@verbaly/compiler`](packages/compiler) | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler) | Message extraction, type-safe codegen and CLI                        |
 | [`@verbaly/vite`](packages/vite)         | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite)         | Zero-config Vite plugin with live extraction                         |
+| [`@verbaly/unplugin`](packages/unplugin) | [![npm](https://img.shields.io/npm/v/@verbaly/unplugin?label=)](https://www.npmjs.com/package/@verbaly/unplugin) | webpack, Rollup, esbuild & Rspack via unplugin                       |
 | [`@verbaly/react`](packages/react)       | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react)       | React hooks (`useT`, `useLocale`) + `<Trans>`                        |
 | [`@verbaly/vue`](packages/vue)           | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)           | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                  |
 | [`@verbaly/svelte`](packages/svelte)     | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)     | Svelte stores (`useT`, `useLocale`) — 4 & 5                          |
@@ -95,6 +97,8 @@ Plain HTML, no framework? Bind by attribute:
 - **No proprietary format** — plain, portable JSON catalogs. No lock-in.
 - **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
 - **Fails the build on missing translations** — the #1 i18n pain, gone.
+- **Static sites ship translated** — `verbaly render` pre-fills your built HTML per locale (`dist/es/…`, `<html lang>` set). No flash of untranslated content on SSG.
+- **i18n QA built in** — `verbaly pseudo` generates a pseudo-locale (`⟦Ĥéĺĺó ~⟧`) that exposes hardcoded strings and clipped layouts; `verbaly translate` fills real locales via Claude or your own provider.
 
 ### How it compares
 
@@ -116,7 +120,8 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (197 tests)
+pnpm test       # Vitest (238 tests)
+pnpm coverage   # full suite + lcov report
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 ```

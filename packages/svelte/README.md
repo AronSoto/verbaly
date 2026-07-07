@@ -58,7 +58,20 @@ export const t = tStore(verbaly);
 export const locale = localeStore(verbaly);
 ```
 
-Rich text: the core's DOM interpreter works in any Svelte app — mark elements with `data-verbaly`/`data-verbaly-rich` and call `bindDom` (whitelist-based, XSS-safe).
+## `<Trans>` — rich text
+
+Messages with tags (`'The <em>build</em> gate'`) render as real elements — same phrasing-tag whitelist as `data-verbaly-rich`, unknown tags unwrap to inert text, XSS-safe:
+
+```svelte
+<script>
+  import Trans from '@verbaly/svelte/Trans.svelte';
+</script>
+
+<Trans id="home.title" />
+<Trans id="greet" values={{ name: 'Aron' }} />
+```
+
+Uses the instance from `provideVerbaly` (or pass `instance={verbaly}` explicitly; `richTags` overrides the whitelist). Alternatively the core's DOM interpreter works in any Svelte app — mark elements with `data-verbaly`/`data-verbaly-rich` and call `bindDom`.
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 

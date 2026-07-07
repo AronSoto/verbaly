@@ -5,6 +5,8 @@ import { check, formatCheckResult } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
+import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
+import { renderSite } from './render';
 import { translateCatalogs, type TranslateProvider } from './translate';
 import type { ResolvedConfig } from './config';
 
@@ -14,6 +16,8 @@ Usage:
   verbaly extract    scan sources, update catalogs and types
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
+  verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
+  verbaly render     pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
 
 Options:
   --root <path>      project root (default: cwd)
@@ -23,6 +27,8 @@ Options:
   --prune            drop keys no longer referenced (extract)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would be translated, write nothing (translate)
+  --locale <id>      pseudo-locale id (pseudo, default: en-XA)
+  --site <path>      built site directory (render, default: dist)
 
 Config file: verbaly.config.{js,mjs,ts,mts,json} at root (flags win).
 The claude provider needs @anthropic-ai/sdk installed and ANTHROPIC_API_KEY set.
@@ -38,6 +44,8 @@ async function main(): Promise<void> {
       locales: { type: 'string' },
       prune: { type: 'boolean' },
       model: { type: 'string' },
+      locale: { type: 'string' },
+      site: { type: 'string' },
       'dry-run': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -123,6 +131,29 @@ async function main(): Promise<void> {
     if (Object.keys(result.translated).length === 0 && Object.keys(result.invalid).length === 0) {
       console.log('[verbaly] nothing to translate ✓');
     }
+    return;
+  }
+
+  if (command === 'render') {
+    const result = await renderSite(cfg, {
+      site: values.site,
+      locales: values.locales?.split(','),
+    });
+    console.log(
+      `[verbaly] ${result.files} pages × ${result.locales.length} locales (${result.locales.join(', ')})`,
+    );
+    for (const [locale, keys] of Object.entries(result.missing)) {
+      console.warn(`  ${locale}: ${keys.length} keys not pre-filled — ${keys.join(', ')}`);
+    }
+    return;
+  }
+
+  if (command === 'pseudo') {
+    const catalogs = loadCatalogs(cfg);
+    const locale = values.locale ?? PSEUDO_LOCALE;
+    const keys = pseudoCatalogs(cfg, catalogs, locale);
+    writeCatalog(cfg, locale, catalogs[locale] ?? {});
+    console.log(`[verbaly] ${keys.length} messages pseudo-localized → ${locale}`);
     return;
   }
 

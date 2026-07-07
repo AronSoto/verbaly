@@ -53,6 +53,32 @@ describe('analyze', () => {
   });
 });
 
+describe('analyze t.id', () => {
+  it('extracts explicit readable keys', () => {
+    const { tagged } = analyze("const a = t.id('home.greet')`Hola ${name}`;", 'app.ts');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.key).toBe('home.greet');
+    expect(tagged[0]?.message).toBe('Hola {name}');
+    expect(tagged[0]?.params.map((p) => p.name)).toEqual(['name']);
+  });
+
+  it('supports member t references', () => {
+    const { tagged } = analyze("i18n.t.id('nav.back')`Volver`;", 'app.ts');
+    expect(tagged[0]?.key).toBe('nav.back');
+  });
+
+  it('skips dynamic ids', () => {
+    const { tagged, usedKeys } = analyze('t.id(key)`Hola`;', 'app.ts');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('ignores unrelated .id tags', () => {
+    const { tagged } = analyze("css.id('x')`color: red`;", 'app.ts');
+    expect(tagged).toHaveLength(0);
+  });
+});
+
 describe('analyze <Trans>', () => {
   it('extracts plain text', () => {
     const { tagged } = analyze('const A = () => <Trans>Hello world</Trans>;', 'App.tsx');
@@ -123,6 +149,26 @@ describe('analyze <Trans>', () => {
 
   it('records <Trans id> as a used key and skips extraction', () => {
     const { tagged, usedKeys } = analyze('const A = () => <Trans id="home.title" />;', 'App.tsx');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys.map((u) => u.key)).toEqual(['home.title']);
+  });
+
+  it('extracts <Trans id> with children under the explicit key', () => {
+    const { tagged, usedKeys } = analyze(
+      'const A = () => <Trans id="home.title">Hello {user.name}</Trans>;',
+      'App.tsx',
+    );
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.key).toBe('home.title');
+    expect(tagged[0]?.message).toBe('Hello {name}');
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('keeps <Trans id> with extra props runtime-first', () => {
+    const { tagged, usedKeys } = analyze(
+      'const A = () => <Trans id="home.title" values={{ name }}>Hello</Trans>;',
+      'App.tsx',
+    );
     expect(tagged).toHaveLength(0);
     expect(usedKeys.map((u) => u.key)).toEqual(['home.title']);
   });

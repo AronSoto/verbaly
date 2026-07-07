@@ -57,18 +57,19 @@ export function analyze(code: string, file: string): Analysis {
   walk(ast.program as unknown as AstNode, (node) => {
     if (node.type === 'TaggedTemplateExpression') {
       const tag = node.tag as AstNode;
-      if (!isTReference(tag)) return;
+      const explicit = explicitId(tag);
+      if (!explicit && !isTReference(tag)) return;
       const quasi = node.quasi as AstNode;
       const message = buildMessage(code, quasi);
       if (!message) return;
       tagged.push({
-        key: stableKey(message.text),
+        key: explicit ? explicit.key : stableKey(message.text),
         message: message.text,
         params: message.params,
         start: node.start,
         end: node.end,
-        tagStart: tag.start,
-        tagEnd: tag.end,
+        tagStart: explicit ? explicit.refStart : tag.start,
+        tagEnd: explicit ? explicit.refEnd : tag.end,
         file,
       });
     } else if (node.type === 'CallExpression') {
@@ -100,14 +101,35 @@ function handleTrans(
 
   const attrs = opening.attributes as AstNode[];
   const idAttr = attrs.find((a) => a.type === 'JSXAttribute' && (a.name as AstNode).name === 'id');
+  const children = node.children as AstNode[] | undefined;
+
   if (idAttr) {
     const value = idAttr.value as AstNode | null;
-    if (value?.type === 'StringLiteral') usedKeys.push({ key: value.value as string, file });
+    if (value?.type !== 'StringLiteral') return;
+    const id = value.value as string;
+    // id + children → extract under the explicit key
+    if (attrs.length === 1 && children?.length) {
+      const built = buildTransMessage(code, children);
+      if (built?.text.trim()) {
+        tagged.push({
+          key: id,
+          message: built.text,
+          params: built.params,
+          start: node.start,
+          end: node.end,
+          tagStart: nameNode.start,
+          tagEnd: nameNode.end,
+          file,
+          jsx: { name: nameNode.name as string, components: built.components },
+        });
+        return;
+      }
+    }
+    usedKeys.push({ key: id, file });
     return; // runtime-first, untouched
   }
   if (attrs.length > 0) return; // hand-written props → don't guess
 
-  const children = node.children as AstNode[] | undefined;
   if (!children?.length) return;
 
   const built = buildTransMessage(code, children);
@@ -124,6 +146,21 @@ function handleTrans(
     file,
     jsx: { name: nameNode.name as string, components: built.components },
   });
+}
+
+// t.id('key')`…` → explicit readable key
+function explicitId(tag: AstNode): { key: string; refStart: number; refEnd: number } | undefined {
+  if (tag.type !== 'CallExpression') return undefined;
+  const callee = tag.callee as AstNode;
+  if (callee.type !== 'MemberExpression' || callee.computed) return undefined;
+  const prop = callee.property as AstNode;
+  if (prop.type !== 'Identifier' || prop.name !== 'id') return undefined;
+  const obj = callee.object as AstNode;
+  if (!isTReference(obj)) return undefined;
+  const args = tag.arguments as AstNode[];
+  const first = args[0];
+  if (args.length !== 1 || first?.type !== 'StringLiteral') return undefined;
+  return { key: first.value as string, refStart: obj.start, refEnd: obj.end };
 }
 
 interface BuiltTrans {

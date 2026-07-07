@@ -10,21 +10,21 @@ export function generateRuntimeModule(cfg: ResolvedConfig): string {
   const others = cfg.locales.filter((locale) => locale !== cfg.sourceLocale);
   const src = JSON.stringify(cfg.sourceLocale);
   const loaders = others
-    .map((locale) => `  ${JSON.stringify(locale)}: () => import('${VIRTUAL_ID}/locale/${locale}'),`)
+    .map(
+      (locale) => `    ${JSON.stringify(locale)}: () => import('${VIRTUAL_ID}/locale/${locale}'),`,
+    )
     .join('\n');
 
   return `import { createVerbaly } from 'verbaly';
 import source from '${VIRTUAL_ID}/locale/${cfg.sourceLocale}';
 
-const loaders = {
-${loaders}
-};
-const loaded = new Set([${src}]);
-
 const v = createVerbaly({
   locale: ${src},
   fallback: ${src},
   messages: { [${src}]: source },
+  loaders: {
+${loaders}
+  },
 });
 
 export const verbaly = v;
@@ -39,12 +39,7 @@ export function subscribe(listener) {
 }
 
 export async function setLocale(locale) {
-  const target = loaders[locale] ? locale : locale.split('-')[0];
-  if (!loaded.has(target) && loaders[target]) {
-    const mod = await loaders[target]();
-    v.addMessages(target, mod.default);
-    loaded.add(target);
-  }
+  await v.loadLocale(locale);
   v.setLocale(locale);
 }
 `;
@@ -82,6 +77,11 @@ ${lines.join('\n')}
     ...args: [VerbalyMessages[K]] extends [never] ? [] : [VerbalyMessages[K]]
   ): string;
   export function t(strings: TemplateStringsArray, ...values: unknown[]): string;
+  export namespace t {
+    export function id(
+      key: string,
+    ): (strings: TemplateStringsArray, ...values: unknown[]) => string;
+  }
 
   export function setLocale(locale: string): Promise<void>;
   export function getLocale(): string;

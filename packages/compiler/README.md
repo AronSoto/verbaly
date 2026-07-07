@@ -11,7 +11,7 @@
 
 ---
 
-The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `t\`...\``**and JSX`<Trans>` children** into stable hashed keys, flat JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
+The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `t\`...\``**and JSX`<Trans>` children** into stable hashed keys — or **readable keys** via `` t.id('inbox.title')`…` `` and `<Trans id="inbox.title">…</Trans>` — flat JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
 
 > Most projects don't install this directly — [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) wraps it with zero config. Reach for it when scripting extraction/checks yourself.
 

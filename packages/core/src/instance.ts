@@ -16,6 +16,9 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   const dict: Record<string, Record<string, string>> = {};
   const listeners = new Set<() => void>();
   const formatters = options.formatters ?? {};
+  const loaders = options.loaders ?? {};
+  const loaded = new Set<string>();
+  const inFlight = new Map<string, Promise<void>>();
   const warned = new Set<string>();
   const fallbacks = options.fallback
     ? Array.isArray(options.fallback)
@@ -87,27 +90,77 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     return translate(first as string, rest[0] as Params | undefined);
   }) as TFunction<D>;
 
+  t.id =
+    () =>
+    (strings: TemplateStringsArray, ...values: unknown[]) =>
+      tagged(strings, values);
+
+  function pendingLoader(target: string): string | undefined {
+    const parts = target.split('-');
+    while (parts.length > 0) {
+      const candidate = parts.join('-');
+      if (loaders[candidate] && !loaded.has(candidate)) return candidate;
+      if (loaders[candidate]) return undefined;
+      parts.pop();
+    }
+    return undefined;
+  }
+
+  function loadLocale(target: string): Promise<void> {
+    const pending = pendingLoader(target);
+    if (!pending) return Promise.resolve();
+    const running = inFlight.get(pending);
+    if (running) return running;
+    const load = loaders[pending]!()
+      .then((mod) => {
+        loaded.add(pending);
+        inFlight.delete(pending);
+        addMessages(
+          pending,
+          'default' in mod ? (mod.default as MessageTree) : (mod as MessageTree),
+        );
+      })
+      .catch((error: unknown) => {
+        inFlight.delete(pending);
+        throw error;
+      });
+    inFlight.set(pending, load);
+    return load;
+  }
+
+  function addMessages(loc: string, messages: MessageTree): void {
+    dict[loc] = { ...dict[loc], ...flatten(messages) };
+    notify();
+  }
+
   return {
     get locale() {
       return locale;
     },
     get locales() {
-      return Object.keys(dict);
+      return [...new Set([...Object.keys(dict), ...Object.keys(loaders)])];
     },
     get version() {
       return version;
     },
     t,
     setLocale(next: string) {
+      // auto-load pending catalog; UI re-renders when it lands
+      if (pendingLoader(next)) {
+        void loadLocale(next).catch(() => {
+          if (!warned.has(`load:${next}`)) {
+            warned.add(`load:${next}`);
+            console.warn(`[verbaly] failed to load catalog for "${next}"`);
+          }
+        });
+      }
       if (next === locale) return;
       locale = next;
       chainCache = null;
       notify();
     },
-    addMessages(loc: string, messages: MessageTree) {
-      dict[loc] = { ...dict[loc], ...flatten(messages) };
-      notify();
-    },
+    loadLocale,
+    addMessages,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => {

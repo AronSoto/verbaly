@@ -35,6 +35,16 @@ describe('transformCode', () => {
     const result = transformCode('t`Hola ${name}`;', 'app.ts');
     expect(result?.map.mappings.length).toBeGreaterThan(0);
   });
+
+  it('rewrites t.id to a keyed call', () => {
+    const result = transformCode("const a = t.id('home.greet')`Hola ${name}`;", 'app.ts');
+    expect(result?.code).toBe('const a = t("home.greet", { "name": name });');
+  });
+
+  it('rewrites member t.id keeping the receiver', () => {
+    const result = transformCode("i18n.t.id('nav.back')`Volver`;", 'app.ts');
+    expect(result?.code).toBe('i18n.t("nav.back");');
+  });
 });
 
 describe('transformCode <Trans>', () => {
@@ -66,6 +76,16 @@ describe('transformCode <Trans>', () => {
   it('leaves runtime-first Trans untouched', () => {
     const code = 'const A = () => <Trans id="home.title" />;';
     expect(transformCode(code, 'App.tsx')).toBeNull();
+  });
+
+  it('rewrites <Trans id> with children under the explicit key', () => {
+    const result = transformCode(
+      'const A = () => <Trans id="home.title">Hello {user.name}</Trans>;',
+      'App.tsx',
+    );
+    expect(result?.code).toBe(
+      'const A = () => <Trans id="home.title" values={{ "name": user.name }} />;',
+    );
   });
 
   it('rewrites tagged templates and Trans in the same file', () => {

@@ -20,6 +20,17 @@ describe('generateRuntimeModule', () => {
     expect(code).not.toContain('"es": () =>');
     expect(code).toContain('locale: "es"');
   });
+
+  it('wires loaders through the core', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'es',
+      locales: ['es', 'en'],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toContain('loaders: {');
+    expect(code).toContain('await v.loadLocale(locale)');
+  });
 });
 
 describe('generateLocaleModule', () => {
@@ -74,5 +85,6 @@ describe('generateDts', () => {
     expect(dts).toContain('"plain": never;');
     expect(dts).toContain("declare module 'virtual:verbaly'");
     expect(dts).toContain('setLocale(locale: string): Promise<void>');
+    expect(dts).toContain('export namespace t {');
   });
 });

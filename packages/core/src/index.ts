@@ -14,6 +14,7 @@ export type {
   FlatKeys,
   Formatter,
   KeysOf,
+  LocaleLoader,
   MessageAt,
   MessageTree,
   MessageValue,

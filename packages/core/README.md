@@ -24,6 +24,9 @@ t`Hello ${name}, you have ${count} messages`;
 
 // The compiler generates: a stable key + inferred types + per-locale entries.
 t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
+
+// Prefer readable keys? Opt in per message:
+t.id('inbox.title')`Hello ${name}`; // → t('inbox.title', { name })
 ```
 
 Missing a translation? **The build fails** — raw keys never reach production.
@@ -59,9 +62,11 @@ import { createVerbaly } from 'verbaly';
 const v = createVerbaly({
   locale: 'en',
   messages: { en: { greeting: 'Hello {name}' } },
+  loaders: { es: () => import('./locales/es.json') }, // lazy catalogs
 });
 
 v.t('greeting', { name: 'Aron' }); // "Hello Aron"
+v.setLocale('es'); // auto-loads the catalog; or: await v.loadLocale('es') first
 ```
 
 ### Plain HTML
@@ -92,7 +97,8 @@ persistLocale('es'); // localStorage + <html lang>
 - **`Intl`-powered format** — number/currency/date/time + CLDR plurals and select/gender, tiny surface.
 - **Plain, portable JSON catalogs** — no proprietary format, no lock-in.
 - **DOM interpreter** for framework-less HTML — with opt-in rich text (whitelist-based, XSS-safe).
-- **Fast, with receipts** — fully memoized hot path, benchmarked every release: 5–31× faster than i18next on lookup, interpolation and plurals.
+- **Lazy catalogs** — `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
+- **Fast, with receipts** — fully memoized hot path, benchmarked every release: 5–38× faster than i18next on lookup, interpolation and plurals.
 
 ## Ecosystem
 

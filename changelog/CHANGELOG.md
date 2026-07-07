@@ -8,6 +8,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.8.0] — 2026-07-06
+
+**Readable keys + lazy catalogs.** Opt-in readable message ids (`t.id`, `<Trans id>` extraction) and lazy catalog loading in the core runtime — both born from dogfooding. Ready to publish. No breaking changes.
+
+### Added
+
+- **Readable keys, opt-in** (`@verbaly/compiler` + `verbaly`): hashed keys stay the zero-config default; explicit ids are per-message opt-in. Dotted ids (`inbox.title`) are the namespace convention — catalogs stay flat JSON.
+  - `` t.id('inbox.title')`Hello ${name}` `` → extracted under the explicit key, rewritten to `t("inbox.title", { name })` (member receivers preserved: `i18n.t.id(…)` → `i18n.t(…)`). Dynamic ids (`t.id(someVar)`) are left untouched.
+  - `<Trans id="inbox.title">Hello {user.name}</Trans>` (id + children, no other props) → extracted under the explicit id with the same write-in-place machinery (values/components, JSX whitespace semantics, safe bails → falls back to used-key). `<Trans id>` without children stays runtime-first, unchanged.
+  - Runtime `t.id(key)` returns a template tag that formats the inline source — identical to `` t`…` `` pre-compile, so code runs before extraction.
+  - Duplicate explicit ids with different texts surface through the existing key-collision warning.
+- **Lazy catalog loaders** (`verbaly` core): `createVerbaly({ loaders: { es: () => import('./locales/es.json') } })`.
+  - `loadLocale(locale)` — BCP-47 narrowing (`es-MX` → `es`), in-flight dedupe, unwraps module `default`, idempotent; rejects propagate and retry is possible.
+  - `setLocale` auto-loads a pending catalog (fire-and-forget: UI shows fallback, re-renders when the catalog lands; warn-once on load failure). Flash-free switch: `await v.loadLocale('es'); v.setLocale('es')`.
+  - `locales` getter now returns loaded ∪ loadable locales — switchers can list languages before any catalog loads.
+
+### Changed
+
+- **Virtual module** (`@verbaly/vite` codegen): per-locale `import()`s now flow through core `loaders`; generated `setLocale` = `await v.loadLocale(l); v.setLocale(l)` (same behavior, less generated code). Generated `verbaly.d.ts` types `t.id`.
+
+### Notes
+
+- New public API: `VerbalyOptions.loaders` (+ exported `LocaleLoader` type), `Verbaly.loadLocale`, `TFunction.id`. `locales` getter behavior extended (loaded ∪ loadable) — additive, not breaking.
+- `@verbaly/vite` 0.8.0 requires `verbaly` 0.8.0 (peer `workspace:^` rewrites to `^0.8.0` on publish).
+- Dogfooding origin: `verbaly-web` hand-rolled lazy catalogs (`ensure()` + loaded `Set` in `scripts/i18n.ts`) — that pattern is now core, like 0.4.0's rich text.
+- 187 tests (core 88 · compiler 65 · vue 10 · svelte 9 · react 8 · vite 7). Bench re-run: lookup 38×, interpolation 10.6×, plural 4.7×, currency 4.9× vs i18next.
+
+### Docs impact (pending sync)
+
+- `docs/cli`: readable-keys section — `t.id('…')` + dotted-namespace convention, dynamic-id bail.
+- `docs/frameworks`: `<Trans>` section gains the explicit-id write-in-place variant (`<Trans id="…">children</Trans>`).
+- `docs/api`: `loaders` option, `loadLocale`, `setLocale` auto-load note, `locales` = loaded ∪ loadable, `LocaleLoader` type, `t.id`.
+- `docs/dom` (Locale bootstrap): lazy-loaders pattern replaces hand-rolled `ensure()`.
+- `/changelog`: 0.8.0 entry. Bump web to `verbaly@^0.8.0` post-publish; optionally migrate `scripts/i18n.ts` + `messages.ts` to core loaders (dogfooding).
+
+---
+
 ## [0.7.0] — 2026-07-04
 
 **Svelte joins the ecosystem.** New `@verbaly/svelte` adapter — six packages now, aligned. Published. No breaking changes. (Release-process cleanup shipped alongside: Changesets removed, changelog consolidated into this single file.)
@@ -31,7 +68,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - 169 tests (core 80 · compiler 55 · react 8 · vue 10 · svelte 9 · vite 7). Bench re-run: 27×/10×/4.7×/5× vs i18next.
 - Aligned versioning now spans **6** packages.
 
-### Docs impact (pending sync)
+### Docs impact (synced)
 
 - `docs/frameworks`: add a Svelte section (provide/use + stores + `bind:value`, factories without context, rich-text-via-bindDom note).
 - Landing/README ecosystem tables: add `@verbaly/svelte`.

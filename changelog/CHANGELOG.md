@@ -35,7 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Codecov: the badge/upload go live once Aron authorizes the repo on codecov.io (GitHub login; tokenless upload works for public repos).
 - Seven aligned packages now — `@verbaly/unplugin` joins at 0.10.0.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - `docs/cli`: add `pseudo` and `render` command rows + a **"Static rendering (SSG)"** section (per-locale output, `--site`, in-place source fill, `<html lang>`, FOUC fix, idempotency) + a **"Pseudo-localization"** section (`en-XA`, what survives verbatim, `--locale`).
 - `docs/frameworks`: **Svelte `<Trans>`** section (import from `@verbaly/svelte/Trans.svelte`, whitelist semantics = `data-verbaly-rich`, `values`/`instance`/`richTags` props, Svelte 4/5). Mirror of the React/Vue `<Trans>` sections.

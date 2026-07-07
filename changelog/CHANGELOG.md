@@ -8,6 +8,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.9.0] — 2026-07-06
+
+**Machine translation closes the loop.** `verbaly translate` fills the `""` holes `check` reports — pluggable provider interface with Claude as the reference implementation. Ready to publish. No breaking changes; no runtime impact (core untouched, ~3KB intact).
+
+### Added
+
+- **`verbaly translate`** (`@verbaly/compiler` CLI): fills missing translations per target locale, batched (default 20 per request, `translate.batchSize` in config). Flags: `--dry-run` (list what would be translated, write nothing), `--locales es,pt` (target filter), `--model` (override for the claude provider). The full flow is now write → `extract` → `translate` → `check` green → build passes.
+- **Provider interface, no lock-in**: `translate.provider` in `verbaly.config.{ts,js}` accepts a function `({ sourceLocale, targetLocale, messages }) => Promise<Record<key, translation>>`. Exported: `translateCatalogs`, `structureMatches`, types `TranslateProvider`/`TranslateRequest`/`TranslateOptions`/`TranslateResult`/`TranslateConfig`.
+- **Claude reference provider** (`claudeProvider`, also exported): official `@anthropic-ai/sdk` as an **optional peerDependency** (lazy-loaded with an install hint, same pattern as esbuild for TS configs). Default model `claude-sonnet-5` — balanced quality/cost for a translation workload (`translate.model` or `--model` to override), thinking disabled (translation needs no reasoning); **structured outputs** (`output_config.format` with a per-batch JSON schema) guarantee a valid key→translation map. Auth via `ANTHROPIC_API_KEY` (or an `ant auth login` profile — the SDK resolves it).
+- **Structural validation post-translation**: params (`{name}`, variant blocks) and tags (`<em>`) must survive verbatim — a translation that renames/drops them is rejected and the entry stays `""`, so `check` keeps reporting it. Rejections are listed in the CLI output.
+
+### Notes
+
+- New deps: `@anthropic-ai/sdk >=0.110.0` (optional peer + devDep `^0.110.0`). Zero impact when unused — the provider module lazy-imports it.
+- Catalog writes only touch locales that got translations; source catalog never modified.
+- 197 tests (core 88 · compiler 75 · vue 10 · svelte 9 · react 8 · vite 7). Bench re-run: lookup 30.7×, interpolation 12×, plural 4.9×, currency 4.5× vs i18next.
+
+### Docs impact (synced)
+
+- `docs/cli`: `translate` command row + "Machine translation" section (provider config, claude default, `--dry-run`/`--locales`/`--model`, validation contract with `check`).
+- `/changelog`: 0.9.0 entry. Bump web to `verbaly@^0.9.0` post-publish (no runtime changes — `pnpm install` only).
+
+---
+
 ## [0.8.0] — 2026-07-06
 
 **Readable keys + lazy catalogs.** Opt-in readable message ids (`t.id`, `<Trans id>` extraction) and lazy catalog loading in the core runtime — both born from dogfooding. Ready to publish. No breaking changes.
@@ -35,7 +59,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Dogfooding origin: `verbaly-web` hand-rolled lazy catalogs (`ensure()` + loaded `Set` in `scripts/i18n.ts`) — that pattern is now core, like 0.4.0's rich text.
 - 187 tests (core 88 · compiler 65 · vue 10 · svelte 9 · react 8 · vite 7). Bench re-run: lookup 38×, interpolation 10.6×, plural 4.7×, currency 4.9× vs i18next.
 
-### Docs impact (pending sync)
+### Docs impact (synced)
 
 - `docs/cli`: readable-keys section — `t.id('…')` + dotted-namespace convention, dynamic-id bail.
 - `docs/frameworks`: `<Trans>` section gains the explicit-id write-in-place variant (`<Trans id="…">children</Trans>`).

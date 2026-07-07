@@ -13,6 +13,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
+  <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://bundlephobia.com/package/verbaly"><img src="https://img.shields.io/bundlephobia/minzip/verbaly?label=gzip" alt="bundle size" /></a>
   <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero dependencies" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
@@ -95,6 +96,19 @@ Plain HTML, no framework? Bind by attribute:
 - **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
 - **Fails the build on missing translations** — the #1 i18n pain, gone.
 
+### How it compares
+
+|                          | **Verbaly**                | i18next          | Lingui                 | Paraglide             | typesafe-i18n |
+| ------------------------ | -------------------------- | ---------------- | ---------------------- | --------------------- | ------------- |
+| Type-safe keys & params  | ✅ inferred from text      | plugin/manual    | partial                | ✅                    | ✅            |
+| Runtime size (gzip)      | **~3KB, zero deps**        | ~25KB            | ~5KB                   | ~0 (compiled)         | ~1KB          |
+| Setup                    | 1 Vite plugin              | heavy config     | macros + Babel/SWC     | inlang project        | generator     |
+| Key maintenance          | **none — extracted**       | by hand          | extract → compile step | by hand               | by hand       |
+| Dynamic / CMS content    | ✅ real runtime path       | ✅               | ✅                     | ⚠️ weak               | ✅            |
+| Plain HTML (no framework) | ✅ DOM interpreter         | ❌               | ❌                     | ❌                    | ❌            |
+| Missing-translation gate | ✅ build fails             | runtime warning  | CI step                | ✅                    | ❌            |
+| Catalog format           | plain JSON                 | JSON             | PO/JSON                | inlang format         | TS files      |
+
 ---
 
 ## Development
@@ -102,7 +116,7 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (169 tests)
+pnpm test       # Vitest (197 tests)
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 ```

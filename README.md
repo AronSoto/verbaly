@@ -16,9 +16,9 @@
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
   <a href="https://bundlephobia.com/package/verbaly"><img src="https://img.shields.io/bundlephobia/minzip/verbaly?label=gzip" alt="bundle size" /></a>
-  <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero dependencies" />
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.10.0" alt="Socket supply chain security" /></a>
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="Apache-2.0" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -92,26 +92,27 @@ Plain HTML, no framework? Bind by attribute:
 
 - **Hybrid compiler + runtime** — static text is compiled (types + tree-shaking); dynamic/CMS content has a real runtime path. No forced trade-off.
 - **Type-safe params** — `{name}`, plurals, currency and dates are inferred from the message itself. Wrong or missing params fail to compile.
+- **`Intl` all the way** — number, currency, date/time, relative time (`{when:relative}`), lists (`{langs:list}`) and units (`{d:unit/kilometer}`) — zero dependencies, the platform does the heavy lifting.
 - **Tiny & tree-shakeable** — ~3KB gzip core, zero dependencies, per-locale code-splitting.
-- **Fast, with receipts** — fully memoized hot path: 5–31× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
+- **Fast, with receipts** — fully memoized hot path: 4–43× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
 - **No proprietary format** — plain, portable JSON catalogs. No lock-in.
-- **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
+- **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe), named links (`richLinks` — hrefs from your code, never from messages) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
 - **Fails the build on missing translations** — the #1 i18n pain, gone.
 - **Static sites ship translated** — `verbaly render` pre-fills your built HTML per locale (`dist/es/…`, `<html lang>` set). No flash of untranslated content on SSG.
 - **i18n QA built in** — `verbaly pseudo` generates a pseudo-locale (`⟦Ĥéĺĺó ~⟧`) that exposes hardcoded strings and clipped layouts; `verbaly translate` fills real locales via Claude or your own provider.
 
 ### How it compares
 
-|                          | **Verbaly**                | i18next          | Lingui                 | Paraglide             | typesafe-i18n |
-| ------------------------ | -------------------------- | ---------------- | ---------------------- | --------------------- | ------------- |
-| Type-safe keys & params  | ✅ inferred from text      | plugin/manual    | partial                | ✅                    | ✅            |
-| Runtime size (gzip)      | **~3KB, zero deps**        | ~25KB            | ~5KB                   | ~0 (compiled)         | ~1KB          |
-| Setup                    | 1 Vite plugin              | heavy config     | macros + Babel/SWC     | inlang project        | generator     |
-| Key maintenance          | **none — extracted**       | by hand          | extract → compile step | by hand               | by hand       |
-| Dynamic / CMS content    | ✅ real runtime path       | ✅               | ✅                     | ⚠️ weak               | ✅            |
-| Plain HTML (no framework) | ✅ DOM interpreter         | ❌               | ❌                     | ❌                    | ❌            |
-| Missing-translation gate | ✅ build fails             | runtime warning  | CI step                | ✅                    | ❌            |
-| Catalog format           | plain JSON                 | JSON             | PO/JSON                | inlang format         | TS files      |
+|                           | **Verbaly**           | i18next         | Lingui                 | Paraglide      | typesafe-i18n |
+| ------------------------- | --------------------- | --------------- | ---------------------- | -------------- | ------------- |
+| Type-safe keys & params   | ✅ inferred from text | plugin/manual   | partial                | ✅             | ✅            |
+| Runtime size (gzip)       | **~3KB, zero deps**   | ~25KB           | ~5KB                   | ~0 (compiled)  | ~1KB          |
+| Setup                     | 1 Vite plugin         | heavy config    | macros + Babel/SWC     | inlang project | generator     |
+| Key maintenance           | **none — extracted**  | by hand         | extract → compile step | by hand        | by hand       |
+| Dynamic / CMS content     | ✅ real runtime path  | ✅              | ✅                     | ⚠️ weak        | ✅            |
+| Plain HTML (no framework) | ✅ DOM interpreter    | ❌              | ❌                     | ❌             | ❌            |
+| Missing-translation gate  | ✅ build fails        | runtime warning | CI step                | ✅             | ❌            |
+| Catalog format            | plain JSON            | JSON            | PO/JSON                | inlang format  | TS files      |
 
 ---
 
@@ -120,7 +121,7 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (238 tests)
+pnpm test       # Vitest (266 tests)
 pnpm coverage   # full suite + lcov report
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
@@ -130,4 +131,4 @@ pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 
 ## License
 
-[Apache-2.0](./LICENSE) © Aron Soto — [@AronSoto](https://github.com/AronSoto)
+[MIT](./LICENSE) © Aron Soto — [@AronSoto](https://github.com/AronSoto)

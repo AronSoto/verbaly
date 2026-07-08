@@ -195,3 +195,83 @@ describe('bindDom rich', () => {
     expect(el.querySelector('em')).toBeNull();
   });
 });
+
+function setupLinks() {
+  document.body.innerHTML = '';
+  return createVerbaly({
+    locale: 'es',
+    messages: {
+      es: {
+        guide: 'Lee la <docs>guía</docs> completa',
+        both: 'Ve a <docs><em>docs</em></docs> o al <repo>repo</repo>',
+        evil: 'clic <bad>aquí</bad>',
+      },
+      en: {
+        guide: 'Read the full <docs>guide</docs>',
+      },
+    },
+  });
+}
+
+describe('bindDom rich links', () => {
+  it('renders named links from richLinks', () => {
+    const v = setupLinks();
+    const el = richEl('guide');
+    unbind = bindDom(v, { richLinks: { docs: '/docs' } });
+    const a = el.querySelector('a');
+    expect(a?.getAttribute('href')).toBe('/docs');
+    expect(a?.textContent).toBe('guía');
+    expect(el.textContent).toBe('Lee la guía completa');
+  });
+
+  it('supports object form with target and rel', () => {
+    const v = setupLinks();
+    const el = richEl('guide');
+    unbind = bindDom(v, {
+      richLinks: { docs: { href: 'https://x.dev', target: '_blank', rel: 'noopener' } },
+    });
+    const a = el.querySelector('a')!;
+    expect(a.getAttribute('href')).toBe('https://x.dev');
+    expect(a.getAttribute('target')).toBe('_blank');
+    expect(a.getAttribute('rel')).toBe('noopener');
+  });
+
+  it('reads per-element data-verbaly-links and merges over globals', () => {
+    const v = setupLinks();
+    const el = richEl('both');
+    el.setAttribute('data-verbaly-links', '{"repo":"https://github.com/x"}');
+    unbind = bindDom(v, { richLinks: { docs: '/docs' } });
+    const anchors = el.querySelectorAll('a');
+    expect(anchors).toHaveLength(2);
+    expect(anchors[0]?.getAttribute('href')).toBe('/docs');
+    expect(anchors[0]?.querySelector('em')?.textContent).toBe('docs');
+    expect(anchors[1]?.getAttribute('href')).toBe('https://github.com/x');
+  });
+
+  it('re-renders links on locale change', () => {
+    const v = setupLinks();
+    const el = richEl('guide');
+    unbind = bindDom(v, { richLinks: { docs: '/docs' } });
+    v.setLocale('en');
+    expect(el.textContent).toBe('Read the full guide');
+    expect(el.querySelectorAll('a')).toHaveLength(1);
+  });
+
+  it('blocks javascript: hrefs', () => {
+    const v = setupLinks();
+    const el = richEl('evil');
+    unbind = bindDom(v, { richLinks: { bad: 'javascript:alert(1)' } });
+    const a = el.querySelector('a');
+    expect(a).not.toBeNull();
+    expect(a?.hasAttribute('href')).toBe(false);
+    expect(el.textContent).toBe('clic aquí');
+  });
+
+  it('unknown link names still unwrap', () => {
+    const v = setupLinks();
+    const el = richEl('guide');
+    unbind = bindDom(v); // no links at all
+    expect(el.querySelector('a')).toBeNull();
+    expect(el.textContent).toBe('Lee la guía completa');
+  });
+});

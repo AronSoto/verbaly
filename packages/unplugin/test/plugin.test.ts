@@ -28,8 +28,7 @@ async function setup(root: string) {
   const plugin = rawPlugin({ root, sourceLocale: 'es' });
   await (plugin.buildStart as () => Promise<void>).call({});
   return {
-    resolveId: (id: string) =>
-      (plugin.resolveId as (id: string) => string | null).call({}, id),
+    resolveId: (id: string) => (plugin.resolveId as (id: string) => string | null).call({}, id),
     loadInclude: (id: string) => (plugin.loadInclude as (id: string) => boolean).call({}, id),
     load: (id: string) => (plugin.load as (id: string) => string | null).call({}, id),
     transformInclude: (id: string) =>

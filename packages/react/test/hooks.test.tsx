@@ -166,4 +166,45 @@ describe('@verbaly/react <Trans>', () => {
     expect(container.textContent).toBe('go to the panel');
     expect(container.querySelector('a')!.textContent).toBe('panel');
   });
+
+  it('renders named links from the links prop', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { m: 'Lee la <docs>guía</docs> completa' } },
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="m" links={{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }} />
+        </VerbalyProvider>,
+      );
+    });
+    const a = container.querySelector('a')!;
+    expect(a.getAttribute('href')).toBe('/docs');
+    expect(a.getAttribute('target')).toBe('_blank');
+    expect(a.getAttribute('rel')).toBe('noopener');
+    expect(a.textContent).toBe('guía');
+  });
+
+  it('components win over links and unsafe hrefs are blocked', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { m: '<x>a</x> y <bad>b</bad>' } },
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans
+            id="m"
+            components={{ x: <strong /> }}
+            links={{ x: '/never', bad: 'javascript:alert(1)' }}
+          />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.querySelector('strong')!.textContent).toBe('a');
+    const a = container.querySelector('a')!;
+    expect(a.hasAttribute('href')).toBe(false);
+    expect(a.textContent).toBe('b');
+  });
 });

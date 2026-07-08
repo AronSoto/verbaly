@@ -1,4 +1,4 @@
-import { dateTimeFormat, numberFormat, pluralRules } from './intl';
+import { dateTimeFormat, listFormat, numberFormat, pluralRules, relativeTimeFormat } from './intl';
 import type { MessageNode, ParamNode } from './parse';
 import type { Formatter, Params } from './types';
 
@@ -79,9 +79,67 @@ function applyFormat(
       return dateTimeFormat(locale, {
         timeStyle: (arg ?? 'short') as Intl.DateTimeFormatOptions['timeStyle'],
       }).format(toDate(value));
+    case 'relative':
+      return formatRelative(value, arg, locale);
+    case 'list': {
+      if (!Array.isArray(value)) return String(value);
+      const type = arg === 'or' ? 'disjunction' : arg === 'unit' ? 'unit' : 'conjunction';
+      return listFormat(locale, type).format(value.map((item) => autoFormat(item, locale)));
+    }
+    case 'unit':
+      if (!arg) return String(value);
+      try {
+        return numberFormat(locale, { style: 'unit', unit: arg }).format(Number(value));
+      } catch {
+        warnOnce(`invalid unit "${arg}"`);
+        return String(value);
+      }
     default:
+      warnOnce(`unknown format "${format}"`);
       return String(value);
   }
+}
+
+// seconds per unit, largest first (auto pick)
+const REL_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 31536000],
+  ['month', 2592000],
+  ['week', 604800],
+  ['day', 86400],
+  ['hour', 3600],
+  ['minute', 60],
+  ['second', 1],
+];
+
+function formatRelative(value: unknown, arg: string | undefined, locale: string): string {
+  try {
+    if (typeof value === 'number' && arg) {
+      return relativeTimeFormat(locale).format(value, arg as Intl.RelativeTimeFormatUnit);
+    }
+    if (value instanceof Date) {
+      const diffSec = (value.getTime() - Date.now()) / 1000;
+      if (arg) {
+        const per = REL_UNITS.find(([unit]) => unit === arg)?.[1];
+        if (!per) throw new RangeError(arg);
+        return relativeTimeFormat(locale).format(
+          Math.round(diffSec / per),
+          arg as Intl.RelativeTimeFormatUnit,
+        );
+      }
+      const [unit, per] = REL_UNITS.find(([, s]) => Math.abs(diffSec) >= s) ?? ['second', 1];
+      return relativeTimeFormat(locale).format(Math.round(diffSec / per), unit);
+    }
+  } catch {
+    warnOnce(`invalid relative unit "${arg}"`);
+  }
+  return String(value);
+}
+
+const warned = new Set<string>();
+function warnOnce(msg: string): void {
+  if (warned.has(msg)) return;
+  warned.add(msg);
+  console.warn(`[verbaly] ${msg}`);
 }
 
 export function autoFormat(value: unknown, locale: string): string {

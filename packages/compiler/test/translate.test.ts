@@ -85,7 +85,10 @@ describe('structureMatches', () => {
   it('accepts preserved params, variants and tags', () => {
     expect(structureMatches('Hola {name}', 'Hello {name}')).toBe(true);
     expect(
-      structureMatches('{n | one: un <em>ítem</em> | other: # ítems}', '{n | one: one <em>item</em> | other: # items}'),
+      structureMatches(
+        '{n | one: un <em>ítem</em> | other: # ítems}',
+        '{n | one: one <em>item</em> | other: # items}',
+      ),
     ).toBe(true);
   });
 

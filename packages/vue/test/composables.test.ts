@@ -168,4 +168,48 @@ describe('@verbaly/vue <Trans>', () => {
     expect(el.textContent).toBe('go to the panel');
     expect(el.querySelector('a')!.textContent).toBe('panel');
   });
+
+  it('renders named links from the links prop', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { m: 'Lee la <docs>guía</docs> completa' } },
+    });
+    const comp = defineComponent({
+      setup() {
+        return () =>
+          h(Trans, {
+            id: 'm',
+            links: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } },
+          });
+      },
+    });
+    const { el } = mount(comp, verbalyPlugin(v));
+    const a = el.querySelector('a')!;
+    expect(a.getAttribute('href')).toBe('/docs');
+    expect(a.getAttribute('target')).toBe('_blank');
+    expect(a.getAttribute('rel')).toBe('noopener');
+    expect(a.textContent).toBe('guía');
+  });
+
+  it('components win over links and unsafe hrefs are blocked', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { m: '<x>a</x> y <bad>b</bad>' } },
+    });
+    const comp = defineComponent({
+      setup() {
+        return () =>
+          h(Trans, {
+            id: 'm',
+            components: { x: (c: VNodeChild[]) => h('strong', c) },
+            links: { x: '/never', bad: 'javascript:alert(1)' },
+          });
+      },
+    });
+    const { el } = mount(comp, verbalyPlugin(v));
+    expect(el.querySelector('strong')!.textContent).toBe('a');
+    const a = el.querySelector('a')!;
+    expect(a.hasAttribute('href')).toBe(false);
+    expect(a.textContent).toBe('b');
+  });
 });

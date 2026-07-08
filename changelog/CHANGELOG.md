@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.11.0] — 2026-07-08
+
+**Rich links + the full modern `Intl` surface.** Named links (`<a>`) land across the whole rich-text pipeline — DOM interpreter, `<Trans>` in React/Vue/Svelte and the SSG renderer — with hrefs always provided by the caller, never by messages. The message format gains relative time, lists and units (still zero dependencies). License switched to **MIT**. Ready to publish. No breaking changes.
+
+### Added
+
+- **Named rich links** (`verbaly` core): `bindDom(v, { richLinks })` + per-element `data-verbaly-links` (JSON, merges over the global map). A message like `'Read the <docs>guide</docs>'` renders a real `<a>` when `docs` is in the map — `string` shorthand or `{ href, target, rel }`. Security model unchanged: hrefs/attributes come from the **caller** (code, config or your own markup), never from messages; `javascript:`/`data:`/`vbscript:` schemes are blocked by the new exported `safeHref` (warn + href omitted). Link names win over the phrasing whitelist; unknown names still unwrap to inert text. Exported: `RichLink` type, `safeHref`.
+- **`links` prop on `<Trans>`** (`@verbaly/react`, `@verbaly/vue`, `@verbaly/svelte`): same map, renders `<a href target rel>` without hand-writing components/render functions. In React/Vue an entry in `components` wins over `links` for the same tag name. Svelte's `<Trans>` gets its first link story (it has no `components` map by design).
+- **Links in the SSG renderer** (`@verbaly/compiler`): `renderHtml`/`renderSite` accept `richLinks`; the CLI reads the new config section `render.links` (`verbaly.config.*`); per-element `data-verbaly-links` in the built HTML merges over it. Href/target/rel are attribute-escaped. New exported type `RenderConfig`.
+- **Relative time** (`verbaly` core): `{when:relative}` with a `Date` auto-picks the unit vs now (`Intl.RelativeTimeFormat`, `numeric: 'auto'` → "yesterday"/"ayer"); `{n:relative/day}` formats a number in an explicit unit. Invalid units warn once and fall back to `String(value)`.
+- **Lists** (`verbaly` core): `{xs:list}` → localized conjunction ("a, b y c"), `{xs:list/or}` → disjunction, `{xs:list/unit}` → unit type (`Intl.ListFormat`); items are auto-formatted per locale. Non-arrays fall back to `String(value)`.
+- **Units** (`verbaly` core): `{n:unit/kilometer}` → `Intl.NumberFormat` `style: 'unit'` ("3 km"). Invalid units warn once and fall back.
+
+### Changed
+
+- **License: Apache-2.0 → MIT** (repo + all 7 packages: `LICENSE` files, `license` fields, READMEs; `NOTICE` removed). Versions ≤0.10.0 on npm remain Apache-2.0; MIT applies from this release.
+- **Hardening** (`verbaly` core): all `Intl` formatter caches (number/date/plural + new relative/list) now share a **200-entry FIFO cap** — dynamic locales/options can't grow memory unbounded (same reasoning as the 0.5.0 AST-cache cap). Unknown formats (`{v:frobnicate}`) and invalid units now **warn once** instead of failing silently to `String(value)`.
+- **README (repo)**: Socket supply-chain badge replaces the static dependencies badge (version-pinned — bump on each release, noted in the release skill); `Intl` bullet + named-links bullet; bench range updated.
+
+### Notes
+
+- 266 tests (core 105 · compiler 104 · svelte 20 · vue 12 · react 10 · unplugin 8 · vite 7) — was 238.
+- Bench re-run (ritual): lookup **43.6×**, interpolation **9.8×**, plural **4.0×**, currency **6.8×** vs i18next 26.
+- Bundle: full core surface 4.67KB min+gzip (was 3.97KB — links + 2 new `Intl` wrappers); tree-shaken `createVerbaly`-only runtime stays at **3.24KB**. `sideEffects: false` means non-DOM users don't pay for `bindDom`/links.
+- New public API — core: `RichLink`, `safeHref`, `BindDomOptions.richLinks`, formats `relative`/`list`/`unit`; react/vue/svelte: `TransProps.links`; compiler: `RenderHtmlOptions.richLinks`, `RenderSiteOptions.richLinks`, `RenderConfig` (`render.links` in config). All additive.
+- No new dependencies anywhere.
+
+### Docs impact (pending)
+
+- `docs/format`: new **"Relative time, lists & units"** section — `{when:relative}` (Date auto-unit + `relative/day`), `{xs:list}`/`list/or`/`list/unit`, `{n:unit/kilometer}`; fallback + warn-once behavior.
+- `docs/dom`: **"Named links"** section — `richLinks` option, `data-verbaly-links` attribute, merge order, `safeHref` blocking, "hrefs never come from messages" security note.
+- `docs/frameworks`: `links` prop on the three `<Trans>` sections (React/Vue/Svelte); note that `components` wins over `links` in React/Vue.
+- `docs/cli` (Static rendering section): `render.links` config + per-element merge.
+- `docs/api`: rows for `richLinks`, `RichLink`, `safeHref`; format table gains relative/list/unit.
+- Playground: optional new preset "Relative time" or "Lists" (nice demo material — `{xs:list}` with the site's own locales).
+- Landing: footer/license mentions — verify nothing says Apache; comparison table could add an "Intl relative/list/unit built-in" row.
+- `/changelog`: 0.11.0 entry. Bump web to `verbaly@^0.11.0` post-publish (`pnpm install`).
+- **Dogfooding candidates**: verbaly-web's footer "Built with…" prose or nav could use `richLinks` instead of slot keys where links appear mid-sentence.
+
+---
+
 ## [0.10.0] — 2026-07-07
 
 **Static sites ship translated + Verbaly beyond Vite.** `verbaly render` pre-fills built HTML per locale (the SSG FOUC fix, flagship), new `@verbaly/unplugin` package brings the compiler to webpack/Rollup/esbuild/Rspack, `<Trans>` lands in Svelte, and `verbaly pseudo` adds i18n QA. Ready to publish. No breaking changes; core runtime untouched in behavior (~3KB intact).

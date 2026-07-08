@@ -1,10 +1,24 @@
 import { parseTags, type TagNode } from './tags';
 import type { DictionaryInput, Params, Verbaly } from './types';
 
+// hrefs come from the caller, never from messages
+export type RichLink = string | { href: string; target?: string; rel?: string };
+
 export interface BindDomOptions {
   root?: ParentNode;
   attribute?: string;
   richTags?: string[];
+  richLinks?: Record<string, RichLink>;
+}
+
+const UNSAFE_HREF = /^\s*(javascript|data|vbscript):/i;
+
+export function safeHref(href: string): string | undefined {
+  if (UNSAFE_HREF.test(href)) {
+    console.warn(`[verbaly] blocked unsafe href: ${href}`);
+    return undefined;
+  }
+  return href;
 }
 
 // phrasing-only, attribute-less → XSS-safe
@@ -40,8 +54,14 @@ export function bindDom<D extends DictionaryInput>(
   const argsAttr = `${attr}-args`;
   const attrsAttr = `${attr}-attr`;
   const richAttr = `${attr}-rich`;
+  const linksAttr = `${attr}-links`;
   const richTags = new Set(options.richTags ?? RICH_TAGS);
+  const globalLinks = options.richLinks;
   const argsCache = new WeakMap<Element, { raw: string | null; params: Params | undefined }>();
+  const linksCache = new WeakMap<
+    Element,
+    { raw: string | null; links: Record<string, RichLink> | undefined }
+  >();
 
   function cachedArgs(el: Element): Params | undefined {
     const raw = el.getAttribute(argsAttr);
@@ -52,16 +72,42 @@ export function bindDom<D extends DictionaryInput>(
     return params;
   }
 
-  function renderRich(el: Element, nodes: TagNode[]): void {
+  function cachedLinks(el: Element): Record<string, RichLink> | undefined {
+    const raw = el.getAttribute(linksAttr);
+    if (!raw) return globalLinks;
+    const hit = linksCache.get(el);
+    if (hit && hit.raw === raw) return hit.links;
+    const own = parseArgs(raw) as Record<string, RichLink> | undefined;
+    const links = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
+    linksCache.set(el, { raw, links });
+    return links;
+  }
+
+  function renderRich(
+    el: Element,
+    nodes: TagNode[],
+    links: Record<string, RichLink> | undefined,
+  ): void {
     for (const node of nodes) {
       if (typeof node === 'string') {
         el.append(node);
+      } else if (links?.[node.name] !== undefined) {
+        const link = links[node.name]!;
+        const { href, target, rel }: Exclude<RichLink, string> =
+          typeof link === 'string' ? { href: link } : link;
+        const a = el.ownerDocument.createElement('a');
+        const safe = safeHref(href);
+        if (safe !== undefined) a.setAttribute('href', safe);
+        if (target) a.setAttribute('target', target);
+        if (rel) a.setAttribute('rel', rel);
+        renderRich(a, node.children, links);
+        el.append(a);
       } else if (richTags.has(node.name)) {
         const child = el.ownerDocument.createElement(node.name);
-        renderRich(child, node.children);
+        renderRich(child, node.children, links);
         el.append(child);
       } else {
-        renderRich(el, node.children); // unknown tag → unwrap
+        renderRich(el, node.children, links); // unknown tag → unwrap
       }
     }
   }
@@ -73,7 +119,7 @@ export function bindDom<D extends DictionaryInput>(
       const text = t(key, args);
       if (el.hasAttribute(richAttr)) {
         el.textContent = '';
-        renderRich(el, parseTags(text));
+        renderRich(el, parseTags(text), cachedLinks(el));
       } else {
         el.textContent = text;
       }
@@ -114,7 +160,7 @@ export function bindDom<D extends DictionaryInput>(
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: [attr, argsAttr, attrsAttr, richAttr],
+    attributeFilter: [attr, argsAttr, attrsAttr, richAttr, linksAttr],
   });
 
   return () => {

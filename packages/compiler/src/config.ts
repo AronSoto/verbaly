@@ -1,12 +1,17 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { RichLink } from 'verbaly';
 import type { TranslateProvider } from './translate';
 
 export interface TranslateConfig {
   provider?: 'claude' | TranslateProvider;
   model?: string;
   batchSize?: number;
+}
+
+export interface RenderConfig {
+  links?: Record<string, RichLink>;
 }
 
 export interface VerbalyConfig {
@@ -17,6 +22,7 @@ export interface VerbalyConfig {
   include?: string[];
   exclude?: string[];
   translate?: TranslateConfig;
+  render?: RenderConfig;
 }
 
 export interface ResolvedConfig {
@@ -27,6 +33,7 @@ export interface ResolvedConfig {
   include: string[];
   exclude: string[];
   translate: TranslateConfig;
+  render: RenderConfig;
 }
 
 export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
@@ -49,6 +56,7 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     include: config.include ?? ['src/**/*.{js,jsx,ts,tsx,mjs,mts}'],
     exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],
     translate: config.translate ?? {},
+    render: config.render ?? {},
   };
 }
 

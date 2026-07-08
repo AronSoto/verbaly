@@ -10,8 +10,10 @@ import {
 } from 'react';
 import {
   parseTags,
+  safeHref,
   type DictionaryInput,
   type Params,
+  type RichLink,
   type TagNode,
   type TFunction,
   type Verbaly,
@@ -66,22 +68,39 @@ export interface TransProps {
   id: string;
   values?: Params;
   components?: Record<string, ReactElement>;
+  links?: Record<string, RichLink>;
 }
 
 // translated message + element interpolation
 export function Trans(props: TransProps): ReactElement {
   const t = useT();
   const text = (t as unknown as (id: string, values?: Params) => string)(props.id, props.values);
-  return createElement(Fragment, null, ...toNodes(parseTags(text), props.components ?? {}));
+  return createElement(
+    Fragment,
+    null,
+    ...toNodes(parseTags(text), props.components ?? {}, props.links ?? {}),
+  );
 }
 
-function toNodes(nodes: TagNode[], components: Record<string, ReactElement>): ReactNode[] {
+function toNodes(
+  nodes: TagNode[],
+  components: Record<string, ReactElement>,
+  links: Record<string, RichLink>,
+): ReactNode[] {
   return nodes.map((node, i) => {
     if (typeof node === 'string') return node;
-    const children = toNodes(node.children, components);
+    const children = toNodes(node.children, components, links);
     const el = components[node.name];
-    return el
-      ? cloneElement(el, { key: i }, ...children)
-      : createElement(Fragment, { key: i }, ...children);
+    if (el) return cloneElement(el, { key: i }, ...children);
+    const link = links[node.name];
+    if (link !== undefined) {
+      const def: Exclude<RichLink, string> = typeof link === 'string' ? { href: link } : link;
+      return createElement(
+        'a',
+        { key: i, href: safeHref(def.href), target: def.target, rel: def.rel },
+        ...children,
+      );
+    }
+    return createElement(Fragment, { key: i }, ...children);
   });
 }

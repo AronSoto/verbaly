@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/vue"><img src="https://img.shields.io/npm/v/@verbaly/vue?logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/vue?color=blue" alt="Apache-2.0" /></a>
+  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/vue?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -53,10 +53,17 @@ const components = { terms: (c) => h('a', { href: '/terms' }, c) };
 </template>
 ```
 
+Named links without render functions — hrefs come from your code, never from messages (`javascript:` blocked):
+
+```vue
+<!-- message: 'Read the <docs>guide</docs>' -->
+<Trans id="cta" :links="{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }" />
+```
+
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 
 > ⚠️ Early development (`0.x`) — API not stable yet.
 
 ## License
 
-[Apache-2.0](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/vite"><img src="https://img.shields.io/npm/v/@verbaly/vite?logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/vite?color=blue" alt="Apache-2.0" /></a>
+  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/vite?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -43,4 +43,4 @@ import { t, setLocale } from 'virtual:verbaly';
 
 ## License
 
-[Apache-2.0](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto

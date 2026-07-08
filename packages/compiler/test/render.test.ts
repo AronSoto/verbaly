@@ -28,7 +28,9 @@ function render(html: string, locale = 'es') {
 
 describe('renderHtml', () => {
   it('pre-fills text content and keeps the runtime attributes', () => {
-    const { html } = render('<h1 data-verbaly="home.intro" data-verbaly-args=\'{"name":"Aron"}\'>Hello</h1>');
+    const { html } = render(
+      '<h1 data-verbaly="home.intro" data-verbaly-args=\'{"name":"Aron"}\'>Hello</h1>',
+    );
     expect(html).toBe(
       '<h1 data-verbaly="home.intro" data-verbaly-args=\'{"name":"Aron"}\'>Hola Aron</h1>',
     );
@@ -51,13 +53,17 @@ describe('renderHtml', () => {
   });
 
   it('handles nested same-name elements', () => {
-    const input = '<div data-verbaly="home.intro" data-verbaly-args=\'{"name":"A"}\'><div>old</div></div><div>after</div>';
+    const input =
+      '<div data-verbaly="home.intro" data-verbaly-args=\'{"name":"A"}\'><div>old</div></div><div>after</div>';
     const { html } = render(input);
-    expect(html).toBe('<div data-verbaly="home.intro" data-verbaly-args=\'{"name":"A"}\'>Hola A</div><div>after</div>');
+    expect(html).toBe(
+      '<div data-verbaly="home.intro" data-verbaly-args=\'{"name":"A"}\'>Hola A</div><div>after</div>',
+    );
   });
 
   it('translates attributes via data-verbaly-attr and blocks on*', () => {
-    const input = '<nav data-verbaly-attr=\'{"aria-label":"nav.aria","onclick":"nav.aria"}\' aria-label="Main menu"></nav>';
+    const input =
+      '<nav data-verbaly-attr=\'{"aria-label":"nav.aria","onclick":"nav.aria"}\' aria-label="Main menu"></nav>';
     const { html } = render(input);
     expect(html).toContain('aria-label="Menú principal"');
     expect(html).not.toContain('onclick="Menú');
@@ -108,8 +114,54 @@ describe('renderHtml', () => {
   });
 
   it('decodes entity-escaped args attributes', () => {
-    const { html } = render('<p data-verbaly="home.intro" data-verbaly-args="{&quot;name&quot;:&quot;A&quot;}"></p>');
+    const { html } = render(
+      '<p data-verbaly="home.intro" data-verbaly-args="{&quot;name&quot;:&quot;A&quot;}"></p>',
+    );
     expect(html).toContain('>Hola A<');
+  });
+
+  it('renders named links from richLinks', () => {
+    const catalogs = { en: { guide: 'Read the <docs>guide</docs> now' } };
+    const { html } = renderHtml('<p data-verbaly="guide" data-verbaly-rich></p>', {
+      locale: 'en',
+      catalogs,
+      richLinks: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } },
+    });
+    expect(html).toContain('<a href="/docs" target="_blank" rel="noopener">guide</a>');
+  });
+
+  it('merges per-element data-verbaly-links over globals', () => {
+    const catalogs = { en: { m: '<docs>a</docs> <repo>b</repo>' } };
+    const input =
+      '<p data-verbaly="m" data-verbaly-rich data-verbaly-links=\'{"repo":"https://gh.io/x"}\'></p>';
+    const { html } = renderHtml(input, {
+      locale: 'en',
+      catalogs,
+      richLinks: { docs: '/docs' },
+    });
+    expect(html).toContain('<a href="/docs">a</a>');
+    expect(html).toContain('<a href="https://gh.io/x">b</a>');
+  });
+
+  it('blocks unsafe hrefs and escapes attribute values', () => {
+    const catalogs = { en: { m: '<bad>x</bad> <q>y</q>' } };
+    const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
+      locale: 'en',
+      catalogs,
+      richLinks: { bad: 'javascript:alert(1)', q: '/a?b="c"&d=1' },
+    });
+    expect(html).toContain('<a>x</a>');
+    expect(html).toContain('<a href="/a?b=&quot;c&quot;&amp;d=1">y</a>');
+  });
+
+  it('without a links map named tags still unwrap', () => {
+    const catalogs = { en: { m: 'go to <docs>docs</docs>' } };
+    const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
+      locale: 'en',
+      catalogs,
+    });
+    expect(html).toContain('>go to docs<');
+    expect(html).not.toContain('<a');
   });
 });
 
@@ -151,5 +203,19 @@ describe('renderSite', () => {
     await renderSite(cfg);
     const again = await renderSite(cfg);
     expect(again.files).toBe(1); // dist/es/index.html excluded from the second pass
+  });
+
+  it('takes global links from config render.links', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(dist, { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ m: 'see <docs>docs</docs>' }));
+    writeFileSync(join(dist, 'index.html'), '<p data-verbaly="m" data-verbaly-rich></p>');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'en', render: { links: { docs: '/docs' } } });
+    await renderSite(cfg);
+    const out = readFileSync(join(dist, 'index.html'), 'utf8');
+    expect(out).toContain('<a href="/docs">docs</a>');
   });
 });

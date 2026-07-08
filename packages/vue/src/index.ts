@@ -15,8 +15,10 @@ import {
 } from 'vue';
 import {
   parseTags,
+  safeHref,
   type DictionaryInput,
   type Params,
+  type RichLink,
   type TagNode,
   type TFunction,
   type Verbaly,
@@ -85,6 +87,7 @@ export const Trans = defineComponent({
     id: { type: String, required: true },
     values: { type: Object as PropType<Params>, default: undefined },
     components: { type: Object as PropType<TransComponents>, default: () => ({}) },
+    links: { type: Object as PropType<Record<string, RichLink>>, default: () => ({}) },
   },
   setup(props) {
     const instance = useVerbaly();
@@ -95,17 +98,27 @@ export const Trans = defineComponent({
         props.id,
         props.values,
       );
-      return h(Fragment, toNodes(parseTags(text), props.components));
+      return h(Fragment, toNodes(parseTags(text), props.components, props.links));
     };
   },
 });
 
-function toNodes(nodes: TagNode[], components: TransComponents): VNodeChild[] {
+function toNodes(
+  nodes: TagNode[],
+  components: TransComponents,
+  links: Record<string, RichLink>,
+): VNodeChild[] {
   return nodes.map((node) => {
     if (typeof node === 'string') return node;
-    const children = toNodes(node.children, components);
+    const children = toNodes(node.children, components, links);
     const fn = components[node.name];
-    return fn ? fn(children) : children;
+    if (fn) return fn(children);
+    const link = links[node.name];
+    if (link !== undefined) {
+      const def: Exclude<RichLink, string> = typeof link === 'string' ? { href: link } : link;
+      return h('a', { href: safeHref(def.href), target: def.target, rel: def.rel }, children);
+    }
+    return children;
   });
 }
 

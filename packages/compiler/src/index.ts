@@ -22,7 +22,7 @@ export { structureMatches, translateCatalogs } from './translate';
 export type { Analysis, TaggedMessage, TaggedParam, TransComponent, UsedKey } from './analyze';
 export type { Catalog, Catalogs } from './catalog';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';
-export type { ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
+export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
 export type { SyncResult } from './extract';
 export type {
   RenderHtmlOptions,

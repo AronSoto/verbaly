@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/compiler"><img src="https://img.shields.io/npm/v/@verbaly/compiler?logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/compiler?color=blue" alt="Apache-2.0" /></a>
+  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/compiler?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -33,12 +33,23 @@ Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed
 `verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK — install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Placeholders, variants and tags are validated after translation — anything not preserved verbatim stays `""` so `check` keeps failing. Plug your own provider in `verbaly.config.ts`:
 
 ```ts
-translate: { provider: async ({ sourceLocale, targetLocale, messages }) => ({ ...translated }) }
+translate: {
+  provider: async ({ sourceLocale, targetLocale, messages }) => ({ ...translated });
+}
 ```
 
 ## Static rendering (SSG)
 
 `verbaly render` walks your built site (`dist/` by default, `--site <path>` to change) and pre-fills every `data-verbaly` element **per locale** using the real runtime — plurals, `Intl` formatting, `data-verbaly-args`, attribute translation and `data-verbaly-rich` (same whitelist, XSS-safe). The source locale is filled in place; every other locale is mirrored to `dist/<locale>/…` with `<html lang>` set. Static HTML ships already translated — **no flash of untranslated content** — and the runtime attributes stay put, so client-side locale switching keeps working.
+
+Named links in rich messages render as real `<a>` elements — hrefs come from config or markup, never from messages (`javascript:` blocked):
+
+```ts
+// verbaly.config.ts
+render: { links: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } } }
+```
+
+Per-element `data-verbaly-links='{"repo":"https://…"}'` merges over the config map.
 
 ## Pseudo-localization
 
@@ -50,4 +61,4 @@ translate: { provider: async ({ sourceLocale, targetLocale, messages }) => ({ ..
 
 ## License
 
-[Apache-2.0](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto

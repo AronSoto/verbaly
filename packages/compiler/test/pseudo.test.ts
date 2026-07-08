@@ -45,7 +45,8 @@ describe('pseudoLocalize', () => {
   });
 
   it('survives structural validation for complex messages', () => {
-    const msg = 'Hi {name}, <strong>{count | one: # file | other: # files}</strong> at {when:date/short}';
+    const msg =
+      'Hi {name}, <strong>{count | one: # file | other: # files}</strong> at {when:date/short}';
     expect(structureMatches(msg, pseudoLocalize(msg))).toBe(true);
   });
 });

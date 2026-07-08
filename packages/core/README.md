@@ -11,7 +11,7 @@
   <a href="https://bundlephobia.com/package/verbaly"><img src="https://img.shields.io/bundlephobia/minzip/verbaly?label=gzip" alt="bundle size" /></a>
   <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero dependencies" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="Apache-2.0" /></a>
+  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -75,6 +75,12 @@ v.setLocale('es'); // auto-loads the catalog; or: await v.loadLocale('es') first
 <h1 data-verbaly="home.title"></h1>
 <p data-verbaly="home.intro" data-verbaly-rich></p>
 <!-- rich: 'The build <em>gate</em>' renders a real <em> — whitelist, XSS-safe -->
+<p
+  data-verbaly="home.cta"
+  data-verbaly-rich
+  data-verbaly-links='{"repo":"https://github.com/x"}'
+></p>
+<!-- links: 'See the <repo>repo</repo>' renders <a href> — hrefs from you, never from messages -->
 ```
 
 ```ts
@@ -84,7 +90,9 @@ const v = createVerbaly({
   locale: resolveLocale({ supported: ['en', 'es', 'pt'] }), // storage → navigator → fallback
   /* … */
 });
-bindDom(v); // renders + re-renders on locale change
+bindDom(v, {
+  richLinks: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } }, // named links
+}); // renders + re-renders on locale change
 
 v.setLocale('es');
 persistLocale('es'); // localStorage + <html lang>
@@ -94,11 +102,11 @@ persistLocale('es'); // localStorage + <html lang>
 
 - **Hybrid compiler + runtime** — static text compiled (types + tree-shaking), dynamic content via a real runtime path.
 - **Type-safe params** — `{name}`, plurals, currency and dates inferred from the message; wrong/missing params fail to compile.
-- **`Intl`-powered format** — number/currency/date/time + CLDR plurals and select/gender, tiny surface.
+- **`Intl`-powered format** — number/currency/date/time/relative/list/unit + CLDR plurals and select/gender, tiny surface. `'Updated {when:relative}'` · `'{langs:list}'` · `'{d:unit/kilometer}'`.
 - **Plain, portable JSON catalogs** — no proprietary format, no lock-in.
-- **DOM interpreter** for framework-less HTML — with opt-in rich text (whitelist-based, XSS-safe).
+- **DOM interpreter** for framework-less HTML — with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
 - **Lazy catalogs** — `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
-- **Fast, with receipts** — fully memoized hot path, benchmarked every release: 5–38× faster than i18next on lookup, interpolation and plurals.
+- **Fast, with receipts** — fully memoized hot path, benchmarked every release: 4–43× faster than i18next on lookup, interpolation and plurals.
 
 ## Ecosystem
 
@@ -115,4 +123,4 @@ persistLocale('es'); // localStorage + <html lang>
 
 ## License
 
-[Apache-2.0](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto

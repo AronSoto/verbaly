@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/svelte"><img src="https://img.shields.io/npm/v/@verbaly/svelte?logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/svelte?color=blue" alt="Apache-2.0" /></a>
+  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/svelte?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -69,9 +69,12 @@ Messages with tags (`'The <em>build</em> gate'`) render as real elements — sam
 
 <Trans id="home.title" />
 <Trans id="greet" values={{ name: 'Aron' }} />
+
+<!-- message: 'Read the <docs>guide</docs>' → a real <a>; hrefs from you, never from messages -->
+<Trans id="cta" links={{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }} />
 ```
 
-Uses the instance from `provideVerbaly` (or pass `instance={verbaly}` explicitly; `richTags` overrides the whitelist). Alternatively the core's DOM interpreter works in any Svelte app — mark elements with `data-verbaly`/`data-verbaly-rich` and call `bindDom`.
+Uses the instance from `provideVerbaly` (or pass `instance={verbaly}` explicitly; `richTags` overrides the whitelist, `links` maps tag names to hrefs — `javascript:` blocked). Alternatively the core's DOM interpreter works in any Svelte app — mark elements with `data-verbaly`/`data-verbaly-rich` and call `bindDom`.
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 
@@ -79,4 +82,4 @@ Uses the instance from `provideVerbaly` (or pass `instance={verbaly}` explicitly
 
 ## License
 
-[Apache-2.0](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto

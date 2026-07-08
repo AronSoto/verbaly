@@ -11,7 +11,7 @@
     "rspack",
     "verbaly"
   ],
-  "license": "Apache-2.0",
+  "license": "MIT",
   "author": "Aron Soto",
   "repository": {
     "type": "git",

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/react"><img src="https://img.shields.io/npm/v/@verbaly/react?logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/react?color=blue" alt="Apache-2.0" /></a>
+  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/react?color=blue" alt="MIT" /></a>
 </p>
 
 ---
@@ -48,10 +48,17 @@ import { Trans } from '@verbaly/react';
 
 Runtime-first still works — pass `id` (+ `values`/`components`) yourself and nothing is touched. JSX whitespace rules apply: a line break between an element and text renders no space (use `{' '}`).
 
+Named links without custom components — hrefs come from your code, never from messages (`javascript:` blocked):
+
+```tsx
+// message: 'Read the <docs>guide</docs>'
+<Trans id="cta" links={{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }} />
+```
+
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 
 > ⚠️ Early development (`0.x`) — API not stable yet.
 
 ## License
 
-[Apache-2.0](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto

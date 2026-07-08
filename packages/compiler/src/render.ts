@@ -2,7 +2,15 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
-import { createVerbaly, parseTags, RICH_TAGS, type Params, type TagNode } from 'verbaly';
+import {
+  createVerbaly,
+  parseTags,
+  RICH_TAGS,
+  safeHref,
+  type Params,
+  type RichLink,
+  type TagNode,
+} from 'verbaly';
 import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
 import type { ResolvedConfig } from './config';
@@ -13,6 +21,7 @@ export interface RenderHtmlOptions {
   sourceLocale?: string;
   attribute?: string;
   richTags?: string[];
+  richLinks?: Record<string, RichLink>;
   setLang?: boolean;
 }
 
@@ -22,8 +31,20 @@ export interface RenderHtmlResult {
 }
 
 const VOID_TAGS = new Set([
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-  'link', 'meta', 'param', 'source', 'track', 'wbr',
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
 ]);
 
 const START_TAG = /<([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*"|'[^']*'|[^"'>])*)>/g;
@@ -35,7 +56,9 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const argsAttr = `${attr}-args`;
   const attrsAttr = `${attr}-attr`;
   const richAttr = `${attr}-rich`;
+  const linksAttr = `${attr}-links`;
   const richTags = new Set(options.richTags ?? RICH_TAGS);
+  const globalLinks = options.richLinks;
   const sourceLocale = options.sourceLocale ?? 'en';
 
   // '' entries count as untranslated → fall back
@@ -51,8 +74,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const ms = new MagicString(html);
   const missing = new Set<string>();
   const skip = protectedRanges(html);
-  const inSkip = (index: number): boolean =>
-    skip.some(([from, to]) => index >= from && index < to);
+  const inSkip = (index: number): boolean => skip.some(([from, to]) => index >= from && index < to);
 
   START_TAG.lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -83,8 +105,10 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
         const close = findClose(html, tagName, openEnd, inSkip);
         if (close) {
           const text = t(key, args);
+          const own = parseArgs(attrs.get(linksAttr)) as Record<string, RichLink> | undefined;
+          const links = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
           const content = attrs.has(richAttr)
-            ? richToHtml(parseTags(text), richTags)
+            ? richToHtml(parseTags(text), richTags, links)
             : escapeHtml(text);
           if (html.slice(openEnd, close.contentEnd) !== content) {
             if (openEnd === close.contentEnd) ms.appendLeft(openEnd, content);
@@ -117,6 +141,7 @@ export interface RenderSiteOptions {
   locales?: string[];
   attribute?: string;
   richTags?: string[];
+  richLinks?: Record<string, RichLink>;
 }
 
 export interface RenderSiteResult {
@@ -150,6 +175,7 @@ export async function renderSite(
         sourceLocale: cfg.sourceLocale,
         attribute: options.attribute,
         richTags: options.richTags,
+        richLinks: options.richLinks ?? cfg.render.links,
       });
       for (const key of result.missing) {
         const list = (missing[locale] ??= []);
@@ -247,15 +273,28 @@ function setAttribute(
   ms.appendLeft(insertAt, ` ${name}="${escaped}"`);
 }
 
-function richToHtml(nodes: TagNode[], allowed: Set<string>): string {
+function richToHtml(
+  nodes: TagNode[],
+  allowed: Set<string>,
+  links?: Record<string, RichLink>,
+): string {
   let out = '';
   for (const node of nodes) {
     if (typeof node === 'string') {
       out += escapeHtml(node);
+    } else if (links?.[node.name] !== undefined) {
+      const link = links[node.name]!;
+      const { href, target, rel }: Exclude<RichLink, string> =
+        typeof link === 'string' ? { href: link } : link;
+      const safe = safeHref(href);
+      let attrs = safe !== undefined ? ` href="${escapeAttr(safe)}"` : '';
+      if (target) attrs += ` target="${escapeAttr(target)}"`;
+      if (rel) attrs += ` rel="${escapeAttr(rel)}"`;
+      out += `<a${attrs}>${richToHtml(node.children, allowed, links)}</a>`;
     } else if (allowed.has(node.name)) {
-      out += `<${node.name}>${richToHtml(node.children, allowed)}</${node.name}>`;
+      out += `<${node.name}>${richToHtml(node.children, allowed, links)}</${node.name}>`;
     } else {
-      out += richToHtml(node.children, allowed); // unknown tag → unwrap
+      out += richToHtml(node.children, allowed, links); // unknown tag → unwrap
     }
   }
   return out;

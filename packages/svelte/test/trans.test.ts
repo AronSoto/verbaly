@@ -15,6 +15,8 @@ function setup() {
         nested: '<strong>very <em>deep</em></strong>',
         unsafe: 'bad <script>alert(1)</script> text',
         unknown: 'a <banana>b</banana> c',
+        guide: 'Read the <docs>guide</docs> now',
+        evil: 'click <bad>here</bad>',
       },
       es: { title: 'El gate del <em>build</em>' },
     },
@@ -87,5 +89,30 @@ describe('<Trans>', () => {
   it('falls back to the context instance from provideVerbaly', () => {
     const { target } = render(App, { id: 'title', instance: setup() });
     expect(htmlOf(target)).toContain('The <em>build</em> gate');
+  });
+
+  it('renders named links from the links prop', () => {
+    const { target } = render(Trans, {
+      id: 'guide',
+      instance: setup(),
+      links: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } },
+    });
+    const a = target.querySelector('a')!;
+    expect(a.getAttribute('href')).toBe('/docs');
+    expect(a.getAttribute('target')).toBe('_blank');
+    expect(a.getAttribute('rel')).toBe('noopener');
+    expect(a.textContent).toBe('guide');
+    expect(target.textContent).toContain('Read the guide now');
+  });
+
+  it('accepts string shorthand and blocks unsafe hrefs', () => {
+    const { target } = render(Trans, {
+      id: 'evil',
+      instance: setup(),
+      links: { bad: 'javascript:alert(1)' },
+    });
+    const a = target.querySelector('a')!;
+    expect(a.hasAttribute('href')).toBe(false);
+    expect(a.textContent).toBe('here');
   });
 });

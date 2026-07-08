@@ -35,7 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - New public API — core: `RichLink`, `safeHref`, `BindDomOptions.richLinks`, formats `relative`/`list`/`unit`; react/vue/svelte: `TransProps.links`; compiler: `RenderHtmlOptions.richLinks`, `RenderSiteOptions.richLinks`, `RenderConfig` (`render.links` in config). All additive.
 - No new dependencies anywhere.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - `docs/format`: new **"Relative time, lists & units"** section — `{when:relative}` (Date auto-unit + `relative/day`), `{xs:list}`/`list/or`/`list/unit`, `{n:unit/kilometer}`; fallback + warn-once behavior.
 - `docs/dom`: **"Named links"** section — `richLinks` option, `data-verbaly-links` attribute, merge order, `safeHref` blocking, "hrefs never come from messages" security note.

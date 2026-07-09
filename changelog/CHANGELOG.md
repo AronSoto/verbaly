@@ -32,7 +32,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - New public API — compiler: `init`, `detectBundler`, `InitOptions`, `InitResult`. All additive. Runtime packages untouched in behavior.
 - CI unchanged (script-driven); lockfile carries the TS7 native binaries per platform.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - `docs/start` (Quickstart): lead with `npx verbaly init` as step 1 — it replaces the "create config + locales by hand" prose. Show the generated `verbaly.config.ts` and the bundler-detection next steps.
 - `docs/cli`: new **`verbaly init`** row in Commands + short section (flags `--dir`/`--source`/`--locales`, TS vs mjs config choice, never-overwrites guarantee, bundler detection table vite→@verbaly/vite / others→@verbaly/unplugin).

@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Effortless i18n — write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",
@@ -58,11 +58,11 @@
   },
   "devDependencies": {
     "happy-dom": "^20.10.6",
-    "i18next": "^26.3.4"
+    "i18next": "^26.3.5"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
     "bench": "vitest bench --run",
     "typecheck": "tsc --noEmit"

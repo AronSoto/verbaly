@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/react",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "React bindings for Verbaly — hooks over the reactive core.",
   "keywords": [
     "i18n",
@@ -59,8 +59,8 @@
     "verbaly": "workspace:*"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   }

@@ -5,6 +5,7 @@ import { check, formatCheckResult } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
+import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { renderSite } from './render';
 import { translateCatalogs, type TranslateProvider } from './translate';
@@ -13,6 +14,7 @@ import type { ResolvedConfig } from './config';
 const HELP = `verbaly — i18n compiler
 
 Usage:
+  verbaly init       scaffold config + locale catalogs (detects your bundler)
   verbaly extract    scan sources, update catalogs and types
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
@@ -55,6 +57,22 @@ async function main(): Promise<void> {
   if (values.help || !command) {
     console.log(HELP);
     process.exitCode = command ? 0 : 1;
+    return;
+  }
+
+  if (command === 'init') {
+    const result = init({
+      root: values.root,
+      dir: values.dir,
+      sourceLocale: values.source,
+      locales: values.locales?.split(','),
+    });
+    if (result.created.length) console.log(`[verbaly] created: ${result.created.join(', ')}`);
+    if (result.skipped.length) console.log(`  kept (already there): ${result.skipped.join(', ')}`);
+    if (result.bundler) console.log(`  detected bundler: ${result.bundler}`);
+    console.log(
+      ['  next steps:', ...result.next.map((step, i) => `    ${i + 1}. ${step}`)].join('\n'),
+    );
     return;
   }
 

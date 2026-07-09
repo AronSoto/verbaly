@@ -8,6 +8,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.12.0] — 2026-07-09
+
+**`verbaly init` + the TypeScript 7 toolchain.** One command scaffolds a working setup (config, catalogs, bundler detection) — the zero-config pillar now starts at minute zero. Under the hood the whole monorepo moved to **tsdown** (rolldown) and **TypeScript 7** (native compiler, GA 2026-07-08): typecheck of all 7 packages runs in ~3s. Ready to publish. No breaking changes; published `dist/` layout, exports and sizes are identical.
+
+### Added
+
+- **`verbaly init`** (`@verbaly/compiler` CLI): scaffolds a project in one command. Writes `verbaly.config.ts` (`satisfies VerbalyConfig`) when a `tsconfig.json` exists, else `verbaly.config.mjs` (JSDoc-typed); creates `locales/<sourceLocale>.json` plus one `{}` catalog per `--locales` entry; **detects the bundler** from package.json (`vite` → suggests `@verbaly/vite`; webpack/rollup/rspack/esbuild → `@verbaly/unplugin`; none → CLI flow) and prints numbered next steps. **Never overwrites**: an existing config or catalog is reported as "kept (already there)" and left byte-identical. Honors `--root`, `--dir`, `--source`, `--locales`; source locale deduped from `--locales`. Exported API: `init(options)`, `detectBundler(root)`, types `InitOptions`/`InitResult`.
+
+### Changed
+
+- **Build tool: tsup → tsdown** (all 7 packages). tsup has been unpublished-stale since Nov 2025 and its dts step injected `baseUrl` (removed in TS 7). tsdown (rolldown) builds the same ESM+CJS+dts matrix; `fixedExtension: false` keeps the published filenames (`index.js`/`index.cjs`/`.d.ts`/`.d.cts`) byte-compatible with every `exports` map — no consumer-visible change. CLI shebang preserved; the lazy Claude provider now code-splits into its own chunk (ESM dynamic import, same behavior).
+- **TypeScript 7** (repo toolchain): `tsc` is now the native Go compiler (`@typescript/native` = `typescript@^7.0.2` alias) — typecheck of the whole monorepo dropped to **~3s**. The `typescript` package name resolves to **`@typescript/typescript6`** (bin `tsc6`) — Microsoft's official side-by-side package — because typescript-eslint (peer `<6.1.0`) and tsdown's dts emit still need the JS compiler API (stable native API lands in TS 7.1). Collapse tracked in PLAN → Deuda técnica.
+- **`ignoreDeprecations: "6.0"` removed** from `tsconfig.base.json` — it only existed to silence the `baseUrl` that tsup's dts injected; tsdown doesn't. Debt closed.
+- Patch bumps: vitest 4.1.10, typescript-eslint 8.63.0, i18next 26.3.5 (bench devDep). New root devDeps: `tsdown`, `unrun` (tsdown's TS-config loader).
+
+### Notes
+
+- 274 tests (core 105 · **compiler 112** · svelte 20 · vue 12 · react 10 · unplugin 8 · vite 7) — was 266; +8 for `init`.
+- Bench re-run (ritual, on the rolldown-built dist): lookup **33.5×**, interpolation **9.7×**, plural **4.0×**, currency **5.8×** vs i18next 26 — no regression from the bundler swap.
+- Bundle check: tree-shaken `createVerbaly` runtime **3.24KB** min+gzip, full core surface 4.61KB — both at or under the 0.11.0 numbers.
+- publint **All good** + arethetypeswrong **no problems** (node16 CJS/ESM 🟢) on all packages; tarballs verified (`workspace:*` → `0.12.0`, only `dist/` + `LICENSE` + README).
+- New public API — compiler: `init`, `detectBundler`, `InitOptions`, `InitResult`. All additive. Runtime packages untouched in behavior.
+- CI unchanged (script-driven); lockfile carries the TS7 native binaries per platform.
+
+### Docs impact (pending)
+
+- `docs/start` (Quickstart): lead with `npx verbaly init` as step 1 — it replaces the "create config + locales by hand" prose. Show the generated `verbaly.config.ts` and the bundler-detection next steps.
+- `docs/cli`: new **`verbaly init`** row in Commands + short section (flags `--dir`/`--source`/`--locales`, TS vs mjs config choice, never-overwrites guarantee, bundler detection table vite→@verbaly/vite / others→@verbaly/unplugin).
+- `docs/api` (compiler section): rows for `init`/`detectBundler` if the low-level API table lists compiler exports.
+- `/changelog` (`releases.ts`): 0.12.0 entry — init + tsdown/TS7 toolchain as the two highlights.
+- Landing: no copy changes required (zero-config claim just got truer; optional: quickstart snippet could show `verbaly init`).
+- Bump web to `verbaly@^0.12.0` post-publish (`pnpm install`). No runtime API changes — site code needs no migration.
+
+---
+
 ## [0.11.0] — 2026-07-08
 
 **Rich links + the full modern `Intl` surface.** Named links (`<a>`) land across the whole rich-text pipeline — DOM interpreter, `<Trans>` in React/Vue/Svelte and the SSG renderer — with hrefs always provided by the caller, never by messages. The message format gains relative time, lists and units (still zero dependencies). License switched to **MIT**. Ready to publish. No breaking changes.

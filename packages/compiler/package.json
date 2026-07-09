@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/compiler",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Message extraction and type-safe codegen for Verbaly.",
   "keywords": [
     "i18n",
@@ -65,8 +65,8 @@
     "esbuild": "^0.28.1"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   }

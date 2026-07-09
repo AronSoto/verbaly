@@ -10,6 +10,7 @@ export {
 } from './codegen';
 export { loadConfig, loadConfigFile, resolveConfig } from './config';
 export { extractProject, pruneCatalogs, syncCatalogs } from './extract';
+export { detectBundler, init } from './init';
 export { stableKey } from './key';
 export { collectParams, renderParamType } from './params';
 export { claudeProvider } from './providers/claude';
@@ -24,6 +25,7 @@ export type { Catalog, Catalogs } from './catalog';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';
 export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
 export type { SyncResult } from './extract';
+export type { InitOptions, InitResult } from './init';
 export type {
   RenderHtmlOptions,
   RenderHtmlResult,

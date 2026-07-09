@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/unplugin",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Verbaly for webpack, Rollup, esbuild and Rspack — extraction, virtual modules and build gate via unplugin.",
   "keywords": [
     "i18n",
@@ -52,8 +52,8 @@
     "verbaly": "workspace:*"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   }

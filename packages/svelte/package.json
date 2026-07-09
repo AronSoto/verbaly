@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/svelte",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Svelte bindings for Verbaly — stores over the reactive core.",
   "keywords": [
     "i18n",
@@ -54,8 +54,8 @@
     "verbaly": "workspace:*"
   },
   "scripts": {
-    "build": "tsup && node scripts/copy-svelte.mjs",
-    "dev": "tsup --watch",
+    "build": "tsdown && node scripts/copy-svelte.mjs",
+    "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   }

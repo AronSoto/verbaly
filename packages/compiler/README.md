@@ -18,6 +18,7 @@ The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extracti
 ## CLI
 
 ```bash
+npx verbaly init           # scaffold config + locale catalogs (detects your bundler)
 npx verbaly extract        # sync catalogs + types
 npx verbaly check          # exit 1 if anything is missing (CI)
 npx verbaly extract --prune  # drop orphaned keys

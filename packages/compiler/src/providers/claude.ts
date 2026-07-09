@@ -53,9 +53,14 @@ export function batchFormat(request: TranslateRequest) {
   };
 }
 
-async function loadSdk(): Promise<typeof import('@anthropic-ai/sdk').default> {
+type SdkModule = { default: typeof import('@anthropic-ai/sdk').default };
+
+// injectable for tests
+export async function loadSdk(
+  load: () => Promise<SdkModule> = () => import('@anthropic-ai/sdk'),
+): Promise<SdkModule['default']> {
   try {
-    const mod = await import('@anthropic-ai/sdk');
+    const mod = await load();
     return mod.default;
   } catch (error) {
     if (isModuleNotFound(error, '@anthropic-ai/sdk')) {

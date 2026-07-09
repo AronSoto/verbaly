@@ -1,6 +1,9 @@
+import { flushSync, mount, unmount } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { createVerbaly } from 'verbaly';
 import { localeStore, tStore } from '../src/index';
+import Hooks from './fixtures/Hooks.svelte';
+import NoProvider from './fixtures/NoProvider.svelte';
 
 function setup() {
   return createVerbaly({
@@ -55,6 +58,28 @@ describe('tStore', () => {
     stop();
     v.setLocale('en');
     expect(run).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('context hooks', () => {
+  it('useT and useLocale read the provided instance', () => {
+    const target = document.createElement('div');
+    const app = mount(Hooks, { target, props: { instance: setup() } });
+    flushSync();
+    expect(target.querySelector('p')?.textContent).toBe('Hola');
+    expect(target.querySelector('button')?.textContent).toBe('es');
+
+    target.querySelector('button')?.click();
+    flushSync();
+    expect(target.querySelector('p')?.textContent).toBe('Hello');
+    expect(target.querySelector('button')?.textContent).toBe('en');
+    unmount(app);
+  });
+
+  it('useVerbaly throws without provideVerbaly', () => {
+    expect(() => mount(NoProvider, { target: document.createElement('div') })).toThrow(
+      /provideVerbaly/,
+    );
   });
 });
 

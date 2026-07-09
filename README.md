@@ -119,8 +119,8 @@ Plain HTML, no framework? Bind by attribute:
 
 ```bash
 pnpm install
-pnpm build      # tsup → ESM + CJS + .d.ts
-pnpm test       # Vitest (266 tests)
+pnpm build      # tsdown → ESM + CJS + .d.ts
+pnpm test       # Vitest (324 tests)
 pnpm coverage   # full suite + lcov report
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next

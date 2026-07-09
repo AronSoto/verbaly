@@ -75,6 +75,23 @@ describe('resolveLocale', () => {
     vi.stubGlobal('localStorage', undefined);
     expect(resolveLocale({ supported: SUPPORTED })).toBe('en');
   });
+
+  it('survives blocked storage (privacy mode)', () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('blocked');
+      },
+    });
+    stubNavigator(['pt']);
+    try {
+      expect(resolveLocale({ supported: SUPPORTED })).toBe('pt');
+      expect(() => persistLocale('pt')).not.toThrow();
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'localStorage', original);
+    }
+  });
 });
 
 describe('persistLocale', () => {

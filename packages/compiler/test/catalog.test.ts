@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
-import { loadCatalogs, serializeCatalog, writeCatalog } from '../src/catalog';
-import { check } from '../src/check';
+import { loadCatalogs, readCatalog, serializeCatalog, writeCatalog } from '../src/catalog';
+import { check, formatCheckResult } from '../src/check';
 import { resolveConfig } from '../src/config';
 import { syncCatalogs } from '../src/extract';
 import { stableKey } from '../src/key';
@@ -40,6 +40,13 @@ describe('catalogs', () => {
     const cfg = makeProject({ es: {} });
     writeCatalog(cfg, 'es', { hola: 'Hola' });
     expect(loadCatalogs(cfg).es).toEqual({ hola: 'Hola' });
+  });
+
+  it('missing or corrupt files read as empty catalogs', () => {
+    const cfg = makeProject({ es: {} });
+    expect(readCatalog(cfg, 'nope')).toEqual({});
+    writeFileSync(join(cfg.dir, 'es.json'), '{corrupt');
+    expect(readCatalog(cfg, 'es')).toEqual({});
   });
 });
 
@@ -98,5 +105,26 @@ describe('check', () => {
     const cfg = makeProject({ es: { 'home.title': 'Inicio' } });
     const result = check(cfg, loadCatalogs(cfg), registryFor("t('home.title');"));
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('formatCheckResult', () => {
+  it('prints missing entries with a truncated source hint', () => {
+    const long = 'Un mensaje larguísimo que definitivamente supera los cuarenta caracteres';
+    const cfg = makeProject({ es: {}, en: {} });
+    const result = check(cfg, loadCatalogs(cfg), registryFor(`t\`${long}\`;`));
+    const text = formatCheckResult(result);
+    expect(text).toContain('missing translations:');
+    expect(text).toContain('[es]');
+    expect(text).toContain('…');
+    expect(text).not.toContain(long);
+  });
+
+  it('prints unknown keys with their files', () => {
+    const cfg = makeProject({ es: {} });
+    const result = check(cfg, loadCatalogs(cfg), registryFor("t('ghost.key');"));
+    const text = formatCheckResult(result);
+    expect(text).toContain('unknown keys (not in any catalog):');
+    expect(text).toContain('ghost.key — used in app.ts');
   });
 });

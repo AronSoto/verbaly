@@ -1,0 +1,16 @@
+coverage:
+  round: down
+  range: '80...100'
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1% # small dips don't fail CI
+    patch:
+      default:
+        target: 85%
+        informational: true
+
+comment:
+  layout: 'condensed_header, diff, files'
+  require_changes: true

@@ -60,6 +60,14 @@ describe('virtual modules', () => {
     const p = await setup(root);
     expect(p.load('\0virtual:verbaly/locale/es')).toBe('export default {"hola":"Hola"};\n');
   });
+
+  it('ignores non-virtual ids', async () => {
+    const root = makeProject({ es: {} });
+    const p = await setup(root);
+    expect(p.resolveId('src/app.ts')).toBeNull();
+    expect(p.loadInclude('src/app.ts')).toBe(false);
+    expect(p.load('\0other')).toBeNull();
+  });
 });
 
 describe('transform', () => {

@@ -38,7 +38,30 @@ async function setup(root: string, command: 'serve' | 'build') {
       plugin.transform,
     ),
     buildEnd: hook<() => void>(plugin.buildEnd),
+    configureServer: hook<(server: unknown) => void>(plugin.configureServer),
   };
+}
+
+function fakeServer(missingModules: string[] = []) {
+  const handlers = new Map<string, ((file: string) => void)[]>();
+  const state = { watched: [] as string[], invalidated: [] as string[], reloads: 0 };
+  const server = {
+    watcher: {
+      add: (dir: string) => void state.watched.push(dir),
+      on: (event: string, fn: (file: string) => void) => {
+        handlers.set(event, [...(handlers.get(event) ?? []), fn]);
+      },
+    },
+    moduleGraph: {
+      getModuleById: (id: string) => (missingModules.includes(id) ? null : { id }),
+      invalidateModule: (mod: { id: string }) => void state.invalidated.push(mod.id),
+    },
+    ws: { send: () => void state.reloads++ },
+  };
+  const emit = (event: string, file: string) => {
+    for (const fn of handlers.get(event) ?? []) fn(file);
+  };
+  return { server, state, emit };
 }
 
 describe('virtual modules', () => {
@@ -82,6 +105,126 @@ describe('dev transform', () => {
     const { transform } = await setup(root, 'serve');
     expect(transform(CODE, join(root, 'node_modules', 'x', 'i.ts'))).toBeUndefined();
     expect(transform(CODE, join(root, 'src', 'style.css'))).toBeUndefined();
+  });
+});
+
+describe('dev server', () => {
+  it('watches the locales dir and resolves locale subpaths', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, resolveId, load } = await setup(root, 'serve');
+    const { server, state } = fakeServer();
+    configureServer(server);
+
+    expect(state.watched).toContain(join(root, 'locales'));
+    expect(resolveId('virtual:verbaly/locale/en')).toBe('\0virtual:verbaly/locale/en');
+    expect(resolveId('src/app.ts')).toBeUndefined();
+    expect(load('\0other')).toBeUndefined();
+  });
+
+  it('reloads catalogs and invalidates modules on external edits', async () => {
+    const root = makeProject({ es: { hola: 'Hola' }, en: { hola: '' } });
+    const { configureServer, load } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ hola: 'Hello' }));
+    emit('change', join(root, 'locales', 'en.json'));
+    await sleep(100);
+
+    expect(load('\0virtual:verbaly/locale/en')).toContain('Hello');
+    expect(state.reloads).toBe(1);
+    expect(state.invalidated).toContain('\0virtual:verbaly');
+    expect(state.invalidated).toContain('\0virtual:verbaly/locale/en');
+  });
+
+  it('skips modules missing from the graph', async () => {
+    const root = makeProject({ es: {} });
+    const { configureServer } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer(['\0virtual:verbaly/locale/es']);
+    configureServer(server);
+
+    emit('add', join(root, 'locales', 'es.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(1);
+    expect(state.invalidated).toEqual(['\0virtual:verbaly']);
+  });
+
+  it('ignores files outside the locales dir and non-json files', async () => {
+    const root = makeProject({ es: {} });
+    const { configureServer } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    emit('change', join(root, 'other.json'));
+    emit('change', join(root, 'locales', 'notes.txt'));
+    await sleep(100);
+    expect(state.reloads).toBe(0);
+  });
+
+  it('dedupes its own catalog writes but not external edits', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    transform(CODE, join(root, 'src', 'app.ts'));
+    await sleep(150); // flush wrote catalogs + reloaded once
+    expect(state.reloads).toBe(1);
+
+    // watcher echo of the self-write: same content, no reload
+    emit('change', join(root, 'locales', 'es.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(1);
+
+    // real external edit afterwards reloads
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ [KEY]: 'Hello {name}' }));
+    emit('change', join(root, 'locales', 'en.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(2);
+  });
+
+  it('reloads when a stale self-write entry hides an external edit', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    transform(CODE, join(root, 'src', 'app.ts'));
+    await sleep(150);
+    expect(state.reloads).toBe(1);
+
+    // disk now differs from the recorded self-write → must reload
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ [KEY]: 'Hola editado' }));
+    emit('change', join(root, 'locales', 'es.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(2);
+  });
+
+  it('drops messages of unlinked source files and ignores node_modules', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    const file = join(root, 'src', 'app.ts');
+    transform(CODE, file);
+    await sleep(150);
+    expect(state.reloads).toBe(1);
+
+    emit('unlink', join(root, 'node_modules', 'x', 'i.ts'));
+    emit('unlink', join(root, 'locales', 'es.json')); // not a source file
+    await sleep(100);
+    expect(state.reloads).toBe(1);
+
+    emit('unlink', file);
+    await sleep(150);
+    expect(state.reloads).toBe(2);
+  });
+
+  it('transform skips virtual ids', async () => {
+    const root = makeProject({ es: {} });
+    const { transform } = await setup(root, 'serve');
+    expect(transform(CODE, '\0virtual.ts')).toBeUndefined();
   });
 });
 

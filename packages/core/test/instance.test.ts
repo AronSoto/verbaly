@@ -227,3 +227,20 @@ describe('lazy loaders', () => {
     warn.mockRestore();
   });
 });
+
+describe('detectLocale', () => {
+  it('defaults to en without navigator', () => {
+    vi.stubGlobal('navigator', undefined);
+    const v = createVerbaly({ messages: { en: { a: 'x' } } });
+    expect(v.locale).toBe('en');
+    vi.unstubAllGlobals();
+  });
+
+  it('picks navigator.language when present', () => {
+    vi.stubGlobal('navigator', { language: 'es-PE' });
+    expect(createVerbaly({ messages: {} }).locale).toBe('es-PE');
+    vi.stubGlobal('navigator', { language: '' });
+    expect(createVerbaly({ messages: {} }).locale).toBe('en');
+    vi.unstubAllGlobals();
+  });
+});

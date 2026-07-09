@@ -29,6 +29,15 @@ const v = createVerbaly({
       dist: '{n:unit/kilometer}',
       badUnit: '{n:unit/blorp}',
       weird: '{n:frobnicate}',
+      noOther: '{n | one: uno}',
+      curNoArg: '{amount:currency}',
+      unitNoArg: '{n:unit}',
+      clock: '{d:time}',
+      clockMed: '{d:time/medium}',
+      datePlain: '{d:date}',
+      agoBad: '{d:relative/century}',
+      agoDays2: '{d:relative/day}',
+      maybe: '{x}',
     },
     pt: {
       inbox: '{count | one: uma mensagem | other: # mensagens}',
@@ -193,6 +202,60 @@ describe('unknown format', () => {
     expect(v.t('weird', { n: 7 })).toBe('7');
     expect(v.t('weird', { n: 8 })).toBe('8');
     expect(spy).toHaveBeenCalledTimes(1);
+    v.setLocale('es');
+    spy.mockRestore();
+  });
+});
+
+describe('format fallbacks', () => {
+  it('renders nothing when no variant matches and other is absent', () => {
+    v.setLocale('en');
+    expect(v.t('noOther', { n: 5 })).toBe('');
+    v.setLocale('es');
+  });
+
+  it('currency and unit without an argument fall back to String', () => {
+    v.setLocale('en');
+    expect(v.t('curNoArg', { amount: 5 })).toBe('5');
+    expect(v.t('unitNoArg', { n: 5 })).toBe('5');
+    v.setLocale('es');
+  });
+
+  it('formats time with default and explicit styles', () => {
+    v.setLocale('en');
+    const d = new Date(2026, 0, 15, 14, 30, 45);
+    expect(v.t('clock', { d })).toContain('2:30');
+    expect(v.t('clockMed', { d })).toContain('45');
+    v.setLocale('es');
+  });
+
+  it('formats a date without a style argument', () => {
+    v.setLocale('en');
+    expect(v.t('datePlain', { d: new Date(2026, 0, 15) })).toContain('2026');
+    v.setLocale('es');
+  });
+
+  it('null params render as empty string', () => {
+    v.setLocale('en');
+    expect(v.t('maybe', { x: null })).toBe('');
+    v.setLocale('es');
+  });
+});
+
+describe('relative time with explicit unit', () => {
+  it('rounds a Date into the requested unit', () => {
+    v.setLocale('en');
+    const inThreeDays = new Date(Date.now() + 3 * 86400 * 1000 + 1000);
+    expect(v.t('agoDays2', { d: inThreeDays })).toBe('in 3 days');
+    v.setLocale('es');
+  });
+
+  it('invalid unit on a Date warns and falls back to String', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    v.setLocale('en');
+    const d = new Date();
+    expect(v.t('agoBad', { d })).toBe(String(d));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('invalid relative unit'));
     v.setLocale('es');
     spy.mockRestore();
   });

@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createVerbaly } from 'verbaly';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Trans, VerbalyProvider, useLocale, useT } from '../src/index';
 
 declare global {
@@ -45,6 +45,14 @@ afterEach(() => {
 });
 
 describe('@verbaly/react', () => {
+  it('useVerbaly throws without a provider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const bare = createRoot(document.createElement('div'));
+    expect(() => act(() => bare.render(<Hello />))).toThrow(/VerbalyProvider/);
+    act(() => bare.unmount());
+    spy.mockRestore();
+  });
+
   it('renders translations', () => {
     const v = makeInstance();
     act(() => {

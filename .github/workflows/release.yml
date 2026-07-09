@@ -1,0 +1,50 @@
+# Publishes the 7 packages to npm with provenance attestations (OIDC).
+# Manual trigger only — Aron runs it from Actions → Release → Run workflow.
+# Auth: npm Trusted Publishing (configured per package on npmjs.com); no token needed.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish — must match package.json (e.g. 0.13.0)'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write # OIDC for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6 # reads packageManager from package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify version matches the input
+        run: |
+          PKG=$(node -p "require('./packages/core/package.json').version")
+          if [ "$PKG" != "${{ github.event.inputs.version }}" ]; then
+            echo "package.json is at $PKG but the workflow input was ${{ github.event.inputs.version }}"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - run: pnpm test
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      - name: Publish with provenance
+        run: pnpm -r publish --access public --no-git-checks --provenance

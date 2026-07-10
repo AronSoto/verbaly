@@ -65,6 +65,49 @@ describe('missing keys', () => {
   });
 });
 
+describe('observability', () => {
+  it('reports hit, fallback and miss to onResolve', () => {
+    const seen: Array<{ key: string; status: string; from?: string; value: string }> = [];
+    const v = createVerbaly<DictionaryInput>({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { greet: 'Hi {name}', only_en: 'Root' }, es: { greet: 'Hola {name}' } },
+      onResolve: (info) => seen.push(info),
+    });
+    v.t('greet', { name: 'A' });
+    v.t('only_en');
+    v.t('nope');
+    expect(seen).toEqual([
+      { key: 'greet', locale: 'es', value: 'Hola A', status: 'hit', from: 'es' },
+      { key: 'only_en', locale: 'es', value: 'Root', status: 'fallback', from: 'en' },
+      { key: 'nope', locale: 'es', value: 'nope', status: 'miss' },
+    ]);
+  });
+
+  it('onResolve sees the onMissing replacement value', () => {
+    const seen: string[] = [];
+    const v = createVerbaly<DictionaryInput>({
+      locale: 'es',
+      messages: { es: {} },
+      onMissing: (key) => `[${key}]`,
+      onResolve: (info) => seen.push(info.value),
+    });
+    v.t('nope');
+    expect(seen).toEqual(['[nope]']);
+  });
+
+  it('inspect returns resolved locale and source text', () => {
+    const v = createVerbaly<DictionaryInput>({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A', b: 'B' }, es: { a: 'Ae' } },
+    });
+    expect(v.inspect('a')).toEqual({ locale: 'es', source: 'Ae' });
+    expect(v.inspect('b')).toEqual({ locale: 'en', source: 'B' });
+    expect(v.inspect('nope')).toBeUndefined();
+  });
+});
+
 describe('reactivity', () => {
   it('notifies on locale change', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: {} } });
@@ -229,14 +272,15 @@ describe('lazy loaders', () => {
 });
 
 describe('detectLocale', () => {
-  it('defaults to en without navigator', () => {
-    vi.stubGlobal('navigator', undefined);
+  it('defaults to en without a DOM, even if navigator exists (Node 21+)', () => {
+    vi.stubGlobal('navigator', { language: 'es-PE' }); // present, but no document
     const v = createVerbaly({ messages: { en: { a: 'x' } } });
     expect(v.locale).toBe('en');
     vi.unstubAllGlobals();
   });
 
-  it('picks navigator.language when present', () => {
+  it('picks navigator.language in a browser (document present)', () => {
+    vi.stubGlobal('document', {});
     vi.stubGlobal('navigator', { language: 'es-PE' });
     expect(createVerbaly({ messages: {} }).locale).toBe('es-PE');
     vi.stubGlobal('navigator', { language: '' });

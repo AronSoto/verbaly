@@ -29,6 +29,7 @@ export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } fro
 export type { SyncResult } from './extract';
 export type { InitOptions, InitResult } from './init';
 export type {
+  Alternate,
   RenderHtmlOptions,
   RenderHtmlResult,
   RenderSiteOptions,

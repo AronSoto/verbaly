@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Effortless i18n — write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",
@@ -42,6 +42,16 @@
       "require": {
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
+      }
+    },
+    "./devtools": {
+      "import": {
+        "types": "./dist/devtools.d.ts",
+        "default": "./dist/devtools.js"
+      },
+      "require": {
+        "types": "./dist/devtools.d.cts",
+        "default": "./dist/devtools.cjs"
       }
     }
   },

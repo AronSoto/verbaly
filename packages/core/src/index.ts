@@ -20,6 +20,8 @@ export type {
   MessageValue,
   ParamNames,
   Params,
+  ResolveInfo,
+  ResolveStatus,
   TArgs,
   TFunction,
   Verbaly,

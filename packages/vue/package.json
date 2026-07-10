@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/vue",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Vue 3 bindings for Verbaly — composables over the reactive core.",
   "keywords": [
     "i18n",

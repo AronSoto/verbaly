@@ -12,6 +12,12 @@ export interface TranslateConfig {
 
 export interface RenderConfig {
   links?: Record<string, RichLink>;
+  site?: string;
+  attribute?: string;
+  baseUrl?: string;
+  hreflang?: boolean;
+  sitemap?: boolean | string;
+  clean?: boolean;
 }
 
 export interface VerbalyConfig {

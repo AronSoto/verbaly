@@ -8,6 +8,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.14.0] — 2026-07-10
+
+**Ships translated, and now you can see why.** Three fronts, one theme — closing dead points on the road to 1.0: the SSG renderer grows real multi-locale SEO (hreflang alternates + i18n sitemap + stale cleanup) and is **dogfooded into verbaly-web's own build** (the FOUC is dead for real, measured on the live site); the runtime gains **observability** — an `onResolve` hook and an opt-in `verbaly/devtools` inspector that answers "what key is this text?" in the browser; and **server-side use in Node** is hardened and locked with tests. Ready to publish. One behavior change (locale auto-detection now requires a DOM — see Changed), no API removals.
+
+### Added
+
+- **hreflang + i18n SEO in `verbaly render`** (`@verbaly/compiler`): `renderSite` now emits reciprocal `<link rel="alternate" hreflang>` (incl. `x-default`) into every page's `<head>` for the whole locale set, and optionally a locale-aware sitemap (`sitemap-i18n.xml`, one `<url>` per locale with `<xhtml:link>` alternates). URLs derive from the built path (directory-style: `index.html` → `/`). New config `render.{baseUrl, hreflang, sitemap, clean, site, attribute}` and matching `RenderSiteOptions`; `hreflang` defaults on when `baseUrl` is set. Injection is **idempotent** (marker-delimited, re-runs are byte-stable). New exported type `Alternate`.
+- **Stale cleanup** (`@verbaly/compiler`): `render --clean` (or `render.clean`) removes existing `dist/<locale>/` dirs before mirroring, so pages deleted from the source no longer linger in locale mirrors.
+- **Wider `render` CLI**: `--attribute`, `--base-url`, `--sitemap`, `--clean` (previously only `--site`/`--locales`; `attribute`/`baseUrl` were programmatic-only).
+- **Runtime observability — `onResolve` hook** (`verbaly` core): `createVerbaly({ onResolve })` fires once per `t(key)` call with `{ key, locale, value, status, from? }` where `status` is `'hit' | 'fallback' | 'miss'` and `from` is the locale that actually provided the message. Zero cost when unset (optional-chained; the hot path is unchanged — bench flat). New exported types `ResolveInfo`, `ResolveStatus`.
+- **`instance.inspect(key)`** (`verbaly` core): returns `{ locale, source }` (the resolved locale + raw source message) for a key, or `undefined` if missing — the read-side primitive devtools uses without going through `t()`.
+- **`verbaly/devtools` — opt-in in-browser inspector** (new **subpath export**, core's first): `attachDevtools(instance, { root?, attribute?, hotkey?, catalogDir? })` mounts a vanilla-DOM overlay — a floating panel with ok/fallback/missing counts and a **missing-keys list that names the exact catalog file to fix** (doctor's actionable-errors ethos, now at runtime), plus hold-`Alt`+hover to see any bound element's key, resolve status, source-locale and text. Zero deps, `sideEffects: false`, **tree-shaken out of the core runtime** — a separate 1.58 KB gzip chunk paid only when imported. Exported type `DevtoolsOptions`.
+
+### Changed
+
+- **Locale auto-detection now requires a DOM** (`verbaly` core — behavior change, call it out): `detectLocale` (used by `createVerbaly` with no `locale`) and `resolveLocale`'s navigator step now gate on `typeof document !== 'undefined'`, not just `navigator`. **Why:** Node 21+ exposes a global `navigator` whose `language` is the *server's* OS locale — under the old guard, `createVerbaly()` on the server silently adopted the machine's locale (a real SSR footgun found while hardening server-side use). Now non-DOM contexts (Node/SSR) deterministically fall back to `'en'` / the configured `fallback`; **browsers are unaffected** (both globals present). Server code should pass `locale` explicitly per request (documented in the new server-side guide).
+- **Comparison table re-sealed** (pillar 5, 2026-07-10): competitor versions re-verified — i18next 26.3.6, react-i18next 17.0.9, Lingui 6.5.0, typesafe-i18n 5.27.1 (still one release since 2023 — sporadic), Paraglide 2.21.0, next-intl 4.13.1. No figures changed since 0.13.0's seal (one day prior).
+
+### Notes
+
+- 353 tests (core **143** · compiler **141** · svelte 22 · vue 12 · react 11 · unplugin 9 · vite 15) — was 335; +8 core (observability + devtools + server-side), +5 compiler (hreflang/sitemap/clean).
+- Bench re-run (ritual): lookup **27.9×**, interpolation **11.0×**, plural **5.0×**, currency **5.1×** vs i18next 26 — flat vs 0.13.0 (the `onResolve` guard adds nothing to the hot path when unset).
+- Bundle check: tree-shaken `createVerbaly` runtime **3.28 KB** min+gzip (was 3.26), full core surface **4.63 KB** (flat), `verbaly/devtools` **1.58 KB** as its own chunk (not in the runtime path).
+- publint **All good** ×7 + arethetypeswrong **no problems** (core/react/vue node16 CJS/ESM 🟢). Known-OK: `verbaly/devtools` fails attw's node10 view — node10 predates subpath exports (same category as `@verbaly/svelte/Trans.svelte`); it resolves 🟢 under node16/bundler. Tarballs verified (core ships `dist/devtools.*`; `@verbaly/vite` `workspace:*` → `0.14.0`, peer `verbaly` → `^0.14.0`).
+- New public API — core: `VerbalyOptions.onResolve`, `ResolveInfo`, `ResolveStatus`, `Verbaly.inspect`; subpath `verbaly/devtools`: `attachDevtools`, `DevtoolsOptions`. compiler: `RenderConfig.{site,attribute,baseUrl,hreflang,sitemap,clean}`, `RenderSiteOptions.{baseUrl,hreflang,sitemap,clean}`, `Alternate`. All additive. No new dependencies anywhere.
+- **Dogfood (dead point #3, closed):** `verbaly render` run against verbaly-web's real `dist` — 12 pages × 3 locales, **zero missing keys**, `dist/es/…`/`dist/pt/…` ship pre-translated with `<html lang>`, reciprocal hreflang and a 36-URL `sitemap-i18n.xml`; `data-verbaly` attributes remain so client switching still works; re-run idempotent. This is what the web build wires in post-publish (Docs impact).
+
+### Docs impact (pending)
+
+- **New page `docs/server`** — "Server-side & SSR (Node)": create a request-scoped `createVerbaly({ locale })` (always pass `locale` — auto-detection is browser-only now), `t()`/`renderHtml` without a DOM, what works today vs. what doesn't (SSR **hydration** / meta-framework integrations remain dead point #1 — say so). Add to Guides nav (`docs-nav.ts` → sidebar + dropdown).
+- **New "Observability / Devtools" section** (in `docs/dom` or a new `docs/devtools`): `onResolve` hook (`ResolveInfo`, statuses), `instance.inspect`, and `verbaly/devtools` `attachDevtools` (options, hotkey, missing-panel, import from the subpath). Note it's dev-only and tree-shaken.
+- `docs/cli` (Static rendering section): document the SEO flags — `--base-url` (enables hreflang), `--sitemap`, `--clean`, `--attribute` — and the `render.{baseUrl,hreflang,sitemap,clean,site,attribute}` config keys.
+- `docs/api`: rows for `onResolve`/`ResolveInfo`/`inspect` and the `verbaly/devtools` export; note the DOM-gated detection change under `resolveLocale`.
+- `/changelog` (`releases.ts`): 0.14.0 entry — render SEO + devtools + server-side as the three highlights.
+- Landing: the site now **ships translated** (render dogfooded into the build) — optional comparison-table row "in-browser devtools / observability" (no competitor has it) and an SEO/hreflang mention.
+- **Build wiring (the dogfood):** verbaly-web `build` = `astro build && verbaly render` with a `verbaly.config` (`dir: src/i18n/locale`, `sourceLocale: en`, `locales: [en,es,pt]`, `render.baseUrl`, `render.sitemap: true`); reference `sitemap-i18n.xml` from `robots.txt`. Bump web to `verbaly@^0.14.0` — **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.13.1] — 2026-07-10
 
 **README refresh: readable on npm dark mode.** Docs-only patch — the seven package READMEs get dark-safe code blocks and a friendlier pass; MIT license re-affirmed after evaluating protective options. No code changes (git diff vs 0.13.0: markdown only). First release published through the automatic `Release` workflow (npm provenance).

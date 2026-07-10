@@ -50,26 +50,35 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     return result;
   }
 
-  function lookup(key: string): string | undefined {
+  function lookup(key: string): { msg: string; from: string } | undefined {
     for (const loc of chain()) {
       const msg = dict[loc]?.[key];
-      if (msg !== undefined) return msg;
+      if (msg !== undefined) return { msg, from: loc };
     }
     return undefined;
   }
 
   function translate(key: string, params: Params | undefined): string {
-    const msg = lookup(key);
-    if (msg === undefined) {
+    const hit = lookup(key);
+    if (hit === undefined) {
       const replacement = options.onMissing?.(key, locale);
-      if (typeof replacement === 'string') return replacement;
-      if (!options.onMissing && !warned.has(key)) {
+      const value = typeof replacement === 'string' ? replacement : key;
+      if (typeof replacement !== 'string' && !options.onMissing && !warned.has(key)) {
         warned.add(key);
         console.warn(`[verbaly] missing key "${key}" (${locale})`);
       }
-      return key;
+      options.onResolve?.({ key, locale, value, status: 'miss' });
+      return value;
     }
-    return formatNodes(parse(msg), { locale, params, formatters });
+    const value = formatNodes(parse(hit.msg), { locale, params, formatters });
+    options.onResolve?.({
+      key,
+      locale,
+      value,
+      status: hit.from === locale ? 'hit' : 'fallback',
+      from: hit.from,
+    });
+    return value;
   }
 
   function tagged(strings: TemplateStringsArray, values: unknown[]): string {
@@ -170,6 +179,10 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     has(key: string) {
       return lookup(key) !== undefined;
     },
+    inspect(key: string) {
+      const hit = lookup(key);
+      return hit ? { locale: hit.from, source: hit.msg } : undefined;
+    },
   };
 }
 
@@ -178,5 +191,8 @@ function isTemplateStrings(value: unknown): value is TemplateStringsArray {
 }
 
 function detectLocale(): string {
-  return typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en';
+  // gate on document, not navigator — Node 21+ exposes a global navigator (OS locale)
+  return typeof document !== 'undefined' && typeof navigator !== 'undefined' && navigator.language
+    ? navigator.language
+    : 'en';
 }

@@ -37,7 +37,8 @@ export function persistLocale(locale: string, storageKey: string | false = DEFAU
 }
 
 function preferredLanguages(): readonly string[] {
-  if (typeof navigator === 'undefined') return [];
+  // require document — Node 21+ has a global navigator whose language is the OS, not a user
+  if (typeof document === 'undefined' || typeof navigator === 'undefined') return [];
   return navigator.languages?.length ? navigator.languages : [navigator.language];
 }
 

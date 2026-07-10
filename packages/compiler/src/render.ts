@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
@@ -15,6 +15,11 @@ import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 
+export interface Alternate {
+  hreflang: string;
+  href: string;
+}
+
 export interface RenderHtmlOptions {
   locale: string;
   catalogs: Catalogs;
@@ -23,12 +28,16 @@ export interface RenderHtmlOptions {
   richTags?: string[];
   richLinks?: Record<string, RichLink>;
   setLang?: boolean;
+  alternates?: Alternate[];
 }
 
 export interface RenderHtmlResult {
   html: string;
   missing: string[];
 }
+
+const HREFLANG_OPEN = '<!--verbaly:hreflang-->';
+const HREFLANG_CLOSE = '<!--/verbaly:hreflang-->';
 
 const VOID_TAGS = new Set([
   'area',
@@ -133,7 +142,28 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     }
   }
 
+  if (options.alternates?.length) injectAlternates(ms, html, options.alternates);
+
   return { html: ms.toString(), missing: [...missing] };
+}
+
+// injects <link rel="alternate" hreflang> into <head>, idempotent via markers
+function injectAlternates(ms: MagicString, html: string, alternates: Alternate[]): void {
+  const links = alternates
+    .map((a) => `<link rel="alternate" hreflang="${escapeAttr(a.hreflang)}" href="${escapeAttr(a.href)}">`)
+    .join('');
+  const block = `${HREFLANG_OPEN}${links}${HREFLANG_CLOSE}`;
+  const from = html.indexOf(HREFLANG_OPEN);
+  if (from !== -1) {
+    const to = html.indexOf(HREFLANG_CLOSE, from);
+    if (to !== -1) {
+      const end = to + HREFLANG_CLOSE.length;
+      if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
+      return;
+    }
+  }
+  const head = /<\/head\s*>/i.exec(html);
+  if (head) ms.appendLeft(head.index, block);
 }
 
 export interface RenderSiteOptions {
@@ -142,6 +172,10 @@ export interface RenderSiteOptions {
   attribute?: string;
   richTags?: string[];
   richLinks?: Record<string, RichLink>;
+  baseUrl?: string;
+  hreflang?: boolean;
+  sitemap?: boolean | string;
+  clean?: boolean;
 }
 
 export interface RenderSiteResult {
@@ -155,9 +189,21 @@ export async function renderSite(
   cfg: ResolvedConfig,
   options: RenderSiteOptions = {},
 ): Promise<RenderSiteResult> {
-  const site = join(cfg.root, options.site ?? 'dist');
+  const site = join(cfg.root, options.site ?? cfg.render.site ?? 'dist');
   const locales = options.locales ?? cfg.locales;
+  const attribute = options.attribute ?? cfg.render.attribute;
+  const baseUrl = (options.baseUrl ?? cfg.render.baseUrl)?.replace(/\/+$/, '');
+  const wantHreflang = (options.hreflang ?? cfg.render.hreflang ?? true) && baseUrl !== undefined;
+  const wantSitemap = (options.sitemap ?? cfg.render.sitemap ?? false) && baseUrl !== undefined;
+  const clean = options.clean ?? cfg.render.clean ?? false;
   const catalogs = loadCatalogs(cfg);
+
+  if (clean) {
+    for (const locale of locales) {
+      if (locale !== cfg.sourceLocale) rmSync(join(site, locale), { recursive: true, force: true });
+    }
+  }
+
   const files = await glob('**/*.html', {
     cwd: site,
     absolute: true,
@@ -165,17 +211,21 @@ export async function renderSite(
   });
 
   const missing: Record<string, string[]> = {};
+  const urls: Array<{ rel: string; alternates: Alternate[] }> = [];
   for (const file of files) {
     const html = readFileSync(file, 'utf8');
-    const rel = relative(site, file);
+    const rel = relative(site, file).replace(/\\/g, '/');
+    const alternates = wantHreflang ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale) : [];
+    if (wantHreflang) urls.push({ rel, alternates });
     for (const locale of locales) {
       const result = renderHtml(html, {
         locale,
         catalogs,
         sourceLocale: cfg.sourceLocale,
-        attribute: options.attribute,
+        attribute,
         richTags: options.richTags,
         richLinks: options.richLinks ?? cfg.render.links,
+        alternates,
       });
       for (const key of result.missing) {
         const list = (missing[locale] ??= []);
@@ -186,7 +236,52 @@ export async function renderSite(
       writeFileSync(out, result.html);
     }
   }
+
+  if (wantSitemap && urls.length) {
+    const name = typeof wantSitemap === 'string' ? wantSitemap : 'sitemap-i18n.xml';
+    writeFileSync(join(site, name), buildSitemap(urls));
+  }
+
   return { files: files.length, locales: [...locales], missing };
+}
+
+// public URL of a built page path (index.html → directory URL)
+function pageUrl(baseUrl: string, prefix: string, rel: string): string {
+  const path = rel.replace(/(^|\/)index\.html$/, '$1');
+  return `${baseUrl}${prefix}${path ? `/${path}` : '/'}`;
+}
+
+// reciprocal hreflang set for one page across every locale (+ x-default = source)
+function pageAlternates(
+  baseUrl: string,
+  rel: string,
+  locales: string[],
+  sourceLocale: string,
+): Alternate[] {
+  const alternates: Alternate[] = [];
+  for (const locale of locales) {
+    const prefix = locale === sourceLocale ? '' : `/${locale}`;
+    alternates.push({ hreflang: locale, href: pageUrl(baseUrl, prefix, rel) });
+  }
+  alternates.push({ hreflang: 'x-default', href: pageUrl(baseUrl, '', rel) });
+  return alternates;
+}
+
+function buildSitemap(urls: Array<{ rel: string; alternates: Alternate[] }>): string {
+  const body = urls
+    .flatMap(({ alternates }) => {
+      const alts = alternates
+        .map(
+          (a) =>
+            `<xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${escapeAttr(a.href)}"/>`,
+        )
+        .join('');
+      return alternates
+        .filter((a) => a.hreflang !== 'x-default')
+        .map((self) => `<url><loc>${escapeAttr(self.href)}</loc>${alts}</url>`);
+    })
+    .join('');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${body}</urlset>\n`;
 }
 
 function parseAttrs(chunk: string): Map<string, string> {

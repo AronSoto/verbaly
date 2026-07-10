@@ -33,6 +33,10 @@ Options:
   --dry-run          list what would be translated, write nothing (translate)
   --locale <id>      pseudo-locale id (pseudo, default: en-XA)
   --site <path>      built site directory (render, default: dist)
+  --attribute <name> base data attribute (render, default: data-verbaly)
+  --base-url <url>   site origin — enables hreflang alternates (render)
+  --sitemap          emit sitemap-i18n.xml with per-locale alternates (render)
+  --clean            remove existing locale dirs before mirroring (render)
 
 Config file: verbaly.config.{js,mjs,ts,mts,json} at root (flags win).
 The claude provider needs @anthropic-ai/sdk installed and ANTHROPIC_API_KEY set.
@@ -50,6 +54,10 @@ async function main(): Promise<void> {
       model: { type: 'string' },
       locale: { type: 'string' },
       site: { type: 'string' },
+      attribute: { type: 'string' },
+      'base-url': { type: 'string' },
+      sitemap: { type: 'boolean' },
+      clean: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -178,6 +186,10 @@ async function main(): Promise<void> {
     const result = await renderSite(cfg, {
       site: values.site,
       locales: values.locales?.split(','),
+      attribute: values.attribute,
+      baseUrl: values['base-url'],
+      sitemap: values.sitemap,
+      clean: values.clean,
     });
     console.log(
       `[verbaly] ${result.files} pages × ${result.locales.length} locales (${result.locales.join(', ')})`,

@@ -53,6 +53,8 @@ render: { links: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } } 
 
 Per-element `data-verbaly-links='{"repo":"https://…"}'` merges over the config map.
 
+**Multi-locale SEO** — set `render.baseUrl` (or `--base-url`) and every page gets reciprocal `<link rel="alternate" hreflang>` (plus `x-default`) for the whole locale set; `--sitemap` writes a locale-aware `sitemap-i18n.xml`. `--clean` drops stale `dist/<locale>/` pages before mirroring. Injection is idempotent.
+
 ## 🔍 Pseudo-localization
 
 `verbaly pseudo` fills a QA catalog (`en-XA` by default, `--locale <id>` to change) from the source: accented letters, `⟦…⟧` markers and ~33% length padding reveal hardcoded strings, clipped layouts and concatenation bugs. Params, variant blocks and tags survive verbatim — the same structural validation as `translate`.

@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/svelte",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Svelte bindings for Verbaly — stores over the reactive core.",
   "keywords": [
     "i18n",

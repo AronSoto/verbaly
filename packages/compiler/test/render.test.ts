@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -163,6 +163,34 @@ describe('renderHtml', () => {
     expect(html).toContain('>go to docs<');
     expect(html).not.toContain('<a');
   });
+
+  it('injects hreflang alternates into <head>', () => {
+    const { html } = renderHtml('<html><head><title>x</title></head><body></body></html>', {
+      locale: 'es',
+      catalogs: CATALOGS,
+      alternates: [
+        { hreflang: 'en', href: 'https://x.dev/' },
+        { hreflang: 'es', href: 'https://x.dev/es/' },
+        { hreflang: 'x-default', href: 'https://x.dev/' },
+      ],
+    });
+    expect(html).toContain('<link rel="alternate" hreflang="en" href="https://x.dev/">');
+    expect(html).toContain('<link rel="alternate" hreflang="es" href="https://x.dev/es/">');
+    expect(html).toContain('hreflang="x-default"');
+    expect(html.indexOf('verbaly:hreflang')).toBeLessThan(html.indexOf('</head>'));
+  });
+
+  it('re-injecting alternates is idempotent (markers)', () => {
+    const alternates = [{ hreflang: 'en', href: 'https://x.dev/' }];
+    const once = renderHtml('<html><head></head><body></body></html>', {
+      locale: 'en',
+      catalogs: CATALOGS,
+      alternates,
+    }).html;
+    const twice = renderHtml(once, { locale: 'en', catalogs: CATALOGS, alternates }).html;
+    expect(twice).toBe(once);
+    expect(twice.match(/<!--verbaly:hreflang-->/g)).toHaveLength(1);
+  });
 });
 
 describe('renderSite', () => {
@@ -217,5 +245,73 @@ describe('renderSite', () => {
     await renderSite(cfg);
     const out = readFileSync(join(dist, 'index.html'), 'utf8');
     expect(out).toContain('<a href="/docs">docs</a>');
+  });
+
+  it('emits reciprocal hreflang alternates with directory URLs', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    const page = '<html><head></head><body><p data-verbaly="k"></p></body></html>';
+    writeFileSync(join(dist, 'index.html'), page);
+    writeFileSync(join(dist, 'docs', 'index.html'), page);
+
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      render: { baseUrl: 'https://verb.dev/' },
+    });
+    await renderSite(cfg);
+
+    const enDocs = readFileSync(join(dist, 'docs', 'index.html'), 'utf8');
+    expect(enDocs).toContain('hreflang="en" href="https://verb.dev/docs/"');
+    expect(enDocs).toContain('hreflang="es" href="https://verb.dev/es/docs/"');
+    expect(enDocs).toContain('hreflang="x-default" href="https://verb.dev/docs/"');
+    const esDocs = readFileSync(join(dist, 'es', 'docs', 'index.html'), 'utf8');
+    expect(esDocs).toContain('hreflang="es" href="https://verb.dev/es/docs/"');
+    const enRoot = readFileSync(join(dist, 'index.html'), 'utf8');
+    expect(enRoot).toContain('hreflang="en" href="https://verb.dev/"');
+  });
+
+  it('writes an i18n sitemap when enabled', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(dist, { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
+
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      render: { baseUrl: 'https://verb.dev', sitemap: true },
+    });
+    await renderSite(cfg);
+    const xml = readFileSync(join(dist, 'sitemap-i18n.xml'), 'utf8');
+    expect(xml).toContain('<loc>https://verb.dev/</loc>');
+    expect(xml).toContain('<loc>https://verb.dev/es/</loc>');
+    expect(xml).toContain('xhtml:link rel="alternate" hreflang="es"');
+    expect(xml).toContain('hreflang="x-default"'); // valid as an alternate link
+    expect((xml.match(/<loc>/g) ?? []).length).toBe(2); // one <url> per locale, not x-default
+  });
+
+  it('clean removes stale locale pages before mirroring', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'es'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<p data-verbaly="k"></p>');
+    const stale = join(dist, 'es', 'old.html');
+    writeFileSync(stale, 'stale');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'en', render: { clean: true } });
+    await renderSite(cfg);
+    expect(existsSync(stale)).toBe(false);
+    expect(existsSync(join(dist, 'es', 'index.html'))).toBe(true);
   });
 });

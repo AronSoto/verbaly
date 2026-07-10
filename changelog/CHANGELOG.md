@@ -8,6 +8,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.13.0] — 2026-07-09
+
+**`verbaly doctor` + adoption & trust.** Setup diagnostics with the exact fix per finding, the i18next migration guide on the docs site, a coverage push (274→335 tests), and releases now publish from GitHub Actions with **npm provenance** (OIDC). Ready to publish. No breaking changes; runtime packages untouched in behavior.
+
+### Added
+
+- **`verbaly doctor`** (`@verbaly/compiler` CLI): diagnoses the whole setup in one command — config file found, catalogs dir + every locale file (present, valid JSON, flat key→string), bundler plugin wiring (`detectBundler` + `@verbaly/vite`/`@verbaly/unplugin` in deps), `verbaly.d.ts` freshness (regenerates and byte-compares), orphan keys (in catalog, not referenced) and translation completeness (reuses `check`). Every warn/error carries the **exact fix command** (pillar 3: actionable errors); `ok`/`warn`/`error` levels, exit 1 only on errors. Exported API: `doctor(cfg)`, types `DoctorEntry`/`DoctorResult`; also new `findConfigFile(root)` (config, dedupes the search list `init` used).
+- **Release workflow with npm provenance** (repo): `.github/workflows/release.yml`, `workflow_dispatch`-only (Aron triggers with the version as input; guard against `packages/core/package.json`). Runs the full suite and publishes all 7 with `pnpm -r publish --provenance` via OIDC — packages get registry attestations (Socket supply-chain score lever). Requires one-time Trusted Publisher setup per package on npmjs.com. Local `pnpm release` stays as fallback (no provenance).
+- **`codecov.yml`** (repo): project target 90% (threshold 1%), patch informational — stable badge.
+
+### Changed
+
+- **Coverage push** (all packages): claude translate provider 31→~100% (mocked SDK; `loadSdk` gained an injectable loader seam — internal, not re-exported), `@verbaly/vite` 57→~98% (fake dev server: watcher events, HMR invalidation, self-write dedupe, unlink), plus branch-edge tests in core (parse/ICU/format/locale/instance), compiler (registry/extract/catalog/check) and adapters (react provider-throw, svelte context hooks via new test fixtures, unplugin id branches). Project: 81.9%→~91% branches, 91%→~98% lines.
+- **Comparison table re-sealed** (pillar 5, README + web landing): i18next 26.3.6 core is **~13.5KB gzip** (+9.4KB react-i18next) — the old "~25KB" overstated the core; typesafe-i18n is "sporadic maintenance" (one release in 2½ years: 2023-08 → 2026-02), not "unmaintained"; Lingui 6.5 / Paraglide 2.21 / next-intl 4.13 verified active.
+- Drift fixes: root README (tsup→tsdown, test count), `verbaly-package-dev` skill (per-version changelog files → single `CHANGELOG.md`).
+
+### Notes
+
+- 335 tests (core 130 · **compiler 136** · svelte 22 · vue 12 · react 11 · unplugin 9 · vite 15) — was 274; +50 coverage push, +11 `doctor`.
+- Bench re-run (ritual): lookup **34.7×**, interpolation **16.5×**, plural **5.2×**, currency **5.5×** vs i18next 26 — no regression.
+- Bundle check: tree-shaken `createVerbaly` runtime **3.26KB** min+gzip, full core surface 4.63KB — flat vs 0.12.0 (runtime untouched).
+- publint **All good** ×7 + arethetypeswrong **no problems** (core/react/vue, node16 CJS/ESM 🟢); tarballs verified (compiler + core: `workspace:*` → `0.13.0`, only `dist/` + `LICENSE` + README).
+- New public API — compiler: `doctor`, `DoctorEntry`, `DoctorResult`, `findConfigFile`. All additive. No new dependencies.
+- E2E verified: `verbaly doctor` exercised against a broken scratch project (missing plugin, stale types, orphan, unknown key, missing translations → exit 1 with fixes) and a healthy one (all ✓, exit 0).
+
+### Docs impact (synced)
+
+- `docs/cli`: **`verbaly doctor`** row in Commands (after `init`) + new "Health check" section (sample output, checks list, exit codes); `<Docs>` description updated.
+- **New page `docs/migrate`** — "Migrate from i18next": mapping table (init/t/interpolation/plurals/formatting/detector/backend/hooks/Trans/changeLanguage/gate), catalog port (flatten + merge plural suffixes, before/after JSON), runtime swap (react-i18next → @verbaly/react before/after), locale bootstrap, incremental strategy, structural-validation callout. Nav: new "Migrate from i18next" item in Guides (docs-nav.ts → sidebar + dropdown). +26 keys per catalog (en/es/pt): `docs_migrate.*`, `docs_nav.migrate`, `docs_cli.{td_doctor,h_doctor,p_doctor,p_doctor_checks}`.
+- Landing compare table (`table.ts`): i18next size cell → "~14 KB (+9 KB react)".
+- `/changelog` (`releases.ts`): 0.13.0 entry — doctor + migration guide + provenance/coverage as highlights.
+- `docs/api`: no changes (doctor is CLI/compiler surface; the low-level API table doesn't list compiler internals).
+- Bump web to `verbaly@^0.13.0` — **`pnpm install` only after the npm publish** (pnpm deps-check fails until 0.13.0 exists). Site verified against 0.12.0 installed: astro check 0 errors, build 11 pages (was 10), eslint clean (2 pre-existing `.astro` TS-generics parse errors fixed in passing: VDropdown, index).
+
+---
+
 ## [0.12.0] — 2026-07-09
 
 **`verbaly init` + the TypeScript 7 toolchain.** One command scaffolds a working setup (config, catalogs, bundler detection) — the zero-config pillar now starts at minute zero. Under the hood the whole monorepo moved to **tsdown** (rolldown) and **TypeScript 7** (native compiler, GA 2026-07-08): typecheck of all 7 packages runs in ~3s. Ready to publish. No breaking changes; published `dist/` layout, exports and sizes are identical.

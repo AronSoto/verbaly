@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { findConfigFile } from './config';
 
 export interface InitOptions {
   root?: string;
@@ -15,14 +16,6 @@ export interface InitResult {
   configFile: string;
   next: string[];
 }
-
-const CONFIG_NAMES = [
-  'verbaly.config.js',
-  'verbaly.config.mjs',
-  'verbaly.config.ts',
-  'verbaly.config.mts',
-  'verbaly.config.json',
-];
 
 const BUNDLERS = ['vite', 'webpack', 'rollup', 'rspack', 'esbuild'] as const;
 
@@ -59,7 +52,7 @@ export function init(options: InitOptions = {}): InitResult {
   const created: string[] = [];
   const skipped: string[] = [];
 
-  const existing = CONFIG_NAMES.find((name) => existsSync(join(root, name)));
+  const existing = findConfigFile(root);
   const typescript = existsSync(join(root, 'tsconfig.json'));
   const configFile = existing ?? (typescript ? 'verbaly.config.ts' : 'verbaly.config.mjs');
   if (existing) {

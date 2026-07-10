@@ -4,6 +4,7 @@ import { loadCatalogs, writeCatalog } from './catalog';
 import { check, formatCheckResult } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
+import { doctor } from './doctor';
 import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
@@ -15,6 +16,7 @@ const HELP = `verbaly — i18n compiler
 
 Usage:
   verbaly init       scaffold config + locale catalogs (detects your bundler)
+  verbaly doctor     diagnose the setup (config, catalogs, plugin, types, keys)
   verbaly extract    scan sources, update catalogs and types
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
@@ -81,6 +83,26 @@ async function main(): Promise<void> {
     sourceLocale: values.source,
     locales: values.locales?.split(','),
   });
+
+  if (command === 'doctor') {
+    const result = await doctor(cfg);
+    const icon = { ok: '✓', warn: '⚠', error: '✗' } as const;
+    console.log(`[verbaly] doctor — ${result.entries.length} checks`);
+    for (const entry of result.entries) {
+      const line = `  ${icon[entry.level]} ${entry.check}: ${entry.message}`;
+      if (entry.level === 'error') console.error(line);
+      else if (entry.level === 'warn') console.warn(line);
+      else console.log(line);
+      if (entry.fix) console.log(`      fix: ${entry.fix}`);
+    }
+    if (result.ok) {
+      console.log('[verbaly] setup looks healthy ✓');
+    } else {
+      console.error('[verbaly] doctor found problems');
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   if (command === 'extract') {
     const registry = await extractProject(cfg);

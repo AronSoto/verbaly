@@ -60,6 +60,18 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
   };
 }
 
+const CONFIG_FILES = [
+  'verbaly.config.js',
+  'verbaly.config.mjs',
+  'verbaly.config.ts',
+  'verbaly.config.mts',
+  'verbaly.config.json',
+];
+
+export function findConfigFile(root: string): string | undefined {
+  return CONFIG_FILES.find((name) => existsSync(join(root, name)));
+}
+
 export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
   for (const name of ['verbaly.config.js', 'verbaly.config.mjs']) {
     const path = join(root, name);

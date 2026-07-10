@@ -17,7 +17,7 @@ The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extracti
 
 ## 🧰 CLI
 
-```
+```bash
 npx verbaly init           # scaffold config + locale catalogs (detects your bundler)
 npx verbaly doctor         # diagnose the setup (config, catalogs, plugin, types, keys)
 npx verbaly extract        # sync catalogs + types
@@ -34,7 +34,7 @@ Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed
 
 `verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK — install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Placeholders, variants and tags are validated after translation — anything not preserved verbatim stays `""` so `check` keeps failing. Plug your own provider in `verbaly.config.ts`:
 
-```
+```ts
 translate: {
   provider: async ({ sourceLocale, targetLocale, messages }) => ({ ...translated });
 }
@@ -46,7 +46,7 @@ translate: {
 
 Named links in rich messages render as real `<a>` elements — hrefs come from config or markup, never from messages (`javascript:` blocked):
 
-```
+```ts
 // verbaly.config.ts
 render: { links: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } } }
 ```

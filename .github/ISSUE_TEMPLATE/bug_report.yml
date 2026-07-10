@@ -1,0 +1,47 @@
+name: Bug report
+description: Something doesn't work as documented
+labels: ['bug']
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - verbaly (core)
+        - '@verbaly/compiler'
+        - '@verbaly/vite'
+        - '@verbaly/unplugin'
+        - '@verbaly/react'
+        - '@verbaly/vue'
+        - '@verbaly/svelte'
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: '0.14.5'
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: A minimal snippet or repo link. The message/catalog + the call that misbehaves is usually enough.
+      placeholder: |
+        const v = createVerbaly({ ... });
+        v.t('key'); // expected X, got Y
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: 'Node 22 / Vite 8 / browser / SSR…'

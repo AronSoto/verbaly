@@ -15,11 +15,11 @@ React hooks for [Verbaly](https://github.com/AronSoto/verbaly) — a thin layer 
 
 ## 🚀 Install
 
-```
+```bash
 pnpm add verbaly @verbaly/react
 ```
 
-```
+```tsx
 import { VerbalyProvider, useT, useLocale } from '@verbaly/react';
 import { verbaly } from 'virtual:verbaly';
 
@@ -37,7 +37,7 @@ function Inbox() {
 
 Write the source text in place — the compiler extracts it (key, catalogs, props):
 
-```
+```tsx
 import { Trans } from '@verbaly/react';
 
 // you write:
@@ -50,7 +50,7 @@ Runtime-first still works — pass `id` (+ `values`/`components`) yourself and n
 
 Named links without custom components — hrefs come from your code, never from messages (`javascript:` blocked):
 
-```
+```tsx
 // message: 'Read the <docs>guide</docs>'
 <Trans id="cta" links={{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }} />
 ```

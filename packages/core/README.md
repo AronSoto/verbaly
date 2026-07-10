@@ -18,7 +18,7 @@
 
 Most i18n tools make you maintain key files by hand — keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a runtime under **~3KB**, zero dependencies.
 
-```
+```ts
 // You write this:
 t`Hello ${name}, you have ${count} messages`;
 
@@ -33,18 +33,18 @@ Missing a translation? **The build fails** — raw keys never reach production.
 
 ## 🚀 Try it in 30 seconds
 
-```
+```bash
 pnpm add verbaly @verbaly/vite
 ```
 
-```
+```ts
 // vite.config.ts
 import verbaly from '@verbaly/vite';
 
 export default { plugins: [verbaly({ locales: ['en', 'es', 'pt'] })] };
 ```
 
-```
+```ts
 // anywhere in your app — extracted + typed on save
 import { t, setLocale } from 'virtual:verbaly';
 
@@ -56,7 +56,7 @@ await setLocale('es'); // per-locale bundle loaded on demand
 
 `verbaly` also works on its own for dynamic/CMS content:
 
-```
+```ts
 import { createVerbaly } from 'verbaly';
 
 const v = createVerbaly({
@@ -71,7 +71,7 @@ v.setLocale('es'); // auto-loads the catalog; or: await v.loadLocale('es') first
 
 ### 🌐 Plain HTML — no framework needed
 
-```
+```html
 <h1 data-verbaly="home.title"></h1>
 <p data-verbaly="home.intro" data-verbaly-rich></p>
 <!-- rich: 'The build <em>gate</em>' renders a real <em> — whitelist, XSS-safe -->
@@ -83,7 +83,7 @@ v.setLocale('es'); // auto-loads the catalog; or: await v.loadLocale('es') first
 <!-- links: 'See the <repo>repo</repo>' renders <a href> — hrefs from you, never from messages -->
 ```
 
-```
+```ts
 import { bindDom, createVerbaly, persistLocale, resolveLocale } from 'verbaly';
 
 const v = createVerbaly({

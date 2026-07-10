@@ -15,11 +15,11 @@
 
 ## 🚀 Install
 
-```
+```bash
 pnpm add verbaly @verbaly/unplugin
 ```
 
-```
+```js
 // webpack.config.mjs
 import { verbaly } from '@verbaly/unplugin';
 
@@ -28,7 +28,7 @@ export default {
 };
 ```
 
-```
+```js
 // rollup.config.mjs
 import { verbaly } from '@verbaly/unplugin';
 export default { plugins: [verbaly.rollup({ locales: ['en', 'es'] })] };
@@ -41,7 +41,7 @@ verbaly.rspack({ locales: ['en', 'es'] });
 
 Extraction runs via the CLI — add it to your dev loop or CI:
 
-```
+```bash
 npx verbaly extract   # scan sources, sync catalogs, write verbaly.d.ts
 ```
 

@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose an addition or change
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: friction
+    attributes:
+      label: What friction does this remove?
+      description: Verbaly adds features that remove friction from the write→ship cycle, not surface for its own sake — real use cases carry a lot of weight here.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API or behavior
+      placeholder: 'What would it look like to use?'
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you've tried

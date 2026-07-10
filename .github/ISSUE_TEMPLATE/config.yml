@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Documentation & playground
+    url: https://verbaly-web.vercel.app
+    about: Guides, API reference and a live playground — your question may already be answered.
+  - name: 🔒 Security report
+    url: https://github.com/AronSoto/verbaly/security/advisories/new
+    about: Please report vulnerabilities privately, never as a public issue.

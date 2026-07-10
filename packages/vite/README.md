@@ -15,11 +15,11 @@ The Vite plugin for [Verbaly](https://github.com/AronSoto/verbaly). Write natura
 
 ## 🚀 Install
 
-```
+```bash
 pnpm add verbaly @verbaly/vite
 ```
 
-```
+```ts
 // vite.config.ts
 import verbaly from '@verbaly/vite';
 
@@ -28,7 +28,7 @@ export default {
 };
 ```
 
-```
+```ts
 // anywhere in your app — extracted + typed on save
 import { t, setLocale } from 'virtual:verbaly';
 ```

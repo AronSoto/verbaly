@@ -15,13 +15,13 @@ Idiomatic Svelte stores (4 and 5) over the [Verbaly](https://github.com/AronSoto
 
 ## 🚀 Install
 
-```
+```bash
 pnpm add @verbaly/svelte
 ```
 
 ## ⚡ Usage
 
-```
+```html
 <!-- +layout.svelte -->
 <script>
   import { provideVerbaly } from '@verbaly/svelte';
@@ -31,7 +31,8 @@ pnpm add @verbaly/svelte
 </script>
 ```
 
-```
+<!-- prettier-ignore -->
+```html
 <!-- Inbox.svelte -->
 <script>
   import { useT, useLocale } from '@verbaly/svelte';
@@ -49,7 +50,7 @@ pnpm add @verbaly/svelte
 
 No component tree? The store factories work with any instance:
 
-```
+```ts
 import { createVerbaly } from 'verbaly';
 import { localeStore, tStore } from '@verbaly/svelte';
 
@@ -62,7 +63,7 @@ export const locale = localeStore(verbaly);
 
 Messages with tags (`'The <em>build</em> gate'`) render as real elements — same phrasing-tag whitelist as `data-verbaly-rich`, unknown tags unwrap to inert text, XSS-safe:
 
-```
+```html
 <script>
   import Trans from '@verbaly/svelte/Trans.svelte';
 </script>

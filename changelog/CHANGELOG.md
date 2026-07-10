@@ -2,9 +2,49 @@
 
 Version history of **Verbaly** — one file, full detail per version, newest first. The seven packages share one version number (aligned releases).
 
-Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against.
+Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section — the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes; the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.15.0] — 2026-07-10
+
+**Your translators can work now.** The write→ship cycle opens up to humans: `verbaly export` writes translator-ready XLIFF 2.0 or CSV files (source text + current translation per entry) and `verbaly import` fills the catalogs back — validating every entry the way `translate` does, so a translator's typo in a `{param}` or an `<em>` tag never reaches your UI. Flat JSON stays the native format (most TMS platforms ingest it directly); export/import is the round-trip for everything else. No breaking changes, no API removals, no new dependencies.
+
+### Highlights
+
+- **`verbaly export`** — one translator-ready file per locale, XLIFF 2.0 (TMS standard) or CSV (spreadsheets), with the source text next to each translation. `--missing` exports only what's untranslated.
+- **`verbaly import`** — reads translated XLIFF 2.0/1.2 or CSV back into your catalogs. Every entry is structure-validated: translations that drop a `{param}`, a plural variant or a tag are rejected and reported instead of breaking your UI.
+- Existing translations are kept unless you pass `--overwrite`; `--dry-run` previews the whole import.
+- No TMS needed for the simple case: catalogs are plain flat JSON — Crowdin, Lokalise, Phrase and friends ingest them natively.
+
+### Added
+
+- **`verbaly export` command** (`@verbaly/compiler`): writes one file per target locale to `verbaly-export/` (`--out` to change) with source + current target per entry. Formats: **XLIFF 2.0** (`<unit id>` per key, `state="translated|initial"`, XML-escaped, default) and **CSV** (RFC 4180, header `key,source,target`, quoted fields). `--missing` exports only untranslated entries; `--locales` filters targets; entries whose source is `''` are skipped (nothing to translate yet). New exports: `exportCatalogs` + types `ExchangeFormat`, `ExportOptions`, `ExportResult`, `ExportedFile`.
+- **`verbaly import <files…>` command** (`@verbaly/compiler`): fills catalogs from translated files. Reads **XLIFF 2.0** (`trgLang`, `<unit>`) **and 1.2** (`target-language`, `<trans-unit>`, CDATA, numeric entities) plus **CSV** (locale from filename, `--locale` override). Per entry: unknown keys are ignored and reported; empty targets skipped; existing translations kept unless `--overwrite`; and **every entry passes the same structural validation as `translate`** (`structureMatches` — params/variants/tags must survive verbatim) or it's rejected and reported. `--dry-run` previews without writing. Guards: refuses the source locale as target, and rejects garbage locales from renamed files (`es (1).csv`) with a `--locale` hint. New exports: `importCatalogs`, `parseExchangeFile` + types `ImportOptions`, `ImportResult`.
+
+### Changed
+
+- **GitHub Release notes are now short** (repo process, not API): the `Release` workflow publishes only the entry's theme + the new **Highlights** section, with an auto-appended link to this changelog — which remains the full record. This is the first entry in the new format.
+- **Community docs pass** (repo): SECURITY.md opens with the one-line security model before the technical detail; CONTRIBUTING.md's PR checklist got scannable bold leads. No policy changes.
+
+### Notes
+
+- 373 tests (core 146 · compiler **158** · svelte 22 · vue 12 · react 11 · unplugin 9 · vite 15) — was 359; +14 compiler (`exchange.test.ts`: XLIFF/CSV round-trip, escaping, 1.2 + CDATA + numeric entities, rejection/skip/overwrite/dry-run semantics, source-locale and garbage-locale guards).
+- Bench re-run (ritual): lookup **29.3×**, interpolation **10.5×**, plural **5.2×**, currency **4.9×** vs i18next 26 — in family with 0.14.5 (31.2×/10.6×/4.3×/4.5×; machine variance). The core runtime is untouched this release.
+- Bundle check: tree-shaken `createVerbaly` **3.32 KB** min+gzip, full core surface **4.63 KB**, `verbaly/devtools` **1.62 KB** — same code as 0.14.5 (deltas are measurement variance, core unchanged).
+- publint **All good** ×7 · arethetypeswrong core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10). Tarballs verified (compiler: `workspace:*` → `0.15.0`; vite peer `verbaly` → `^0.15.0`; only `dist/` + LICENSE + README).
+- New module `packages/compiler/src/exchange.ts` — zero new dependencies (XLIFF written/parsed with no XML lib; CSV parser is ~40 lines of RFC 4180). Import validation reuses `structureMatches` from `translate` — one source of truth for "the structure survived".
+
+### Docs impact (synced)
+
+- **New docs page `docs/translators`** ("Work with translators", Guides group in `docs-nav.ts` → sidebar + dropdown): the three paths — (1) TMS ingests `locales/*.json` natively, (2) `export`/`import` round-trip (XLIFF for TMS, CSV for spreadsheets), (3) `translate` for machine translation. Shows the export → translator → import cycle with the rejection report; covers `--missing`, `--overwrite`, `--dry-run` and the validation guarantee. +14 keys ×3 catalogs (`docs_translators.*`).
+- **`docs/cli`**: two new rows in the Commands table (`verbaly export`, `verbaly import`) + "Translators & TMS" section linking the new page. +4 keys ×3 catalogs.
+- `/changelog` (`releases.ts`): 0.15.0 entry — export/import round-trip, structure-validated imports, shorter release notes.
+- Bumped web to `verbaly@^0.15.0` + `@verbaly/compiler@^0.15.0` — **`pnpm install` only after the npm publish**.
+- **Fix found during sync** (pre-existing, `docs_server.p_html`): a literal `<a href>` inside a catalog rich message renders as escaped text in es/pt — hrefs never come from messages by design. Rewrote it (and the two new link-bearing messages) to the named-link pattern: `<cli>…</cli>` in the message + `data-verbaly-links` on the element — first real dogfood of 0.11's rich links. Verified live (es runtime) and in the pre-rendered `dist/es` mirror (render == runtime holds).
+- No changes to existing examples/presets (runtime API untouched).
 
 ---
 

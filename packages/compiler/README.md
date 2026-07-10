@@ -24,6 +24,8 @@ npx verbaly extract        # sync catalogs + types
 npx verbaly check          # exit 1 if anything is missing (CI)
 npx verbaly extract --prune  # drop orphaned keys
 npx verbaly translate      # fill missing translations via Claude (or your provider)
+npx verbaly export         # write translator-ready XLIFF 2.0 / CSV files per locale
+npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV files
 npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA)
 npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG — kills the FOUC)
 ```
@@ -39,6 +41,18 @@ translate: {
   provider: async ({ sourceLocale, targetLocale, messages }) => ({ ...translated });
 }
 ```
+
+## 🌍 Human translators & TMS
+
+Catalogs are **flat JSON** — most TMS platforms (Crowdin, Lokalise, Phrase, …) ingest them natively; point the platform at `locales/` and you're done. For everything else there's a built-in round-trip:
+
+```bash
+npx verbaly export                    # verbaly-export/<locale>.xlf (XLIFF 2.0, source + target per unit)
+npx verbaly export --format csv       # spreadsheet-friendly: key,source,target
+npx verbaly import verbaly-export/es.xlf   # fill the catalog back
+```
+
+`export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). `import` reads XLIFF 2.0/1.2 or CSV back and **validates every entry like `translate` does** — a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
 
 ## 📄 Static rendering (SSG)
 

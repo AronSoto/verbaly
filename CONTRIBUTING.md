@@ -37,11 +37,11 @@ packages/
 ## Pull requests
 
 - Target the `develop` branch.
-- **Every behavior change needs a test.** Suites are per package (`pnpm --filter verbaly test`).
-- Keep the runtime lean: the core budget is ~3 KB gzip tree-shaken with **zero dependencies** — PRs that add a dependency to `verbaly` core will not be merged.
-- Match the existing code style (Prettier + ESLint run in CI); comments are sparse and short on purpose.
-- Adapters (`react`/`vue`/`svelte`) stay thin: they bridge the core's reactivity, they never reimplement formatting or caching. If an adapter needs logic, it probably belongs in core.
-- The seven packages share one version and release together — don't bump versions in a PR; releases are cut by the maintainer.
+- **Every behavior change needs a test.** Suites run per package: `pnpm --filter verbaly test`.
+- **The core stays dependency-free.** Its budget is ~3 KB gzip tree-shaken — a PR that adds a dependency to `verbaly` core won't be merged.
+- **Adapters stay thin.** `react`/`vue`/`svelte` only bridge the core's reactivity. If an adapter needs real logic, it probably belongs in core.
+- **Don't bump versions.** The seven packages release together; releases are cut by the maintainer.
+- Match the existing style — Prettier and ESLint run in CI, and comments are sparse on purpose.
 
 ## What makes a good first contribution
 

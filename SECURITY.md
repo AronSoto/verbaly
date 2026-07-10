@@ -12,12 +12,14 @@ Use **GitHub private vulnerability reporting**: [Security → Report a vulnerabi
 
 Please include the affected package, a proof-of-concept or reproduction, and the impact as you understand it.
 
-## Scope notes
+## What counts as a vulnerability
 
-Verbaly's runtime is designed to keep translated content inert:
+Verbaly's security model in one line: **translated content (catalogs) must stay inert**. If a translated message can execute script, inject markup outside the whitelist, or control a URL — that's a vulnerability. Report it.
 
-- Rich text (`data-verbaly-rich`, `<Trans>`) builds DOM from a **phrasing-tag whitelist** via a real parser — never `innerHTML`. Unknown tags unwrap to plain text.
-- Attributes are never sourced from messages; attribute translation blocks `on*` handlers.
-- Link hrefs always come from the caller (`richLinks`), never from catalogs, and `javascript:`/`data:`/`vbscript:` URLs are rejected (`safeHref`).
+How the runtime enforces this today:
 
-Anything that lets a **translated message** (catalog content) execute script, inject non-whitelisted markup, or control a URL is a vulnerability — report it. Releases are published from CI with **npm provenance** (OIDC); a package version on npm without a provenance attestation should be treated as suspect and reported too.
+- Rich text builds DOM from a **phrasing-tag whitelist**, never `innerHTML` — unknown tags become plain text.
+- Attributes never come from messages, and `on*` handlers are blocked.
+- Link hrefs come only from your code, never from catalogs; `javascript:`/`data:`/`vbscript:` URLs are rejected.
+
+One more thing worth reporting: releases are published from CI with **npm provenance**, so a Verbaly version on npm *without* a provenance attestation is suspect.

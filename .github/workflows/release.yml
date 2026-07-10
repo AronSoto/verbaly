@@ -1,6 +1,7 @@
 # Automatic release: every push to develop whose packages/core version has no
 # vX.Y.Z tag yet publishes the 7 packages to npm with provenance (OIDC) and
-# creates the GitHub Release with the changelog entry (up to Notes) as body.
+# creates the GitHub Release with a short body: the entry's theme line +
+# Highlights section, plus a link to the full changelog in the repo.
 # No version bump in the push → tag already exists → the run no-ops.
 # workflow_dispatch re-runs the release for the current version (e.g. after a failure).
 # Auth: npm Trusted Publishing (configured per package on npmjs.com); no token needed.
@@ -79,14 +80,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           V="${{ steps.version.outputs.version }}"
+          # Body = theme paragraph + Highlights only (skip the "## [x.y.z]" header;
+          # stop at the first section that isn't Highlights).
           awk -v ver="$V" '
-            index($0, "## [" ver "]") == 1 { on = 1 }
-            on && /^### Docs impact/ { exit }
+            index($0, "## [" ver "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^### / && $0 !~ /^### Highlights/ { exit }
             on { print }
           ' changelog/CHANGELOG.md > /tmp/release-notes.md
-          if ! [ -s /tmp/release-notes.md ]; then
-            echo "No changelog entry found for $V — add it to changelog/CHANGELOG.md" >&2
+          if ! grep -q '[^[:space:]]' /tmp/release-notes.md; then
+            echo "No changelog entry found for $V — add it (with a Highlights section) to changelog/CHANGELOG.md" >&2
             exit 1
           fi
+          {
+            echo ""
+            echo "---"
+            echo "_For the full details of this release, see the [repository changelog](https://github.com/AronSoto/verbaly/blob/develop/changelog/CHANGELOG.md)._"
+          } >> /tmp/release-notes.md
           gh release create "v$V" --title "Release v$V" \
             --notes-file /tmp/release-notes.md --target "$GITHUB_SHA"

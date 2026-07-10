@@ -5,6 +5,7 @@ import { check, formatCheckResult } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { doctor } from './doctor';
+import { exportCatalogs, importCatalogs, type ExchangeFormat } from './exchange';
 import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
@@ -20,6 +21,8 @@ Usage:
   verbaly extract    scan sources, update catalogs and types
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
+  verbaly export     write translator-ready files per locale (XLIFF 2.0 or CSV)
+  verbaly import <files…>  fill catalogs back from translated XLIFF/CSV files
   verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
   verbaly render     pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
 
@@ -30,8 +33,12 @@ Options:
   --locales <csv>    extra locales; for translate: target locales to fill
   --prune            drop keys no longer referenced (extract)
   --model <id>       model override for the claude provider (translate)
-  --dry-run          list what would be translated, write nothing (translate)
-  --locale <id>      pseudo-locale id (pseudo, default: en-XA)
+  --dry-run          list what would happen, write nothing (translate, import)
+  --format <f>       export format: xliff (default) or csv (export)
+  --out <path>       export directory (export, default: verbaly-export)
+  --missing          export only untranslated entries (export)
+  --overwrite        replace existing translations on import (import)
+  --locale <id>      pseudo-locale id (pseudo) / target-locale override (import)
   --site <path>      built site directory (render, default: dist)
   --attribute <name> base data attribute (render, default: data-verbaly)
   --base-url <url>   site origin — enables hreflang alternates (render)
@@ -59,6 +66,10 @@ async function main(): Promise<void> {
       sitemap: { type: 'boolean' },
       clean: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
+      format: { type: 'string' },
+      out: { type: 'string' },
+      missing: { type: 'boolean' },
+      overwrite: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -178,6 +189,63 @@ async function main(): Promise<void> {
     }
     if (Object.keys(result.translated).length === 0 && Object.keys(result.invalid).length === 0) {
       console.log('[verbaly] nothing to translate ✓');
+    }
+    return;
+  }
+
+  if (command === 'export') {
+    const format = (values.format ?? 'xliff') as ExchangeFormat;
+    if (format !== 'xliff' && format !== 'csv') {
+      console.error(`[verbaly] unknown format "${values.format}" — use xliff or csv`);
+      process.exitCode = 1;
+      return;
+    }
+    const result = exportCatalogs(cfg, loadCatalogs(cfg), {
+      locales: values.locales?.split(','),
+      format,
+      out: values.out,
+      missing: values.missing,
+    });
+    if (result.files.length === 0) {
+      console.log('[verbaly] no target locales to export (add locales to your config)');
+      return;
+    }
+    console.log(`[verbaly] exported ${result.files.length} locales (${result.format}) → ${result.dir}`);
+    for (const file of result.files) {
+      console.log(`  ${file.locale}: ${file.total} messages (${file.untranslated} untranslated) → ${file.path}`);
+    }
+    return;
+  }
+
+  if (command === 'import') {
+    const files = positionals.slice(1);
+    if (files.length === 0) {
+      console.error('[verbaly] import needs at least one file: verbaly import verbaly-export/es.xlf');
+      process.exitCode = 1;
+      return;
+    }
+    const catalogs = loadCatalogs(cfg);
+    const result = importCatalogs(cfg, catalogs, files, {
+      locale: values.locale,
+      overwrite: values.overwrite,
+      dryRun: values['dry-run'],
+    });
+    for (const [locale, keys] of Object.entries(result.imported)) {
+      if (!values['dry-run']) writeCatalog(cfg, locale, catalogs[locale] ?? {});
+      const verb = values['dry-run'] ? 'would import' : 'imported';
+      console.log(`  ${locale}: +${keys.length} ${verb}`);
+    }
+    for (const [locale, keys] of Object.entries(result.skipped)) {
+      console.log(`  ${locale}: ${keys.length} already translated, kept (use --overwrite to replace)`);
+    }
+    for (const [locale, keys] of Object.entries(result.rejected)) {
+      console.warn(`  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`);
+    }
+    for (const [locale, keys] of Object.entries(result.unknown)) {
+      console.warn(`  ${locale}: ${keys.length} unknown keys ignored (not in the source catalog): ${keys.join(', ')}`);
+    }
+    if (Object.keys(result.imported).length === 0) {
+      console.log('[verbaly] nothing to import ✓');
     }
     return;
   }

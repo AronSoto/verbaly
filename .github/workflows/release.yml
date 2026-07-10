@@ -1,50 +1,92 @@
-# Publishes the 7 packages to npm with provenance attestations (OIDC).
-# Manual trigger only — Aron runs it from Actions → Release → Run workflow.
+# Automatic release: every push to develop whose packages/core version has no
+# vX.Y.Z tag yet publishes the 7 packages to npm with provenance (OIDC) and
+# creates the GitHub Release with the changelog entry (up to Notes) as body.
+# No version bump in the push → tag already exists → the run no-ops.
+# workflow_dispatch re-runs the release for the current version (e.g. after a failure).
 # Auth: npm Trusted Publishing (configured per package on npmjs.com); no token needed.
 name: Release
 
 on:
+  push:
+    branches: [develop]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish — must match package.json (e.g. 0.13.0)'
-        required: true
 
 permissions:
-  contents: read
+  contents: write # create the vX.Y.Z tag + GitHub Release
   id-token: write # OIDC for npm provenance
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
+      - name: Detect version — skip when v<version> is already tagged
+        id: version
+        run: |
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION already released — nothing to do"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+            echo "releasing v$VERSION"
+          fi
+
       - uses: pnpm/action-setup@v6 # reads packageManager from package.json
+        if: steps.version.outputs.new == 'true'
 
       - uses: actions/setup-node@v6
+        if: steps.version.outputs.new == 'true'
         with:
           node-version: 22
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Verify version matches the input
+      - if: steps.version.outputs.new == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - if: steps.version.outputs.new == 'true'
+        run: pnpm build
+
+      - if: steps.version.outputs.new == 'true'
+        run: pnpm test
+
+      - if: steps.version.outputs.new == 'true'
+        run: pnpm typecheck
+
+      - if: steps.version.outputs.new == 'true'
+        run: pnpm lint
+
+      - name: Publish with provenance (skipped if the version is already on npm)
+        if: steps.version.outputs.new == 'true'
         run: |
-          PKG=$(node -p "require('./packages/core/package.json').version")
-          if [ "$PKG" != "${{ github.event.inputs.version }}" ]; then
-            echo "package.json is at $PKG but the workflow input was ${{ github.event.inputs.version }}"
-            exit 1
+          V="${{ steps.version.outputs.version }}"
+          if npm view "verbaly@$V" version > /dev/null 2>&1; then
+            echo "verbaly@$V already on npm — skipping publish, resuming release"
+          else
+            pnpm -r publish --access public --no-git-checks --provenance
           fi
 
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm build
-
-      - run: pnpm test
-
-      - run: pnpm typecheck
-
-      - run: pnpm lint
-
-      - name: Publish with provenance
-        run: pnpm -r publish --access public --no-git-checks --provenance
+      - name: Create the GitHub Release from the changelog entry
+        if: steps.version.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          awk -v ver="$V" '
+            index($0, "## [" ver "]") == 1 { on = 1 }
+            on && /^### Docs impact/ { exit }
+            on { print }
+          ' changelog/CHANGELOG.md > /tmp/release-notes.md
+          if ! [ -s /tmp/release-notes.md ]; then
+            echo "No changelog entry found for $V — add it to changelog/CHANGELOG.md" >&2
+            exit 1
+          fi
+          gh release create "v$V" --title "Release v$V" \
+            --notes-file /tmp/release-notes.md --target "$GITHUB_SHA"

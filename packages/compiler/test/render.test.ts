@@ -191,6 +191,62 @@ describe('renderHtml', () => {
     expect(twice).toBe(once);
     expect(twice.match(/<!--verbaly:hreflang-->/g)).toHaveLength(1);
   });
+
+  it('falls back to source for empty entries in nested catalogs', () => {
+    // regression: the old '' cleanup only saw top-level entries
+    const catalogs = { en: { home: { end: 'text.' } }, es: { home: { end: '' } } };
+    const { html, missing } = renderHtml('<p data-verbaly="home.end">text.</p>', {
+      locale: 'es',
+      catalogs,
+      sourceLocale: 'en',
+    });
+    expect(html).toContain('>text.<');
+    expect(missing).toEqual([]);
+  });
+
+  const SEO_PAGE =
+    '<html><head>' +
+    '<link rel="canonical" href="https://x.dev/docs/">' +
+    '<meta property="og:url" content="https://x.dev/docs/">' +
+    '<link rel="canonical" href="https://elsewhere.dev/">' +
+    '</head><body></body></html>';
+  const SEO_ALTERNATES = [
+    { hreflang: 'en', href: 'https://x.dev/docs/' },
+    { hreflang: 'es', href: 'https://x.dev/es/docs/' },
+    { hreflang: 'x-default', href: 'https://x.dev/docs/' },
+  ];
+
+  it('rewrites canonical and og:url to the locale URL', () => {
+    const { html } = renderHtml(SEO_PAGE, {
+      locale: 'es',
+      catalogs: CATALOGS,
+      alternates: SEO_ALTERNATES,
+    });
+    expect(html).toContain('<link rel="canonical" href="https://x.dev/es/docs/">');
+    expect(html).toContain('<meta property="og:url" content="https://x.dev/es/docs/">');
+    // a canonical pointing elsewhere is not ours to touch
+    expect(html).toContain('<link rel="canonical" href="https://elsewhere.dev/">');
+  });
+
+  it('leaves canonical alone on the source-locale pass and re-runs', () => {
+    const en = renderHtml(SEO_PAGE, {
+      locale: 'en',
+      catalogs: CATALOGS,
+      alternates: SEO_ALTERNATES,
+    }).html;
+    expect(en).toContain('<link rel="canonical" href="https://x.dev/docs/">');
+    const es = renderHtml(SEO_PAGE, {
+      locale: 'es',
+      catalogs: CATALOGS,
+      alternates: SEO_ALTERNATES,
+    }).html;
+    const again = renderHtml(es, {
+      locale: 'es',
+      catalogs: CATALOGS,
+      alternates: SEO_ALTERNATES,
+    }).html;
+    expect(again).toBe(es);
+  });
 });
 
 describe('renderSite', () => {

@@ -8,6 +8,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.14.5] — 2026-07-10
+
+**Revision of 0.14.0 — the review release.** A hard audit of what 0.14.0 shipped found three real defects, all fixed here: the devtools overlay froze the page (its own MutationObserver re-triggered on its own panel writes — infinite microtask loop), `''` catalog entries were treated inconsistently across the toolchain (the runtime rendered them as blank holes while extract/check/render call them untranslated — and render's `''` handling silently did nothing for nested catalogs), and the new hreflang alternates were being voided by cross-locale canonicals (mirrored pages kept the source page's `<link rel="canonical">`, which search engines prefer over hreflang). Ready to publish. **One behavior change** (`''` now falls back — see Changed), no API removals, no new dependencies.
+
+### Fixed
+
+- **Devtools freeze** (`verbaly/devtools`): `attachDevtools`'s MutationObserver re-fired on its own `panel.innerHTML`/tooltip writes — in a real browser the microtask queue never drained and the tab hung the moment the overlay mounted. The observer now ignores mutations originating inside its own panel/tip. Regression test drains the observer microtasks and asserts the scan count settles (the 0.14.0 tests were synchronous and couldn't see the loop).
+- **`renderHtml` `''` handling with nested catalogs** (`@verbaly/compiler`): the "`''` counts as untranslated → fall back" cleanup iterated only top-level entries, so with nested catalogs (verbaly-web's shape) it silently kept `''` and the static output diverged from the runtime. The cleanup is deleted — the core lookup now implements the semantics (see Changed), nested or flat, and **render output == post-hydration output** is guaranteed again. `RenderHtmlOptions.catalogs` is officially widened to accept nested trees (`Catalogs | Record<string, MessageTree>`).
+- **Cross-locale canonical voided hreflang** (`@verbaly/compiler`): mirrored locale pages carried the source page's `<link rel="canonical">` (and `og:url`) — a canonical pointing at another locale tells search engines to fold the page into it, neutralizing the hreflang set 0.14.0 introduced. `renderHtml` now rewrites `rel="canonical"` hrefs and `og:url` content to the locale's own URL when they match the source URL (alternates present). A canonical deliberately pointing elsewhere is left untouched; source-locale pass and re-runs are no-ops (idempotent).
+
+### Changed
+
+- **`''` = untranslated, now everywhere** (`verbaly` core — behavior change, call it out): the lookup chain skips empty-string entries and keeps falling back (`es: ''` → `en` source text; `''` in every locale of the chain → miss: warn + key). **Why:** `extract` scaffolds new keys as `''` and `check` counts `''` as missing — the runtime was the one place that treated `''` as a valid message and rendered a blank hole in the UI. Standard i18n behavior (source text beats invisible content) and the render/runtime FOUC divergence disappears. **If you relied on `''` to intentionally render nothing**, use a single space `' '` or restructure the key (verbaly-web does exactly this — see Docs impact). `has()`/`inspect()` follow the same rule.
+- **`packages/core/src/types.ts` is a text file again** (internal, no API change): the type-level message parser used two raw NUL bytes as its escape sentinel, which made git treat the file as **binary** since the initial commit (no reviewable diffs — how the audit had to find this the hard way). The raw bytes are now the `\u0000` escape sequence — identical type semantics, verified by typecheck + the full suite.
+
+### Notes
+
+- 359 tests (core **146** · compiler **144** · svelte 22 · vue 12 · react 11 · unplugin 9 · vite 15) — was 353; +3 core (`''` fallback ×2, devtools loop regression), +3 compiler (nested `''`, canonical/og:url rewrite ×2).
+- Bench re-run (ritual): lookup **31.2×**, interpolation **10.6×**, plural **4.3×**, currency **4.5×** vs i18next 26 — in family with 0.14.0 (27.9×/11.0×/5.0×/5.1×; machine variance). The `''` check (`if (msg)` vs `!== undefined`) costs nothing on the hot path.
+- Bundle check: tree-shaken `createVerbaly` runtime **3.28 KB** min+gzip (flat), full core surface **4.61 KB** (was 4.63), `verbaly/devtools` **1.62 KB** (was 1.58 — the observer guard).
+- publint **All good** ×7 + arethetypeswrong core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10 view, predates subpath exports). Tarballs verified (core ships `dist/devtools.*`; `@verbaly/vite` `workspace:*` → `0.14.5`, peer `verbaly` → `^0.14.5`).
+- API surface: no additions, no removals. `RenderHtmlOptions.catalogs` type widened (accepts what already worked at runtime). No new dependencies.
+
+### Docs impact (synced)
+
+- **verbaly-web catalogs**: `hero.claim_line1_end` is `''` in es/pt (intentional empty tail) — under the new `''` semantics it would fall back to the English `"text."`. Use the documented escape hatch: `claim_line1_end` becomes `' '` (single space) in es/pt — pixel-identical (the `.w` spans carry `margin-left`, so moving the period over would add a visible gap). Verify the hero visually in all three locales.
+- **Rebuild the site** (`pnpm build`): the mirrored `dist/es|pt` pages should now carry per-locale `<link rel="canonical">` + `og:url` (was: the en URL — spot-check one page per locale).
+- `docs/api` (createVerbaly options / messages row or the `onMissing` row): one line noting `''` entries count as untranslated and fall back (matches `check`).
+- `docs/cli` (Static rendering): one line — render rewrites `canonical`/`og:url` per locale when `render.baseUrl` is set.
+- `/changelog` (`releases.ts`): 0.14.5 entry — devtools freeze fix, `''` unified, canonical rewrite.
+- No new pages, no nav changes. Bump web to `verbaly@^0.14.5` — **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.14.0] — 2026-07-10
 
 **Ships translated, and now you can see why.** Three fronts, one theme — closing dead points on the road to 1.0: the SSG renderer grows real multi-locale SEO (hreflang alternates + i18n sitemap + stale cleanup) and is **dogfooded into verbaly-web's own build** (the FOUC is dead for real, measured on the live site); the runtime gains **observability** — an `onResolve` hook and an opt-in `verbaly/devtools` inspector that answers "what key is this text?" in the browser; and **server-side use in Node** is hardened and locked with tests. Ready to publish. One behavior change (locale auto-detection now requires a DOM — see Changed), no API removals.
@@ -35,7 +69,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - New public API — core: `VerbalyOptions.onResolve`, `ResolveInfo`, `ResolveStatus`, `Verbaly.inspect`; subpath `verbaly/devtools`: `attachDevtools`, `DevtoolsOptions`. compiler: `RenderConfig.{site,attribute,baseUrl,hreflang,sitemap,clean}`, `RenderSiteOptions.{baseUrl,hreflang,sitemap,clean}`, `Alternate`. All additive. No new dependencies anywhere.
 - **Dogfood (dead point #3, closed):** `verbaly render` run against verbaly-web's real `dist` — 12 pages × 3 locales, **zero missing keys**, `dist/es/…`/`dist/pt/…` ship pre-translated with `<html lang>`, reciprocal hreflang and a 36-URL `sitemap-i18n.xml`; `data-verbaly` attributes remain so client switching still works; re-run idempotent. This is what the web build wires in post-publish (Docs impact).
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **New page `docs/server`** — "Server-side & SSR (Node)": create a request-scoped `createVerbaly({ locale })` (always pass `locale` — auto-detection is browser-only now), `t()`/`renderHtml` without a DOM, what works today vs. what doesn't (SSR **hydration** / meta-framework integrations remain dead point #1 — say so). Add to Guides nav (`docs-nav.ts` → sidebar + dropdown).
 - **New "Observability / Devtools" section** (in `docs/dom` or a new `docs/devtools`): `onResolve` hook (`ResolveInfo`, statuses), `instance.inspect`, and `verbaly/devtools` `attachDevtools` (options, hotkey, missing-panel, import from the subpath). Note it's dev-only and tree-shaken.

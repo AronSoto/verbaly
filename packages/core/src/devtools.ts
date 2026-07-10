@@ -107,7 +107,11 @@ export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {})
   }
 
   const unsub = instance.subscribe(render);
-  const observer = new MutationObserver(render);
+  // own panel/tip writes must not re-trigger render (infinite microtask loop)
+  const observer = new MutationObserver((records) => {
+    if (records.every((r) => panel.contains(r.target) || tip.contains(r.target))) return;
+    render();
+  });
   observer.observe(root instanceof Node ? root : document.body, {
     childList: true,
     subtree: true,

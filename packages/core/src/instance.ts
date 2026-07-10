@@ -53,7 +53,8 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   function lookup(key: string): { msg: string; from: string } | undefined {
     for (const loc of chain()) {
       const msg = dict[loc]?.[key];
-      if (msg !== undefined) return { msg, from: loc };
+      // '' = untranslated (extract scaffolds it) → keep falling back
+      if (msg) return { msg, from: loc };
     }
     return undefined;
   }

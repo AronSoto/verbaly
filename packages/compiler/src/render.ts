@@ -7,6 +7,7 @@ import {
   parseTags,
   RICH_TAGS,
   safeHref,
+  type MessageTree,
   type Params,
   type RichLink,
   type TagNode,
@@ -22,7 +23,8 @@ export interface Alternate {
 
 export interface RenderHtmlOptions {
   locale: string;
-  catalogs: Catalogs;
+  // nested trees welcome — the runtime flattens them (verbaly-web's shape)
+  catalogs: Catalogs | Record<string, MessageTree>;
   sourceLocale?: string;
   attribute?: string;
   richTags?: string[];
@@ -70,20 +72,23 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const globalLinks = options.richLinks;
   const sourceLocale = options.sourceLocale ?? 'en';
 
-  // '' entries count as untranslated → fall back
-  const messages: Record<string, Record<string, string>> = {};
-  for (const [locale, catalog] of Object.entries(options.catalogs)) {
-    const clean: Record<string, string> = {};
-    for (const [key, msg] of Object.entries(catalog)) if (msg) clean[key] = msg;
-    messages[locale] = clean;
-  }
-  const v = createVerbaly({ locale: options.locale, fallback: sourceLocale, messages });
+  // '' = untranslated — the runtime lookup falls back on its own (nested or flat)
+  const v = createVerbaly({
+    locale: options.locale,
+    fallback: sourceLocale,
+    messages: options.catalogs,
+  });
   const t = v.t as unknown as (key: string, params?: Params) => string;
 
   const ms = new MagicString(html);
   const missing = new Set<string>();
   const skip = protectedRanges(html);
   const inSkip = (index: number): boolean => skip.some(([from, to]) => index >= from && index < to);
+
+  // per-locale canonical/og:url — a cross-locale canonical would void the hreflang set
+  const selfUrl = options.alternates?.find((a) => a.hreflang === options.locale)?.href;
+  const sourceUrl = options.alternates?.find((a) => a.hreflang === 'x-default')?.href;
+  const rewriteUrl = selfUrl !== undefined && selfUrl !== sourceUrl;
 
   START_TAG.lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -101,6 +106,24 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     }
 
     const attrs = parseAttrs(attrChunk);
+
+    if (
+      rewriteUrl &&
+      tagName === 'link' &&
+      attrs.get('rel')?.toLowerCase() === 'canonical' &&
+      decodeEntities(attrs.get('href') ?? '') === sourceUrl
+    ) {
+      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'href', selfUrl!);
+    }
+    if (
+      rewriteUrl &&
+      tagName === 'meta' &&
+      attrs.get('property') === 'og:url' &&
+      decodeEntities(attrs.get('content') ?? '') === sourceUrl
+    ) {
+      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'content', selfUrl!);
+    }
+
     const key = attrs.get(attr);
     const attrMapRaw = attrs.get(attrsAttr);
     if (key === undefined && attrMapRaw === undefined) continue;

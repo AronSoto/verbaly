@@ -37,6 +37,25 @@ describe('locale resolution', () => {
     expect(v.has('b')).toBe(false);
   });
 
+  it("treats '' as untranslated — keeps falling back", () => {
+    // extract scaffolds new keys as '' (check counts them as missing)
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'Source' }, es: { a: '' } },
+    });
+    expect(v.t('a')).toBe('Source');
+    expect(v.inspect('a')).toEqual({ locale: 'en', source: 'Source' });
+  });
+
+  it("'' everywhere in the chain is a miss", () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({ locale: 'es', fallback: 'en', messages: { en: { a: '' }, es: {} } });
+    expect(v.has('a')).toBe(false);
+    expect(v.t('a')).toBe('a');
+    warn.mockRestore();
+  });
+
   it('lists loaded locales', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: { a: 'x' }, en: { a: 'y' } } });
     expect(v.locales).toEqual(['es', 'en']);

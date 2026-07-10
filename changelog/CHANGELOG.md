@@ -8,6 +8,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.13.1] — 2026-07-10
+
+**README refresh: readable on npm dark mode.** Docs-only patch — the seven package READMEs get dark-safe code blocks and a friendlier pass; MIT license re-affirmed after evaluating protective options. No code changes (git diff vs 0.13.0: markdown only). First release published through the automatic `Release` workflow (npm provenance).
+
+### Changed
+
+- **Dark-safe code blocks** (all 7 package READMEs): npmjs's dark theme paints syntax-highlight string tokens in light-theme colors — template literals and quoted strings were near-invisible (Aron's report, screenshot-confirmed). Fix: language hints stripped from every code fence in npm-facing READMEs, so npm renders plain readable text in both themes. The repo root README keeps ` ```ts ` fences (GitHub themes tokens correctly).
+- **Friendlier READMEs** (all 7 + root): emoji section headers (🚀 install, ✨ rich text, 🧰 CLI…), core gets a "Try it in 30 seconds" framing, the ecosystem table gains the missing `@verbaly/unplugin` row, and a "Coming from i18next?" link to the new migration guide. Bench range corrected to the 0.13.0 numbers (5–35×).
+- **Static gzip badge** (core + root README): the bundlephobia badge showed "rate limited by upstream service" on npm — replaced with a static shields badge (`gzip ~3KB`, re-verified against the measured 3.26KB each release).
+
+### Notes
+
+- **License decision (Aron, 2026-07-10): MIT re-affirmed.** Protective options evaluated and rejected: copyleft (GPL/AGPL) would contaminate consumers' bundles and kill adoption (the product route); source-available (BUSL/FSL) breaks the OSS trust the comparison table sells. MIT's attribution requirement, npm name ownership, provenance and iteration speed are the real protection. Already-published MIT versions are irrevocable either way. Recorded in PLAN → Decisiones.
+- No `packages/*/src` changes — 0.13.0 test counts (335), bench (34.7×/16.5×/5.2×/5.5×) and sizes (3.26KB/4.63KB) stand. Suite re-run green on the bump; publint All good (core); core tarball inspected (new README ships).
+
+### Docs impact (none)
+
+- Web docs unaffected — READMEs live in the npm tarballs. Optional: none.
+- Bump web to `verbaly@^0.13.1` + `pnpm install` post-publish (lockfile alignment only).
+
+---
+
 ## [0.13.0] — 2026-07-09
 
 **`verbaly doctor` + adoption & trust.** Setup diagnostics with the exact fix per finding, the i18next migration guide on the docs site, a coverage push (274→335 tests), and releases now publish from GitHub Actions with **npm provenance** (OIDC). Ready to publish. No breaking changes; runtime packages untouched in behavior.

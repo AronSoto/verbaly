@@ -13,13 +13,13 @@
 
 Vue 3 composables for [Verbaly](https://github.com/AronSoto/verbaly) — a thin layer over the reactive core with per-component cleanup (`onScopeDispose`).
 
-## Install
+## 🚀 Install
 
-```bash
+```
 pnpm add verbaly @verbaly/vue
 ```
 
-```ts
+```
 // main.ts
 import { verbalyPlugin } from '@verbaly/vue';
 import { verbaly } from 'virtual:verbaly';
@@ -27,7 +27,7 @@ import { verbaly } from 'virtual:verbaly';
 app.use(verbalyPlugin(verbaly));
 ```
 
-```vue
+```
 <script setup>
 import { useT, useLocale } from '@verbaly/vue';
 const t = useT();
@@ -39,9 +39,9 @@ const locale = useLocale(); // writable: locale.value = 'en'
 </template>
 ```
 
-### Rich text — `<Trans>`
+### ✨ Rich text — `<Trans>`
 
-```vue
+```
 <script setup>
 import { Trans } from '@verbaly/vue';
 import { h } from 'vue';
@@ -55,7 +55,7 @@ const components = { terms: (c) => h('a', { href: '/terms' }, c) };
 
 Named links without render functions — hrefs come from your code, never from messages (`javascript:` blocked):
 
-```vue
+```
 <!-- message: 'Read the <docs>guide</docs>' -->
 <Trans id="cta" :links="{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }" />
 ```

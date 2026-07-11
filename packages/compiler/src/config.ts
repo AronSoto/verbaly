@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { RichLink } from 'verbaly';
+import { PSEUDO_LOCALE } from './pseudo';
 import type { TranslateProvider } from './translate';
 
 export interface TranslateConfig {
@@ -50,7 +51,9 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
   const locales = new Set<string>([sourceLocale, ...(config.locales ?? [])]);
   if (existsSync(dir)) {
     for (const file of readdirSync(dir)) {
-      if (file.endsWith('.json')) locales.add(file.slice(0, -5));
+      if (file.endsWith('.json') && file !== `${PSEUDO_LOCALE}.json`) {
+        locales.add(file.slice(0, -5));
+      }
     }
   }
 
@@ -112,11 +115,18 @@ async function loadTsConfig(path: string): Promise<VerbalyConfig> {
   }
 }
 
-function isModuleNotFound(error: unknown, name: string): boolean {
+export function isModuleNotFound(error: unknown, name: string): boolean {
   return (
     error instanceof Error &&
     (error as { code?: string }).code === 'ERR_MODULE_NOT_FOUND' &&
     error.message.includes(name)
+  );
+}
+
+// non-source locales a command may write to (optional CLI override, always config-bounded)
+export function targetLocales(cfg: ResolvedConfig, override?: string[]): string[] {
+  return (override ?? cfg.locales).filter(
+    (locale) => locale !== cfg.sourceLocale && cfg.locales.includes(locale),
   );
 }
 

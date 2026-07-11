@@ -1,8 +1,8 @@
-import { negotiateLocale } from 'verbaly';
+import { LOCALE_STORAGE_KEY, resolveRequestLocale } from 'verbaly';
 import type { Verbaly } from 'verbaly';
 
-// same name as core's localStorage key — one identity per user across channels
-export const LOCALE_COOKIE = 'verbaly-locale';
+// derived from core's localStorage key — one identity per user across channels
+export const LOCALE_COOKIE: string = LOCALE_STORAGE_KEY;
 const LANG_PLACEHOLDER = '%verbaly.lang%';
 const YEAR = 31536000;
 
@@ -42,14 +42,12 @@ export function verbalyHandle(options: VerbalyHandleOptions) {
   const fallback = options.fallback ?? locales[0]!;
 
   return ({ event, resolve }: HandleInput): Response | Promise<Response> => {
-    let locale: string | undefined;
-    if (cookie) {
-      const stored = event.cookies.get(cookie);
-      // '' sentinel = no match → fall through to the header
-      if (stored) locale = negotiateLocale(stored, locales, '') || undefined;
-    }
-    const resolved =
-      locale ?? negotiateLocale(event.request.headers.get('accept-language'), locales, fallback);
+    const resolved = resolveRequestLocale({
+      supported: locales,
+      cookie: cookie ? event.cookies.get(cookie) : undefined,
+      header: event.request.headers.get('accept-language'),
+      fallback,
+    });
 
     event.locals.verbalyLocale = resolved;
     return resolve(event, {

@@ -31,6 +31,21 @@ describe('transformCode', () => {
     expect(transformCode('const x = 1;', 'app.ts')).toBeNull();
   });
 
+  it('bails the outer message on nested t`…` — never overlapping rewrites', () => {
+    const inner = stableKey('inner');
+    const code = 'const a = t`hola ${cond ? t`inner` : x}`;';
+    const result = transformCode(code, 'app.ts');
+    // the inner message still extracts and rewrites; the outer stays a runtime template
+    expect(result?.code).toBe(`const a = t\`hola \${cond ? t(${JSON.stringify(inner)}) : x}\`;`);
+  });
+
+  it('bails a <Trans> whose expression hides a nested t`…`', () => {
+    const code = '<Trans>hola {cond ? t`inner` : x}</Trans>;';
+    expect(() => transformCode(code, 'app.tsx')).not.toThrow();
+    // only the inner tagged template rewrites — the Trans is left alone
+    expect(transformCode(code, 'app.tsx')?.code).toContain('<Trans>');
+  });
+
   it('produces a sourcemap', () => {
     const result = transformCode('t`Hola ${name}`;', 'app.ts');
     expect(result?.map.mappings.length).toBeGreaterThan(0);

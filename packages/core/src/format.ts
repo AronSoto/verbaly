@@ -69,16 +69,31 @@ function applyFormat(
       return numberFormat(locale, { style: 'percent' }).format(Number(value));
     case 'currency':
       if (!arg) return String(value);
-      return numberFormat(locale, { style: 'currency', currency: arg }).format(Number(value));
+      try {
+        return numberFormat(locale, { style: 'currency', currency: arg }).format(Number(value));
+      } catch {
+        warnOnce(`invalid currency "${arg}"`);
+        return String(value);
+      }
     case 'date':
-      return dateTimeFormat(
-        locale,
-        arg ? { dateStyle: arg as Intl.DateTimeFormatOptions['dateStyle'] } : undefined,
-      ).format(toDate(value));
+      try {
+        return dateTimeFormat(
+          locale,
+          arg ? { dateStyle: arg as Intl.DateTimeFormatOptions['dateStyle'] } : undefined,
+        ).format(toDate(value));
+      } catch {
+        warnOnce(`invalid date "${arg ?? value}"`);
+        return String(value);
+      }
     case 'time':
-      return dateTimeFormat(locale, {
-        timeStyle: (arg ?? 'short') as Intl.DateTimeFormatOptions['timeStyle'],
-      }).format(toDate(value));
+      try {
+        return dateTimeFormat(locale, {
+          timeStyle: (arg ?? 'short') as Intl.DateTimeFormatOptions['timeStyle'],
+        }).format(toDate(value));
+      } catch {
+        warnOnce(`invalid time "${arg ?? value}"`);
+        return String(value);
+      }
     case 'relative':
       return formatRelative(value, arg, locale);
     case 'list': {

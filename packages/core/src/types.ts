@@ -117,6 +117,5 @@ export interface Verbaly<D extends DictionaryInput = DictionaryInput> {
   addMessages(locale: string, messages: MessageTree): void;
   subscribe(listener: () => void): () => void;
   has(key: string): boolean;
-  // resolved locale + source text for a key (devtools/observability); undefined if missing
-  inspect(key: string): { locale: string; source: string } | undefined;
+  inspect(key: string): { from: string; source: string } | undefined;
 }

@@ -65,6 +65,21 @@ describe('@verbaly/react', () => {
     expect(container.textContent).toBe('Hola Aron');
   });
 
+  it('useT keeps the full t surface — t.id works', () => {
+    function IdUser() {
+      const t = useT();
+      return <p>{t.id('hello')`Hello ${'Aron'}`}</p>;
+    }
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={makeInstance()}>
+          <IdUser />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Hello Aron');
+  });
+
   it('re-renders on locale change', () => {
     const v = makeInstance();
     act(() => {

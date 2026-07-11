@@ -1,3 +1,4 @@
+import { isModuleNotFound } from '../config';
 import type { TranslateProvider, TranslateRequest } from '../translate';
 
 export interface ClaudeProviderOptions {
@@ -73,10 +74,3 @@ export async function loadSdk(
   }
 }
 
-function isModuleNotFound(error: unknown, name: string): boolean {
-  return (
-    error instanceof Error &&
-    (error as { code?: string }).code === 'ERR_MODULE_NOT_FOUND' &&
-    error.message.includes(name)
-  );
-}

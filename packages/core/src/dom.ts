@@ -12,6 +12,8 @@ export interface BindDomOptions {
 }
 
 const UNSAFE_HREF = /^\s*(javascript|data|vbscript):/i;
+const URL_ATTR = /^(href|src|xlink:href|action|formaction)$/;
+const BLOCKED_ATTR = /^(style|srcdoc)$/;
 
 export function safeHref(href: string): string | undefined {
   if (UNSAFE_HREF.test(href)) {
@@ -19,6 +21,12 @@ export function safeHref(href: string): string | undefined {
     return undefined;
   }
   return href;
+}
+
+// one link normalization for core + every adapter (applies safeHref)
+export function normalizeLink(link: RichLink): { href?: string; target?: string; rel?: string } {
+  const { href, target, rel } = typeof link === 'string' ? { href: link } : link;
+  return { href: safeHref(href), target, rel };
 }
 
 // phrasing-only, attribute-less → XSS-safe
@@ -62,6 +70,7 @@ export function bindDom<D extends DictionaryInput>(
     Element,
     { raw: string | null; links: Record<string, RichLink> | undefined }
   >();
+  const attrsCache = new WeakMap<Element, { raw: string | null; map: Params | undefined }>();
 
   function cachedArgs(el: Element): Params | undefined {
     const raw = el.getAttribute(argsAttr);
@@ -92,12 +101,9 @@ export function bindDom<D extends DictionaryInput>(
       if (typeof node === 'string') {
         el.append(node);
       } else if (links?.[node.name] !== undefined) {
-        const link = links[node.name]!;
-        const { href, target, rel }: Exclude<RichLink, string> =
-          typeof link === 'string' ? { href: link } : link;
+        const { href, target, rel } = normalizeLink(links[node.name]!);
         const a = el.ownerDocument.createElement('a');
-        const safe = safeHref(href);
-        if (safe !== undefined) a.setAttribute('href', safe);
+        if (href !== undefined) a.setAttribute('href', href);
         if (target) a.setAttribute('target', target);
         if (rel) a.setAttribute('rel', rel);
         renderRich(a, node.children, links);
@@ -125,11 +131,22 @@ export function bindDom<D extends DictionaryInput>(
       }
     }
 
-    const attrMap = parseArgs(el.getAttribute(attrsAttr));
+    const rawAttrs = el.getAttribute(attrsAttr);
+    const attrsHit = attrsCache.get(el);
+    const attrMap = attrsHit && attrsHit.raw === rawAttrs ? attrsHit.map : parseArgs(rawAttrs);
+    if (!attrsHit || attrsHit.raw !== rawAttrs) attrsCache.set(el, { raw: rawAttrs, map: attrMap });
     if (attrMap) {
       for (const [name, attrKey] of Object.entries(attrMap)) {
-        if (typeof attrKey !== 'string' || name.toLowerCase().startsWith('on')) continue;
-        el.setAttribute(name, t(attrKey, args));
+        const lower = name.toLowerCase();
+        if (typeof attrKey !== 'string' || lower.startsWith('on') || BLOCKED_ATTR.test(lower))
+          continue;
+        let value = t(attrKey, args);
+        if (URL_ATTR.test(lower)) {
+          const safe = safeHref(value);
+          if (safe === undefined) continue;
+          value = safe;
+        }
+        el.setAttribute(name, value);
       }
     }
   }

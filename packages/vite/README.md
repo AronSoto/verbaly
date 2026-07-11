@@ -35,7 +35,7 @@ import { t, setLocale } from 'virtual:verbaly';
 
 - **Live extraction** with debounced catalog writes + HMR.
 - **Per-locale code-splitting** — `setLocale` lazy-loads only what's used.
-- **Build gate** — missing translations stop the build (same as `verbaly check`).
+- **Build gate** — missing translations stop the build (same as `verbaly check`); `failOnMissing: false` opts out.
 
 📖 Docs & live playground: **https://verbaly-web.vercel.app**
 

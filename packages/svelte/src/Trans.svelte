@@ -1,6 +1,6 @@
 <script>
   import { onDestroy } from 'svelte';
-  import { parseTags, RICH_TAGS, safeHref } from 'verbaly';
+  import { normalizeLink, parseTags, RICH_TAGS } from 'verbaly';
   import { useVerbaly } from '@verbaly/svelte';
   import TransNodes from './TransNodes.svelte';
 
@@ -19,10 +19,7 @@
   // normalize + sanitize hrefs once (never from messages)
   $: linkDefs = links
     ? Object.fromEntries(
-        Object.entries(links).map(([name, link]) => {
-          const def = typeof link === 'string' ? { href: link } : link;
-          return [name, { ...def, href: safeHref(def.href) }];
-        }),
+        Object.entries(links).map(([name, link]) => [name, normalizeLink(link)]),
       )
     : undefined;
   // version keeps this reactive to locale/catalog changes

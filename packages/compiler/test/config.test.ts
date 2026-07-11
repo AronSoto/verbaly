@@ -62,6 +62,30 @@ describe('loadConfig', () => {
   });
 });
 
+describe('locale discovery', () => {
+  it('discovers catalogs from the locales dir', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{}');
+    const cfg = resolveConfig({ root });
+    expect(cfg.locales).toEqual(['en', 'es']);
+  });
+
+  it('never auto-adopts the pseudo QA catalog as a target', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{}');
+    writeFileSync(join(dir, 'en-XA.json'), '{}');
+    const cfg = resolveConfig({ root });
+    expect(cfg.locales).not.toContain('en-XA');
+    // explicit config still wins
+    const explicit = resolveConfig({ root, locales: ['en-XA'] });
+    expect(explicit.locales).toContain('en-XA');
+  });
+});
+
 describe('pruneCatalogs', () => {
   it('drops unreferenced keys everywhere', () => {
     const root = makeRoot();

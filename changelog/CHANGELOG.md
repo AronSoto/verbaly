@@ -8,6 +8,69 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.17.0] — 2026-07-11
+
+**Robust inside, for real.** The hardening release: a full-code audit of all eight packages fixed every sharp edge it found — a catalog string can no longer inject a `javascript:` URL through attribute translation, a bad currency code or date style degrades with a warning instead of crashing `t()`, the CLI rejects flags that belong to another command instead of silently ignoring them, and the SSR story gets its missing piece: `createRequestInstance()` in `virtual:verbaly` gives you a per-request instance with the catalog already loaded, in one call. **One breaking change**: `inspect()` renames its `locale` field to `from` (see Changed).
+
+### Highlights
+
+- **Attribute translation is now XSS-safe end to end** — `data-verbaly-attr` runs URL attributes (`href`, `src`, `action`…) through the same `safeHref` guard as rich links and blocks `style`/`srcdoc` entirely. A malicious or compromised catalog can't inject scripts.
+- **`t()` never crashes on bad format arguments** — an invalid currency code (`{v:currency/US}`), date or time style now warns once and renders the plain value, matching how `unit` and `relative` already behaved.
+- **`createRequestInstance(locale)` in `virtual:verbaly`** — the SSR per-request pattern in one call: fresh instance, catalog awaited, no flash. SvelteKit today, Nuxt next.
+- **The CLI fails loudly on misplaced flags** — `verbaly translate --locale es` used to silently translate *all* locales; now it errors with "did you mean `--locales`?". Plus `--dry-run` for `extract --prune`.
+- **`normalizeLink()` and `resolveRequestLocale()` in core** — the link sanitizer and the cookie→`Accept-Language` negotiation now live once in core; every adapter and SSR integration shares them.
+- **Breaking:** `instance.inspect(key)` now returns `{ from, source }` instead of `{ locale, source }` — one name for one concept across the observability API (`ResolveInfo.from`).
+
+### Added
+
+- **`normalizeLink(link)`** (`verbaly`): normalizes `RichLink` (string or `{ href, target, rel }`) and applies `safeHref` — exported so react/vue/svelte `<Trans>` and `bindDom` share one sanitizer (was five copies).
+- **`resolveRequestLocale({ supported, cookie, header, fallback })`** (`verbaly`): the per-request negotiation (cookie value → `Accept-Language` → fallback) extracted from `@verbaly/sveltekit` so Nuxt/hand-rolled servers reuse it. Tree-shaken out of browser bundles.
+- **`LOCALE_STORAGE_KEY`** (`verbaly`): the `'verbaly-locale'` identity is a public export; `@verbaly/sveltekit`'s `LOCALE_COOKIE` now derives from it instead of duplicating the string.
+- **`createRequestInstance(locale)`** (`@verbaly/compiler` codegen → `virtual:verbaly`): async factory that creates a request-scoped instance and awaits its catalog before returning — the no-FOUC contract codified. Declared in `verbaly.d.ts`.
+- **`failOnMissing` option** (`@verbaly/vite`): the build gate can now be opted out (`ViteVerbalyOptions`), matching `@verbaly/unplugin`.
+- **`--dry-run` on `verbaly extract`** (`@verbaly/compiler`): previews prune removals and additions without writing catalogs or types — prune was the only destructive command without a preview.
+- **Shared plugin primitives** (`@verbaly/compiler`): `resolveVirtualId`, `loadVirtualModule`, `isTransformTarget`, `runBuildGate`, `RESOLVED_VIRTUAL_ID`, `LOCALE_MODULE_PREFIX`, `SOURCE_FILE_RE`, plus `targetLocales(cfg, override?)` — the code `@verbaly/vite` and `@verbaly/unplugin` used to copy now lives once.
+
+### Changed
+
+- **Breaking — `inspect()` returns `{ from, source }`** (`verbaly`): the origin-locale field is named `from`, matching `ResolveInfo.from`. Renaming after 1.0 would be worse; devtools already reads the new shape. Migration: `info.locale` → `info.from`.
+- **BCP-47 narrowing is progressive everywhere** (`verbaly`): `resolveLocale`/`negotiateLocale` now narrow `zh-Hant-TW` → `zh-Hant` → `zh` like the runtime fallback chain always did (they used to jump straight to the base subtag). One shared helper; bootstrap and runtime can no longer disagree.
+- **`data-verbaly-attr` hardening** (`verbaly`): URL attributes sanitized via `safeHref`, `style`/`srcdoc` blocked (on top of the existing `on*` block). Attribute maps are also now cached per element like args/links.
+- **The pseudo QA catalog never auto-becomes a target** (`@verbaly/compiler`): `en-XA.json` in the locales dir no longer joins `cfg.locales` by discovery — running `verbaly pseudo` used to permanently turn the pseudo locale into a translate/render/check target. Explicit `locales: ['en-XA']` still wins.
+- **Nested `` t`…` `` templates bail safely** (`@verbaly/compiler`): a tagged template inside another extracted message (`` t`hola ${cond ? t`x` : y}` `` or inside `<Trans>`) used to crash the transform with overlapping rewrites; now the outer bails (runtime template) and the inner extracts normally.
+- **`useT()` keeps `t.id`** (`@verbaly/vue`): the reactive wrapper now preserves the tagged-template surface — `useT().id(...)` worked in react/svelte but was `undefined` in vue.
+- **CLI flags are validated per command** (`@verbaly/compiler`): a flag owned by another command exits 1 with an actionable message instead of being ignored (`--locale` on `translate` hints `--locales`).
+
+### Fixed
+
+- **`{v:currency/BAD}`, `{v:date/bogus}`, `{v:time/bogus}` no longer throw** (`verbaly`): they warn once and fall back to the plain value — a single bad catalog entry used to crash the whole render with an uncaught `RangeError`.
+- **Flaky sveltekit cookie test** (repo): value-specific assertion; an expired leftover cookie in happy-dom occasionally tripped it.
+
+### Notes
+
+- 443 tests (core **175** · compiler **176** · sveltekit 17 · svelte **23** · vue **13** · react **12** · unplugin **10** · vite **17**) — was 404; +16 core (attr XSS, formatter guards, narrowing, `normalizeLink`, `resolveRequestLocale`, AST-cache cap), +17 compiler (**`cli.test.ts` is new — the command layer had zero tests**: dispatch, exit codes, stray flags, extract/prune/dry-run, check; plus nested-template and pseudo-locale discovery), +2 vite (unknown-keys gate, `failOnMissing`), +1 unplugin (unknown-keys gate), +1 vue/react/svelte each (`useT().id`).
+- New module `packages/compiler/src/plugin.ts` (shared plugin primitives) and `src/run.ts` (`runCli(args)` — the CLI body, now testable; `cli.ts` is a thin bin wrapper). Zero new dependencies.
+- Bench re-run (ritual): lookup **34.9×**, interpolation **11.2×**, plural **5.3×**, currency **4.5×** vs i18next 26 — in family with 0.16.0 (35.6×/11.9×/7.3×/5.5×; hot path untouched).
+- Bundle check: tree-shaken `createVerbaly` **3.40 KB** min+gzip (was 3.27 — +0.13 KB is the never-crash formatter guards; pillar 3 buys it), full core surface **5.08 KB** (was 4.81 — +0.27 KB = `normalizeLink` + `resolveRequestLocale` + attr hardening), `verbaly/devtools` **1.63 KB** (unchanged).
+- publint **All good** ×8 · arethetypeswrong core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10). Tarballs verified (core 0.17.0, only `dist/` + LICENSE + README; sveltekit peer `verbaly` → `^0.17.0`).
+- **Deliberate pre-1.0 decisions recorded this release**: (a) `stableKey` stays sha256/base64url/8 chars (48 bits) — fine at catalog scale; the registry's same-key-different-message warning is the collision tripwire; widening later is breaking, decided consciously. (b) ICU `offset:` remains parsed-but-ignored (documented limitation). (c) Svelte `<Trans>` keeps no `components` prop by design (fragile across Svelte 4/5 — re-evaluate when the Svelte 4 peer drops).
+- Competitive seal 0.17.0 (2026-07-11): same-day as the 0.16.0 seal — i18next 26.3.6 · react-i18next 17.0.9 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.21.0 · next-intl 4.13.2. No changes; the comparison table stands.
+
+### Docs impact (pending)
+
+- **`docs/reference/api`**: `inspect()` row — return shape is now `{ from, source }` (**breaking**, flag it); new rows for `normalizeLink(link)`, `resolveRequestLocale(options)` and `LOCALE_STORAGE_KEY` next to `negotiateLocale`.
+- **`docs/frameworks/vite`** (where `virtual:verbaly` is documented): add `createRequestInstance(locale)` — the recommended SSR path (one call replaces createInstance + await loadLocale); mention `failOnMissing` in the plugin options.
+- **`docs/frameworks/svelte#sveltekit`**: simplify the `+layout.ts` snippet to use `createRequestInstance` from `virtual:verbaly`.
+- **`docs/guide/server`**: mention `resolveRequestLocale` as the cookie+header negotiation helper for hand-rolled servers (it's what `verbalyHandle` uses).
+- **`docs/guide/cli`**: `--dry-run` now also applies to `extract` (prune preview); note that misplaced flags now error instead of being ignored.
+- **`docs/frameworks/dom`** (attribute translation section): note that URL attributes are sanitized and `style`/`srcdoc` are blocked — worth a security callout.
+- **`/changelog`** (`releases.ts`): 0.17.0 entry — theme + Highlights above.
+- Landing compare table: no cell changes (same-day seal).
+- Playground: no preset changes (message format untouched).
+- Bump web to `verbaly@^0.17.0` + `@verbaly/compiler@^0.17.0` — **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.16.0] — 2026-07-11
 
 **Server-side rendering, for real.** The first meta-framework integration: **`@verbaly/sveltekit`** renders every page in the visitor's language on the server — negotiated per request from their cookie or `Accept-Language` header — and the client hydrates with the same locale and the same catalog, so there's no flash of untranslated text and no hydration mismatch. Built on two framework-agnostic pieces (core's `negotiateLocale` and the new `createInstance` factory in `virtual:verbaly`) that Nuxt/Next integrations will reuse. No breaking changes, no API removals, no new dependencies.

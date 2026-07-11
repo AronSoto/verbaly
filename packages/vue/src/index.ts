@@ -14,8 +14,8 @@ import {
   type WritableComputedRef,
 } from 'vue';
 import {
+  normalizeLink,
   parseTags,
-  safeHref,
   type DictionaryInput,
   type Params,
   type RichLink,
@@ -53,6 +53,8 @@ export function useT<D extends DictionaryInput = DictionaryInput>(): TFunction<D
     void version.value;
     return (instance.t as unknown as (...args: unknown[]) => string)(first, ...rest);
   };
+  // the reactive wrapper must keep t's full surface (react/svelte hand out instance.t directly)
+  (t as TFunction<D>).id = instance.t.id;
   return t as TFunction<D>;
 }
 
@@ -115,8 +117,7 @@ function toNodes(
     if (fn) return fn(children);
     const link = links[node.name];
     if (link !== undefined) {
-      const def: Exclude<RichLink, string> = typeof link === 'string' ? { href: link } : link;
-      return h('a', { href: safeHref(def.href), target: def.target, rel: def.rel }, children);
+      return h('a', normalizeLink(link), children);
     }
     return children;
   });

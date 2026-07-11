@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import type { Catalogs } from './catalog';
-import type { ResolvedConfig } from './config';
+import { targetLocales, type ResolvedConfig } from './config';
 import { structureMatches } from './translate';
 
 export type ExchangeFormat = 'xliff' | 'csv';
@@ -48,9 +48,7 @@ export function exportCatalogs(
   const format = options.format ?? 'xliff';
   const dir = resolve(cfg.root, options.out ?? 'verbaly-export');
   const source = catalogs[cfg.sourceLocale] ?? {};
-  const targets = (options.locales ?? cfg.locales).filter(
-    (locale) => locale !== cfg.sourceLocale && cfg.locales.includes(locale),
-  );
+  const targets = targetLocales(cfg, options.locales);
 
   const files: ExportedFile[] = [];
   mkdirSync(dir, { recursive: true });

@@ -1,23 +1,19 @@
 import {
   MessageRegistry,
-  VIRTUAL_ID,
+  RESOLVED_VIRTUAL_ID,
   analyze,
-  check,
-  formatCheckResult,
-  generateLocaleModule,
-  generateRuntimeModule,
+  isTransformTarget,
   loadCatalogs,
   loadConfig,
+  loadVirtualModule,
+  resolveVirtualId,
+  runBuildGate,
   transformCode,
   type Catalogs,
   type ResolvedConfig,
   type VerbalyConfig,
 } from '@verbaly/compiler';
 import { createUnplugin, type UnpluginFactory, type UnpluginInstance } from 'unplugin';
-
-const RESOLVED = '\0' + VIRTUAL_ID;
-const LOCALE_PREFIX = `${RESOLVED}/locale/`;
-const SOURCE_RE = /\.[cm]?[jt]sx?$/;
 
 export interface UnpluginVerbalyOptions extends VerbalyConfig {
   failOnMissing?: boolean;
@@ -42,24 +38,19 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
     },
 
     resolveId(id) {
-      if (id === VIRTUAL_ID || id.startsWith(`${VIRTUAL_ID}/`)) return '\0' + id;
-      return null;
+      return resolveVirtualId(id) ?? null;
     },
 
     loadInclude(id) {
-      return id.startsWith(RESOLVED);
+      return id.startsWith(RESOLVED_VIRTUAL_ID);
     },
 
     load(id) {
-      if (id === RESOLVED) return generateRuntimeModule(cfg);
-      if (id.startsWith(LOCALE_PREFIX)) {
-        return generateLocaleModule(catalogs[id.slice(LOCALE_PREFIX.length)] ?? {});
-      }
-      return null;
+      return loadVirtualModule(id, cfg, catalogs) ?? null;
     },
 
     transformInclude(id) {
-      return SOURCE_RE.test(id) && !id.includes('node_modules') && !id.startsWith('\0');
+      return isTransformTarget(id);
     },
 
     transform(code, id) {
@@ -70,13 +61,7 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
 
     buildEnd() {
       if (options.failOnMissing === false) return;
-      const result = check(cfg, loadCatalogs(cfg), registry);
-      if (!result.ok) {
-        throw new Error(
-          `[verbaly] build blocked\n${formatCheckResult(result)}\n` +
-            `Run \`npx verbaly extract\` and fill the missing translations.`,
-        );
-      }
+      runBuildGate(cfg, registry);
     },
   };
 };

@@ -42,7 +42,8 @@ describe('switchLocale (browser)', () => {
 
   it('skips the cookie when cookie is false but still syncs <html lang>', async () => {
     await switchLocale(makeInstance(), 'es', { cookie: false });
-    expect(document.cookie).not.toContain('verbaly-locale');
+    // value-specific: an expired leftover ('verbaly-locale=') from another test may linger
+    expect(document.cookie).not.toContain('verbaly-locale=es');
     expect(document.documentElement.lang).toBe('es');
   });
 

@@ -35,6 +35,13 @@ ${loaders}
   });
 }
 
+// the no-FOUC contract in one call: fresh instance + catalog awaited before render
+export async function createRequestInstance(locale) {
+  const instance = createInstance({ locale });
+  await instance.loadLocale(locale);
+  return instance;
+}
+
 const v = createInstance();
 
 export const verbaly = v;
@@ -87,6 +94,9 @@ ${lines.join('\n')}
   export function createInstance(
     options?: import('verbaly').VerbalyOptions<VerbalyKey>,
   ): import('verbaly').Verbaly<VerbalyKey>;
+  export function createRequestInstance(
+    locale: string,
+  ): Promise<import('verbaly').Verbaly<VerbalyKey>>;
 
   export function t<K extends VerbalyKey>(
     key: K,

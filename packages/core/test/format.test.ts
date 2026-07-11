@@ -193,6 +193,33 @@ describe('units', () => {
     v.setLocale('es');
     spy.mockRestore();
   });
+
+  it('invalid currency code warns and falls back — never throws', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({ locale: 'en', messages: { en: { p: '{amount:currency/US}' } } });
+    expect(bad.t('p', { amount: 5 })).toBe('5');
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('invalid date/time style warns and falls back — never throws', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({
+      locale: 'en',
+      messages: { en: { d: '{d:date/bogus}', t: '{d:time/bogus}' } },
+    });
+    const date = new Date('2026-01-01T00:00:00Z');
+    expect(bad.t('d', { d: date })).toBe(String(date));
+    expect(bad.t('t', { d: date })).toBe(String(date));
+    spy.mockRestore();
+  });
+
+  it('invalid date value degrades instead of crashing', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({ locale: 'en', messages: { en: { d: '{d:date/short}' } } });
+    expect(() => bad.t('d', { d: 'garbage' })).not.toThrow();
+    spy.mockRestore();
+  });
 });
 
 describe('unknown format', () => {

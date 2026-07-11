@@ -27,8 +27,12 @@ function makeProject(locales: Record<string, Record<string, string>>) {
   return root;
 }
 
-async function setup(root: string, command: 'serve' | 'build') {
-  const plugin = verbalyPlugin({ sourceLocale: 'es' });
+async function setup(
+  root: string,
+  command: 'serve' | 'build',
+  options: Parameters<typeof verbalyPlugin>[0] = {},
+) {
+  const plugin = verbalyPlugin({ sourceLocale: 'es', ...options });
   await hook<(c: unknown) => Promise<void>>(plugin.configResolved)({ root, command });
   return {
     plugin,
@@ -242,6 +246,20 @@ describe('build check', () => {
       en: { [KEY]: 'Hello {name}' },
     });
     const { transform, buildEnd } = await setup(root, 'build');
+    transform(CODE, join(root, 'src', 'app.ts'));
+    expect(() => buildEnd()).not.toThrow();
+  });
+
+  it('blocks the build on unknown keys', async () => {
+    const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello {name}' } });
+    const { transform, buildEnd } = await setup(root, 'build');
+    transform("const s = t('nope.missing');", join(root, 'src', 'app.ts'));
+    expect(() => buildEnd()).toThrowError(/build blocked/);
+  });
+
+  it('failOnMissing: false opts out of the gate', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
     transform(CODE, join(root, 'src', 'app.ts'));
     expect(() => buildEnd()).not.toThrow();
   });

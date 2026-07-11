@@ -1,13 +1,15 @@
 import {
+  LOCALE_MODULE_PREFIX,
   MessageRegistry,
-  VIRTUAL_ID,
+  RESOLVED_VIRTUAL_ID,
+  SOURCE_FILE_RE,
   analyze,
-  check,
-  formatCheckResult,
-  generateLocaleModule,
-  generateRuntimeModule,
+  isTransformTarget,
   loadCatalogs,
   loadConfig,
+  loadVirtualModule,
+  resolveVirtualId,
+  runBuildGate,
   syncCatalogs,
   transformCode,
   writeCatalog,
@@ -19,10 +21,6 @@ import {
 import { readFileSync } from 'node:fs';
 import type { Plugin, ViteDevServer } from 'vite';
 
-const RESOLVED = '\0' + VIRTUAL_ID;
-const LOCALE_PREFIX = `${RESOLVED}/locale/`;
-const SOURCE_RE = /\.[cm]?[jt]sx?$/;
-
 function safeRead(file: string): string | undefined {
   try {
     return readFileSync(file, 'utf8');
@@ -33,7 +31,12 @@ function safeRead(file: string): string | undefined {
 
 export type { VerbalyConfig } from '@verbaly/compiler';
 
-export default function verbaly(options: VerbalyConfig = {}): Plugin {
+export interface ViteVerbalyOptions extends VerbalyConfig {
+  // opt out of the build gate (parity with @verbaly/unplugin)
+  failOnMissing?: boolean;
+}
+
+export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let cfg: ResolvedConfig;
   let catalogs: Catalogs;
   let isBuild = false;
@@ -44,7 +47,10 @@ export default function verbaly(options: VerbalyConfig = {}): Plugin {
 
   function invalidateVirtual(): void {
     if (!server) return;
-    const ids = [RESOLVED, ...cfg.locales.map((locale) => LOCALE_PREFIX + locale)];
+    const ids = [
+      RESOLVED_VIRTUAL_ID,
+      ...cfg.locales.map((locale) => LOCALE_MODULE_PREFIX + locale),
+    ];
     for (const id of ids) {
       const mod = server.moduleGraph.getModuleById(id);
       if (mod) server.moduleGraph.invalidateModule(mod);
@@ -106,7 +112,7 @@ export default function verbaly(options: VerbalyConfig = {}): Plugin {
       devServer.watcher.on('change', (file) => onCatalogFile(file, localeOf(file)));
       devServer.watcher.on('add', (file) => onCatalogFile(file, localeOf(file)));
       devServer.watcher.on('unlink', (file) => {
-        if (SOURCE_RE.test(file) && !file.includes('node_modules')) {
+        if (SOURCE_FILE_RE.test(file) && !file.includes('node_modules')) {
           registry.remove(file);
           scheduleFlush();
         }
@@ -114,22 +120,15 @@ export default function verbaly(options: VerbalyConfig = {}): Plugin {
     },
 
     resolveId(id) {
-      if (id === VIRTUAL_ID || id.startsWith(`${VIRTUAL_ID}/`)) return '\0' + id;
-      return undefined;
+      return resolveVirtualId(id);
     },
 
     load(id) {
-      if (id === RESOLVED) return generateRuntimeModule(cfg);
-      if (id.startsWith(LOCALE_PREFIX)) {
-        return generateLocaleModule(catalogs[id.slice(LOCALE_PREFIX.length)] ?? {});
-      }
-      return undefined;
+      return loadVirtualModule(id, cfg, catalogs);
     },
 
     transform(code, id) {
-      if (!SOURCE_RE.test(id) || id.includes('node_modules') || id.startsWith('\0')) {
-        return undefined;
-      }
+      if (!isTransformTarget(id)) return undefined;
       const analysis = analyze(code, id);
       registry.update(id, analysis);
 
@@ -149,14 +148,8 @@ export default function verbaly(options: VerbalyConfig = {}): Plugin {
     },
 
     buildEnd() {
-      if (!isBuild) return;
-      const result = check(cfg, loadCatalogs(cfg), registry);
-      if (!result.ok) {
-        throw new Error(
-          `[verbaly] build blocked\n${formatCheckResult(result)}\n` +
-            `Run \`npx verbaly extract\` and fill the missing translations.`,
-        );
-      }
+      if (!isBuild || options.failOnMissing === false) return;
+      runBuildGate(cfg, registry);
     },
   };
 }

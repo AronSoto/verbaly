@@ -63,19 +63,19 @@ declare namespace App {
 export const load = ({ locals }) => ({ locale: locals.verbalyLocale });
 ```
 
-**5. One instance per render, catalog awaited** — this is the no-FOUC guarantee:
+**5. One instance per render, catalog awaited** — this is the no-FOUC guarantee, in one call:
 
 ```ts
 // src/routes/+layout.ts
-import { createInstance } from 'virtual:verbaly';
+import { createRequestInstance } from 'virtual:verbaly';
 
-export const load = async ({ data }) => {
-  const verbaly = createInstance();
-  await verbaly.loadLocale(data.locale); // catalog ready BEFORE render
-  verbaly.setLocale(data.locale);
-  return { ...data, verbaly };
-};
+export const load = async ({ data }) => ({
+  ...data,
+  verbaly: await createRequestInstance(data.locale), // catalog ready BEFORE render
+});
 ```
+
+(`createInstance(options)` remains available when you need custom options.)
 
 ```html
 <!-- src/routes/+layout.svelte -->

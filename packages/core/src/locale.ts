@@ -5,10 +5,22 @@ export interface ResolveLocaleOptions {
   storageKey?: string | false;
 }
 
-const DEFAULT_KEY = 'verbaly-locale';
+// shared identity: localStorage key (browser) + cookie name (SSR integrations)
+export const LOCALE_STORAGE_KEY = 'verbaly-locale';
+
+// zh-Hant-TW → [zh-Hant-TW, zh-Hant, zh]
+export function narrowLocales(lang: string): string[] {
+  const out: string[] = [];
+  const parts = lang.split('-');
+  while (parts.length > 0) {
+    out.push(parts.join('-'));
+    parts.pop();
+  }
+  return out;
+}
 
 export function resolveLocale(options: ResolveLocaleOptions): string {
-  const { supported, fallback = supported[0] ?? 'en', storageKey = DEFAULT_KEY } = options;
+  const { supported, fallback = supported[0] ?? 'en', storageKey = LOCALE_STORAGE_KEY } = options;
 
   if (storageKey) {
     const stored = getStorage()?.getItem(storageKey);
@@ -24,11 +36,12 @@ export function resolveLocale(options: ResolveLocaleOptions): string {
   return fallback;
 }
 
-// exact, then BCP-47 base (es-PE → es)
+// exact, then progressive BCP-47 narrowing (zh-Hant-TW → zh-Hant → zh)
 function matchSupported(lang: string, supported: string[]): string | undefined {
-  if (supported.includes(lang)) return lang;
-  const base = lang.split('-')[0]!;
-  return supported.includes(base) ? base : undefined;
+  for (const candidate of narrowLocales(lang)) {
+    if (supported.includes(candidate)) return candidate;
+  }
+  return undefined;
 }
 
 // server-side Accept-Language negotiation (q-values, case-insensitive, BCP-47 base)
@@ -66,14 +79,32 @@ export function negotiateLocale(
 
 // case-insensitive matchSupported (headers arrive as en-US; configs as en)
 function matchSupportedLoose(lang: string, supported: string[]): string | undefined {
-  const lower = lang.toLowerCase();
-  const exact = supported.find((s) => s.toLowerCase() === lower);
-  if (exact) return exact;
-  const base = lower.split('-')[0]!;
-  return supported.find((s) => s.toLowerCase() === base);
+  for (const candidate of narrowLocales(lang.toLowerCase())) {
+    const match = supported.find((s) => s.toLowerCase() === candidate);
+    if (match) return match;
+  }
+  return undefined;
 }
 
-export function persistLocale(locale: string, storageKey: string | false = DEFAULT_KEY): void {
+// per-request negotiation shared by SSR integrations: cookie value → Accept-Language → fallback
+export interface RequestLocaleOptions {
+  supported: string[];
+  cookie?: string | null;
+  header?: string | null;
+  fallback?: string;
+}
+
+export function resolveRequestLocale(options: RequestLocaleOptions): string {
+  const { supported, cookie, header, fallback = supported[0] ?? 'en' } = options;
+  if (cookie) {
+    // '' sentinel = no match → fall through to the header
+    const match = negotiateLocale(cookie, supported, '');
+    if (match) return match;
+  }
+  return negotiateLocale(header, supported, fallback);
+}
+
+export function persistLocale(locale: string, storageKey: string | false = LOCALE_STORAGE_KEY): void {
   if (storageKey) getStorage()?.setItem(storageKey, locale);
   if (typeof document !== 'undefined') document.documentElement.lang = locale;
 }

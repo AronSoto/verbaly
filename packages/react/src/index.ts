@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  normalizeLink,
   parseTags,
-  safeHref,
   type DictionaryInput,
   type Params,
   type RichLink,
@@ -94,13 +94,10 @@ function toNodes(
     if (el) return cloneElement(el, { key: i }, ...children);
     const link = links[node.name];
     if (link !== undefined) {
-      const def: Exclude<RichLink, string> = typeof link === 'string' ? { href: link } : link;
-      return createElement(
-        'a',
-        { key: i, href: safeHref(def.href), target: def.target, rel: def.rel },
-        ...children,
-      );
+      return createElement('a', { key: i, ...normalizeLink(link) }, ...children);
     }
     return createElement(Fragment, { key: i }, ...children);
   });
 }
+
+export type { Params, TFunction, Verbaly };

@@ -34,6 +34,9 @@ describe('generateRuntimeModule', () => {
     expect(code).toContain('...options,');
     // the SPA singleton is built from the same factory
     expect(code).toContain('const v = createInstance()');
+    // the no-FOUC contract codified: fresh instance + awaited catalog
+    expect(code).toContain('export async function createRequestInstance(locale)');
+    expect(code).toContain('await instance.loadLocale(locale)');
   });
 
   it('wires loaders through the core', () => {

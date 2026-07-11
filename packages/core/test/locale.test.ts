@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { negotiateLocale, persistLocale, resolveLocale } from '../src/locale';
+import {
+  negotiateLocale,
+  persistLocale,
+  resolveLocale,
+  resolveRequestLocale,
+} from '../src/locale';
 
 const SUPPORTED = ['en', 'es', 'pt'];
 
@@ -53,6 +58,11 @@ describe('resolveLocale', () => {
   it('narrows BCP-47 regions', () => {
     stubNavigator(['es-PE', 'en-US']);
     expect(resolveLocale({ supported: SUPPORTED })).toBe('es');
+  });
+
+  it('narrows script subtags progressively (zh-Hant-TW → zh-Hant)', () => {
+    stubNavigator(['zh-Hant-TW']);
+    expect(resolveLocale({ supported: ['en', 'zh-Hant', 'zh'] })).toBe('zh-Hant');
   });
 
   it('walks the preference list in order', () => {
@@ -112,6 +122,10 @@ describe('negotiateLocale', () => {
     expect(negotiateLocale('PT-BR', SUPPORTED)).toBe('pt');
   });
 
+  it('narrows script subtags progressively (zh-Hant-TW → zh-Hant)', () => {
+    expect(negotiateLocale('zh-Hant-TW', ['en', 'zh-Hant', 'zh'])).toBe('zh-Hant');
+  });
+
   it('matches a regional supported entry from its header casing', () => {
     expect(negotiateLocale('es-mx', ['en', 'es-MX'])).toBe('es-MX');
   });
@@ -147,6 +161,31 @@ describe('negotiateLocale', () => {
   it('survives garbage input', () => {
     expect(negotiateLocale(';;;,,,q=;', SUPPORTED)).toBe('en');
     expect(negotiateLocale('es ; q = 0.9', SUPPORTED)).toBe('es');
+  });
+});
+
+describe('resolveRequestLocale', () => {
+  it('prefers the cookie over the header', () => {
+    expect(
+      resolveRequestLocale({ supported: SUPPORTED, cookie: 'pt', header: 'es' }),
+    ).toBe('pt');
+  });
+
+  it('falls through to the header when the cookie does not match', () => {
+    expect(
+      resolveRequestLocale({ supported: SUPPORTED, cookie: 'fr', header: 'es-PE' }),
+    ).toBe('es');
+  });
+
+  it('narrows a regional cookie', () => {
+    expect(resolveRequestLocale({ supported: SUPPORTED, cookie: 'pt-BR' })).toBe('pt');
+  });
+
+  it('falls back when nothing matches', () => {
+    expect(
+      resolveRequestLocale({ supported: SUPPORTED, cookie: 'fr', header: 'de', fallback: 'es' }),
+    ).toBe('es');
+    expect(resolveRequestLocale({ supported: SUPPORTED })).toBe('en');
   });
 });
 

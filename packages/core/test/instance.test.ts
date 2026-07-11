@@ -45,7 +45,7 @@ describe('locale resolution', () => {
       messages: { en: { a: 'Source' }, es: { a: '' } },
     });
     expect(v.t('a')).toBe('Source');
-    expect(v.inspect('a')).toEqual({ locale: 'en', source: 'Source' });
+    expect(v.inspect('a')).toEqual({ from: 'en', source: 'Source' });
   });
 
   it("'' everywhere in the chain is a miss", () => {
@@ -115,15 +115,24 @@ describe('observability', () => {
     expect(seen).toEqual(['[nope]']);
   });
 
-  it('inspect returns resolved locale and source text', () => {
+  it('inspect returns origin locale and source text', () => {
     const v = createVerbaly<DictionaryInput>({
       locale: 'es',
       fallback: 'en',
       messages: { en: { a: 'A', b: 'B' }, es: { a: 'Ae' } },
     });
-    expect(v.inspect('a')).toEqual({ locale: 'es', source: 'Ae' });
-    expect(v.inspect('b')).toEqual({ locale: 'en', source: 'B' });
+    expect(v.inspect('a')).toEqual({ from: 'es', source: 'Ae' });
+    expect(v.inspect('b')).toEqual({ from: 'en', source: 'B' });
     expect(v.inspect('nope')).toBeUndefined();
+  });
+
+  it('narrows script subtags progressively (zh-Hant-TW → zh-Hant → zh)', () => {
+    const v = createVerbaly<DictionaryInput>({
+      locale: 'zh-Hant-TW',
+      messages: { 'zh-Hant': { a: '繁' }, zh: { a: '简', b: '简b' } },
+    });
+    expect(v.inspect('a')).toEqual({ from: 'zh-Hant', source: '繁' });
+    expect(v.inspect('b')).toEqual({ from: 'zh', source: '简b' });
   });
 });
 

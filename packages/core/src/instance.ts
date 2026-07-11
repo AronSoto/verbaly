@@ -1,5 +1,6 @@
 import { flatten } from './flatten';
 import { autoFormat, formatNodes } from './format';
+import { narrowLocales } from './locale';
 import { parse } from './parse';
 import type {
   DictionaryInput,
@@ -38,13 +39,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
 
   function chain(): string[] {
     if (chainCache) return chainCache;
-    const result: string[] = [];
-    // narrow BCP-47 subtags
-    const parts = locale.split('-');
-    while (parts.length > 0) {
-      result.push(parts.join('-'));
-      parts.pop();
-    }
+    const result = narrowLocales(locale);
     for (const fb of fallbacks) if (!result.includes(fb)) result.push(fb);
     chainCache = result;
     return result;
@@ -106,12 +101,9 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
       tagged(strings, values);
 
   function pendingLoader(target: string): string | undefined {
-    const parts = target.split('-');
-    while (parts.length > 0) {
-      const candidate = parts.join('-');
+    for (const candidate of narrowLocales(target)) {
       if (loaders[candidate] && !loaded.has(candidate)) return candidate;
       if (loaders[candidate]) return undefined;
-      parts.pop();
     }
     return undefined;
   }
@@ -182,7 +174,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     },
     inspect(key: string) {
       const hit = lookup(key);
-      return hit ? { locale: hit.from, source: hit.msg } : undefined;
+      return hit ? { from: hit.from, source: hit.msg } : undefined;
     },
   };
 }

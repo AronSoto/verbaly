@@ -22,6 +22,13 @@ const HOTKEY: Record<NonNullable<DevtoolsOptions['hotkey']>, keyof MouseEvent> =
   meta: 'metaKey',
 };
 
+function statusOf(
+  info: { from: string } | undefined,
+  currentLocale: string,
+): ResolveStatus {
+  return !info ? 'miss' : info.from === currentLocale ? 'hit' : 'fallback';
+}
+
 // dev-only inspector — "what key is this text?" in the browser (opt-in, tree-shakeable)
 export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {}): () => void {
   if (typeof document === 'undefined') throw new Error('[verbaly] devtools requires a DOM');
@@ -52,8 +59,8 @@ export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {})
       out.push({
         el,
         key,
-        status: !info ? 'miss' : info.locale === instance.locale ? 'hit' : 'fallback',
-        from: info?.locale,
+        status: statusOf(info, instance.locale),
+        from: info?.from,
         source: info?.source,
       });
     }
@@ -92,14 +99,10 @@ export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {})
     }
     const key = el.getAttribute(attr)!;
     const info = instance.inspect(key);
-    const status: ResolveStatus = !info
-      ? 'miss'
-      : info.locale === instance.locale
-        ? 'hit'
-        : 'fallback';
+    const status = statusOf(info, instance.locale);
     tip.innerHTML =
       `<div class="verbaly-dt-key">${esc(key)}</div>` +
-      `<div class="verbaly-dt-row ${status}">${status}${info && info.locale !== instance.locale ? ` · from ${esc(info.locale)}` : ''}</div>` +
+      `<div class="verbaly-dt-row ${status}">${status}${info && info.from !== instance.locale ? ` · from ${esc(info.from)}` : ''}</div>` +
       (info ? `<div class="verbaly-dt-src">${esc(info.source)}</div>` : '');
     tip.hidden = false;
     tip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - 320)}px`;

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
-import { bindDom } from '../src/dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { bindDom, normalizeLink, safeHref } from '../src/dom';
 import { createVerbaly } from '../src/instance';
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -106,6 +106,70 @@ describe('bindDom', () => {
     unbind = bindDom(v);
     expect(el.getAttribute('onclick')).toBeNull();
     expect(el.getAttribute('title')).toBe('Hola');
+  });
+
+  it('blocks style and srcdoc attributes', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { css: 'color:red', doc: '<script>1</script>', ok: 'Hola' } },
+    });
+    const el = document.createElement('iframe');
+    el.setAttribute('data-verbaly-attr', '{"style":"css","srcdoc":"doc","title":"ok"}');
+    document.body.appendChild(el);
+    unbind = bindDom(v);
+    expect(el.getAttribute('style')).toBeNull();
+    expect(el.getAttribute('srcdoc')).toBeNull();
+    expect(el.getAttribute('title')).toBe('Hola');
+  });
+
+  it('sanitizes URL attributes — unsafe schemes never land', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { evil: 'javascript:alert(1)', ok: '/es/docs' } },
+    });
+    const a = document.createElement('a');
+    a.setAttribute('data-verbaly-attr', '{"href":"evil","title":"ok"}');
+    const img = document.createElement('img');
+    img.setAttribute('data-verbaly-attr', '{"src":"evil"}');
+    document.body.append(a, img);
+    unbind = bindDom(v);
+    expect(a.getAttribute('href')).toBeNull();
+    expect(a.getAttribute('title')).toBe('/es/docs');
+    expect(img.getAttribute('src')).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('safe URL attributes pass through', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { url: '/es/inicio' } } });
+    const a = document.createElement('a');
+    a.setAttribute('data-verbaly-attr', '{"href":"url"}');
+    document.body.appendChild(a);
+    unbind = bindDom(v);
+    expect(a.getAttribute('href')).toBe('/es/inicio');
+  });
+});
+
+describe('safeHref / normalizeLink', () => {
+  it('blocks data: and vbscript: schemes (not just javascript:)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(safeHref('data:text/html,<script>1</script>')).toBeUndefined();
+    expect(safeHref('vbscript:msgbox')).toBeUndefined();
+    expect(safeHref(' \tJAVASCRIPT:alert(1)')).toBeUndefined();
+    expect(safeHref('https://x.dev')).toBe('https://x.dev');
+    warn.mockRestore();
+  });
+
+  it('normalizeLink expands strings and applies safeHref', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(normalizeLink('/docs')).toEqual({ href: '/docs', target: undefined, rel: undefined });
+    expect(normalizeLink({ href: 'https://x.dev', target: '_blank', rel: 'noopener' })).toEqual({
+      href: 'https://x.dev',
+      target: '_blank',
+      rel: 'noopener',
+    });
+    expect(normalizeLink('javascript:alert(1)').href).toBeUndefined();
+    warn.mockRestore();
   });
 });
 

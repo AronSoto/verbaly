@@ -187,7 +187,7 @@ function buildTransMessage(code: string, children: AstNode[]): BuiltTrans | unde
           text += escapeText(expr.value as string);
           continue;
         }
-        if (expr.type === 'TaggedTemplateExpression') return undefined; // overlap hazard
+        if (containsTaggedT(expr)) return undefined; // overlap hazard
         const source = code.slice(expr.start, expr.end);
         const name = uniqueName(deriveName(expr, params.length), source, takenParams);
         params.push({ name, start: expr.start, end: expr.end });
@@ -238,6 +238,17 @@ function selfClosedSource(code: string, opening: AstNode): string {
   return src.endsWith('/>') ? src : `${src.slice(0, -1).trimEnd()} />`;
 }
 
+// true if the subtree holds a t`…` / t.id('…')`…` that analyze would extract itself
+function containsTaggedT(node: AstNode): boolean {
+  let found = false;
+  walk(node, (n) => {
+    if (n.type !== 'TaggedTemplateExpression') return;
+    const tag = n.tag as AstNode;
+    if (isTReference(tag) || explicitId(tag)) found = true;
+  });
+  return found;
+}
+
 function isTReference(node: AstNode): boolean {
   if (node.type === 'Identifier') return node.name === 't';
   if (node.type === 'MemberExpression' && !node.computed) {
@@ -263,6 +274,8 @@ function buildMessage(code: string, quasi: AstNode): BuiltMessage | undefined {
   for (let i = 0; i < expressions.length; i++) {
     const expr = expressions[i];
     if (!expr) return undefined;
+    // a nested t`…` would be extracted on its own — overlapping rewrites; bail the outer
+    if (containsTaggedT(expr)) return undefined;
     const source = code.slice(expr.start, expr.end);
     const name = uniqueName(deriveName(expr, i), source, taken);
     params.push({ name, start: expr.start, end: expr.end });

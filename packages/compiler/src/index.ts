@@ -8,7 +8,16 @@ export {
   generateRuntimeModule,
   writeDts,
 } from './codegen';
-export { findConfigFile, loadConfig, loadConfigFile, resolveConfig } from './config';
+export { findConfigFile, loadConfig, loadConfigFile, resolveConfig, targetLocales } from './config';
+export {
+  LOCALE_MODULE_PREFIX,
+  RESOLVED_VIRTUAL_ID,
+  SOURCE_FILE_RE,
+  isTransformTarget,
+  loadVirtualModule,
+  resolveVirtualId,
+  runBuildGate,
+} from './plugin';
 export { doctor } from './doctor';
 export { exportCatalogs, importCatalogs, parseExchangeFile } from './exchange';
 export { extractProject, pruneCatalogs, syncCatalogs } from './extract';

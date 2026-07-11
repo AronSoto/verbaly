@@ -57,6 +57,17 @@ describe('@verbaly/vue', () => {
     expect(el.textContent).toBe('Hola Aron');
   });
 
+  it('useT keeps the full t surface — t.id works', () => {
+    const IdUser = defineComponent({
+      setup() {
+        const t = useT();
+        return () => h('p', t.id('hello')`Hello ${'Aron'}`);
+      },
+    });
+    const { el } = mount(IdUser, verbalyPlugin(makeInstance()));
+    expect(el.textContent).toBe('Hello Aron');
+  });
+
   it('updates on locale change', async () => {
     const v = makeInstance();
     const { el } = mount(Hello, verbalyPlugin(v));

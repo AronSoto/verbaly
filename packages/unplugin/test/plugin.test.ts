@@ -105,6 +105,13 @@ describe('build gate', () => {
     expect(() => p.buildEnd()).not.toThrow();
   });
 
+  it('blocks the build on unknown keys', async () => {
+    const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello {name}' } });
+    const p = await setup(root);
+    p.transform("const s = t('nope.missing');", join(root, 'src', 'app.ts'));
+    expect(() => p.buildEnd()).toThrowError(/build blocked/);
+  });
+
   it('can be disabled with failOnMissing: false', async () => {
     const root = makeProject({ es: {}, en: {} });
     const plugin = rawPlugin({ root, sourceLocale: 'es', failOnMissing: false });

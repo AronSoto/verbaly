@@ -98,6 +98,14 @@ v.setLocale('es');
 persistLocale('es'); // localStorage + <html lang>
 ```
 
+```ts
+// server-side (SSR): one instance per request, locale from the request itself
+import { createVerbaly, negotiateLocale } from 'verbaly';
+
+const locale = negotiateLocale(request.headers.get('accept-language'), ['en', 'es', 'pt']);
+const v = createVerbaly({ locale, fallback: 'en', messages });
+```
+
 ## ✨ What you get
 
 - **Hybrid compiler + runtime** — static text compiled (types + tree-shaking), dynamic content via a real runtime path.

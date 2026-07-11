@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { bindDom } from '../src/dom';
 import { attachDevtools } from '../src/devtools';
 import { createVerbaly } from '../src/instance';
-import { persistLocale, resolveLocale } from '../src/locale';
+import { negotiateLocale, persistLocale, resolveLocale } from '../src/locale';
 import type { DictionaryInput } from '../src/types';
 
 describe('server-side (Node)', () => {
@@ -39,6 +39,12 @@ describe('server-side (Node)', () => {
 
   it('persistLocale is a no-op (no throw) without document', () => {
     expect(() => persistLocale('es')).not.toThrow();
+  });
+
+  it('negotiateLocale resolves a request locale without a DOM', () => {
+    // the SSR entry point: Accept-Language → supported locale, per request
+    expect(negotiateLocale('es-PE,en;q=0.8', ['en', 'es', 'pt'])).toBe('es');
+    expect(negotiateLocale(null, ['en', 'es'], 'en')).toBe('en');
   });
 
   it('DOM-only APIs throw a clear error server-side', () => {

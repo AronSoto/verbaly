@@ -11,21 +11,31 @@ export function generateRuntimeModule(cfg: ResolvedConfig): string {
   const src = JSON.stringify(cfg.sourceLocale);
   const loaders = others
     .map(
-      (locale) => `    ${JSON.stringify(locale)}: () => import('${VIRTUAL_ID}/locale/${locale}'),`,
+      (locale) =>
+        `      ${JSON.stringify(locale)}: () => import('${VIRTUAL_ID}/locale/${locale}'),`,
     )
     .join('\n');
 
   return `import { createVerbaly } from 'verbaly';
 import source from '${VIRTUAL_ID}/locale/${cfg.sourceLocale}';
 
-const v = createVerbaly({
-  locale: ${src},
-  fallback: ${src},
-  messages: { [${src}]: source },
-  loaders: {
+export const sourceLocale = ${src};
+export const locales = ${JSON.stringify(cfg.locales)};
+
+// per-request/per-instance factory (SSR) — the singleton below is browser/SPA-only
+export function createInstance(options) {
+  return createVerbaly({
+    locale: ${src},
+    fallback: ${src},
+    messages: { [${src}]: source },
+    loaders: {
 ${loaders}
-  },
-});
+    },
+    ...options,
+  });
+}
+
+const v = createInstance();
 
 export const verbaly = v;
 export const t = v.t;
@@ -71,6 +81,12 @@ ${lines.join('\n')}
   export type VerbalyKey = keyof VerbalyMessages & string;
 
   export const verbaly: import('verbaly').Verbaly<VerbalyKey>;
+
+  export const sourceLocale: string;
+  export const locales: string[];
+  export function createInstance(
+    options?: import('verbaly').VerbalyOptions<VerbalyKey>,
+  ): import('verbaly').Verbaly<VerbalyKey>;
 
   export function t<K extends VerbalyKey>(
     key: K,

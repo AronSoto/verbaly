@@ -1,5 +1,5 @@
 # Automatic release: every push to develop whose packages/core version has no
-# vX.Y.Z tag yet publishes the 7 packages to npm with provenance (OIDC) and
+# vX.Y.Z tag yet publishes the 8 packages to npm with provenance (OIDC) and
 # creates the GitHub Release with a short body: the entry's theme line +
 # Highlights section, plus a link to the full changelog in the repo.
 # No version bump in the push → tag already exists → the run no-ops.
@@ -68,11 +68,16 @@ jobs:
         if: steps.version.outputs.new == 'true'
         run: |
           V="${{ steps.version.outputs.version }}"
-          if npm view "verbaly@$V" version > /dev/null 2>&1; then
-            echo "verbaly@$V already on npm — skipping publish, resuming release"
-          else
-            pnpm -r publish --access public --no-git-checks --provenance
-          fi
+          # per-package resume: tolerates partial runs and manual first publishes
+          # (a brand-new package can't have a Trusted Publisher until it exists on npm)
+          for dir in packages/*; do
+            NAME=$(node -p "require('./$dir/package.json').name")
+            if npm view "$NAME@$V" version > /dev/null 2>&1; then
+              echo "$NAME@$V already on npm — skipping"
+            else
+              pnpm --filter "$NAME" publish --access public --no-git-checks --provenance
+            fi
+          done
 
       - name: Create the GitHub Release from the changelog entry
         if: steps.version.outputs.new == 'true'

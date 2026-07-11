@@ -1,10 +1,55 @@
 # Changelog
 
-Version history of **Verbaly** — one file, full detail per version, newest first. The seven packages share one version number (aligned releases).
+Version history of **Verbaly** — one file, full detail per version, newest first. The eight packages share one version number (aligned releases).
 
 Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section — the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes; the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.16.0] — 2026-07-11
+
+**Server-side rendering, for real.** The first meta-framework integration: **`@verbaly/sveltekit`** renders every page in the visitor's language on the server — negotiated per request from their cookie or `Accept-Language` header — and the client hydrates with the same locale and the same catalog, so there's no flash of untranslated text and no hydration mismatch. Built on two framework-agnostic pieces (core's `negotiateLocale` and the new `createInstance` factory in `virtual:verbaly`) that Nuxt/Next integrations will reuse. No breaking changes, no API removals, no new dependencies.
+
+### Highlights
+
+- **New package `@verbaly/sveltekit`** — SvelteKit SSR in three wires: `verbalyHandle()` in your server hooks, one `+layout` load, and `%verbaly.lang%` in `app.html`. Pages arrive translated; hydration is flash-free.
+- **Per-request locale negotiation** — cookie → `Accept-Language` (with q-values and `es-PE` → `es` narrowing) → fallback. Concurrent requests never leak each other's language.
+- **`switchLocale()`** — client-side language switch that loads the catalog first, then persists the choice in the cookie the server reads, so the next SSR request already matches.
+- **`negotiateLocale()` in core** — the `Accept-Language` matcher is a public, framework-agnostic export; use it in any Node server today.
+- **`createInstance()` in `virtual:verbaly`** — build a fresh, request-scoped instance sharing your compiled catalogs and loaders; the old singleton stays for SPAs. Also new: `locales` and `sourceLocale` exports.
+
+### Added
+
+- **`@verbaly/sveltekit` package** (new, ESM-only): `verbalyHandle({ locales, fallback?, cookie? })` — SvelteKit `handle` hook factory that resolves the request locale (cookie → `Accept-Language` → fallback), sets `event.locals.verbalyLocale` and fills every `%verbaly.lang%` placeholder via `transformPageChunk`; throws an actionable error if `locales` is missing/empty (e.g. an outdated `@verbaly/vite` whose virtual module lacks the export). `switchLocale(instance, locale, { cookie?, maxAge? })` — awaits `loadLocale` **before** `setLocale` (no flash), writes the cookie (`path=/`, `samesite=lax`, 1y default) and syncs `<html lang>`; SSR-safe no-op without a DOM. `LOCALE_COOKIE` (`'verbaly-locale'`, same identity as core's storage key). **Typed structurally — zero dependency on `@sveltejs/kit`** (compat asserted against the real `Handle` type in tests); only peer is `verbaly`.
+- **`negotiateLocale(header, supported, fallback?)`** (`verbaly`): RFC-style `Accept-Language` negotiation — q-values (invalid → 1, `q=0` excluded, ties keep header order), case-insensitive exact match then BCP-47 base narrowing, `*` ignored, garbage-safe. Tree-shaken out of browser bundles that don't import it.
+- **`virtual:verbaly` gains SSR exports** (`@verbaly/compiler` codegen): `createInstance(options?)` (fresh instance with the same inlined source catalog + lazy loaders; options spread on top — the module singleton is now built from it), `locales`, `sourceLocale`. `verbaly.d.ts` declares all three.
+
+### Changed
+
+- **`Release` workflow resumes per package** (repo process): the publish step now checks each package on npm individually instead of gating on `verbaly@V` — a partially failed run (or a manual first publish of a new package, which can't have a Trusted Publisher until it exists) resumes cleanly.
+
+### Notes
+
+- 404 tests (core **159** · compiler **159** · **sveltekit 17** · svelte 22 · vue 12 · react 11 · unplugin 9 · vite 15) — was 373; +13 core (`negotiateLocale` in locale/server suites), +1 compiler (codegen SSR exports), +17 sveltekit (handle negotiation/cookie/placeholder/kit-type-compat + switchLocale order/cookie/lang, happy-dom).
+- Verified end-to-end against a real SvelteKit app (Kit 2.69.2 + Vite 8 + Svelte 5) installed from the packed tarballs: SSR negotiation (`es-PE`→es, fr→fallback, cookie beats header), concurrent es/en requests with zero cross-request leak, clean hydration (no console errors), live `switchLocale` + cookie persistence surviving reload.
+- Bench re-run (ritual): lookup **35.6×**, interpolation **11.9×**, plural **7.3×**, currency **5.5×** vs i18next 26 — in family with 0.15.0 (29.3×/10.5×/5.2×/4.9×; machine variance, runtime hot path untouched).
+- Bundle check: tree-shaken `createVerbaly` **3.27 KB** min+gzip (3.32 in 0.15.0 — `negotiateLocale` tree-shakes out), full core surface **4.81 KB** (was 4.63; +0.18 KB = the new helper), `verbaly/devtools` **1.62 KB** (unchanged).
+- publint **All good** ×8 · arethetypeswrong core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10) · `@verbaly/sveltekit` ESM-only (same CJS-consumer profile as compiler/vite). Tarballs verified (sveltekit peer `verbaly` → `^0.16.0`; vite dep `@verbaly/compiler` → `0.16.0`; only `dist/` + LICENSE + README).
+- Competitive seal 0.16.0 (2026-07-11): i18next 26.3.6 · react-i18next 17.0.9 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.21.0 · next-intl 4.13.2 — identical to the 0.15.0 seal (one day apart). This release starts closing dead-end #1 (SSR hydration), the gap next-intl represents.
+- **First-publish caveat** (repo process): `@verbaly/sveltekit` doesn't exist on npm yet, so it can't have a Trusted Publisher before the release. If the workflow's OIDC publish fails for it, publish it once manually (`pnpm --filter @verbaly/sveltekit publish --access public --no-git-checks`), configure its Trusted Publisher, then re-run the workflow — the per-package resume skips what's already on npm.
+
+### Docs impact (pending)
+
+- **New docs page `docs/sveltekit`** (Integrations group): the six wires (vite plugin → `app.html` placeholder → `hooks.server.ts` + `app.d.ts` Locals → `+layout.server.ts` → `+layout.ts` with `createInstance` + awaited `loadLocale` → `provideVerbaly` in `+layout.svelte`) + `switchLocale` for the language picker + the no-FOUC/no-mismatch guarantee. Mirror the package README.
+- **`frameworks.ts` + `docs-nav.ts`**: add SvelteKit to the integrations source (devicon `svelte`… check if devicon has a SvelteKit glyph; otherwise reuse Svelte's) — it propagates to the home hero grid, `docs/what-is` grid and the Integrations sidebar/dropdown.
+- **`docs/api`**: new row `negotiateLocale(header, supported, fallback?)` next to `resolveLocale`/`persistLocale`.
+- **`docs/vite`** (or wherever `virtual:verbaly` is documented): document the new `createInstance`/`locales`/`sourceLocale` exports (SSR: one instance per request; the singleton is browser/SPA-only).
+- **`docs/server`**: add the "meta-framework" path — link to `docs/sveltekit`; mention `negotiateLocale` as the header matcher for hand-rolled Node servers.
+- **`/changelog`** (`releases.ts`): 0.16.0 entry — theme + Highlights above.
+- Landing compare table: no cell changes (competitor versions identical to 0.15.0 seal); the SSR row of "dead ends" narrative improves — check `docs/what-is` copy if it mentions "no SSR story".
+- Bump web to `verbaly@^0.16.0` + `@verbaly/compiler@^0.16.0` — **`pnpm install` only after the npm publish**.
 
 ---
 

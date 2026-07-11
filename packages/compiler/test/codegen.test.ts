@@ -21,6 +21,21 @@ describe('generateRuntimeModule', () => {
     expect(code).toContain('locale: "es"');
   });
 
+  it('exposes the per-request factory and locale metadata (SSR)', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toContain('export const sourceLocale = "en"');
+    expect(code).toContain('export const locales = ["en","es"]');
+    expect(code).toContain('export function createInstance(options)');
+    expect(code).toContain('...options,');
+    // the SPA singleton is built from the same factory
+    expect(code).toContain('const v = createInstance()');
+  });
+
   it('wires loaders through the core', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),
@@ -86,5 +101,9 @@ describe('generateDts', () => {
     expect(dts).toContain("declare module 'virtual:verbaly'");
     expect(dts).toContain('setLocale(locale: string): Promise<void>');
     expect(dts).toContain('export namespace t {');
+    expect(dts).toContain(
+      "options?: import('verbaly').VerbalyOptions<VerbalyKey>,\n  ): import('verbaly').Verbaly<VerbalyKey>;",
+    );
+    expect(dts).toContain('export const locales: string[];');
   });
 });

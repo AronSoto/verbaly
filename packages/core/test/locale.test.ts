@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { persistLocale, resolveLocale } from '../src/locale';
+import { negotiateLocale, persistLocale, resolveLocale } from '../src/locale';
 
 const SUPPORTED = ['en', 'es', 'pt'];
 
@@ -91,6 +91,62 @@ describe('resolveLocale', () => {
     } finally {
       if (original) Object.defineProperty(globalThis, 'localStorage', original);
     }
+  });
+});
+
+describe('negotiateLocale', () => {
+  it('picks the exact supported tag', () => {
+    expect(negotiateLocale('pt', SUPPORTED)).toBe('pt');
+  });
+
+  it('honors q-values over header order', () => {
+    expect(negotiateLocale('es;q=0.5, pt;q=0.9', SUPPORTED)).toBe('pt');
+  });
+
+  it('keeps header order on q ties', () => {
+    expect(negotiateLocale('pt, es', SUPPORTED)).toBe('pt');
+  });
+
+  it('narrows BCP-47 regions case-insensitively', () => {
+    expect(negotiateLocale('es-PE,en-US;q=0.8', SUPPORTED)).toBe('es');
+    expect(negotiateLocale('PT-BR', SUPPORTED)).toBe('pt');
+  });
+
+  it('matches a regional supported entry from its header casing', () => {
+    expect(negotiateLocale('es-mx', ['en', 'es-MX'])).toBe('es-MX');
+  });
+
+  it('skips unsupported tags and keeps walking', () => {
+    expect(negotiateLocale('fr-FR, de;q=0.9, es;q=0.8', SUPPORTED)).toBe('es');
+  });
+
+  it('ignores q=0 entries (explicitly rejected)', () => {
+    expect(negotiateLocale('es;q=0, pt;q=0.1', SUPPORTED)).toBe('pt');
+  });
+
+  it('treats a malformed q as 1', () => {
+    expect(negotiateLocale('pt;q=abc, es;q=0.9', SUPPORTED)).toBe('pt');
+  });
+
+  it('ignores the wildcard', () => {
+    expect(negotiateLocale('*', SUPPORTED)).toBe('en');
+    expect(negotiateLocale('*;q=1, es;q=0.5', SUPPORTED)).toBe('es');
+  });
+
+  it('falls back on a missing or empty header', () => {
+    expect(negotiateLocale(null, SUPPORTED)).toBe('en');
+    expect(negotiateLocale(undefined, SUPPORTED)).toBe('en');
+    expect(negotiateLocale('', SUPPORTED)).toBe('en');
+  });
+
+  it('honors an explicit fallback', () => {
+    expect(negotiateLocale('fr', SUPPORTED, 'es')).toBe('es');
+    expect(negotiateLocale(null, SUPPORTED, 'pt')).toBe('pt');
+  });
+
+  it('survives garbage input', () => {
+    expect(negotiateLocale(';;;,,,q=;', SUPPORTED)).toBe('en');
+    expect(negotiateLocale('es ; q = 0.9', SUPPORTED)).toBe('es');
   });
 });
 

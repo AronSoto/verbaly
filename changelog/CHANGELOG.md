@@ -40,7 +40,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Competitive seal 0.16.0 (2026-07-11): i18next 26.3.6 · react-i18next 17.0.9 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.21.0 · next-intl 4.13.2 — identical to the 0.15.0 seal (one day apart). This release starts closing dead-end #1 (SSR hydration), the gap next-intl represents.
 - **First-publish caveat** (repo process): `@verbaly/sveltekit` doesn't exist on npm yet, so it can't have a Trusted Publisher before the release. If the workflow's OIDC publish fails for it, publish it once manually (`pnpm --filter @verbaly/sveltekit publish --access public --no-git-checks`), configure its Trusted Publisher, then re-run the workflow — the per-package resume skips what's already on npm.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **New docs page `docs/sveltekit`** (Integrations group): the six wires (vite plugin → `app.html` placeholder → `hooks.server.ts` + `app.d.ts` Locals → `+layout.server.ts` → `+layout.ts` with `createInstance` + awaited `loadLocale` → `provideVerbaly` in `+layout.svelte`) + `switchLocale` for the language picker + the no-FOUC/no-mismatch guarantee. Mirror the package README.
 - **`frameworks.ts` + `docs-nav.ts`**: add SvelteKit to the integrations source (devicon `svelte`… check if devicon has a SvelteKit glyph; otherwise reuse Svelte's) — it propagates to the home hero grid, `docs/what-is` grid and the Integrations sidebar/dropdown.

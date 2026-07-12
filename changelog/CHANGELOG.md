@@ -56,7 +56,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Deliberate pre-1.0 decisions recorded this release**: (a) `stableKey` stays sha256/base64url/8 chars (48 bits) — fine at catalog scale; the registry's same-key-different-message warning is the collision tripwire; widening later is breaking, decided consciously. (b) ICU `offset:` remains parsed-but-ignored (documented limitation). (c) Svelte `<Trans>` keeps no `components` prop by design (fragile across Svelte 4/5 — re-evaluate when the Svelte 4 peer drops).
 - Competitive seal 0.17.0 (2026-07-11): same-day as the 0.16.0 seal — i18next 26.3.6 · react-i18next 17.0.9 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.21.0 · next-intl 4.13.2. No changes; the comparison table stands.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/reference/api`**: `inspect()` row — return shape is now `{ from, source }` (**breaking**, flag it); new rows for `normalizeLink(link)`, `resolveRequestLocale(options)` and `LOCALE_STORAGE_KEY` next to `negotiateLocale`.
 - **`docs/frameworks/vite`** (where `virtual:verbaly` is documented): add `createRequestInstance(locale)` — the recommended SSR path (one call replaces createInstance + await loadLocale); mention `failOnMissing` in the plugin options.

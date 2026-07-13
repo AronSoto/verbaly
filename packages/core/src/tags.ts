@@ -3,13 +3,19 @@ export type TagNode = string | { name: string; children: TagNode[] };
 
 const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
 
+// text runs only, post-tokenize
+const ENTITY = /&(lt|gt|amp);/g;
+const ENTITY_MAP: Record<string, string> = { lt: '<', gt: '>', amp: '&' };
+const decodeEntities = (s: string): string =>
+  s.replace(ENTITY, (_, name: string) => ENTITY_MAP[name]!);
+
 export function parseTags(text: string): TagNode[] {
   const re = new RegExp(TAG.source, 'g');
   const root: TagNode[] = [];
   const stack: { name: string; children: TagNode[] }[] = [];
   const top = (): TagNode[] => (stack.length ? stack[stack.length - 1]!.children : root);
   const pushText = (s: string): void => {
-    if (s) top().push(s);
+    if (s) top().push(decodeEntities(s));
   };
 
   let last = 0;

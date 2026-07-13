@@ -32,6 +32,7 @@ export { transformCode } from './transform';
 export { structureMatches, translateCatalogs } from './translate';
 
 export type { Analysis, TaggedMessage, TaggedParam, TransComponent, UsedKey } from './analyze';
+export type { RuntimeModuleOptions } from './codegen';
 export type { Catalog, Catalogs } from './catalog';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';
 export type { DoctorEntry, DoctorResult } from './doctor';

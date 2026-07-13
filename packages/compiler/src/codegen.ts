@@ -6,21 +6,38 @@ import { collectParams, renderParamType } from './params';
 
 export const VIRTUAL_ID = 'virtual:verbaly';
 
-export function generateRuntimeModule(cfg: ResolvedConfig): string {
+export interface RuntimeModuleOptions {
+  localeImport?: (locale: string) => string;
+  extraExports?: string;
+}
+
+export function generateRuntimeModule(
+  cfg: ResolvedConfig,
+  options: RuntimeModuleOptions = {},
+): string {
+  const importPath = options.localeImport ?? ((locale: string) => `${VIRTUAL_ID}/locale/${locale}`);
   const others = cfg.locales.filter((locale) => locale !== cfg.sourceLocale);
   const src = JSON.stringify(cfg.sourceLocale);
   const loaders = others
-    .map(
-      (locale) =>
-        `      ${JSON.stringify(locale)}: () => import('${VIRTUAL_ID}/locale/${locale}'),`,
-    )
+    .map((locale) => `  ${JSON.stringify(locale)}: () => import('${importPath(locale)}'),`)
     .join('\n');
 
   return `import { createVerbaly } from 'verbaly';
-import source from '${VIRTUAL_ID}/locale/${cfg.sourceLocale}';
+import source from '${importPath(cfg.sourceLocale)}';
 
 export const sourceLocale = ${src};
 export const locales = ${JSON.stringify(cfg.locales)};
+
+const localeLoaders = {
+${loaders}
+};
+
+// raw catalog access — SSR integrations serialize it across the client boundary
+export async function loadMessages(locale) {
+  if (locale === ${src}) return source;
+  const loader = localeLoaders[locale];
+  return loader ? (await loader()).default : {};
+}
 
 // per-request/per-instance factory (SSR) — the singleton below is browser/SPA-only
 export function createInstance(options) {
@@ -28,9 +45,7 @@ export function createInstance(options) {
     locale: ${src},
     fallback: ${src},
     messages: { [${src}]: source },
-    loaders: {
-${loaders}
-    },
+    loaders: localeLoaders,
     ...options,
   });
 }
@@ -59,7 +74,7 @@ export async function setLocale(locale) {
   await v.loadLocale(locale);
   v.setLocale(locale);
 }
-`;
+${options.extraExports ?? ''}`;
 }
 
 export function generateLocaleModule(catalog: Catalog): string {
@@ -91,6 +106,7 @@ ${lines.join('\n')}
 
   export const sourceLocale: string;
   export const locales: string[];
+  export function loadMessages(locale: string): Promise<Record<string, string>>;
   export function createInstance(
     options?: import('verbaly').VerbalyOptions<VerbalyKey>,
   ): import('verbaly').Verbaly<VerbalyKey>;

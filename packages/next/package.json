@@ -1,11 +1,15 @@
 {
-  "name": "@verbaly/react",
+  "name": "@verbaly/next",
   "version": "0.19.0",
-  "description": "React bindings for Verbaly — hooks over the reactive core.",
+  "description": "Next.js integration for Verbaly — App Router/RSC with per-request locale negotiation, Turbopack and webpack support, flash-free hydration.",
   "keywords": [
     "i18n",
-    "react",
-    "hooks",
+    "next",
+    "nextjs",
+    "app-router",
+    "react-server-components",
+    "rsc",
+    "ssr",
     "verbaly"
   ],
   "license": "MIT",
@@ -13,9 +17,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AronSoto/verbaly.git",
-    "directory": "packages/react"
+    "directory": "packages/next"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/frameworks",
+  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/react",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },
@@ -33,10 +37,23 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./loader": {
+      "types": "./loader.d.cts",
+      "default": "./dist/loader.cjs"
     }
   },
   "files": [
     "dist",
+    "loader.d.cts",
     "LICENSE"
   ],
   "sideEffects": false,
@@ -46,14 +63,21 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "@verbaly/compiler": "workspace:^"
+  },
   "peerDependencies": {
+    "@verbaly/react": "workspace:^",
+    "next": "^15.0.0 || ^16.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "verbaly": "workspace:^"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@verbaly/react": "workspace:*",
     "happy-dom": "^20.10.6",
+    "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "verbaly": "workspace:*"

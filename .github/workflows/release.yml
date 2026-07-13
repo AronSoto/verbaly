@@ -1,5 +1,5 @@
 # Automatic release: every push to develop whose packages/core version has no
-# vX.Y.Z tag yet publishes the 8 packages to npm with provenance (OIDC) and
+# vX.Y.Z tag yet publishes every packages/* package to npm with provenance (OIDC) and
 # creates the GitHub Release with a short body: the entry's theme line +
 # Highlights section, plus a link to the full changelog in the repo.
 # No version bump in the push → tag already exists → the run no-ops.

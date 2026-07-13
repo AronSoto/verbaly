@@ -46,8 +46,35 @@ describe('generateRuntimeModule', () => {
       locales: ['es', 'en'],
     });
     const code = generateRuntimeModule(cfg);
-    expect(code).toContain('loaders: {');
+    expect(code).toContain('loaders: localeLoaders');
     expect(code).toContain('await v.loadLocale(locale)');
+  });
+
+  it('exposes raw catalogs via loadMessages', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toContain('export async function loadMessages(locale)');
+    expect(code).toContain('if (locale === "en") return source;');
+  });
+
+  it('supports custom locale imports and extra exports', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    const code = generateRuntimeModule(cfg, {
+      localeImport: (locale) => `./locale/${locale}.js`,
+      extraExports: 'export const requestOptions = {"cookie":"v"};\n',
+    });
+    expect(code).toContain("import source from './locale/en.js'");
+    expect(code).toContain('"es": () => import(\'./locale/es.js\')');
+    expect(code).not.toContain('virtual:verbaly/locale');
+    expect(code).toContain('export const requestOptions = {"cookie":"v"};');
   });
 });
 
@@ -108,5 +135,6 @@ describe('generateDts', () => {
       "options?: import('verbaly').VerbalyOptions<VerbalyKey>,\n  ): import('verbaly').Verbaly<VerbalyKey>;",
     );
     expect(dts).toContain('export const locales: string[];');
+    expect(dts).toContain('export function loadMessages(locale: string): Promise<Record<string, string>>;');
   });
 });

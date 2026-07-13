@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { bindDom } from '../src/dom';
 import { attachDevtools } from '../src/devtools';
 import { createVerbaly } from '../src/instance';
-import { negotiateLocale, persistLocale, resolveLocale } from '../src/locale';
+import { negotiateLocale, persistLocale, resolveLocale, switchLocale } from '../src/locale';
 import type { DictionaryInput } from '../src/types';
 
 describe('server-side (Node)', () => {
@@ -50,5 +50,20 @@ describe('server-side (Node)', () => {
   it('DOM-only APIs throw a clear error server-side', () => {
     expect(() => bindDom(createVerbaly())).toThrow('requires a DOM');
     expect(() => attachDevtools(createVerbaly())).toThrow('requires a DOM');
+  });
+
+  it('switchLocale is SSR-safe without a DOM — loads then sets, no throw', async () => {
+    const calls: string[] = [];
+    const instance = {
+      loadLocale: (locale: string) => {
+        calls.push(`load:${locale}`);
+        return Promise.resolve();
+      },
+      setLocale: (locale: string) => {
+        calls.push(`set:${locale}`);
+      },
+    };
+    await expect(switchLocale(instance, 'es')).resolves.toBeUndefined();
+    expect(calls).toEqual(['load:es', 'set:es']); // catalog first — the no-flash order
   });
 });

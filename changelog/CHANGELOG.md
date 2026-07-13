@@ -1,10 +1,59 @@
 # Changelog
 
-Version history of **Verbaly** — one file, full detail per version, newest first. The eight packages share one version number (aligned releases).
+Version history of **Verbaly** — one file, full detail per version, newest first. The nine packages share one version number (aligned releases).
 
 Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section — the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes; the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.18.0] — 2026-07-13
+
+**Nuxt joins the family.** The second meta-framework integration: **`@verbaly/nuxt`** is a zero-config Nuxt module — one line in `nuxt.config` wires the Vite plugin, negotiates the locale per request (cookie → `Accept-Language` → fallback), awaits the catalog before render and keeps `<html lang>` in sync, so pages arrive translated and hydrate flash-free. Built entirely on the 0.16/0.17 primitives (`resolveRequestLocale`, `createRequestInstance`) with **zero dependency on `nuxt` or `@nuxt/kit`**. `switchLocale()` moves to core so both SSR integrations share it (`@verbaly/sveltekit` re-exports — nothing breaks). No breaking changes.
+
+### Highlights
+
+- **New package `@verbaly/nuxt`** — Nuxt SSR in one line: `modules: ['@verbaly/nuxt']`. The module wires `@verbaly/vite` (live extraction + `virtual:verbaly`), negotiates the visitor's language per request and hydrates the client with the same locale and catalog — no flash of untranslated text, no hydration mismatch, no locale leaking between concurrent users.
+- **Zero framework lock** — no `@nuxt/kit`, no `nuxt` peer: the module is typed structurally (same approach that keeps `@verbaly/sveltekit` free of `@sveltejs/kit`), verified against the real `NuxtModule` type and a real Nuxt 4 app.
+- **`switchLocale()` is now a core export** — the client-side language switch (catalog first, then locale, then cookie + `<html lang>`) lives once in `verbaly` and serves SvelteKit, Nuxt and hand-rolled setups. `@verbaly/sveltekit` re-exports it: existing imports keep working unchanged.
+- **Client-only apps covered too** — with `ssr: false` the module still resolves the locale in the browser (cookie → `navigator.languages` → fallback).
+- **Support Verbaly** — GitHub Sponsors is live: [github.com/sponsors/AronSoto](https://github.com/sponsors/AronSoto).
+
+### Added
+
+- **`@verbaly/nuxt` package** (new, ESM-only): a plain-function Nuxt module (configKey `verbaly`, inline options win) that (a) pushes a **fresh `@verbaly/vite` instance per Vite build** via the `vite:extendConfig` hook — client and server builds never share plugin state — with `root` pinned to the project dir (Nuxt's Vite root is `srcDir`, where no `verbaly.config` lives); (b) prepends a runtime plugin that negotiates via core's `resolveRequestLocale` over `ssrContext.event.headers`, transfers the result to the client through `useState` (the payload — hydration renders exactly the server's locale), awaits `createRequestInstance(locale)` **before** render (the no-FOUC contract), installs `@verbaly/vue`'s `verbalyPlugin` and keeps `<html lang>` reactive via `useHead`; (c) exposes `cookie` (default `verbaly-locale`, `false` = header-only) and `fallback` (default: source locale) module options riding `runtimeConfig.public`, plus full `ViteVerbalyOptions` passthrough. Actionable error when `locales` is missing. Dependency: `@verbaly/vite`; peers: `verbaly`, `@verbaly/vue`, `vue ^3.4`.
+- **`switchLocale(instance, locale, { cookie?, maxAge? })`** (`verbaly`): moved from `@verbaly/sveltekit` — awaits `loadLocale` before `setLocale` (no flash), writes the cookie SSR integrations read (`path=/`, `samesite=lax`, 1y default), syncs `<html lang>`, SSR-safe no-op without a DOM. `SwitchLocaleOptions` exported. Tree-shakes out of bundles that don't import it.
+
+### Changed
+
+- **`@verbaly/sveltekit` re-exports `switchLocale`/`SwitchLocaleOptions` from core** — identical API and behavior; the package shrinks to `verbalyHandle` + `LOCALE_COOKIE` + the re-export. No consumer change.
+
+### Notes
+
+- 464 tests (core **181** · compiler 176 · **nuxt 20** · sveltekit **12** · svelte 23 · vue 13 · react 12 · unplugin 10 · vite 17) — was 443; +20 nuxt (module wiring/merge/fresh-plugin-per-build, negotiation cookie/header/narrowing/fallback, payload hydration, `cookie: false`/custom cookie, per-request isolation, reactive `<html lang>`, missing-locales guard, client-only cookie/navigator paths, type-level `NuxtModule` compat vs `@nuxt/schema`), +6 core (`switchLocale` browser suite + SSR-safe order test), −5 sveltekit (the `switchLocale` behavioral tests moved to core with the code).
+- Verified end-to-end against a real **Nuxt 4.4.8** app installed from the packed tarballs: production `nuxt build` + Nitro server (Accept-Language q-values, `pt-BR`→pt / `es-PE`→es narrowing, cookie beats header, unsupported cookie falls to header, `es-MX` cookie narrows, no-match → fallback), **60 concurrent requests with zero locale leak**, clean hydration (0 console messages), live `switchLocale` (text + `<html lang>` + cookie) with persistence surviving reload, and `nuxt dev` (SSR negotiation + `verbaly.d.ts` written at the project root).
+- New devDep (nuxt package only): `@nuxt/schema` for the type-level module-compat test — mirror of sveltekit's `Handle` assertion. Zero new runtime dependencies.
+- Deps refreshed (release ritual, `pnpm outdated`): `@babel/parser` 8.0.4 (compiler, runtime dep — patch) · dev: i18next 26.3.6, vite 8.1.4, eslint 10.7.0, prettier 3.9.5, tsdown 0.22.5, @anthropic-ai/sdk 0.111.0. Full suite re-validated green after the update.
+- Bench re-run (ritual): lookup **30.8×**, interpolation **10.0×**, plural **4.4×**, currency **5.1×** vs i18next 26 — in family with 0.17.0 (34.9×/11.2×/5.3×/4.5×; hot path untouched).
+- Bundle check: tree-shaken `createVerbaly` **3.33 KB** min+gzip (was 3.40 — `switchLocale` tree-shakes out; minor esbuild variance), full core surface **5.18 KB** (was 5.08; +0.10 KB = `switchLocale`), `verbaly/devtools` **1.63 KB** (unchanged).
+- publint **All good** ×9 · arethetypeswrong core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10) · `@verbaly/nuxt` main entry 🟢 across node10/node16/bundler, ESM-only CJS-consumer profile like compiler/vite/sveltekit (its `dist/runtime/plugin.js` ships without a subpath export — the module registers it by file path; its ambient imports `#imports`/`virtual:verbaly` must never ship as declarations). Tarballs verified (nuxt dep `@verbaly/vite` → `^0.18.0`, peers → `^0.18.0`; only `dist/` + LICENSE + README).
+- Competitive seal 0.18.0 (2026-07-13): i18next 26.3.6 · react-i18next 17.0.9 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.21.0 · next-intl 4.13.2 — identical to the 0.17.0 seal; table stands. New reference for this release's territory: **@nuxtjs/i18n 10.4.1** (the Nuxt incumbent — powerful but config-heavy: lazy-load setup, per-file locale registration, its own message format). Verbaly's angle: compiled catalogs, type-safe params and a one-line module.
+- **First-publish caveat** (repo process): `@verbaly/nuxt` doesn't exist on npm yet — no Trusted Publisher until it does. If the workflow's OIDC publish fails for it, publish once manually (`pnpm --filter @verbaly/nuxt publish --access public --no-git-checks`), configure its TP, re-run the workflow (per-package resume skips the rest).
+- Repo: **GitHub Sponsors enabled** — `.github/FUNDING.yml` + a branded Sponsor section in the root README (icon reused from verbaly-web). Root README packages table gains the `@verbaly/nuxt` row.
+
+### Docs impact (pending)
+
+- **`docs/frameworks/vue`**: add a **`#nuxt` section** at the end (mirror of the SvelteKit-inside-Svelte pattern decided in 0.16.0): the one-line module setup, options table (`cookie`, `fallback`, `ViteVerbalyOptions` passthrough), components use `@verbaly/vue` as usual, language switch with `switchLocale` from `verbaly` + `useVerbaly`, `ssr: false` behavior, and the SSG note (prefer `verbaly render` for `nuxi generate`). Mirror the package README.
+- **`docs/reference/api`**: new row `switchLocale(instance, locale, options?)` (core) next to `persistLocale`; note that `@verbaly/sveltekit` re-exports it.
+- **`docs/frameworks/svelte#sveltekit`**: no code change needed (the `@verbaly/sveltekit` import keeps working) — optionally note `switchLocale` is a core export now.
+- **`docs/guide/server`**: the "Meta-frameworks" section mentions SvelteKit — add Nuxt with a link to `frameworks/vue#nuxt`.
+- **`docs/init/what-is`** / cycle copy: if any copy says "SvelteKit is the only meta-framework integration", update to SvelteKit + Nuxt.
+- **`frameworks.ts`**: do NOT add Nuxt as a separate integration chip (0.16.0 precedent: SvelteKit lives inside Svelte's page; Nuxt lives inside Vue's) — but verify the dropdown/hero copy still reads correctly.
+- **`/changelog`** (`releases.ts`): 0.18.0 entry — theme + Highlights above.
+- Landing compare table: no cell changes (same-day competitor versions, table stands).
+- Playground: no preset changes (message format untouched).
+- Bump web to `verbaly@^0.18.0` + `@verbaly/compiler@^0.18.0` — **`pnpm install` only after the npm publish**.
 
 ---
 

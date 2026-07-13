@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createVerbaly } from 'verbaly';
-import { switchLocale } from '../src/index';
+import { createVerbaly } from '../src/instance';
+import { switchLocale } from '../src/locale';
 
 function makeInstance() {
   return createVerbaly({
@@ -29,7 +29,7 @@ describe('switchLocale (browser)', () => {
     expect(v.t('hi')).toBe('Hola'); // catalog was awaited, not in flight
   });
 
-  it('persists the choice in the cookie the server hook reads', async () => {
+  it('persists the choice in the cookie SSR integrations read', async () => {
     await switchLocale(makeInstance(), 'es');
     expect(document.cookie).toContain('verbaly-locale=es');
   });

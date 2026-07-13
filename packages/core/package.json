@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Effortless i18n — write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",
@@ -68,7 +68,7 @@
   },
   "devDependencies": {
     "happy-dom": "^20.10.6",
-    "i18next": "^26.3.5"
+    "i18next": "^26.3.6"
   },
   "scripts": {
     "build": "tsdown",

@@ -1,4 +1,5 @@
-// locale bootstrap helpers (SSR-safe)
+import type { Verbaly } from './types';
+
 export interface ResolveLocaleOptions {
   supported: string[];
   fallback?: string;
@@ -102,6 +103,29 @@ export function resolveRequestLocale(options: RequestLocaleOptions): string {
     if (match) return match;
   }
   return negotiateLocale(header, supported, fallback);
+}
+
+export interface SwitchLocaleOptions {
+  cookie?: string | false;
+  maxAge?: number;
+}
+
+const YEAR = 31536000;
+
+// client-side switch shared by SSR integrations: catalog first (no flash), then locale, then persistence
+export async function switchLocale(
+  instance: Pick<Verbaly, 'loadLocale' | 'setLocale'>,
+  locale: string,
+  options: SwitchLocaleOptions = {},
+): Promise<void> {
+  const { cookie = LOCALE_STORAGE_KEY, maxAge = YEAR } = options;
+  await instance.loadLocale(locale);
+  instance.setLocale(locale);
+  if (typeof document === 'undefined') return; // SSR-safe no-op
+  if (cookie) {
+    document.cookie = `${cookie}=${encodeURIComponent(locale)}; path=/; max-age=${maxAge}; samesite=lax`;
+  }
+  document.documentElement.lang = locale;
 }
 
 export function persistLocale(locale: string, storageKey: string | false = LOCALE_STORAGE_KEY): void {

@@ -1,14 +1,13 @@
 {
-  "name": "@verbaly/unplugin",
+  "name": "@verbaly/nuxt",
   "version": "0.18.0",
-  "description": "Verbaly for webpack, Rollup, esbuild and Rspack — extraction, virtual modules and build gate via unplugin.",
+  "description": "Nuxt integration for Verbaly — zero-config module with per-request locale negotiation and flash-free hydration.",
   "keywords": [
     "i18n",
-    "unplugin",
-    "webpack",
-    "rollup",
-    "esbuild",
-    "rspack",
+    "nuxt",
+    "nuxt-module",
+    "ssr",
+    "hydration",
     "verbaly"
   ],
   "license": "MIT",
@@ -16,18 +15,18 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AronSoto/verbaly.git",
-    "directory": "packages/unplugin"
+    "directory": "packages/nuxt"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/vite",
+  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/vue",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },
   "type": "module",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/module.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js"
     }
   },
   "files": [
@@ -42,14 +41,19 @@
     "access": "public"
   },
   "dependencies": {
-    "@verbaly/compiler": "workspace:*",
-    "unplugin": "^3.3.0"
+    "@verbaly/vite": "workspace:^"
   },
   "peerDependencies": {
-    "verbaly": "workspace:^"
+    "@verbaly/vue": "workspace:^",
+    "verbaly": "workspace:^",
+    "vue": "^3.4.0"
   },
   "devDependencies": {
-    "verbaly": "workspace:*"
+    "@nuxt/schema": "^4.4.8",
+    "@verbaly/vue": "workspace:*",
+    "happy-dom": "^20.10.6",
+    "verbaly": "workspace:*",
+    "vue": "^3.5.39"
   },
   "scripts": {
     "build": "tsdown",

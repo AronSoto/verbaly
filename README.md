@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.17.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.18.0" alt="Socket supply chain security" /></a>
   <img src="https://img.shields.io/badge/gzip-~3KB-3fb950" alt="~3KB gzip" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
@@ -85,6 +85,7 @@ Plain HTML, no framework? Bind by attribute:
 | [`@verbaly/vue`](packages/vue)           | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)           | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                  |
 | [`@verbaly/svelte`](packages/svelte)     | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)     | Svelte stores (`useT`, `useLocale`) — 4 & 5                          |
 | [`@verbaly/sveltekit`](packages/sveltekit) | [![npm](https://img.shields.io/npm/v/@verbaly/sveltekit?label=)](https://www.npmjs.com/package/@verbaly/sveltekit) | SvelteKit SSR — per-request locale, flash-free hydration           |
+| [`@verbaly/nuxt`](packages/nuxt)         | [![npm](https://img.shields.io/npm/v/@verbaly/nuxt?label=)](https://www.npmjs.com/package/@verbaly/nuxt)         | Nuxt SSR — zero-config module, per-request locale, flash-free hydration |
 
 ---
 
@@ -121,13 +122,33 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsdown → ESM + CJS + .d.ts
-pnpm test       # Vitest (335 tests)
+pnpm test       # Vitest (464 tests)
 pnpm coverage   # full suite + lcov report
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 ```
 
 > ⚠️ Early development. `0.x` published — API not stable yet.
+
+---
+
+## Sponsor Verbaly
+
+<p align="center">
+  <a href="https://github.com/sponsors/AronSoto"><img src="assets/icon.png" width="84" alt="Verbaly icon" /></a>
+</p>
+
+<p align="center">
+  Verbaly is <strong>MIT-licensed</strong>, dependency-free and built independently.<br />
+  If it saves you time shipping i18n, consider sponsoring — it funds the road to <strong>1.0</strong>:<br />
+  more framework integrations, faster releases and long-term maintenance.
+</p>
+
+<p align="center">
+  <a href="https://github.com/sponsors/AronSoto">
+    <img src="https://img.shields.io/badge/♥%20Sponsor%20Verbaly-bef12d?style=for-the-badge&logo=githubsponsors&logoColor=1a1f16" alt="Sponsor Verbaly on GitHub" />
+  </a>
+</p>
 
 ## License
 

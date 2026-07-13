@@ -122,7 +122,7 @@ describe('bindDom', () => {
     expect(el.getAttribute('title')).toBe('Hola');
   });
 
-  it('sanitizes URL attributes — unsafe schemes never land', () => {
+  it('sanitizes URL attributes: unsafe schemes never land', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const v = createVerbaly({
       locale: 'es',

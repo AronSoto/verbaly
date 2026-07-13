@@ -4,7 +4,7 @@ import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codeg
 import type { ResolvedConfig } from './config';
 import type { MessageRegistry } from './registry';
 
-// shared bundler-plugin primitives — @verbaly/vite and @verbaly/unplugin
+// shared bundler-plugin primitives: @verbaly/vite and @verbaly/unplugin
 // adapt these to their hook signatures instead of copying them
 
 export const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;

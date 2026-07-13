@@ -1,10 +1,10 @@
 import { LOCALE_STORAGE_KEY, resolveRequestLocale } from 'verbaly';
 
-// derived from core's localStorage key — one identity per user across channels
+// derived from core's localStorage key: one identity per user across channels
 export const LOCALE_COOKIE: string = LOCALE_STORAGE_KEY;
 const LANG_PLACEHOLDER = '%verbaly.lang%';
 
-// structural subset of @sveltejs/kit — no runtime or type dependency on kit
+// structural subset of @sveltejs/kit: no runtime or type dependency on kit
 interface HandleEvent {
   request: Request;
   cookies: { get(name: string): string | undefined };
@@ -51,6 +51,6 @@ export function verbalyHandle(options: VerbalyHandleOptions) {
   };
 }
 
-// switchLocale moved to core in 0.18.0 (shared with @verbaly/nuxt) — same API, re-exported
+// switchLocale moved to core in 0.18.0 (shared with @verbaly/nuxt): same API, re-exported
 export { switchLocale } from 'verbaly';
 export type { SwitchLocaleOptions } from 'verbaly';

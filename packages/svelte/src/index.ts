@@ -17,7 +17,7 @@ export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verba
   return instance;
 }
 
-// store factories — also usable without context (app-level singleton)
+// store factories: also usable without context (app-level singleton)
 export function tStore<D extends DictionaryInput>(instance: Verbaly<D>): Readable<TFunction<D>> {
   return {
     subscribe(run) {

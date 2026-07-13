@@ -184,7 +184,7 @@ function isTemplateStrings(value: unknown): value is TemplateStringsArray {
 }
 
 function detectLocale(): string {
-  // gate on document, not navigator — Node 21+ exposes a global navigator (OS locale)
+  // gate on document, not navigator: Node 21+ exposes a global navigator (OS locale)
   return typeof document !== 'undefined' && typeof navigator !== 'undefined' && navigator.language
     ? navigator.language
     : 'en';

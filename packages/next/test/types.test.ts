@@ -1,4 +1,4 @@
-// type-level compat against the real Next types (devDep only) — mirror of
+// type-level compat against the real Next types (devDep only): mirror of
 // sveltekit's Handle assertion and nuxt's NuxtModule assertion
 import type { NextConfig } from 'next';
 import { describe, expect, it } from 'vitest';

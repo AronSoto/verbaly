@@ -132,7 +132,7 @@ describe('analyze <Trans>', () => {
       </Trans>
     );`;
     const { tagged } = analyze(code, 'App.tsx');
-    // React drops the newline after </em> — faithful extraction does too
+    // React drops the newline after </em>: faithful extraction does too
     expect(tagged[0]?.message).toBe('Read the <em>terms</em>before continuing');
   });
 

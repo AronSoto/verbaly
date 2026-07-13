@@ -23,7 +23,7 @@ export interface Alternate {
 
 export interface RenderHtmlOptions {
   locale: string;
-  // nested trees welcome — the runtime flattens them (verbaly-web's shape)
+  // nested trees welcome: the runtime flattens them (verbaly-web's shape)
   catalogs: Catalogs | Record<string, MessageTree>;
   sourceLocale?: string;
   attribute?: string;
@@ -72,7 +72,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const globalLinks = options.richLinks;
   const sourceLocale = options.sourceLocale ?? 'en';
 
-  // '' = untranslated — the runtime lookup falls back on its own (nested or flat)
+  // '' = untranslated: the runtime lookup falls back on its own (nested or flat)
   const v = createVerbaly({
     locale: options.locale,
     fallback: sourceLocale,
@@ -85,7 +85,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const skip = protectedRanges(html);
   const inSkip = (index: number): boolean => skip.some(([from, to]) => index >= from && index < to);
 
-  // per-locale canonical/og:url — a cross-locale canonical would void the hreflang set
+  // per-locale canonical/og:url: a cross-locale canonical would void the hreflang set
   const selfUrl = options.alternates?.find((a) => a.hreflang === options.locale)?.href;
   const sourceUrl = options.alternates?.find((a) => a.hreflang === 'x-default')?.href;
   const rewriteUrl = selfUrl !== undefined && selfUrl !== sourceUrl;

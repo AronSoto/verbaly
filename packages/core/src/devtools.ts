@@ -29,7 +29,7 @@ function statusOf(
   return !info ? 'miss' : info.from === currentLocale ? 'hit' : 'fallback';
 }
 
-// dev-only inspector — "what key is this text?" in the browser (opt-in, tree-shakeable)
+// dev-only inspector: "what key is this text?" in the browser (opt-in, tree-shakeable)
 export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {}): () => void {
   if (typeof document === 'undefined') throw new Error('[verbaly] devtools requires a DOM');
   const root = options.root ?? document.body;

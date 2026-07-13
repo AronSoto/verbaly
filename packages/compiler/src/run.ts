@@ -309,7 +309,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
 // a flag another command owns must fail loudly, never be silently ignored
 function rejectStrayFlags(command: string, values: Record<string, unknown>): boolean {
   const own = COMMAND_FLAGS[command];
-  if (!own) return false; // unknown command — reported later with the help text
+  if (!own) return false; // unknown command: reported later with the help text
   const allowed = new Set([...COMMON_FLAGS, ...own]);
   const stray = Object.keys(values).filter((k) => values[k] !== undefined && !allowed.has(k));
   if (stray.length === 0) return false;

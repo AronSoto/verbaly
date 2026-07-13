@@ -26,7 +26,7 @@ function makeNuxt(configOptions?: VerbalyNuxtOptions) {
 const slashes = (value: unknown): string => String(value).replaceAll('\\', '/');
 
 describe('verbalyModule', () => {
-  it('prepends the runtime plugin — the instance must exist before app code', () => {
+  it('prepends the runtime plugin: the instance must exist before app code', () => {
     const { nuxt } = makeNuxt();
     verbalyModule(undefined, nuxt);
     expect(slashes(nuxt.options.plugins[0])).toMatch(/runtime\/plugin\.js$/);
@@ -58,7 +58,7 @@ describe('verbalyModule', () => {
     expect(clientPlugin).not.toBe(serverPlugin); // no shared state across builds
   });
 
-  it('merges configKey options with inline options — inline wins', () => {
+  it('merges configKey options with inline options: inline wins', () => {
     const { nuxt } = makeNuxt({ cookie: 'from-config', fallback: 'pt' });
     verbalyModule({ cookie: 'inline' }, nuxt);
     expect(nuxt.options.runtimeConfig.public.verbaly).toEqual({
@@ -67,7 +67,7 @@ describe('verbalyModule', () => {
     });
   });
 
-  it('keeps compiler options out of runtimeConfig — only negotiation rides it', () => {
+  it('keeps compiler options out of runtimeConfig: only negotiation rides it', () => {
     const { nuxt } = makeNuxt();
     verbalyModule({ locales: ['en', 'es'], cookie: false }, nuxt);
     expect(nuxt.options.runtimeConfig.public.verbaly).toEqual({ cookie: false });

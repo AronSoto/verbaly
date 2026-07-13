@@ -3,7 +3,7 @@ import { watch } from 'node:fs';
 import { relative } from 'node:path';
 import { GENERATED_DIR, writeGeneratedModules, type Compiler, type RequestOptions } from './codegen';
 
-// one watcher per project root — next.config can be evaluated more than once
+// one watcher per project root: next.config can be evaluated more than once
 const active = new Map<string, () => void>();
 
 export function startWatcher(

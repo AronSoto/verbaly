@@ -18,7 +18,7 @@ export interface NextVerbalyOptions extends VerbalyConfig {
   fallback?: string;
 }
 
-// structural NextConfig subset — compat asserted against next's real type in tests.
+// structural NextConfig subset: compat asserted against next's real type in tests.
 // No index signatures: Next's real interfaces have none and a target index
 // signature would reject them.
 export interface WebpackConfigLike {
@@ -47,19 +47,19 @@ export interface NextConfigLike {
   turbopack?: TurbopackLike;
 }
 
-// constraint is `object` (not NextConfigLike) — an all-optional target would
+// constraint is `object` (not NextConfigLike): an all-optional target would
 // reject configs sharing no keys with it (TS weak-type rule)
 export type NextConfigInput<C extends object> =
   | C
   | ((phase: string, context: { defaultConfig?: unknown }) => C | Promise<C>);
 
-// next/constants values — literal to keep this module import-free of next
+// next/constants values: literal to keep this module import-free of next
 const DEV_PHASE = 'phase-development-server';
 const BUILD_PHASE = 'phase-production-build';
 
 const LOADER = '@verbaly/next/loader';
 // compiler's SOURCE_FILE_RE (inlined: the compiler is only dynamically imported here).
-// Matching happens via `condition.path` — a bare extension glob also matches Next's
+// Matching happens via `condition.path`: a bare extension glob also matches Next's
 // internal App Router entry and Turbopack panics reading it as a file.
 const SOURCE_PATH_RE = /\.[cm]?[jt]sx?$/;
 
@@ -75,7 +75,7 @@ export function withVerbaly<C extends object>(
       typeof nextConfig === 'function' ? await nextConfig(phase, context) : (nextConfig ?? ({} as C));
     const root = verbalyConfig.root ?? process.cwd();
 
-    // production server / export: everything is bundled — no FS work, config only
+    // production server / export: everything is bundled, so no FS work, config only
     if (phase !== DEV_PHASE && phase !== BUILD_PHASE) {
       return composeConfig(base, root);
     }
@@ -128,7 +128,7 @@ function composeConfig<C extends object>(base: C, root: string): C {
       rules,
     },
     webpack(config: WebpackConfigLike, context: unknown) {
-      // webpack 5 treats 'virtual:' as a URI scheme — resolve.alias never fires,
+      // webpack 5 treats 'virtual:' as a URI scheme: resolve.alias never fires,
       // module replacement does; the alias stays as a fallback for odd setups
       const { webpack: webpackInstance } = (context ?? {}) as WebpackContextLike;
       if (webpackInstance?.NormalModuleReplacementPlugin) {

@@ -13,7 +13,7 @@ function makeInstance() {
 }
 
 beforeEach(() => {
-  // happy-dom keeps cookies per document — expire leftovers
+  // happy-dom keeps cookies per document: expire leftovers
   for (const pair of document.cookie.split(';')) {
     const name = pair.split('=')[0]?.trim();
     if (name) document.cookie = `${name}=; path=/; max-age=0`;
@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 describe('switchLocale (browser)', () => {
-  it('loads the catalog before switching — no flash of untranslated text', async () => {
+  it('loads the catalog before switching: no flash of untranslated text', async () => {
     const v = makeInstance();
     await switchLocale(v, 'es');
     expect(v.locale).toBe('es');

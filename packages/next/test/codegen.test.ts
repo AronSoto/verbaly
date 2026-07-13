@@ -39,7 +39,7 @@ describe('writeGeneratedModules', () => {
     expect(runtime).toContain('export const requestOptions = {"cookie":"my-locale","fallback":"es"};');
   });
 
-  it('is idempotent — identical content is not rewritten', () => {
+  it('is idempotent: identical content is not rewritten', () => {
     const cfg = makeConfig();
     expect(writeGeneratedModules(cfg, { en: { a: 'A' } })).toBe(true);
     const file = join(generatedDir(cfg.root), 'index.js');

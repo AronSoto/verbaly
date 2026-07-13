@@ -55,7 +55,7 @@ describe('attachDevtools', () => {
     expect(document.querySelector('.verbaly-dt-tip')).toBeNull();
   });
 
-  it('ignores its own panel writes — no mutation self-loop', async () => {
+  it('ignores its own panel writes: no mutation self-loop', async () => {
     document.body.innerHTML = '<p data-verbaly="a"></p>';
     const v = make();
     let scans = 0;
@@ -65,7 +65,7 @@ describe('attachDevtools', () => {
       return inspect(key);
     };
     detach = attachDevtools(v);
-    // drain the observer microtasks — with the loop, scans grew every tick
+    // drain the observer microtasks: with the loop, scans grew every tick
     for (let i = 0; i < 10; i++) await Promise.resolve();
     const settled = scans;
     for (let i = 0; i < 10; i++) await Promise.resolve();

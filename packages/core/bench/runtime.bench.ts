@@ -1,4 +1,3 @@
-// hot-path benchmarks vs i18next — run with `pnpm bench`
 import i18next from 'i18next';
 import { bench, describe } from 'vitest';
 import { createVerbaly } from '../src/instance';

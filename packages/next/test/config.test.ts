@@ -75,7 +75,7 @@ describe('withVerbaly', () => {
     expect(alias['virtual:verbaly']).toBe('./.verbaly/index.js');
     const rules = config.turbopack?.rules as Record<string, unknown>;
     expect(rules['*.svg']).toEqual({ loaders: ['@svgr/webpack'] });
-    // a user '*' rule is kept — ours joins it as an array entry
+    // a user '*' rule is kept: ours joins it as an array entry
     const star = rules['*'] as Array<{ loaders: string[] }>;
     expect(star).toHaveLength(2);
     expect(star[0]?.loaders).toEqual(['user-loader']);
@@ -143,7 +143,7 @@ describe('withVerbaly', () => {
     expect(runtime).toContain('"fallback":"es"');
   });
 
-  it('other phases only compose config — no filesystem work', async () => {
+  it('other phases only compose config: no filesystem work', async () => {
     const root = makeProject();
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(SERVER);
     expect(existsSync(join(root, '.verbaly'))).toBe(false);

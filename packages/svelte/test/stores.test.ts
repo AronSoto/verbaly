@@ -51,7 +51,7 @@ describe('tStore', () => {
     expect(t?.('inbox', { count: 3 })).toBe('3 mensajes');
   });
 
-  it('the emitted t keeps its full surface — t.id works', () => {
+  it('the emitted t keeps its full surface: t.id works', () => {
     const v = setup();
     let id: ((key: string) => (s: TemplateStringsArray, ...vals: unknown[]) => string) | undefined;
     tStore(v).subscribe((value) => {

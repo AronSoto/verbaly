@@ -9,7 +9,7 @@ export interface VerbalyNuxtOptions extends ViteVerbalyOptions {
   fallback?: string;
 }
 
-// structural subset of Nuxt — no runtime or type dependency on nuxt/@nuxt/kit
+// structural subset of Nuxt: no runtime or type dependency on nuxt/@nuxt/kit
 interface ViteConfigLike {
   plugins?: unknown[];
 }
@@ -26,7 +26,7 @@ export interface NuxtLike {
 
 const runtimeDir = join(dirname(fileURLToPath(import.meta.url)), 'runtime');
 
-// plain-function Nuxt module — configKey `verbaly`, inline options win
+// plain-function Nuxt module: configKey `verbaly`, inline options win
 function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: NuxtLike): void {
   const { cookie, fallback, ...vite } = { ...nuxt.options.verbaly, ...inlineOptions };
 
@@ -36,14 +36,14 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
     ...(fallback !== undefined && { fallback }),
   };
 
-  // fresh plugin instance per Vite build — client and server builds never share state.
+  // fresh plugin instance per Vite build: client and server builds never share state.
   // root pinned to the project dir: Nuxt's Vite root is srcDir (app/), where no verbaly.config lives
   nuxt.hook('vite:extendConfig', (config) => {
     (config.plugins ??= []).push(verbalyVite({ root: nuxt.options.rootDir, ...vite }));
   });
 
   nuxt.options.build.transpile.push(runtimeDir);
-  // prepend — the instance must exist before app plugins and components run
+  // prepend: the instance must exist before app plugins and components run
   nuxt.options.plugins.unshift(join(runtimeDir, 'plugin.js'));
 }
 

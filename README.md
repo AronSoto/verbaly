@@ -123,7 +123,7 @@ Plain HTML, no framework? Bind by attribute:
 ```bash
 pnpm install
 pnpm build      # tsdown → ESM + CJS + .d.ts
-pnpm test       # Vitest (464 tests)
+pnpm test       # Vitest
 pnpm coverage   # full suite + lcov report
 pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next

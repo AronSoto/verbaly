@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// client-only app (ssr: false): no ssrContext, no payload — the plugin resolves in the browser
+// client-only app (ssr: false): no ssrContext, no payload: the plugin resolves in the browser
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Verbaly } from 'verbaly';
 import plugin from '../src/runtime/plugin';

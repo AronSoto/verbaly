@@ -65,7 +65,7 @@ describe('@verbaly/react', () => {
     expect(container.textContent).toBe('Hola Aron');
   });
 
-  it('useT keeps the full t surface — t.id works', () => {
+  it('useT keeps the full t surface: t.id works', () => {
     function IdUser() {
       const t = useT();
       return <p>{t.id('hello')`Hello ${'Aron'}`}</p>;

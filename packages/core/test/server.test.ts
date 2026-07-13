@@ -1,4 +1,4 @@
-// runs in the default node environment — no document/navigator/localStorage (SSR/Node)
+// runs in the default node environment: no document/navigator/localStorage (SSR/Node)
 import { describe, expect, it } from 'vitest';
 import { bindDom } from '../src/dom';
 import { attachDevtools } from '../src/devtools';
@@ -7,7 +7,7 @@ import { negotiateLocale, persistLocale, resolveLocale, switchLocale } from '../
 import type { DictionaryInput } from '../src/types';
 
 describe('server-side (Node)', () => {
-  it('has no DOM (document) — the browser discriminator', () => {
+  it('has no DOM (document): the browser discriminator', () => {
     // Node 21+ exposes a global navigator, so document is the reliable "is browser" guard
     expect(typeof document).toBe('undefined');
     expect(typeof localStorage).toBe('undefined');
@@ -52,7 +52,7 @@ describe('server-side (Node)', () => {
     expect(() => attachDevtools(createVerbaly())).toThrow('requires a DOM');
   });
 
-  it('switchLocale is SSR-safe without a DOM — loads then sets, no throw', async () => {
+  it('switchLocale is SSR-safe without a DOM: loads then sets, no throw', async () => {
     const calls: string[] = [];
     const instance = {
       loadLocale: (locale: string) => {
@@ -64,6 +64,6 @@ describe('server-side (Node)', () => {
       },
     };
     await expect(switchLocale(instance, 'es')).resolves.toBeUndefined();
-    expect(calls).toEqual(['load:es', 'set:es']); // catalog first — the no-flash order
+    expect(calls).toEqual(['load:es', 'set:es']); // catalog first: the no-flash order
   });
 });

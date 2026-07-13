@@ -1,4 +1,4 @@
-// default node environment — the server-side surface (no DOM)
+// default node environment: the server-side surface (no DOM)
 import type { Handle } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
 import { switchLocale, verbalyHandle, LOCALE_COOKIE } from '../src/index';
@@ -103,7 +103,7 @@ describe('verbalyHandle', () => {
   });
 
   it('throws an actionable error without locales (old virtual module)', () => {
-    // an outdated @verbaly/vite exports no `locales` — the import arrives undefined
+    // an outdated @verbaly/vite exports no `locales`: the import arrives undefined
     expect(() => verbalyHandle({ locales: undefined as unknown as string[] })).toThrow(
       'virtual:verbaly',
     );
@@ -117,7 +117,7 @@ describe('verbalyHandle', () => {
 });
 
 describe('switchLocale (server-side)', () => {
-  it('is SSR-safe without a DOM — loads then sets, no throw', async () => {
+  it('is SSR-safe without a DOM: loads then sets, no throw', async () => {
     const calls: string[] = [];
     const instance = {
       loadLocale: (locale: string) => {

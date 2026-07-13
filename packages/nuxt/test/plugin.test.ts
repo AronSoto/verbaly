@@ -1,4 +1,4 @@
-// default node environment — the SSR surface (no DOM)
+// default node environment: the SSR surface (no DOM)
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Verbaly } from 'verbaly';
 import plugin from '../src/runtime/plugin';
@@ -39,7 +39,7 @@ describe('runtime plugin (server)', () => {
   it('negotiates the locale from Accept-Language', async () => {
     const instance = await run({ 'accept-language': 'es-PE,en;q=0.8' });
     expect(instance.locale).toBe('es');
-    expect(instance.t('greet')).toBe('Hola'); // catalog awaited before install — no flash
+    expect(instance.t('greet')).toBe('Hola'); // catalog awaited before install: no flash
   });
 
   it('prefers the cookie over the header', async () => {
@@ -61,7 +61,7 @@ describe('runtime plugin (server)', () => {
   it('falls back to the source locale when nothing matches', async () => {
     const instance = await run({ 'accept-language': 'fr' });
     expect(instance.locale).toBe('en');
-    expect(loadedLocales).toEqual([]); // source catalog is inline — nothing to load
+    expect(loadedLocales).toEqual([]); // source catalog is inline: nothing to load
   });
 
   it('skips the cookie when the module sets cookie: false', async () => {
@@ -83,7 +83,7 @@ describe('runtime plugin (server)', () => {
   });
 
   it('hydration: reuses the payload locale without re-negotiating', async () => {
-    // no ssrContext (client) — the state seeded from the payload must win untouched
+    // no ssrContext (client): the state seeded from the payload must win untouched
     seedState('verbaly:locale', 'es');
     const instance = await run();
     expect(instance.locale).toBe('es');
@@ -100,7 +100,7 @@ describe('runtime plugin (server)', () => {
     expect(head.htmlAttrs.lang.value).toBe('pt');
   });
 
-  it('gives every request its own instance — no locale leaking', async () => {
+  it('gives every request its own instance: no locale leaking', async () => {
     const first = await run({ 'accept-language': 'pt' });
     resetNuxtMock(); // next request: fresh nuxt app state
     const second = await run({ 'accept-language': 'es' });

@@ -101,7 +101,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
           const expected = selfWrites.get(locale);
           if (expected !== undefined) {
             selfWrites.delete(locale);
-            // content compare — a stale entry must not swallow an external edit
+            // content compare: a stale entry must not swallow an external edit
             if (safeRead(file) === expected) return;
           }
         }

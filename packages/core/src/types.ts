@@ -44,7 +44,7 @@ type LookupPath<T, K extends string> = T extends MessageTree
 // param names inside a message
 export type ParamNames<S extends string> = string extends S ? string : Scan<StripDoubles<S>>;
 
-// \u0000 = sentinel for stripped escapes — can never occur in a real message
+// \u0000 = sentinel for stripped escapes: can never occur in a real message
 type StripDoubles<S extends string> = S extends `${infer A}{{${infer B}`
   ? `${A}\u0000${StripDoubles<B>}`
   : S;
@@ -86,7 +86,7 @@ export interface TFunction<D extends DictionaryInput = DictionaryInput> {
   id(key: string): (strings: TemplateStringsArray, ...values: unknown[]) => string;
 }
 
-// how a t(key) call resolved — the observability signal (devtools)
+// how a t(key) call resolved: the observability signal (devtools)
 export type ResolveStatus = 'hit' | 'fallback' | 'miss';
 
 export interface ResolveInfo {

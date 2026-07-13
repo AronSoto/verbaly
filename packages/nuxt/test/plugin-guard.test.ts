@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import plugin from '../src/runtime/plugin';
 
-// an outdated @verbaly/vite exports no `locales` — the import arrives empty/undefined
+// an outdated @verbaly/vite exports no `locales`: the import arrives empty/undefined
 vi.mock('virtual:verbaly', () => ({
   locales: [],
   sourceLocale: 'en',

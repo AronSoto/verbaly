@@ -37,7 +37,7 @@ const getRequestState = perRequest(async (): Promise<RequestState> => {
   return { locale, instance: await createRequestInstance(locale) };
 });
 
-// request-scoped instance — never the virtual:verbaly singleton (locale would leak between requests)
+// request-scoped instance: never the virtual:verbaly singleton (locale would leak between requests)
 export async function getVerbaly(): Promise<Verbaly> {
   return (await getRequestState()).instance;
 }
@@ -55,7 +55,7 @@ export interface VerbalyProviderProps {
   messages?: Record<string, string>;
 }
 
-// serializable props for <VerbalyProvider> — messages omitted when locale is the
+// serializable props for <VerbalyProvider>: messages omitted when locale is the
 // source locale (it ships inline in the client bundle already)
 export async function getVerbalyProps(): Promise<VerbalyProviderProps> {
   const { locale } = await getRequestState();

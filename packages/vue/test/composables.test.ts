@@ -57,7 +57,7 @@ describe('@verbaly/vue', () => {
     expect(el.textContent).toBe('Hola Aron');
   });
 
-  it('useT keeps the full t surface — t.id works', () => {
+  it('useT keeps the full t surface: t.id works', () => {
     const IdUser = defineComponent({
       setup() {
         const t = useT();

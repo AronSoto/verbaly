@@ -30,7 +30,7 @@ export function VerbalyProvider(props: VerbalyProviderProps): ReactElement {
     return created;
   });
 
-  // server changed the locale out-of-band (cookie edit + refresh) — follow it
+  // server changed the locale out-of-band (cookie edit + refresh): follow it
   useEffect(() => {
     if (props.locale === instance.locale) return;
     if (props.messages) {

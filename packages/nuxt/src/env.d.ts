@@ -1,4 +1,4 @@
-// structural shims for typecheck only — both specifiers resolve in the consumer's Nuxt build
+// structural shims for typecheck only: both specifiers resolve in the consumer's Nuxt build
 // (never shipped: module.d.ts doesn't reference them and the runtime plugin emits no dts)
 
 declare module '#imports' {

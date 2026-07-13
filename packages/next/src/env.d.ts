@@ -1,4 +1,4 @@
-// structural shim for typecheck only — the specifier resolves in the consumer's Next build
+// structural shim for typecheck only: the specifier resolves in the consumer's Next build
 // via the bundler alias withVerbaly sets (never shipped: public dts only references 'verbaly')
 
 declare module 'virtual:verbaly' {

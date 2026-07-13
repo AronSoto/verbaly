@@ -194,7 +194,7 @@ describe('units', () => {
     spy.mockRestore();
   });
 
-  it('invalid currency code warns and falls back — never throws', () => {
+  it('invalid currency code warns and falls back: never throws', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const bad = createVerbaly({ locale: 'en', messages: { en: { p: '{amount:currency/US}' } } });
     expect(bad.t('p', { amount: 5 })).toBe('5');
@@ -202,7 +202,7 @@ describe('units', () => {
     spy.mockRestore();
   });
 
-  it('invalid date/time style warns and falls back — never throws', () => {
+  it('invalid date/time style warns and falls back: never throws', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const bad = createVerbaly({
       locale: 'en',

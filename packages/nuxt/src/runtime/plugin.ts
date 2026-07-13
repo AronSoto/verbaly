@@ -9,7 +9,7 @@ interface VerbalyRuntimeConfig {
   fallback?: string;
 }
 
-// structural subset of NuxtApp — the real one arrives at runtime
+// structural subset of NuxtApp: the real one arrives at runtime
 interface NuxtAppLike {
   vueApp: { use(plugin: VerbalyPlugin): unknown };
   ssrContext?: { event?: { headers?: { get(name: string): string | null } } };
@@ -43,7 +43,7 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtAppLike) => {
   const cookieName = config.cookie === false ? false : config.cookie || LOCALE_STORAGE_KEY;
   const fallback = config.fallback ?? sourceLocale;
 
-  // negotiated on the server, hydrated from the payload — the client renders the same locale
+  // negotiated on the server, hydrated from the payload: the client renders the same locale
   const locale = useState<string>('verbaly:locale', () => {
     const headers = nuxtApp.ssrContext?.event?.headers;
     if (headers) {
@@ -69,7 +69,7 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtAppLike) => {
     });
   });
 
-  // fresh instance per request, catalog awaited BEFORE render — the no-FOUC contract
+  // fresh instance per request, catalog awaited BEFORE render: the no-FOUC contract
   const instance = await createRequestInstance(locale.value);
   nuxtApp.vueApp.use(verbalyPlugin(instance));
 

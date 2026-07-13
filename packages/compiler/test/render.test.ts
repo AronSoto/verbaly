@@ -274,7 +274,7 @@ describe('renderSite', () => {
     expect(es).toContain('>Busca y encuentra<');
   });
 
-  it('is idempotent — re-running does not nest locale dirs', async () => {
+  it('is idempotent: re-running does not nest locale dirs', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
     const dist = join(root, 'dist');
     mkdirSync(join(root, 'locales'), { recursive: true });

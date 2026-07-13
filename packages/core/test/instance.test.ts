@@ -37,7 +37,7 @@ describe('locale resolution', () => {
     expect(v.has('b')).toBe(false);
   });
 
-  it("treats '' as untranslated — keeps falling back", () => {
+  it("treats '' as untranslated: keeps falling back", () => {
     // extract scaffolds new keys as '' (check counts them as missing)
     const v = createVerbaly({
       locale: 'es',

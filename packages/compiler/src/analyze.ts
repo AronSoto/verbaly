@@ -274,7 +274,7 @@ function buildMessage(code: string, quasi: AstNode): BuiltMessage | undefined {
   for (let i = 0; i < expressions.length; i++) {
     const expr = expressions[i];
     if (!expr) return undefined;
-    // a nested t`…` would be extracted on its own — overlapping rewrites; bail the outer
+    // a nested t`…` would be extracted on its own: overlapping rewrites; bail the outer
     if (containsTaggedT(expr)) return undefined;
     const source = code.slice(expr.start, expr.end);
     const name = uniqueName(deriveName(expr, i), source, taken);

@@ -15,7 +15,7 @@ export function generatedDir(root: string): string {
   return join(root, GENERATED_DIR);
 }
 
-// content compare — identical rewrites must not retrigger the bundler
+// content compare: identical rewrites must not retrigger the bundler
 function writeIfChanged(file: string, content: string): boolean {
   try {
     if (readFileSync(file, 'utf8') === content) return false;
@@ -26,7 +26,7 @@ function writeIfChanged(file: string, content: string): boolean {
   return true;
 }
 
-// real-file replacement for virtual:verbaly — Turbopack has no virtual modules
+// real-file replacement for virtual:verbaly: Turbopack has no virtual modules
 export function writeGeneratedModules(
   compiler: Compiler,
   cfg: ResolvedConfig,

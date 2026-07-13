@@ -68,7 +68,7 @@ export function negotiateLocale(
     }
     if (q > 0) ranges.push({ tag, q });
   }
-  // stable sort — ties keep header order
+  // stable sort: ties keep header order
   ranges.sort((a, b) => b.q - a.q);
 
   for (const { tag } of ranges) {
@@ -134,7 +134,7 @@ export function persistLocale(locale: string, storageKey: string | false = LOCAL
 }
 
 function preferredLanguages(): readonly string[] {
-  // require document — Node 21+ has a global navigator whose language is the OS, not a user
+  // require document: Node 21+ has a global navigator whose language is the OS, not a user
   if (typeof document === 'undefined' || typeof navigator === 'undefined') return [];
   return navigator.languages?.length ? navigator.languages : [navigator.language];
 }

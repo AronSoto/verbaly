@@ -42,7 +42,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **First-publish caveat** (repo process): `@verbaly/nuxt` doesn't exist on npm yet — no Trusted Publisher until it does. If the workflow's OIDC publish fails for it, publish once manually (`pnpm --filter @verbaly/nuxt publish --access public --no-git-checks`), configure its TP, re-run the workflow (per-package resume skips the rest).
 - Repo: **GitHub Sponsors enabled** — `.github/FUNDING.yml` + a branded Sponsor section in the root README (icon reused from verbaly-web). Root README packages table gains the `@verbaly/nuxt` row.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/frameworks/vue`**: add a **`#nuxt` section** at the end (mirror of the SvelteKit-inside-Svelte pattern decided in 0.16.0): the one-line module setup, options table (`cookie`, `fallback`, `ViteVerbalyOptions` passthrough), components use `@verbaly/vue` as usual, language switch with `switchLocale` from `verbaly` + `useVerbaly`, `ssr: false` behavior, and the SSG note (prefer `verbaly render` for `nuxi generate`). Mirror the package README.
 - **`docs/reference/api`**: new row `switchLocale(instance, locale, options?)` (core) next to `persistLocale`; note that `@verbaly/sveltekit` re-exports it.

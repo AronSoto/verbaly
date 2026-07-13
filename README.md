@@ -140,13 +140,13 @@ pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 
 <p align="center">
   Verbaly is <strong>MIT-licensed</strong>, dependency-free and built independently.<br />
-  If it saves you time shipping i18n, consider sponsoring — it funds the road to <strong>1.0</strong>:<br />
+  If it saves you time shipping i18n, consider sponsoring the project. It funds the road to <strong>1.0</strong>:<br />
   more framework integrations, faster releases and long-term maintenance.
 </p>
 
 <p align="center">
   <a href="https://github.com/sponsors/AronSoto">
-    <img src="https://img.shields.io/badge/♥%20Sponsor%20Verbaly-bef12d?style=for-the-badge&logo=githubsponsors&logoColor=1a1f16" alt="Sponsor Verbaly on GitHub" />
+    <img src="https://img.shields.io/badge/♥%20Sponsor%20Verbaly-bef12d?style=for-the-badge&logoColor=1a1f16" alt="Sponsor Verbaly on GitHub" />
   </a>
 </p>
 

@@ -21,7 +21,7 @@ export {
   transformSource,
 } from './plugin';
 export { doctor } from './doctor';
-export { exportCatalogs, importCatalogs, parseExchangeFile } from './exchange';
+export { exportCatalogs, importCatalogs, isMobileFormat, parseExchangeFile } from './exchange';
 export { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export { detectBundler, init } from './init';
 export { stableKey } from './key';
@@ -47,11 +47,13 @@ export type { CheckResult, MissingEntry, UnknownEntry } from './check';
 export type { DoctorEntry, DoctorResult } from './doctor';
 export type {
   ExchangeFormat,
+  ExportFormat,
   ExportOptions,
   ExportResult,
   ExportedFile,
   ImportOptions,
   ImportResult,
+  MobileFormat,
 } from './exchange';
 export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
 export type { PluginOptions } from './plugin';

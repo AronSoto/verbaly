@@ -42,11 +42,17 @@ describe('catalogs', () => {
     expect(loadCatalogs(cfg).es).toEqual({ hola: 'Hola' });
   });
 
-  it('missing or corrupt files read as empty catalogs', () => {
+  it('missing files read as empty catalogs, a BOM is tolerated', () => {
     const cfg = makeProject({ es: {} });
     expect(readCatalog(cfg, 'nope')).toEqual({});
+    writeFileSync(join(cfg.dir, 'es.json'), '\uFEFF{"hola": "Hola"}');
+    expect(readCatalog(cfg, 'es')).toEqual({ hola: 'Hola' });
+  });
+
+  it('a corrupt catalog fails loudly instead of reading as empty', () => {
+    const cfg = makeProject({ es: {} });
     writeFileSync(join(cfg.dir, 'es.json'), '{corrupt');
-    expect(readCatalog(cfg, 'es')).toEqual({});
+    expect(() => readCatalog(cfg, 'es')).toThrow(/not valid JSON/);
   });
 });
 

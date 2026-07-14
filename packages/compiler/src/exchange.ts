@@ -1,14 +1,21 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import type { Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
+import { androidValuesDir, toAndroidXml, toIosStrings } from './mobile';
 import { structureMatches } from './translate';
 
 export type ExchangeFormat = 'xliff' | 'csv';
+export type MobileFormat = 'android-xml' | 'ios-strings';
+export type ExportFormat = ExchangeFormat | MobileFormat;
+
+export function isMobileFormat(format: ExportFormat): format is MobileFormat {
+  return format === 'android-xml' || format === 'ios-strings';
+}
 
 export interface ExportOptions {
   locales?: string[];
-  format?: ExchangeFormat;
+  format?: ExportFormat;
   out?: string;
   missing?: boolean;
 }
@@ -21,7 +28,7 @@ export interface ExportedFile {
 }
 
 export interface ExportResult {
-  format: ExchangeFormat;
+  format: ExportFormat;
   dir: string;
   files: ExportedFile[];
 }
@@ -49,6 +56,9 @@ export function exportCatalogs(
   const dir = resolve(cfg.root, options.out ?? 'verbaly-export');
   const source = catalogs[cfg.sourceLocale] ?? {};
   const targets = targetLocales(cfg, options.locales);
+  if (isMobileFormat(format)) {
+    return exportMobile(cfg, catalogs, format, dir, source, targets);
+  }
 
   const files: ExportedFile[] = [];
   mkdirSync(dir, { recursive: true });
@@ -72,6 +82,42 @@ export function exportCatalogs(
       path,
       total: entries.length,
       untranslated: untranslated.length,
+    });
+  }
+  return { format, dir, files };
+}
+
+// drop-in native resources (res/values-*, *.lproj); the source locale ships as the default,
+// untranslated keys are skipped so the platform falls back to it
+function exportMobile(
+  cfg: ResolvedConfig,
+  catalogs: Catalogs,
+  format: MobileFormat,
+  dir: string,
+  source: Record<string, string>,
+  targets: string[],
+): ExportResult {
+  const keys = Object.keys(source)
+    .filter((key) => source[key])
+    .sort();
+  const files: ExportedFile[] = [];
+  for (const locale of [cfg.sourceLocale, ...targets]) {
+    const catalog = locale === cfg.sourceLocale ? source : (catalogs[locale] ?? {});
+    const entries = keys
+      .map((key) => ({ key, text: catalog[key] ?? '' }))
+      .filter((entry) => entry.text);
+    const relative =
+      format === 'android-xml'
+        ? join(androidValuesDir(locale, cfg.sourceLocale), 'strings.xml')
+        : join(`${locale}.lproj`, 'Localizable.strings');
+    const path = join(dir, relative);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, format === 'android-xml' ? toAndroidXml(entries) : toIosStrings(entries));
+    files.push({
+      locale,
+      path,
+      total: entries.length,
+      untranslated: keys.length - entries.length,
     });
   }
   return { format, dir, files };

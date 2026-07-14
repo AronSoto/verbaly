@@ -12,12 +12,12 @@ import {
 import { VerbalyProvider as ReactVerbalyProvider, useVerbaly } from '@verbaly/react';
 import { switchLocale, type SwitchLocaleOptions } from 'verbaly';
 import { createInstance, requestOptions, sourceLocale } from 'virtual:verbaly';
+import type { VerbalyProviderProps as SerializableProps } from './server';
 
 export { Trans, useLocale, useT, useVerbaly } from '@verbaly/react';
 
-export interface VerbalyProviderProps {
-  locale: string;
-  messages?: Record<string, string>;
+// the serializable props getVerbalyProps() produces, plus the client-side children
+export interface VerbalyProviderProps extends SerializableProps {
   children?: ReactNode;
 }
 

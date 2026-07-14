@@ -24,7 +24,7 @@ npx verbaly extract        # sync catalogs + types
 npx verbaly check          # exit 1 if anything is missing (CI)
 npx verbaly extract --prune  # drop orphaned keys
 npx verbaly translate      # fill missing translations via Claude (or your provider)
-npx verbaly export         # write translator-ready XLIFF 2.0 / CSV files per locale
+npx verbaly export         # translator files (XLIFF 2.0, CSV) or mobile resources (Android, iOS)
 npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV files
 npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA)
 npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG — kills the FOUC)
@@ -53,6 +53,17 @@ npx verbaly import verbaly-export/es.xlf   # fill the catalog back
 ```
 
 `export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). `import` reads XLIFF 2.0/1.2 or CSV back and **validates every entry like `translate` does** — a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
+
+## 📱 Mobile resources
+
+The same catalogs can ship to a companion mobile app as drop-in native resources:
+
+```bash
+npx verbaly export --format android-xml   # verbaly-export/values-<locale>/strings.xml (drop into res/)
+npx verbaly export --format ios-strings   # verbaly-export/<locale>.lproj/Localizable.strings (drop into Xcode)
+```
+
+Your source locale becomes the platform default (`values/strings.xml`, `en.lproj`), and untranslated keys are skipped so the app falls back to it natively instead of showing empty text. Keys are sanitized to valid Android resource names (`hero.title` → `hero_title`; a collision fails loudly), values keep Verbaly's `{name}` syntax. Export-only by design: translations flow from your catalogs to the app.
 
 ## 📄 Static rendering (SSG)
 

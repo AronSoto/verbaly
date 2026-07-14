@@ -70,6 +70,22 @@ describe('runCli: dispatch and exit codes', () => {
     expect(output(error)).toContain('unknown format "yaml"');
     expect(process.exitCode).toBe(1);
   });
+
+  it('export rejects --missing for mobile formats', async () => {
+    const root = makeProject({ en: { a: 'A' }, es: { a: '' } });
+    await runCli(['export', '--root', root, '--format', 'android-xml', '--missing']);
+    expect(output(error)).toContain('--missing is for translator formats');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('export android-xml writes drop-in resource dirs', async () => {
+    const root = makeProject({ en: { a: 'A' }, es: { a: 'La A' } });
+    await runCli(['export', '--root', root, '--format', 'android-xml']);
+    expect(process.exitCode).toBeUndefined();
+    expect(existsSync(join(root, 'verbaly-export', 'values', 'strings.xml'))).toBe(true);
+    expect(existsSync(join(root, 'verbaly-export', 'values-es', 'strings.xml'))).toBe(true);
+    expect(output(log)).toContain('untranslated skipped');
+  });
 });
 
 describe('runCli: stray flags fail loudly', () => {

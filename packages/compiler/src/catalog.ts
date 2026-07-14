@@ -9,11 +9,22 @@ export function catalogPath(cfg: ResolvedConfig, locale: string): string {
   return join(cfg.dir, `${locale}.json`);
 }
 
+// missing file = empty catalog; a corrupt one must fail loudly (read as empty,
+// the next extract would rewrite it and lose every translation)
 export function readCatalog(cfg: ResolvedConfig, locale: string): Catalog {
+  let content: string;
   try {
-    return JSON.parse(readFileSync(catalogPath(cfg, locale), 'utf8')) as Catalog;
+    content = readFileSync(catalogPath(cfg, locale), 'utf8');
   } catch {
     return {};
+  }
+  try {
+    return JSON.parse(content.replace(/^\uFEFF/, '')) as Catalog;
+  } catch (error) {
+    throw new Error(
+      `[verbaly] ${catalogPath(cfg, locale)} is not valid JSON, fix or delete the file`,
+      { cause: error },
+    );
   }
 }
 

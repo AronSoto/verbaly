@@ -68,6 +68,71 @@ describe('exportCatalogs', () => {
   });
 });
 
+describe('exportCatalogs: mobile formats', () => {
+  it('android-xml writes drop-in values dirs, ships the source as default, skips untranslated', () => {
+    const config = cfg(['en', 'es', 'pt-BR']);
+    const catalogs: Catalogs = {
+      en: { greet: 'Hello {name}', bye: "It's over" },
+      es: { greet: 'Hola {name}', bye: '' },
+      'pt-BR': { greet: 'Olá {name}', bye: 'Acabou' },
+    };
+    const result = exportCatalogs(config, catalogs, { format: 'android-xml' });
+    expect(result.format).toBe('android-xml');
+    expect(result.files.map((f) => f.locale)).toEqual(['en', 'es', 'pt-BR']);
+    const [en, es, pt] = result.files;
+    expect(en!.path.replace(/\\/g, '/')).toContain('/values/strings.xml');
+    expect(es!.path.replace(/\\/g, '/')).toContain('/values-es/strings.xml');
+    expect(pt!.path.replace(/\\/g, '/')).toContain('/values-pt-rBR/strings.xml');
+    const esXml = readFileSync(es!.path, 'utf8');
+    expect(esXml).toContain('<string name="greet">Hola {name}</string>');
+    expect(esXml).not.toContain('bye');
+    expect(es).toMatchObject({ total: 1, untranslated: 1 });
+    const enXml = readFileSync(en!.path, 'utf8');
+    expect(enXml).toContain("It\\'s over");
+    expect(en).toMatchObject({ total: 2, untranslated: 0 });
+  });
+
+  it('android-xml escapes markup and sanitizes resource names', () => {
+    const config = cfg();
+    const catalogs: Catalogs = {
+      en: { 'hero.title': 'The <em>gate</em> & more', '7days': '@home?\nok' },
+      es: { 'hero.title': 'La <em>puerta</em> & más', '7days': '@casa' },
+    };
+    const result = exportCatalogs(config, catalogs, { format: 'android-xml' });
+    const es = readFileSync(result.files[1]!.path, 'utf8');
+    expect(es).toContain(
+      '<string name="hero_title">La &lt;em&gt;puerta&lt;/em&gt; &amp; más</string>',
+    );
+    expect(es).toContain('<string name="_7days">\\@casa</string>');
+    const en = readFileSync(result.files[0]!.path, 'utf8');
+    expect(en).toContain('\\@home?\\nok');
+  });
+
+  it('android-xml rejects keys that collide after sanitizing', () => {
+    const config = cfg();
+    const catalogs: Catalogs = { en: { 'a.b': 'One', a_b: 'Two' }, es: {} };
+    expect(() => exportCatalogs(config, catalogs, { format: 'android-xml' })).toThrow(
+      /both become resource name "a_b"/,
+    );
+  });
+
+  it('ios-strings writes lproj folders with escaped values', () => {
+    const config = cfg();
+    const catalogs: Catalogs = {
+      en: { greet: 'Say "hi"\nnow', bye: 'Bye' },
+      es: { greet: 'Di "hola"', bye: '' },
+    };
+    const result = exportCatalogs(config, catalogs, { format: 'ios-strings' });
+    expect(result.files.map((f) => f.locale)).toEqual(['en', 'es']);
+    expect(result.files[1]!.path.replace(/\\/g, '/')).toContain('es.lproj/Localizable.strings');
+    const es = readFileSync(result.files[1]!.path, 'utf8');
+    expect(es).toBe('"greet" = "Di \\"hola\\"";\n');
+    const en = readFileSync(result.files[0]!.path, 'utf8');
+    expect(en).toContain('"bye" = "Bye";');
+    expect(en).toContain('"greet" = "Say \\"hi\\"\\nnow";');
+  });
+});
+
 describe('importCatalogs', () => {
   const XLIFF = `<?xml version="1.0" encoding="UTF-8"?>
 <xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="es">

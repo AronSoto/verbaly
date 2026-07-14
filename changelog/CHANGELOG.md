@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.22.0] · 2026-07-14
+
+**Your catalogs become native mobile resources.** `verbaly export` learns two new formats: `android-xml` writes drop-in `res/values-*/strings.xml` folders and `ios-strings` writes `*.lproj/Localizable.strings`, so a web app and its mobile companion can share one set of translations. The same release makes catalog reads safer: a corrupt catalog file now stops the CLI with a clear error instead of being silently treated as empty. No breaking changes.
+
+### Highlights
+
+- **Export your translations for mobile apps.** `verbaly export --format android-xml` writes Android resource folders you can drop into `res/`, and `--format ios-strings` writes `.lproj` folders for Xcode. One catalog, web and mobile.
+- **Sensible defaults for the platforms.** Your source language becomes the platform default (`values/strings.xml`, `en.lproj`), and untranslated keys are left out so the app falls back to the default language instead of showing empty text.
+- **Safer catalog files.** A catalog with broken JSON now stops the command and names the file, instead of being read as empty (which could have ended in lost translations on the next extract). A Windows BOM at the start of the file is simply tolerated.
+
+### Added
+
+- **`verbaly export --format android-xml`** (`@verbaly/compiler`): one `strings.xml` per locale in Android's resource layout: the source locale as default `values/`, two-letter regions as `values-ll-rRR` (`pt-BR` → `values-pt-rBR`), longer BCP-47 tags via the `b+` syntax. Keys are sanitized to valid resource names (`hero.title` → `hero_title`, digit-start keys get a `_` prefix) and a post-sanitize collision fails loudly naming both keys. Values get Android escaping (apostrophes, quotes, backslashes, newlines, leading `@`/`?`) on top of XML entities.
+- **`verbaly export --format ios-strings`** (`@verbaly/compiler`): `<locale>.lproj/Localizable.strings` per locale, `"key" = "value";` pairs with quote/backslash/newline escaping. Keys keep their original form (no identifier constraint on iOS).
+- **`ExportFormat` / `MobileFormat` types + `isMobileFormat`** (`@verbaly/compiler`): the export format union grows to four; `ExchangeFormat` stays as the translator-file subset (xliff, csv) and import is untouched (mobile formats are a delivery target, not a round-trip).
+
+### Changed
+
+- **A corrupt catalog fails loudly** (`@verbaly/compiler`): `readCatalog` still reads a missing file as an empty catalog, but a file that exists and is not valid JSON now throws naming the path. The old silent-empty behavior was a data-loss path: the next `extract` would have rewritten the file with empty values. The fix surfaces through every consumer (CLI, vite, unplugin, next). A leading BOM is stripped before parsing, so BOM'd catalogs (common with Windows editors) now parse instead of failing.
+- **`--missing` is rejected for mobile formats** (`@verbaly/compiler` CLI): it exports translator worklists; mobile output already skips untranslated keys so the app falls back. The error says exactly that.
+- **`@verbaly/next`**: the client's `VerbalyProviderProps` now extends the serializable props type from `./server` (plus `children`) instead of re-declaring the shape. Type-level only, no runtime change.
+
+### Notes
+
+- **Values are exported verbatim**: params keep Verbaly's `{name}` brace syntax and plural variants stay in message-format form. Converting to printf-style placeholders (`%1$s`, `%@`) or Android `<plurals>` needs assumptions about argument order and types that only a real mobile consumer can validate: deliberately out of scope until that friction shows up. The natural consumers today run an ICU-style formatter on the app side.
+- Backlog item "Export targets mobile" closed: it lives in the compiler, zero new repos, zero new dependencies.
+- 533 tests (compiler **208** · core 186 · next 30 · nuxt 21 · svelte 23 · vite 18 · vue 13 · react 12 · sveltekit 12 · unplugin 10), was 526: +6 mobile export (layouts, escapes, name collisions, CLI happy path and rejections) and +2/±1 catalog reads (BOM tolerated, corrupt throws).
+- Verified end-to-end with the built CLI over a scratch project: both layouts written as drop-in trees, default `values/` and `en.lproj` carrying the source, untranslated keys skipped with the count reported as `untranslated skipped`, `--missing` and unknown formats rejected with exit 1 and actionable messages.
+- Bench re-run (ritual): lookup **30.3×**, interpolation **10.3×**, plural **5.0×**, currency **5.4×** vs i18next 26, in family with 0.21.0 (31.7×/11.1×/4.6×/5.1×). Core untouched this release: bundle sizes unchanged (3.28 KB tree-shaken · 5.21 KB full · 1.60 KB devtools, min+gzip).
+- `pnpm outdated` clean; zero new dependencies.
+- Competitive seal 0.22.0 (2026-07-14, same-day re-check, identical to 0.21.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged: nobody extracts natural source text from `.svelte`/`.vue` markup, and none of the web-first tools ship native mobile resource export from the same catalog.
+
+### Docs impact (pending)
+
+- **`docs/guide/translators`**: new section "Export for mobile apps": the two commands, the drop-in layouts (`values-*/strings.xml`, `*.lproj/Localizable.strings`), source locale = platform default, untranslated keys skipped so the app falls back, params stay in `{name}` syntax.
+- **`docs/guide/cli`**: the `export` row/section gains the two formats (`--format android-xml | ios-strings`) and the note that `--missing` applies only to xliff/csv.
+- **`/changelog`** (`releases.ts`): 0.22.0 entry, theme + Highlights above in plain language.
+- Bump web to `verbaly@^0.22.0` + `@verbaly/compiler@^0.22.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.21.0] · 2026-07-14
 
 **Quality pass across the ten packages, plus typed Nuxt options.** An adversarial review swept the whole monorepo for duplicated logic, dead code and readability debt, and every worthwhile finding landed: shared plugin primitives grew, the runtime got slightly smaller, `verbaly.d.ts` stops rewriting itself when nothing changed, and `@verbaly/nuxt` options are now typed inside `nuxt.config.ts` (still with zero dependency on `@nuxt/kit`). One small breaking change for direct compiler-API consumers: `generateDts`/`writeDts` take the plain catalog object instead of a `Map`.

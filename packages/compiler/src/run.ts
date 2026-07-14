@@ -4,7 +4,7 @@ import { check, formatCheckResult } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { doctor } from './doctor';
-import { exportCatalogs, importCatalogs, type ExchangeFormat } from './exchange';
+import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
 import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
@@ -20,7 +20,7 @@ Usage:
   verbaly extract    scan sources, update catalogs and types
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
-  verbaly export     write translator-ready files per locale (XLIFF 2.0 or CSV)
+  verbaly export     write translator files (XLIFF 2.0, CSV) or mobile resources (Android, iOS)
   verbaly import <files…>  fill catalogs back from translated XLIFF/CSV files
   verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
   verbaly render     pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
@@ -33,7 +33,7 @@ Options:
   --prune            drop keys no longer referenced (extract)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would happen, write nothing (translate, import, extract)
-  --format <f>       export format: xliff (default) or csv (export)
+  --format <f>       export format: xliff (default), csv, android-xml or ios-strings (export)
   --out <path>       export directory (export, default: verbaly-export)
   --missing          export only untranslated entries (export)
   --overwrite        replace existing translations on import (import)
@@ -205,9 +205,18 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   }
 
   if (command === 'export') {
-    const format = (values.format ?? 'xliff') as ExchangeFormat;
-    if (format !== 'xliff' && format !== 'csv') {
-      console.error(`[verbaly] unknown format "${values.format}", use xliff or csv`);
+    const format = (values.format ?? 'xliff') as ExportFormat;
+    if (!['xliff', 'csv', 'android-xml', 'ios-strings'].includes(format)) {
+      console.error(
+        `[verbaly] unknown format "${values.format}", use xliff, csv, android-xml or ios-strings`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    if (values.missing && isMobileFormat(format)) {
+      console.error(
+        `[verbaly] --missing is for translator formats (xliff, csv): ${format} already skips untranslated keys so the app falls back to the source locale`,
+      );
       process.exitCode = 1;
       return;
     }
@@ -221,9 +230,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       console.log('[verbaly] no target locales to export (add locales to your config)');
       return;
     }
+    const note = isMobileFormat(result.format) ? 'untranslated skipped' : 'untranslated';
     console.log(`[verbaly] exported ${result.files.length} locales (${result.format}) → ${result.dir}`);
     for (const file of result.files) {
-      console.log(`  ${file.locale}: ${file.total} messages (${file.untranslated} untranslated) → ${file.path}`);
+      console.log(`  ${file.locale}: ${file.total} messages (${file.untranslated} ${note}) → ${file.path}`);
     }
     return;
   }

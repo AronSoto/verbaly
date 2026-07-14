@@ -49,7 +49,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - `pnpm outdated` clean after the two dev-tooling bumps; zero new dependencies.
 - Competitive seal 0.21.0 (2026-07-14): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · **Paraglide 2.22.0** (was 2.21.0, minor bump, still key-based at the source) · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged: nobody extracts natural source text from `.svelte`/`.vue` markup; the table stands.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/frameworks/vue` `#nuxt` section**: one line after the module setup: the `verbaly` key in `nuxt.config.ts` is fully typed since 0.21.0 (autocomplete + typo checking).
 - **CLI output mirrors**: any snippet on the web that mirrors CLI output with an em dash (`✗ [en] x7Ka9q2f — 1 missing` style) must re-mirror the new formats (`[es] x7Ka9q2f: "Hola {name}"` · `ghost.key (used in app.ts)` · `[verbaly] doctor: 6 checks`). The web PLAN's rule-3 exception for verbatim CLI output can be retired afterwards.

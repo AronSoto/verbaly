@@ -26,6 +26,23 @@ function writeIfChanged(file: string, content: string): boolean {
   return true;
 }
 
+// dev-phase pipeline shared by withVerbaly and the watcher: sync catalogs to
+// the sources, refresh verbaly.d.ts, regenerate the runtime modules
+export function syncAndWrite(
+  compiler: Compiler,
+  cfg: ResolvedConfig,
+  catalogs: Catalogs,
+  registry: Awaited<ReturnType<Compiler['extractProject']>>,
+  requestOptions: RequestOptions,
+): void {
+  const { added } = compiler.syncCatalogs(cfg, catalogs, registry);
+  for (const locale of Object.keys(added)) {
+    compiler.writeCatalog(cfg, locale, catalogs[locale] ?? {});
+  }
+  compiler.writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+  writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
+}
+
 // real-file replacement for virtual:verbaly: Turbopack has no virtual modules
 export function writeGeneratedModules(
   compiler: Compiler,

@@ -49,4 +49,11 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
 
 verbalyModule.meta = { name: '@verbaly/nuxt', configKey: 'verbaly' };
 
+// same merge as the body; also the anchor Nuxt's generated nuxt.config typing infers the
+// options type from (the plain call signature alone degrades the inference to Record)
+verbalyModule.getOptions = async (
+  inlineOptions?: Partial<VerbalyNuxtOptions>,
+  nuxt?: NuxtLike,
+): Promise<VerbalyNuxtOptions> => ({ ...nuxt?.options.verbaly, ...inlineOptions });
+
 export default verbalyModule;

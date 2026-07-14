@@ -97,13 +97,7 @@ export function parseIcu(message: string): MessageNode[] {
       }
       if (type === 'number') {
         node.format =
-          style === 'integer'
-            ? 'integer'
-            : style === 'percent'
-              ? 'percent'
-              : style === 'currency'
-                ? 'currency'
-                : 'number';
+          style === 'integer' || style === 'percent' || style === 'currency' ? style : 'number';
       } else {
         node.format = type;
         if (style) node.arg = style;

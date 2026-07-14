@@ -10,7 +10,7 @@ const decodeEntities = (s: string): string =>
   s.replace(ENTITY, (_, name: string) => ENTITY_MAP[name]!);
 
 export function parseTags(text: string): TagNode[] {
-  const re = new RegExp(TAG.source, 'g');
+  TAG.lastIndex = 0;
   const root: TagNode[] = [];
   const stack: { name: string; children: TagNode[] }[] = [];
   const top = (): TagNode[] => (stack.length ? stack[stack.length - 1]!.children : root);
@@ -20,7 +20,7 @@ export function parseTags(text: string): TagNode[] {
 
   let last = 0;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
+  while ((m = TAG.exec(text)) !== null) {
     const [full, closing, name, selfClose] = m;
     pushText(text.slice(last, m.index));
     last = m.index + full.length;

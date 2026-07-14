@@ -20,7 +20,7 @@ export class MessageRegistry {
           if (existing.message !== msg.message) {
             console.warn(
               `[verbaly] key collision "${msg.key}": ` +
-                `${JSON.stringify(existing.message)} vs ${JSON.stringify(msg.message)} — second dropped.`,
+                `${JSON.stringify(existing.message)} vs ${JSON.stringify(msg.message)}, second dropped.`,
             );
           }
           continue;

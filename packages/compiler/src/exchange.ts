@@ -54,11 +54,12 @@ export function exportCatalogs(
   mkdirSync(dir, { recursive: true });
   for (const locale of targets) {
     const catalog = catalogs[locale] ?? {};
-    let entries = Object.keys(source)
+    const all = Object.keys(source)
       .filter((key) => source[key])
       .sort()
       .map((key) => ({ key, source: source[key]!, target: catalog[key] ?? '' }));
-    if (options.missing) entries = entries.filter((entry) => !entry.target);
+    const untranslated = all.filter((entry) => !entry.target);
+    const entries = options.missing ? untranslated : all;
 
     const path = join(dir, `${locale}.${format === 'csv' ? 'csv' : 'xlf'}`);
     const content =
@@ -70,7 +71,7 @@ export function exportCatalogs(
       locale,
       path,
       total: entries.length,
-      untranslated: entries.filter((entry) => !entry.target).length,
+      untranslated: untranslated.length,
     });
   }
   return { format, dir, files };
@@ -91,12 +92,12 @@ export function importCatalogs(
     const locale = parsed.locale;
     if (!/^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]+)*$/.test(locale)) {
       throw new Error(
-        `[verbaly] ${file}: "${locale}" doesn't look like a locale — pass --locale <id>.`,
+        `[verbaly] ${file}: "${locale}" doesn't look like a locale, pass --locale <id>.`,
       );
     }
     if (locale === cfg.sourceLocale) {
       throw new Error(
-        `[verbaly] ${file} targets the source locale "${locale}" — import fills translations, not the source. Pass --locale if the detection is wrong.`,
+        `[verbaly] ${file} targets the source locale "${locale}": import fills translations, not the source. Pass --locale if the detection is wrong.`,
       );
     }
     const catalog = (catalogs[locale] ??= {});
@@ -138,7 +139,7 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
     const parsed = parseXliff(content);
     const locale = localeOverride ?? parsed.locale;
     if (!locale) {
-      throw new Error(`[verbaly] ${file} has no trgLang/target-language — pass --locale <id>.`);
+      throw new Error(`[verbaly] ${file} has no trgLang/target-language, pass --locale <id>.`);
     }
     return { locale, entries: parsed.entries };
   }
@@ -146,7 +147,7 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
     const locale = localeOverride ?? basename(file).replace(/\.csv$/i, '');
     return { locale, entries: parseCsv(content) };
   }
-  throw new Error(`[verbaly] ${file}: unsupported format — expected .xlf, .xliff or .csv.`);
+  throw new Error(`[verbaly] ${file}: unsupported format, expected .xlf, .xliff or .csv.`);
 }
 
 // XLIFF 2.0 (writes) / 2.0 + 1.2 (reads)

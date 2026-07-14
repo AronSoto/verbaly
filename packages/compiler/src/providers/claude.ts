@@ -66,7 +66,7 @@ export async function loadSdk(
   } catch (error) {
     if (isModuleNotFound(error, '@anthropic-ai/sdk')) {
       throw new Error(
-        '[verbaly] the claude translate provider needs @anthropic-ai/sdk — install it as a dev dependency (e.g. `pnpm add -D @anthropic-ai/sdk` / `npm i -D @anthropic-ai/sdk`) and set ANTHROPIC_API_KEY',
+        '[verbaly] the claude translate provider needs @anthropic-ai/sdk: install it as a dev dependency (e.g. `pnpm add -D @anthropic-ai/sdk` / `npm i -D @anthropic-ai/sdk`) and set ANTHROPIC_API_KEY',
         { cause: error },
       );
     }

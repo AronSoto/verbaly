@@ -8,11 +8,8 @@ export interface DevtoolsOptions {
 }
 
 interface Bound {
-  el: Element;
   key: string;
   status: ResolveStatus;
-  from?: string;
-  source?: string;
 }
 
 const HOTKEY: Record<NonNullable<DevtoolsOptions['hotkey']>, keyof MouseEvent> = {
@@ -56,13 +53,7 @@ export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {})
       const key = el.getAttribute(attr);
       if (!key) continue;
       const info = instance.inspect(key);
-      out.push({
-        el,
-        key,
-        status: statusOf(info, instance.locale),
-        from: info?.from,
-        source: info?.source,
-      });
+      out.push({ key, status: statusOf(info, instance.locale) });
     }
     return out;
   }
@@ -115,7 +106,7 @@ export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {})
     if (records.every((r) => panel.contains(r.target) || tip.contains(r.target))) return;
     render();
   });
-  observer.observe(root instanceof Node ? root : document.body, {
+  observer.observe(root, {
     childList: true,
     subtree: true,
     attributes: true,

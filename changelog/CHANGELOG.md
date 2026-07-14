@@ -8,6 +8,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.21.0] · 2026-07-14
+
+**Quality pass across the ten packages, plus typed Nuxt options.** An adversarial review swept the whole monorepo for duplicated logic, dead code and readability debt, and every worthwhile finding landed: shared plugin primitives grew, the runtime got slightly smaller, `verbaly.d.ts` stops rewriting itself when nothing changed, and `@verbaly/nuxt` options are now typed inside `nuxt.config.ts` (still with zero dependency on `@nuxt/kit`). One small breaking change for direct compiler-API consumers: `generateDts`/`writeDts` take the plain catalog object instead of a `Map`.
+
+### Highlights
+
+- **Typed options for `@verbaly/nuxt`.** The `verbaly` key in `nuxt.config.ts` now autocompletes and catches typos ("Did you mean 'cookie'?"), without adding any dependency to the module.
+- **A calmer editor in dev.** `verbaly.d.ts` is only rewritten when its content actually changes, so the TypeScript server stops reloading types on every save.
+- **Slightly smaller runtime.** The quality pass trimmed dead work from the core: the tree-shaken runtime is now 3.28 KB min+gzip (was 3.30).
+- **Cleaner generated types.** A param used as both date and text no longer produces a duplicated union in `verbaly.d.ts`.
+- **Clearer CLI messages.** Every error and hint now reads with plain connectors, and `check` prints the source text right next to the missing key.
+- **Breaking** (compiler API only): `generateDts(catalog)` and `writeDts(cfg, catalog)` now take the catalog object (`Record<string, string>`) directly instead of a `Map`. The CLI and all plugins are unaffected.
+
+### Added
+
+- **`transformSource(code, id, registry)`** (`@verbaly/compiler` plugin primitives): the analyze + register + rewrite step every bundler plugin runs per source file, now defined once in `plugin.ts`; `@verbaly/vite` and `@verbaly/unplugin` consume it.
+- **`PluginOptions`** (`@verbaly/compiler`): the shared bundler-plugin options shape (`VerbalyConfig` + `failOnMissing`). `ViteVerbalyOptions` and `UnpluginVerbalyOptions` are now aliases of it; `NextVerbalyOptions` extends it. Same shapes as before, defined once.
+- **`verbalyModule.getOptions`** (`@verbaly/nuxt`): typed options resolver on the module function. It performs the same merge as the module body, and it is the anchor Nuxt's generated `.nuxt/types/modules.d.ts` needs to infer `VerbalyNuxtOptions` for the `verbaly` key in `nuxt.config.ts` (the plain call signature alone degrades the inference to `Record<string, any>`). Verified with a type-level test that mirrors Nuxt's generated conditional exactly.
+
+### Changed
+
+- **Breaking (`@verbaly/compiler`): `generateDts` and `writeDts` take a `Catalog`** (`Record<string, string>`) instead of `Map<string, string>`. Every production call site was already converting a record into a `Map` just to satisfy the signature. Only affects direct API consumers; CLI and plugins are wrappers over the same calls.
+- **`writeDts` skips unchanged writes** (`@verbaly/compiler`): content-compared before writing, mirroring the `.verbaly/` convention in `@verbaly/next`.
+- **`runBuildGate(cfg, registry, failOnMissing?)`** (`@verbaly/compiler`): the `failOnMissing === false` opt-out moved inside the gate; vite, unplugin and next stop re-implementing the comparison.
+- **CLI and error messages drop the em dash** (all packages): every user-facing string now uses a colon, comma or parentheses (`no config file, running on defaults` · `[verbaly] doctor: 6 checks` · `x7Ka9q2f: "Hello world"` · `ghost.key (used in app.ts)` · help header `verbaly · i18n compiler`). Cosmetic, but scripts grepping exact CLI output will notice.
+- **Quality pass, compiler**: `handleTrans` builds its `TaggedMessage` in one place; the AST `walk` loop no longer allocates an entries array per node (hottest loop in extract/check); `exportCatalogs` computes the untranslated set once; `doctor`'s helper params no longer shadow the imported `check()`; `renderParamType` dedupes union members.
+- **Quality pass, core**: devtools drops dead `Bound` fields and an unreachable observer branch; `setLocale`/`pendingLoader` lose duplicated loader checks; `bindDom` unifies its three per-element attribute caches behind one `fromCache` helper and `renderRich` reads each link once; `parseTags` reuses the module regex instead of allocating one per call; the ICU number-style mapping collapses to one expression.
+- **Quality pass, integrations**: `@verbaly/vite`'s `unlink` handler uses `isTransformTarget` (the one definition of "source file") and its catalog watcher drops a dead optional param; `@verbaly/next` extracts the dev-phase sync/write pipeline into one `syncAndWrite` used by `withVerbaly` and the watcher, and the webpack rule reuses the module-level `SOURCE_PATH_RE` instead of respelling it.
+- **Dev tooling**: tsdown 0.22.5 → 0.22.7, typescript-eslint 8.63.0 → 8.64.0 (validated: build, tests, typecheck, lint all green).
+
+### Notes
+
+- **`@nuxt/kit` decision (backlog item closed): staying kit-free.** Reviewed against the dependency rule (layer c): `defineNuxtModule` would delete only the manual merge and the `.meta` line, while its `defu` merge concatenates arrays (a semantic regression for `locales`/`include`, where inline should win), it adds a 20-transitive-dependency package, couples the module to kit majors, and forces test machinery. The one real gap it closed (typed `nuxt.config.ts`) is now closed kit-free via `getOptions`. Revisit only if the module needs DevTools metadata or compatibility gating.
+- 526 tests (core 186 · compiler 201 · next 30 · nuxt **21** · svelte 23 · vite 18 · vue 13 · react 12 · sveltekit 12 · unplugin 10), was 525: +1 nuxt (type-level mirror of Nuxt's `modules.d.ts` inference; a typo in the config must be rejected, so a future signature change that degrades the inference fails the suite).
+- Review method: three parallel adversarial reviewers (compiler dense files, core runtime, plugins/adapters) with the project invariants as ground rules; findings verified against the code before applying, borderline ones rejected (the canonical/og:url branches in `render` and the currency/unit cases in `format` stay explicit on purpose; browser detection stays duplicated because deduping changes `navigator.languages` semantics).
+- Verified end-to-end with the built CLI over a scratch project: init → extract → check → doctor → stray-flag rejection, new message formats rendering correctly, exit codes intact.
+- Bench re-run (ritual): lookup **31.7×**, interpolation **11.1×**, plural **4.6×**, currency **5.1×** vs i18next 26, in family with 0.20.0 (36.4×/10.6×/4.8×/5.4×).
+- Bundle check: tree-shaken `createVerbaly` **3.28 KB** min+gzip (was 3.30), full core surface **5.21 KB** (was 5.24), `verbaly/devtools` **1.60 KB** (was 1.63). The cleanups pay for themselves.
+- `pnpm outdated` clean after the two dev-tooling bumps; zero new dependencies.
+- Competitive seal 0.21.0 (2026-07-14): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · **Paraglide 2.22.0** (was 2.21.0, minor bump, still key-based at the source) · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged: nobody extracts natural source text from `.svelte`/`.vue` markup; the table stands.
+
+### Docs impact (pending)
+
+- **`docs/frameworks/vue` `#nuxt` section**: one line after the module setup: the `verbaly` key in `nuxt.config.ts` is fully typed since 0.21.0 (autocomplete + typo checking).
+- **CLI output mirrors**: any snippet on the web that mirrors CLI output with an em dash (`✗ [en] x7Ka9q2f — 1 missing` style) must re-mirror the new formats (`[es] x7Ka9q2f: "Hola {name}"` · `ghost.key (used in app.ts)` · `[verbaly] doctor: 6 checks`). The web PLAN's rule-3 exception for verbatim CLI output can be retired afterwards.
+- **`docs/reference/api`**: only if `generateDts`/`writeDts` appear there (they are compiler internals; likely absent), update the signature to take the catalog object.
+- **`/changelog`** (`releases.ts`): 0.21.0 entry, theme + Highlights above in plain language.
+- Bump web to `verbaly@^0.21.0` + `@verbaly/compiler@^0.21.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.20.0] — 2026-07-13
 
 **Write your text in `.svelte` and `.vue` files too.** The write-in-source promise now covers single-file components: `` t`…` `` (and Svelte's `` $t`…` ``) is extracted, keyed and typed straight from `.svelte` and `.vue` files, script blocks and markup alike. Until now the compiler only read `.js/.ts/.jsx/.tsx`, so Svelte and Vue components had to fall back to hand-written keys. This closes the most visible DX gap on the road to 1.0. No breaking changes.

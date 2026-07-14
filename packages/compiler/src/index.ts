@@ -18,6 +18,7 @@ export {
   loadVirtualModule,
   resolveVirtualId,
   runBuildGate,
+  transformSource,
 } from './plugin';
 export { doctor } from './doctor';
 export { exportCatalogs, importCatalogs, parseExchangeFile } from './exchange';
@@ -53,6 +54,7 @@ export type {
   ImportResult,
 } from './exchange';
 export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
+export type { PluginOptions } from './plugin';
 export type { SyncResult } from './extract';
 export type { InitOptions, InitResult } from './init';
 export type {

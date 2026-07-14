@@ -102,8 +102,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
 
   function pendingLoader(target: string): string | undefined {
     for (const candidate of narrowLocales(target)) {
-      if (loaders[candidate] && !loaded.has(candidate)) return candidate;
-      if (loaders[candidate]) return undefined;
+      if (loaders[candidate]) return loaded.has(candidate) ? undefined : candidate;
     }
     return undefined;
   }
@@ -148,14 +147,12 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     t,
     setLocale(next: string) {
       // auto-load pending catalog; UI re-renders when it lands
-      if (pendingLoader(next)) {
-        void loadLocale(next).catch(() => {
-          if (!warned.has(`load:${next}`)) {
-            warned.add(`load:${next}`);
-            console.warn(`[verbaly] failed to load catalog for "${next}"`);
-          }
-        });
-      }
+      void loadLocale(next).catch(() => {
+        if (!warned.has(`load:${next}`)) {
+          warned.add(`load:${next}`);
+          console.warn(`[verbaly] failed to load catalog for "${next}"`);
+        }
+      });
       if (next === locale) return;
       locale = next;
       chainCache = null;

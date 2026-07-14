@@ -41,7 +41,7 @@ const output = (spy: { mock: { calls: unknown[][] } }): string =>
 describe('runCli: dispatch and exit codes', () => {
   it('prints help and exits 1 without a command', async () => {
     await runCli([]);
-    expect(output(log)).toContain('verbaly — i18n compiler');
+    expect(output(log)).toContain('verbaly · i18n compiler');
     expect(process.exitCode).toBe(1);
   });
 
@@ -76,7 +76,7 @@ describe('runCli: stray flags fail loudly', () => {
   it("rejects --locale on translate with a --locales hint (never silently ignored)", async () => {
     const root = makeProject({ en: { a: 'A' }, es: { a: '' } });
     await runCli(['translate', '--root', root, '--locale', 'es']);
-    expect(output(error)).toContain('--locale is not a "translate" flag — did you mean --locales?');
+    expect(output(error)).toContain('--locale is not a "translate" flag (did you mean --locales?)');
     expect(process.exitCode).toBe(1);
   });
 

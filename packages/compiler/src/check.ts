@@ -59,14 +59,14 @@ export function formatCheckResult(result: CheckResult): string {
   if (result.missing.length > 0) {
     lines.push('missing translations:');
     for (const entry of result.missing) {
-      const hint = entry.source ? ` — "${truncate(entry.source, 40)}"` : '';
+      const hint = entry.source ? `: "${truncate(entry.source, 40)}"` : '';
       lines.push(`  [${entry.locale}] ${entry.key}${hint}`);
     }
   }
   if (result.unknown.length > 0) {
     lines.push('unknown keys (not in any catalog):');
     for (const entry of result.unknown) {
-      lines.push(`  ${entry.key} — used in ${entry.files.join(', ')}`);
+      lines.push(`  ${entry.key} (used in ${entry.files.join(', ')})`);
     }
   }
   return lines.join('\n');

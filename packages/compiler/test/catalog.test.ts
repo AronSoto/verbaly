@@ -125,6 +125,6 @@ describe('formatCheckResult', () => {
     const result = check(cfg, loadCatalogs(cfg), registryFor("t('ghost.key');"));
     const text = formatCheckResult(result);
     expect(text).toContain('unknown keys (not in any catalog):');
-    expect(text).toContain('ghost.key — used in app.ts');
+    expect(text).toContain('ghost.key (used in app.ts)');
   });
 });

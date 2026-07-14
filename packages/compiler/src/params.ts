@@ -37,9 +37,9 @@ function visit(nodes: MessageNode[], out: Map<string, Set<ParamType>>): void {
 
 export function renderParamType(types: Set<ParamType>): string {
   if (types.has('unknown') || types.size === 0) return 'unknown';
-  const parts: string[] = [];
-  if (types.has('number')) parts.push('number');
-  if (types.has('string')) parts.push('string');
-  if (types.has('date')) parts.push('Date | number | string');
-  return parts.join(' | ');
+  const members = new Set<string>();
+  if (types.has('number')) members.add('number');
+  if (types.has('string')) members.add('string');
+  if (types.has('date')) for (const m of ['Date', 'number', 'string']) members.add(m);
+  return [...members].join(' | ');
 }

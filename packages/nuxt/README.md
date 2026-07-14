@@ -69,7 +69,7 @@ That's it. The module negotiates the locale per request (cookie → `Accept-Lang
 
 ## 📖 Options
 
-Via the `verbaly` key in `nuxt.config` or inline module options — every [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) option passes through, plus:
+Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in `nuxt.config.ts`: autocomplete and typo checking, since 0.21.0). Every [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) option passes through, plus:
 
 | Option | What it does |
 | --- | --- |

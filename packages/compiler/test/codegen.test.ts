@@ -118,13 +118,11 @@ describe('collectParams', () => {
 
 describe('generateDts', () => {
   it('types keys and params', () => {
-    const dts = generateDts(
-      new Map([
-        ['greeting', 'Hola {name}'],
-        ['inbox', '{count | one: uno | other: #}'],
-        ['plain', 'Sin params'],
-      ]),
-    );
+    const dts = generateDts({
+      greeting: 'Hola {name}',
+      inbox: '{count | one: uno | other: #}',
+      plain: 'Sin params',
+    });
     expect(dts).toContain('"greeting": { "name": unknown };');
     expect(dts).toContain('"inbox": { "count": number };');
     expect(dts).toContain('"plain": never;');

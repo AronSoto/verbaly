@@ -1,8 +1,9 @@
-import type { VerbalyConfig } from '@verbaly/compiler';
+import type { PluginOptions } from '@verbaly/compiler';
 import { join } from 'node:path';
 import {
   GENERATED_DIR,
   generatedDir,
+  syncAndWrite,
   writeGeneratedModules,
   type Compiler,
   type RequestOptions,
@@ -12,8 +13,7 @@ import { startWatcher } from './watch';
 export type { VerbalyConfig } from '@verbaly/compiler';
 export type { RequestOptions } from './codegen';
 
-export interface NextVerbalyOptions extends VerbalyConfig {
-  failOnMissing?: boolean;
+export interface NextVerbalyOptions extends PluginOptions {
   cookie?: string | false;
   fallback?: string;
 }
@@ -88,17 +88,13 @@ export function withVerbaly<C extends object>(
     const registry = await compiler.extractProject(cfg);
 
     if (phase === BUILD_PHASE) {
-      if (failOnMissing !== false) compiler.runBuildGate(cfg, registry);
+      compiler.runBuildGate(cfg, registry, failOnMissing);
+      writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
     } else {
-      const { added } = compiler.syncCatalogs(cfg, catalogs, registry);
-      for (const locale of Object.keys(added)) {
-        compiler.writeCatalog(cfg, locale, catalogs[locale] ?? {});
-      }
-      compiler.writeDts(cfg, new Map(Object.entries(catalogs[cfg.sourceLocale] ?? {})));
+      syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
       startWatcher(compiler, cfg, requestOptions);
     }
 
-    writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
     return composeConfig(base, cfg.root);
   };
 }
@@ -143,7 +139,7 @@ function composeConfig<C extends object>(base: C, root: string): C {
       config.module ??= {};
       config.module.rules ??= [];
       config.module.rules.push({
-        test: /\.[cm]?[jt]sx?$/,
+        test: SOURCE_PATH_RE,
         exclude: /node_modules/,
         enforce: 'pre',
         use: [{ loader: LOADER }],

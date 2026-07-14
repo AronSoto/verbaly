@@ -1,11 +1,15 @@
+import type { Analysis } from './analyze';
 import { loadCatalogs, type Catalogs } from './catalog';
 import { check, formatCheckResult } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
-import type { ResolvedConfig } from './config';
+import type { ResolvedConfig, VerbalyConfig } from './config';
 import type { MessageRegistry } from './registry';
+import { analyzeFile } from './sfc';
+import { transformCode, type TransformResult } from './transform';
 
-// shared bundler-plugin primitives: @verbaly/vite and @verbaly/unplugin
-// adapt these to their hook signatures instead of copying them
+export interface PluginOptions extends VerbalyConfig {
+  failOnMissing?: boolean;
+}
 
 export const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;
 export const LOCALE_MODULE_PREFIX = `${RESOLVED_VIRTUAL_ID}/locale/`;
@@ -32,8 +36,24 @@ export function isTransformTarget(id: string): boolean {
   return SOURCE_FILE_RE.test(id) && !id.includes('node_modules') && !id.startsWith('\0');
 }
 
-// the one build-blocking error message, kept in one place
-export function runBuildGate(cfg: ResolvedConfig, registry: MessageRegistry): void {
+// analyze + register + rewrite: the per-file transform every bundler plugin runs
+export function transformSource(
+  code: string,
+  id: string,
+  registry: MessageRegistry,
+): { analysis: Analysis; result: TransformResult | null } {
+  const analysis = analyzeFile(code, id);
+  registry.update(id, analysis);
+  return { analysis, result: transformCode(code, id, analysis) ?? null };
+}
+
+// the one build-blocking error message, kept in one place (undefined = gate on)
+export function runBuildGate(
+  cfg: ResolvedConfig,
+  registry: MessageRegistry,
+  failOnMissing?: boolean,
+): void {
+  if (failOnMissing === false) return;
   const result = check(cfg, loadCatalogs(cfg), registry);
   if (!result.ok) {
     throw new Error(

@@ -35,7 +35,7 @@ function readCookie(header: string | null | undefined, name: string): string | u
 export default defineNuxtPlugin(async (nuxtApp: NuxtAppLike) => {
   if (!Array.isArray(locales) || locales.length === 0) {
     throw new Error(
-      "[verbaly] no `locales` in 'virtual:verbaly' — declare them in verbaly.config " +
+      "[verbaly] no `locales` in 'virtual:verbaly': declare them in verbaly.config " +
         'or in the module options (`verbaly: { locales: [...] }` in nuxt.config)',
     );
   }

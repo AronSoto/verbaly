@@ -12,7 +12,7 @@ import { renderSite } from './render';
 import { translateCatalogs, type TranslateProvider } from './translate';
 import type { ResolvedConfig } from './config';
 
-const HELP = `verbaly — i18n compiler
+const HELP = `verbaly · i18n compiler
 
 Usage:
   verbaly init       scaffold config + locale catalogs (detects your bundler)
@@ -40,7 +40,7 @@ Options:
   --locale <id>      pseudo-locale id (pseudo) / target-locale override (import)
   --site <path>      built site directory (render, default: dist)
   --attribute <name> base data attribute (render, default: data-verbaly)
-  --base-url <url>   site origin — enables hreflang alternates (render)
+  --base-url <url>   site origin, enables hreflang alternates (render)
   --sitemap          emit sitemap-i18n.xml with per-locale alternates (render)
   --clean            remove existing locale dirs before mirroring (render)
 
@@ -108,7 +108,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'doctor') {
     const result = await doctor(cfg);
     const icon = { ok: '✓', warn: '⚠', error: '✗' } as const;
-    console.log(`[verbaly] doctor — ${result.entries.length} checks`);
+    console.log(`[verbaly] doctor: ${result.entries.length} checks`);
     for (const entry of result.entries) {
       const line = `  ${icon[entry.level]} ${entry.check}: ${entry.message}`;
       if (entry.level === 'error') console.error(line);
@@ -134,7 +134,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const [locale, keys] of Object.entries(removed)) {
         console.log(
           dryRun
-            ? `  ${locale}: would prune ${keys.length} — ${keys.join(', ')}`
+            ? `  ${locale}: would prune ${keys.length}: ${keys.join(', ')}`
             : `  ${locale}: -${keys.length} pruned`,
         );
       }
@@ -144,7 +144,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const locale of cfg.locales) {
         writeCatalog(cfg, locale, catalogs[locale] ?? {});
       }
-      writeDts(cfg, new Map(Object.entries(catalogs[cfg.sourceLocale] ?? {})));
+      writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
     }
     const total = registry.messages().size;
     console.log(
@@ -184,7 +184,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         return;
       }
       for (const [locale, keys] of entries) {
-        console.log(`  ${locale}: ${keys.length} missing — ${keys.join(', ')}`);
+        console.log(`  ${locale}: ${keys.length} missing: ${keys.join(', ')}`);
       }
       return;
     }
@@ -207,7 +207,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'export') {
     const format = (values.format ?? 'xliff') as ExchangeFormat;
     if (format !== 'xliff' && format !== 'csv') {
-      console.error(`[verbaly] unknown format "${values.format}" — use xliff or csv`);
+      console.error(`[verbaly] unknown format "${values.format}", use xliff or csv`);
       process.exitCode = 1;
       return;
     }
@@ -274,7 +274,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       `[verbaly] ${result.files} pages × ${result.locales.length} locales (${result.locales.join(', ')})`,
     );
     for (const [locale, keys] of Object.entries(result.missing)) {
-      console.warn(`  ${locale}: ${keys.length} keys not pre-filled — ${keys.join(', ')}`);
+      console.warn(`  ${locale}: ${keys.length} keys not pre-filled: ${keys.join(', ')}`);
     }
     return;
   }
@@ -314,7 +314,7 @@ function rejectStrayFlags(command: string, values: Record<string, unknown>): boo
   const stray = Object.keys(values).filter((k) => values[k] !== undefined && !allowed.has(k));
   if (stray.length === 0) return false;
   for (const flag of stray) {
-    const hint = flag === 'locale' ? ' — did you mean --locales?' : '';
+    const hint = flag === 'locale' ? ' (did you mean --locales?)' : '';
     console.error(`[verbaly] --${flag} is not a "${command}" flag${hint}`);
   }
   process.exitCode = 1;

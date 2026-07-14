@@ -2,8 +2,6 @@ import {
   LOCALE_MODULE_PREFIX,
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
-  SOURCE_FILE_RE,
-  analyzeFile,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -11,12 +9,12 @@ import {
   resolveVirtualId,
   runBuildGate,
   syncCatalogs,
-  transformCode,
+  transformSource,
   writeCatalog,
   writeDts,
   type Catalogs,
+  type PluginOptions,
   type ResolvedConfig,
-  type VerbalyConfig,
 } from '@verbaly/compiler';
 import { readFileSync } from 'node:fs';
 import type { Plugin, ViteDevServer } from 'vite';
@@ -30,11 +28,7 @@ function safeRead(file: string): string | undefined {
 }
 
 export type { VerbalyConfig } from '@verbaly/compiler';
-
-export interface ViteVerbalyOptions extends VerbalyConfig {
-  // opt out of the build gate (parity with @verbaly/unplugin)
-  failOnMissing?: boolean;
-}
+export type ViteVerbalyOptions = PluginOptions;
 
 export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let cfg: ResolvedConfig;
@@ -64,7 +58,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       const serialized = writeCatalog(cfg, locale, catalogs[locale] ?? {});
       selfWrites.set(locale, serialized);
     }
-    writeDts(cfg, new Map(Object.entries(catalogs[cfg.sourceLocale] ?? {})));
+    writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
     invalidateVirtual();
   }
 
@@ -88,31 +82,28 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       cfg = await loadConfig(options.root ?? viteConfig.root, options);
       catalogs = loadCatalogs(cfg);
       if (!isBuild) {
-        writeDts(cfg, new Map(Object.entries(catalogs[cfg.sourceLocale] ?? {})));
+        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
       }
     },
 
     configureServer(devServer) {
       server = devServer;
       devServer.watcher.add(cfg.dir);
-      const onCatalogFile = (file: string, locale?: string): void => {
+      const onCatalogFile = (file: string): void => {
         if (!file.startsWith(cfg.dir) || !file.endsWith('.json')) return;
-        if (locale) {
-          const expected = selfWrites.get(locale);
-          if (expected !== undefined) {
-            selfWrites.delete(locale);
-            // content compare: a stale entry must not swallow an external edit
-            if (safeRead(file) === expected) return;
-          }
+        const locale = file.split(/[\\/]/).pop()!.slice(0, -5);
+        const expected = selfWrites.get(locale);
+        if (expected !== undefined) {
+          selfWrites.delete(locale);
+          // content compare: a stale entry must not swallow an external edit
+          if (safeRead(file) === expected) return;
         }
         void reloadFromDisk();
       };
-      const localeOf = (file: string): string | undefined =>
-        file.split(/[\\/]/).pop()?.slice(0, -5);
-      devServer.watcher.on('change', (file) => onCatalogFile(file, localeOf(file)));
-      devServer.watcher.on('add', (file) => onCatalogFile(file, localeOf(file)));
+      devServer.watcher.on('change', onCatalogFile);
+      devServer.watcher.on('add', onCatalogFile);
       devServer.watcher.on('unlink', (file) => {
-        if (SOURCE_FILE_RE.test(file) && !file.includes('node_modules')) {
+        if (isTransformTarget(file)) {
           registry.remove(file);
           scheduleFlush();
         }
@@ -129,8 +120,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
     transform(code, id) {
       if (!isTransformTarget(id)) return undefined;
-      const analysis = analyzeFile(code, id);
-      registry.update(id, analysis);
+      const { analysis, result } = transformSource(code, id, registry);
 
       if (!isBuild && analysis.tagged.length > 0) {
         const source = (catalogs[cfg.sourceLocale] ??= {});
@@ -144,12 +134,12 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
         if (changed) scheduleFlush();
       }
 
-      return transformCode(code, id, analysis) ?? undefined;
+      return result ?? undefined;
     },
 
     buildEnd() {
-      if (!isBuild || options.failOnMissing === false) return;
-      runBuildGate(cfg, registry);
+      if (!isBuild) return;
+      runBuildGate(cfg, registry, options.failOnMissing);
     },
   };
 }

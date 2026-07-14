@@ -30,7 +30,7 @@ export function verbalyHandle(options: VerbalyHandleOptions) {
   const { locales, cookie = LOCALE_COOKIE } = options;
   if (!Array.isArray(locales) || locales.length === 0) {
     throw new Error(
-      "[verbaly] verbalyHandle needs `locales` — pass the `locales` export from 'virtual:verbaly' " +
+      "[verbaly] verbalyHandle needs `locales`: pass the `locales` export from 'virtual:verbaly' " +
         '(requires @verbaly/vite ≥0.16) or list them yourself: verbalyHandle({ locales: [...] })',
     );
   }

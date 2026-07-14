@@ -111,6 +111,18 @@ function handleTrans(
   const attrs = opening.attributes as AstNode[];
   const idAttr = attrs.find((a) => a.type === 'JSXAttribute' && (a.name as AstNode).name === 'id');
   const children = node.children as AstNode[] | undefined;
+  const push = (key: string, built: BuiltTrans) =>
+    tagged.push({
+      key,
+      message: built.text,
+      params: built.params,
+      start: node.start,
+      end: node.end,
+      tagStart: nameNode.start,
+      tagEnd: nameNode.end,
+      file,
+      jsx: { name: nameNode.name as string, components: built.components },
+    });
 
   if (idAttr) {
     const value = idAttr.value as AstNode | null;
@@ -120,17 +132,7 @@ function handleTrans(
     if (attrs.length === 1 && children?.length) {
       const built = buildTransMessage(code, children, names);
       if (built?.text.trim()) {
-        tagged.push({
-          key: id,
-          message: built.text,
-          params: built.params,
-          start: node.start,
-          end: node.end,
-          tagStart: nameNode.start,
-          tagEnd: nameNode.end,
-          file,
-          jsx: { name: nameNode.name as string, components: built.components },
-        });
+        push(id, built);
         return;
       }
     }
@@ -144,17 +146,7 @@ function handleTrans(
   const built = buildTransMessage(code, children, names);
   if (!built || !built.text.trim()) return;
 
-  tagged.push({
-    key: stableKey(built.text),
-    message: built.text,
-    params: built.params,
-    start: node.start,
-    end: node.end,
-    tagStart: nameNode.start,
-    tagEnd: nameNode.end,
-    file,
-    jsx: { name: nameNode.name as string, components: built.components },
-  });
+  push(stableKey(built.text), built);
 }
 
 // t.id('key')`…` → explicit readable key
@@ -337,8 +329,9 @@ function uniqueName(base: string, source: string, taken: Map<string, string>): s
 
 function walk(node: AstNode, visit: (node: AstNode) => void): void {
   visit(node);
-  for (const [key, value] of Object.entries(node)) {
+  for (const key in node) {
     if (SKIP_KEYS.has(key)) continue;
+    const value = node[key];
     if (Array.isArray(value)) {
       for (const item of value) {
         if (isNode(item)) walk(item, visit);

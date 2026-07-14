@@ -33,7 +33,7 @@ function makeProject(options: ProjectOptions = {}) {
   if (options.dts !== false) {
     const source = catalogs['es'];
     if (typeof source === 'object') {
-      writeFileSync(join(root, 'verbaly.d.ts'), generateDts(new Map(Object.entries(source))));
+      writeFileSync(join(root, 'verbaly.d.ts'), generateDts(source));
     }
   }
   if (options.pkg) {

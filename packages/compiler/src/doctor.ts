@@ -23,16 +23,16 @@ const PREVIEW = 5; // keys shown before "…"
 
 export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   const entries: DoctorEntry[] = [];
-  const ok = (check: string, message: string) => entries.push({ level: 'ok', check, message });
-  const warn = (check: string, message: string, fix: string) =>
-    entries.push({ level: 'warn', check, message, fix });
-  const error = (check: string, message: string, fix: string) =>
-    entries.push({ level: 'error', check, message, fix });
+  const ok = (name: string, message: string) => entries.push({ level: 'ok', check: name, message });
+  const warn = (name: string, message: string, fix: string) =>
+    entries.push({ level: 'warn', check: name, message, fix });
+  const error = (name: string, message: string, fix: string) =>
+    entries.push({ level: 'error', check: name, message, fix });
   const rel = (path: string) => relative(cfg.root, path).replaceAll('\\', '/');
 
   const configFile = findConfigFile(cfg.root);
   if (configFile) ok('config', `${configFile} found`);
-  else warn('config', 'no config file — running on defaults', 'run `npx verbaly init`');
+  else warn('config', 'no config file, running on defaults', 'run `npx verbaly init`');
 
   const catalogs: Catalogs = {};
   let catalogsHealthy = true;
@@ -98,7 +98,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   const bundler = detectBundler(cfg.root);
   const wired = deps['@verbaly/vite'] || deps['@verbaly/unplugin'];
   if (!bundler) {
-    ok('plugin', 'no bundler detected — CLI flow (extract/check) applies');
+    ok('plugin', 'no bundler detected, the CLI flow (extract/check) applies');
   } else if (wired) {
     ok(
       'plugin',
@@ -122,7 +122,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     const dtsPath = join(cfg.root, 'verbaly.d.ts');
     if (!existsSync(dtsPath)) {
       warn('types', 'verbaly.d.ts has not been generated', 'run `npx verbaly extract`');
-    } else if (readFileSync(dtsPath, 'utf8') !== generateDts(new Map(Object.entries(source)))) {
+    } else if (readFileSync(dtsPath, 'utf8') !== generateDts(source)) {
       warn('types', 'verbaly.d.ts is stale', 'run `npx verbaly extract`');
     } else {
       ok('types', 'verbaly.d.ts is up to date');
@@ -151,7 +151,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       error(
         'keys',
         `${result.unknown.length} unknown ${result.unknown.length === 1 ? 'key' : 'keys'} used in code (${preview(result.unknown.map((u) => u.key))})`,
-        'fix the key or add it to the catalogs — `npx verbaly check` for details',
+        'fix the key or add it to the catalogs (`npx verbaly check` for details)',
       );
     }
     if (result.missing.length > 0) {
@@ -159,7 +159,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       warn(
         'translations',
         `${result.missing.length} missing ${result.missing.length === 1 ? 'translation' : 'translations'} (${locales.join(', ')})`,
-        'run `npx verbaly translate` or fill the catalogs — `npx verbaly check` for details',
+        'run `npx verbaly translate` or fill the catalogs (`npx verbaly check` for details)',
       );
     }
     if (result.ok) ok('translations', 'all translations complete');

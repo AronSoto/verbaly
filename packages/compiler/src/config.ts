@@ -107,7 +107,7 @@ async function loadTsConfig(path: string): Promise<VerbalyConfig> {
     return mod.default ?? {};
   } catch (error) {
     if (isModuleNotFound(error, 'esbuild')) {
-      throw new Error(`[verbaly] ${path} needs esbuild — install it: pnpm add -D esbuild`, {
+      throw new Error(`[verbaly] ${path} needs esbuild: install it with pnpm add -D esbuild`, {
         cause: error,
       });
     }

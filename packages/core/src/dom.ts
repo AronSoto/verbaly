@@ -65,31 +65,38 @@ export function bindDom<D extends DictionaryInput>(
   const linksAttr = `${attr}-links`;
   const richTags = new Set(options.richTags ?? RICH_TAGS);
   const globalLinks = options.richLinks;
-  const argsCache = new WeakMap<Element, { raw: string | null; params: Params | undefined }>();
+  const argsCache = new WeakMap<Element, { raw: string | null; value: Params | undefined }>();
   const linksCache = new WeakMap<
     Element,
-    { raw: string | null; links: Record<string, RichLink> | undefined }
+    { raw: string | null; value: Record<string, RichLink> | undefined }
   >();
-  const attrsCache = new WeakMap<Element, { raw: string | null; map: Params | undefined }>();
+  const attrsCache = new WeakMap<Element, { raw: string | null; value: Params | undefined }>();
+
+  function fromCache<T>(
+    cache: WeakMap<Element, { raw: string | null; value: T }>,
+    el: Element,
+    raw: string | null,
+    compute: () => T,
+  ): T {
+    const hit = cache.get(el);
+    if (hit && hit.raw === raw) return hit.value;
+    const value = compute();
+    cache.set(el, { raw, value });
+    return value;
+  }
 
   function cachedArgs(el: Element): Params | undefined {
     const raw = el.getAttribute(argsAttr);
-    const hit = argsCache.get(el);
-    if (hit && hit.raw === raw) return hit.params;
-    const params = parseArgs(raw);
-    argsCache.set(el, { raw, params });
-    return params;
+    return fromCache(argsCache, el, raw, () => parseArgs(raw));
   }
 
   function cachedLinks(el: Element): Record<string, RichLink> | undefined {
     const raw = el.getAttribute(linksAttr);
     if (!raw) return globalLinks;
-    const hit = linksCache.get(el);
-    if (hit && hit.raw === raw) return hit.links;
-    const own = parseArgs(raw) as Record<string, RichLink> | undefined;
-    const links = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
-    linksCache.set(el, { raw, links });
-    return links;
+    return fromCache(linksCache, el, raw, () => {
+      const own = parseArgs(raw) as Record<string, RichLink> | undefined;
+      return own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
+    });
   }
 
   function renderRich(
@@ -100,8 +107,11 @@ export function bindDom<D extends DictionaryInput>(
     for (const node of nodes) {
       if (typeof node === 'string') {
         el.append(node);
-      } else if (links?.[node.name] !== undefined) {
-        const { href, target, rel } = normalizeLink(links[node.name]!);
+        continue;
+      }
+      const link = links?.[node.name];
+      if (link !== undefined) {
+        const { href, target, rel } = normalizeLink(link);
         const a = el.ownerDocument.createElement('a');
         if (href !== undefined) a.setAttribute('href', href);
         if (target) a.setAttribute('target', target);
@@ -132,9 +142,7 @@ export function bindDom<D extends DictionaryInput>(
     }
 
     const rawAttrs = el.getAttribute(attrsAttr);
-    const attrsHit = attrsCache.get(el);
-    const attrMap = attrsHit && attrsHit.raw === rawAttrs ? attrsHit.map : parseArgs(rawAttrs);
-    if (!attrsHit || attrsHit.raw !== rawAttrs) attrsCache.set(el, { raw: rawAttrs, map: attrMap });
+    const attrMap = fromCache(attrsCache, el, rawAttrs, () => parseArgs(rawAttrs));
     if (attrMap) {
       for (const [name, attrKey] of Object.entries(attrMap)) {
         const lower = name.toLowerCase();

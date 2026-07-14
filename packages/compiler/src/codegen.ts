@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Catalog } from './catalog';
 import type { ResolvedConfig } from './config';
@@ -81,9 +81,9 @@ export function generateLocaleModule(catalog: Catalog): string {
   return `export default ${JSON.stringify(catalog)};\n`;
 }
 
-export function generateDts(entries: Map<string, string>): string {
+export function generateDts(catalog: Catalog): string {
   const lines: string[] = [];
-  for (const [key, message] of [...entries.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [key, message] of Object.entries(catalog).sort(([a], [b]) => a.localeCompare(b))) {
     const params = collectParams(message);
     if (params.size === 0) {
       lines.push(`    ${JSON.stringify(key)}: never;`);
@@ -137,6 +137,14 @@ declare module 'virtual:verbaly/locale/*' {
 `;
 }
 
-export function writeDts(cfg: ResolvedConfig, entries: Map<string, string>): void {
-  writeFileSync(join(cfg.root, 'verbaly.d.ts'), generateDts(entries));
+// skip unchanged writes: a rewritten verbaly.d.ts churns the consumer's TS server
+export function writeDts(cfg: ResolvedConfig, catalog: Catalog): void {
+  const file = join(cfg.root, 'verbaly.d.ts');
+  const content = generateDts(catalog);
+  try {
+    if (readFileSync(file, 'utf8') === content) return;
+  } catch {
+    // new file
+  }
+  writeFileSync(file, content);
 }

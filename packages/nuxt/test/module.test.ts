@@ -77,4 +77,18 @@ describe('verbalyModule', () => {
     const typed: NuxtModule<VerbalyNuxtOptions> = verbalyModule;
     expect(typeof typed).toBe('function');
   });
+
+  it('lets Nuxt infer the configKey options for nuxt.config typing (type-level)', () => {
+    // mirrors the conditional Nuxt emits in .nuxt/types/modules.d.ts (schemaNodeTemplate);
+    // the defaults arg must be `any`: the constraint references the still-uninferred O
+    type Inferred =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      typeof verbalyModule extends NuxtModule<infer O, any, boolean>
+        ? Partial<O>
+        : Record<string, unknown>;
+    const ok: Inferred = { cookie: false, fallback: 'en', locales: ['en', 'es'] };
+    // @ts-expect-error a typo must be rejected: if this compiles, inference degraded to Record
+    const typo: Inferred = { cokie: false };
+    expect([ok, typo]).toBeDefined();
+  });
 });

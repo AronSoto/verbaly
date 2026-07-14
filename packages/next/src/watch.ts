@@ -1,7 +1,7 @@
 import type { ResolvedConfig } from '@verbaly/compiler';
 import { watch } from 'node:fs';
 import { relative } from 'node:path';
-import { GENERATED_DIR, writeGeneratedModules, type Compiler, type RequestOptions } from './codegen';
+import { GENERATED_DIR, syncAndWrite, type Compiler, type RequestOptions } from './codegen';
 
 // one watcher per project root: next.config can be evaluated more than once
 const active = new Map<string, () => void>();
@@ -28,12 +28,7 @@ export function startWatcher(
     try {
       const catalogs = compiler.loadCatalogs(cfg);
       const registry = await compiler.extractProject(cfg);
-      const { added } = compiler.syncCatalogs(cfg, catalogs, registry);
-      for (const locale of Object.keys(added)) {
-        compiler.writeCatalog(cfg, locale, catalogs[locale] ?? {});
-      }
-      compiler.writeDts(cfg, new Map(Object.entries(catalogs[cfg.sourceLocale] ?? {})));
-      writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
+      syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
     } catch (error) {
       console.warn('[verbaly] live extraction failed:', error);
     } finally {

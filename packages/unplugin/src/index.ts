@@ -1,23 +1,21 @@
 import {
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
-  analyzeFile,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
   loadVirtualModule,
   resolveVirtualId,
   runBuildGate,
-  transformCode,
+  transformSource,
   type Catalogs,
+  type PluginOptions,
   type ResolvedConfig,
-  type VerbalyConfig,
 } from '@verbaly/compiler';
 import { createUnplugin, type UnpluginFactory, type UnpluginInstance } from 'unplugin';
 
-export interface UnpluginVerbalyOptions extends VerbalyConfig {
-  failOnMissing?: boolean;
-}
+// the shared bundler-plugin options (config + failOnMissing), named for this plugin
+export type UnpluginVerbalyOptions = PluginOptions;
 
 // build-focused: virtual modules + transform + gate.
 const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = {}) => {
@@ -54,14 +52,11 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
     },
 
     transform(code, id) {
-      const analysis = analyzeFile(code, id);
-      registry.update(id, analysis);
-      return transformCode(code, id, analysis) ?? null;
+      return transformSource(code, id, registry).result;
     },
 
     buildEnd() {
-      if (options.failOnMissing === false) return;
-      runBuildGate(cfg, registry);
+      runBuildGate(cfg, registry, options.failOnMissing);
     },
   };
 };

@@ -40,7 +40,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - `pnpm outdated` clean; zero new dependencies.
 - Competitive seal 0.22.0 (2026-07-14, same-day re-check, identical to 0.21.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged: nobody extracts natural source text from `.svelte`/`.vue` markup, and none of the web-first tools ship native mobile resource export from the same catalog.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/guide/translators`**: new section "Export for mobile apps": the two commands, the drop-in layouts (`values-*/strings.xml`, `*.lproj/Localizable.strings`), source locale = platform default, untranslated keys skipped so the app falls back, params stay in `{name}` syntax.
 - **`docs/guide/cli`**: the `export` row/section gains the two formats (`--format android-xml | ios-strings`) and the note that `--missing` applies only to xliff/csv.

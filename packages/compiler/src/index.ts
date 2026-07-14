@@ -1,4 +1,5 @@
 export { analyze } from './analyze';
+export { SFC_FILE_RE, analyzeFile, analyzeSfc } from './sfc';
 export { loadCatalogs, readCatalog, catalogPath, serializeCatalog, writeCatalog } from './catalog';
 export { check, formatCheckResult } from './check';
 export {
@@ -31,7 +32,14 @@ export { MessageRegistry } from './registry';
 export { transformCode } from './transform';
 export { structureMatches, translateCatalogs } from './translate';
 
-export type { Analysis, TaggedMessage, TaggedParam, TransComponent, UsedKey } from './analyze';
+export type {
+  Analysis,
+  AnalyzeOptions,
+  TaggedMessage,
+  TaggedParam,
+  TransComponent,
+  UsedKey,
+} from './analyze';
 export type { RuntimeModuleOptions } from './codegen';
 export type { Catalog, Catalogs } from './catalog';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';

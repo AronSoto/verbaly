@@ -9,7 +9,7 @@ import type { MessageRegistry } from './registry';
 
 export const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;
 export const LOCALE_MODULE_PREFIX = `${RESOLVED_VIRTUAL_ID}/locale/`;
-export const SOURCE_FILE_RE = /\.[cm]?[jt]sx?$/;
+export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue)$/;
 
 export function resolveVirtualId(id: string): string | undefined {
   if (id === VIRTUAL_ID || id.startsWith(`${VIRTUAL_ID}/`)) return '\0' + id;

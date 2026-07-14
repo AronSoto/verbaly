@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { glob } from 'tinyglobby';
-import { analyze } from './analyze';
 import type { Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { MessageRegistry } from './registry';
+import { analyzeFile } from './sfc';
 
 export async function extractProject(cfg: ResolvedConfig): Promise<MessageRegistry> {
   const files = await glob(cfg.include, {
@@ -13,7 +13,7 @@ export async function extractProject(cfg: ResolvedConfig): Promise<MessageRegist
   });
   const registry = new MessageRegistry();
   for (const file of files) {
-    registry.update(file, analyze(readFileSync(file, 'utf8'), file));
+    registry.update(file, analyzeFile(readFileSync(file, 'utf8'), file));
   }
   return registry;
 }

@@ -1,7 +1,7 @@
 import {
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
-  analyze,
+  analyzeFile,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -54,7 +54,7 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
     },
 
     transform(code, id) {
-      const analysis = analyze(code, id);
+      const analysis = analyzeFile(code, id);
       registry.update(id, analysis);
       return transformCode(code, id, analysis) ?? null;
     },

@@ -8,6 +8,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.20.0] — 2026-07-13
+
+**Write your text in `.svelte` and `.vue` files too.** The write-in-source promise now covers single-file components: `` t`…` `` (and Svelte's `` $t`…` ``) is extracted, keyed and typed straight from `.svelte` and `.vue` files, script blocks and markup alike. Until now the compiler only read `.js/.ts/.jsx/.tsx`, so Svelte and Vue components had to fall back to hand-written keys. This closes the most visible DX gap on the road to 1.0. No breaking changes.
+
+### Highlights
+
+- **Natural text in Svelte and Vue components.** Write `` <h1>{$t`Hello ${name}`}</h1> `` in a `.svelte` file, or ``{{ t`Hello ${name}` }}`` in a `.vue` template, and the compiler does the rest: stable key, typed params, per-locale catalogs. Works in script blocks, markup, template interpolations and attribute bindings.
+- **Svelte's store form is understood.** In Svelte components `t` is a store, so you use it as `$t`. The extractor recognizes `` $t`…` ``, `$t('key')` and `` $t.id('key')`…` `` everywhere in a `.svelte` file.
+- **Live in dev, gated in build.** Save a `.svelte`/`.vue` file with new text and the catalogs plus `verbaly.d.ts` update on the spot (Vite). Missing translations still block the build.
+- **Readable keys and runtime keys work in markup too**: `` t.id('home.title')`…` `` extracts under your key, and `t('key')` calls count as used keys for `check` and `extract --prune`.
+- **`verbaly extract` scans more by default.** The default `include` now covers `.svelte`/`.vue` files and the `app/` folder (where Nuxt 4 and the Next.js App Router live), next to `src/`. Your own `include` config still wins.
+
+### Added
+
+- **SFC extraction** (`@verbaly/compiler`): new `analyzeFile(code, file)` dispatcher (exported, with `analyzeSfc` and `SFC_FILE_RE`): `.svelte`/`.vue` files are analyzed in two passes. (a) **Script blocks** (`<script>`, `<script setup>`, `<script context="module">`) parse with the same Babel analyzer, offsets shifted to file coordinates. (b) **Markup** is scanned after blanking scripts, styles and HTML comments (length-preserving, so offsets stay honest): each strict candidate (`t` immediately followed by `` ` ``, `(` or `.id(`; `$t` accepted in `.svelte`) has its exact expression extent found by a balanced scanner (nested `${…}`, strings, nested templates and paren groups) and that slice goes through the real Babel analyzer. No candidate, no parse; prose can never become a key.
+- **`AnalyzeOptions.tNames`** (`@verbaly/compiler`): `analyze(code, file, { tNames })` accepts extra identifiers treated as the `t` tag; the SFC path passes `['t', '$t']` for Svelte.
+- **Vite/unplugin transform `.svelte`/`.vue`** (`@verbaly/vite`, `@verbaly/unplugin`): `SOURCE_FILE_RE`/`isTransformTarget` now match both extensions (query-suffixed sub-requests like `?vue&type=style` stay excluded), both plugins analyze via `analyzeFile`, and the Vite `unlink` watcher drops messages of deleted `.svelte`/`.vue` files. Both plugins run `enforce: 'pre'`, so the rewrite happens on the raw SFC source before the framework compiles it.
+
+### Changed
+
+- **Markup rewrites quote with `'`** (`@verbaly/compiler` transform): a rewrite inside a double-quoted attribute (`` :title="t`…`" `` in Vue) must not emit `"`; SFC-markup messages carry a `singleQuote` flag and `transformCode` emits `t('key', { 'name': name })` for them. JS/TS output is unchanged (`t("key", { "name": name })`).
+- **Default `include`** (`@verbaly/compiler` config): `src/**/*.{js,jsx,ts,tsx,mjs,mts}` → `{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue}`. Additive only (more files scanned); explicit `include` configs are untouched. `app/` covers Nuxt 4's `srcDir` and Next.js App Router projects without `src/`, which the old default silently missed for the CLI path.
+
+### Notes
+
+- 525 tests (core 186 · compiler **201** · next 30 · nuxt 20 · svelte 23 · vite **18** · vue 13 · react 12 · sveltekit 12 · unplugin 10), was 501: +23 compiler (`sfc.test.ts`: svelte script/markup/`$t`/`t.id`/attributes/comments/prose-safety/nested-braces/unterminated-EOF, vue script-setup/interpolation/directive/style, transform quote matrix), +1 vite (`.svelte` + `.vue` through the real plugin transform, catalog fed).
+- Design decisions: markup candidates are **strict** (no whitespace between `t` and `` ` ``/`(`): a stray `t(` in prose parses to nothing (non-literal first arg), and an accidental used key would make `check` fail, so the scanner errs on the side of missing over inventing. Comments are blanked before scanning: commented-out code never reaches the catalogs. A malformed segment skips silently instead of failing the file (mirror of `errorRecovery` in the JS path). `.svelte.ts`/`.svelte.js` rune modules keep the plain JS path (they are not SFCs).
+- Verified end-to-end with the built CLI over a scratch project (svelte + vue, `src/` + `app/`): 6 messages extracted (script, markup with params, explicit `t.id` key, vue setup/interpolation/attribute), svelte comment and vue `<style>` ignored, `$t('runtime.key')` registered as used key, `en` scaffolded with `''`.
+- Bench re-run (ritual): lookup **36.4×**, interpolation **10.6×**, plural **4.8×**, currency **5.4×** vs i18next 26, in family with 0.19.0 (32.8×/11.3×/4.6×/5.4×; the runtime is untouched this release).
+- Bundle check: tree-shaken `createVerbaly` **3.30 KB** min+gzip, full core surface **5.24 KB**, `verbaly/devtools` **1.63 KB** (all unchanged from 0.19.0; core has zero code changes).
+- publint **All good** ×10 · attw: compiler/vite/unplugin keep the ESM-only profile (CJS-consumer warning by design), dual packages untouched. Compiler tarball verified (0.20.0, peer `verbaly` rewritten, only `dist/` + LICENSE + README).
+- `pnpm outdated` clean (deps already at latest stable; no new dependencies this release).
+- Competitive seal 0.20.0 (2026-07-13): i18next 26.3.6 · react-i18next 17.0.9 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.21.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1, identical to the 0.19.0 seal; table stands. This release's territory: **no competitor extracts natural source text from `.svelte`/`.vue` markup.** Lingui's macros cover JSX (Vue needs a separate extractor setup, Svelte has no first-class story); Paraglide, typesafe-i18n, svelte-i18n 4.0.1 and vue-i18n 11.4.6 are key-based at the source. Verbaly's angle: the same `` t`…` `` everywhere you write UI text.
+
+### Docs impact (synced)
+
+- **`docs/frameworks/svelte`**: after the stores example, add a short **write-in-source** block: `` $t`Hello ${name}` `` works directly in `.svelte` markup and script since 0.20.0 (extracted, keyed and typed on save; `` $t.id('key')`…` `` for readable keys). Mirror the package README snippet.
+- **`docs/frameworks/vue`**: same addition for `.vue`: ``{{ t`Hello ${name}` }}`` in templates and `` :title="t`…`" `` in bindings extract since 0.20.0. Mirror the package README snippet.
+- **`docs/frameworks/vite`**: if the page lists config fields or the default `include`, update it to `{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue}`; note that `.svelte`/`.vue` are transformed too.
+- **`docs/guide/cli`**: the `extract` description scans `.svelte`/`.vue` as well; mention the new default include if the page names it.
+- **`docs/init/what-is`** / landing copy: anywhere write-in-source is framed as JS/TS-only, it now covers Svelte and Vue components; optional one-line callout.
+- **`/changelog`** (`releases.ts`): 0.20.0 entry, theme + Highlights above in plain language.
+- Bump web to `verbaly@^0.20.0` + `@verbaly/compiler@^0.20.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.19.0] — 2026-07-13
 
 **Next.js joins the family — the cycle is complete.** The third and last big meta-framework integration: **`@verbaly/next`** brings the write→ship cycle to the Next.js App Router — Server Components translate with `await getT()`, Client Components use the familiar React hooks, and every request negotiates its own locale (cookie → `Accept-Language` → fallback) with flash-free hydration. Works on **Turbopack** (the Next 16 default) and webpack. Also fixes a long-standing rich-text limitation: messages can now display literal markup like `<html lang>` (HTML entities decode in text runs). No breaking changes.

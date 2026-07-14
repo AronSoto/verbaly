@@ -62,7 +62,7 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     dir,
     sourceLocale,
     locales: [...locales],
-    include: config.include ?? ['src/**/*.{js,jsx,ts,tsx,mjs,mts}'],
+    include: config.include ?? ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue}'],
     exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],
     translate: config.translate ?? {},
     render: config.render ?? {},

@@ -22,6 +22,7 @@ export interface TaggedMessage {
   tagEnd: number;
   file: string;
   jsx?: { name: string; components: TransComponent[] };
+  singleQuote?: boolean;
 }
 
 export interface UsedKey {
@@ -43,7 +44,14 @@ interface AstNode {
 
 const SKIP_KEYS = new Set(['loc', 'leadingComments', 'trailingComments', 'innerComments', 'extra']);
 
-export function analyze(code: string, file: string): Analysis {
+export interface AnalyzeOptions {
+  tNames?: readonly string[];
+}
+
+const DEFAULT_T_NAMES: readonly string[] = ['t'];
+
+export function analyze(code: string, file: string, options: AnalyzeOptions = {}): Analysis {
+  const names = new Set(options.tNames ?? DEFAULT_T_NAMES);
   const jsx = /\.[jt]sx$/.test(file);
   const ast = parse(code, {
     sourceType: 'module',
@@ -57,10 +65,10 @@ export function analyze(code: string, file: string): Analysis {
   walk(ast.program as unknown as AstNode, (node) => {
     if (node.type === 'TaggedTemplateExpression') {
       const tag = node.tag as AstNode;
-      const explicit = explicitId(tag);
-      if (!explicit && !isTReference(tag)) return;
+      const explicit = explicitId(tag, names);
+      if (!explicit && !isTReference(tag, names)) return;
       const quasi = node.quasi as AstNode;
-      const message = buildMessage(code, quasi);
+      const message = buildMessage(code, quasi, names);
       if (!message) return;
       tagged.push({
         key: explicit ? explicit.key : stableKey(message.text),
@@ -74,14 +82,14 @@ export function analyze(code: string, file: string): Analysis {
       });
     } else if (node.type === 'CallExpression') {
       const callee = node.callee as AstNode;
-      if (!isTReference(callee)) return;
+      if (!isTReference(callee, names)) return;
       const args = node.arguments as AstNode[];
       const first = args[0];
       if (first?.type === 'StringLiteral') {
         usedKeys.push({ key: first.value as string, file });
       }
     } else if (node.type === 'JSXElement') {
-      handleTrans(code, node, file, tagged, usedKeys);
+      handleTrans(code, node, file, tagged, usedKeys, names);
     }
   });
 
@@ -94,6 +102,7 @@ function handleTrans(
   file: string,
   tagged: TaggedMessage[],
   usedKeys: UsedKey[],
+  names: ReadonlySet<string>,
 ): void {
   const opening = node.openingElement as AstNode;
   const nameNode = opening.name as AstNode;
@@ -109,7 +118,7 @@ function handleTrans(
     const id = value.value as string;
     // id + children → extract under the explicit key
     if (attrs.length === 1 && children?.length) {
-      const built = buildTransMessage(code, children);
+      const built = buildTransMessage(code, children, names);
       if (built?.text.trim()) {
         tagged.push({
           key: id,
@@ -132,7 +141,7 @@ function handleTrans(
 
   if (!children?.length) return;
 
-  const built = buildTransMessage(code, children);
+  const built = buildTransMessage(code, children, names);
   if (!built || !built.text.trim()) return;
 
   tagged.push({
@@ -149,14 +158,17 @@ function handleTrans(
 }
 
 // t.id('key')`…` → explicit readable key
-function explicitId(tag: AstNode): { key: string; refStart: number; refEnd: number } | undefined {
+function explicitId(
+  tag: AstNode,
+  names: ReadonlySet<string>,
+): { key: string; refStart: number; refEnd: number } | undefined {
   if (tag.type !== 'CallExpression') return undefined;
   const callee = tag.callee as AstNode;
   if (callee.type !== 'MemberExpression' || callee.computed) return undefined;
   const prop = callee.property as AstNode;
   if (prop.type !== 'Identifier' || prop.name !== 'id') return undefined;
   const obj = callee.object as AstNode;
-  if (!isTReference(obj)) return undefined;
+  if (!isTReference(obj, names)) return undefined;
   const args = tag.arguments as AstNode[];
   const first = args[0];
   if (args.length !== 1 || first?.type !== 'StringLiteral') return undefined;
@@ -169,7 +181,11 @@ interface BuiltTrans {
   components: TransComponent[];
 }
 
-function buildTransMessage(code: string, children: AstNode[]): BuiltTrans | undefined {
+function buildTransMessage(
+  code: string,
+  children: AstNode[],
+  names: ReadonlySet<string>,
+): BuiltTrans | undefined {
   const params: TaggedParam[] = [];
   const components: TransComponent[] = [];
   const takenParams = new Map<string, string>();
@@ -187,7 +203,7 @@ function buildTransMessage(code: string, children: AstNode[]): BuiltTrans | unde
           text += escapeText(expr.value as string);
           continue;
         }
-        if (containsTaggedT(expr)) return undefined; // overlap hazard
+        if (containsTaggedT(expr, names)) return undefined; // overlap hazard
         const source = code.slice(expr.start, expr.end);
         const name = uniqueName(deriveName(expr, params.length), source, takenParams);
         params.push({ name, start: expr.start, end: expr.end });
@@ -239,21 +255,21 @@ function selfClosedSource(code: string, opening: AstNode): string {
 }
 
 // true if the subtree holds a t`…` / t.id('…')`…` that analyze would extract itself
-function containsTaggedT(node: AstNode): boolean {
+function containsTaggedT(node: AstNode, names: ReadonlySet<string>): boolean {
   let found = false;
   walk(node, (n) => {
     if (n.type !== 'TaggedTemplateExpression') return;
     const tag = n.tag as AstNode;
-    if (isTReference(tag) || explicitId(tag)) found = true;
+    if (isTReference(tag, names) || explicitId(tag, names)) found = true;
   });
   return found;
 }
 
-function isTReference(node: AstNode): boolean {
-  if (node.type === 'Identifier') return node.name === 't';
+function isTReference(node: AstNode, names: ReadonlySet<string>): boolean {
+  if (node.type === 'Identifier') return names.has(node.name as string);
   if (node.type === 'MemberExpression' && !node.computed) {
     const prop = node.property as AstNode;
-    return prop.type === 'Identifier' && prop.name === 't';
+    return prop.type === 'Identifier' && names.has(prop.name as string);
   }
   return false;
 }
@@ -263,7 +279,11 @@ interface BuiltMessage {
   params: TaggedParam[];
 }
 
-function buildMessage(code: string, quasi: AstNode): BuiltMessage | undefined {
+function buildMessage(
+  code: string,
+  quasi: AstNode,
+  names: ReadonlySet<string>,
+): BuiltMessage | undefined {
   const quasis = quasi.quasis as AstNode[];
   const expressions = quasi.expressions as AstNode[];
   const params: TaggedParam[] = [];
@@ -275,7 +295,7 @@ function buildMessage(code: string, quasi: AstNode): BuiltMessage | undefined {
     const expr = expressions[i];
     if (!expr) return undefined;
     // a nested t`…` would be extracted on its own: overlapping rewrites; bail the outer
-    if (containsTaggedT(expr)) return undefined;
+    if (containsTaggedT(expr, names)) return undefined;
     const source = code.slice(expr.start, expr.end);
     const name = uniqueName(deriveName(expr, i), source, taken);
     params.push({ name, start: expr.start, end: expr.end });

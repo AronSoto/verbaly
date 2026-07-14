@@ -3,7 +3,7 @@ import {
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
   SOURCE_FILE_RE,
-  analyze,
+  analyzeFile,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -129,7 +129,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
     transform(code, id) {
       if (!isTransformTarget(id)) return undefined;
-      const analysis = analyze(code, id);
+      const analysis = analyzeFile(code, id);
       registry.update(id, analysis);
 
       if (!isBuild && analysis.tagged.length > 0) {

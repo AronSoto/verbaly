@@ -48,6 +48,12 @@ pnpm add @verbaly/svelte
 </select>
 ```
 
+Or skip the keys entirely — write the source text in place and the compiler extracts it, right in your `.svelte` files (script and markup):
+
+```html
+<h1>{$t`Hello ${name}, you have ${count} messages`}</h1>
+```
+
 No component tree? The store factories work with any instance:
 
 ```ts

@@ -39,6 +39,14 @@ app.use(verbalyPlugin(verbaly));
 </template>
 ```
 
+Or skip the keys entirely — write the source text in place and the compiler extracts it, right in your `.vue` files (script and template):
+
+```html
+<template>
+  <p>{{ t`Hello ${name}, you have ${count} messages` }}</p>
+</template>
+```
+
 ### ✨ Rich text — `<Trans>`
 
 ```html

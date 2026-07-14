@@ -33,7 +33,7 @@ export default {
 import { t, setLocale } from 'virtual:verbaly';
 ```
 
-- **Live extraction** with debounced catalog writes + HMR.
+- **Live extraction** with debounced catalog writes + HMR — from `.js/.ts/.jsx/.tsx` and `.svelte`/`.vue` files (script and markup).
 - **Per-locale code-splitting** — `setLocale` lazy-loads only what's used.
 - **Build gate** — missing translations stop the build (same as `verbaly check`); `failOnMissing: false` opts out.
 

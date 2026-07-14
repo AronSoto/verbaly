@@ -1,9 +1,15 @@
 import MagicString from 'magic-string';
-import { analyze, type Analysis } from './analyze';
+import type { Analysis } from './analyze';
+import { analyzeFile } from './sfc';
 
 export interface TransformResult {
   code: string;
   map: ReturnType<MagicString['generateMap']>;
+}
+
+function quote(text: string, single: boolean | undefined): string {
+  if (!single) return JSON.stringify(text);
+  return `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
 export function transformCode(
@@ -11,7 +17,7 @@ export function transformCode(
   file: string,
   analysis?: Analysis,
 ): TransformResult | null {
-  const { tagged } = analysis ?? analyze(code, file);
+  const { tagged } = analysis ?? analyzeFile(code, file);
   if (tagged.length === 0) return null;
 
   const s = new MagicString(code);
@@ -19,7 +25,7 @@ export function transformCode(
     const seen = new Set<string>();
     const entries = msg.params.filter((p) => !seen.has(p.name) && seen.add(p.name));
     const pairs = entries
-      .map((p) => `${JSON.stringify(p.name)}: ${code.slice(p.start, p.end)}`)
+      .map((p) => `${quote(p.name, msg.singleQuote)}: ${code.slice(p.start, p.end)}`)
       .join(', ');
 
     if (msg.jsx) {
@@ -39,7 +45,7 @@ export function transformCode(
 
     const tagSource = code.slice(msg.tagStart, msg.tagEnd);
     const args = entries.length ? `, { ${pairs} }` : '';
-    s.overwrite(msg.start, msg.end, `${tagSource}(${JSON.stringify(msg.key)}${args})`);
+    s.overwrite(msg.start, msg.end, `${tagSource}(${quote(msg.key, msg.singleQuote)}${args})`);
   }
   return { code: s.toString(), map: s.generateMap({ hires: true }) };
 }

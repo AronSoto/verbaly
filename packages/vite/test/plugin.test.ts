@@ -110,6 +110,22 @@ describe('dev transform', () => {
     expect(transform(CODE, join(root, 'node_modules', 'x', 'i.ts'))).toBeUndefined();
     expect(transform(CODE, join(root, 'src', 'style.css'))).toBeUndefined();
   });
+
+  it('extracts and rewrites .svelte and .vue components', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { transform, load } = await setup(root, 'serve');
+
+    const svelte = transform('<h1>{$t`Hola ${name}`}</h1>', join(root, 'src', 'App.svelte'));
+    expect(svelte?.code).toBe(`<h1>{$t('${KEY}', { 'name': name })}</h1>`);
+
+    const vue = transform(
+      '<template><p>{{ t`Hola ${name}` }}</p></template>',
+      join(root, 'src', 'App.vue'),
+    );
+    expect(vue?.code).toBe(`<template><p>{{ t('${KEY}', { 'name': name }) }}</p></template>`);
+
+    expect(load('\0virtual:verbaly/locale/es')).toContain('Hola {name}');
+  });
 });
 
 describe('dev server', () => {

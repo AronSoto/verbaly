@@ -11,6 +11,7 @@ import {
 import {
   normalizeLink,
   parseTags,
+  RICH_TAGS,
   type DictionaryInput,
   type Params,
   type RichLink,
@@ -67,34 +68,57 @@ function useVersion<D extends DictionaryInput>(instance: Verbaly<D>): void {
 export interface TransProps {
   id: string;
   values?: Params;
+  instance?: Verbaly;
   components?: Record<string, ReactElement>;
+  richTags?: string[];
   links?: Record<string, RichLink>;
 }
 
 // translated message + element interpolation
 export function Trans(props: TransProps): ReactElement {
-  const t = useT();
-  const text = (t as unknown as (id: string, values?: Params) => string)(props.id, props.values);
+  const ctx = useContext(VerbalyContext);
+  const instance = props.instance ?? ctx;
+  if (!instance) {
+    throw new Error('[verbaly] <Trans> requires an instance prop or a <VerbalyProvider>');
+  }
+  useVersion(instance);
+  const text = (instance.t as unknown as (id: string, values?: Params) => string)(
+    props.id,
+    props.values,
+  );
   return createElement(
     Fragment,
     null,
-    ...toNodes(parseTags(text), props.components ?? {}, props.links ?? {}),
+    ...toNodes(
+      parseTags(text),
+      props.components ?? {},
+      props.links ?? {},
+      new Set(props.richTags ?? RICH_TAGS),
+    ),
   );
 }
+
+// react rejects children on void elements
+const VOID_TAGS = new Set(['br', 'wbr']);
 
 function toNodes(
   nodes: TagNode[],
   components: Record<string, ReactElement>,
   links: Record<string, RichLink>,
+  richTags: Set<string>,
 ): ReactNode[] {
   return nodes.map((node, i) => {
     if (typeof node === 'string') return node;
-    const children = toNodes(node.children, components, links);
+    const children = toNodes(node.children, components, links, richTags);
     const el = components[node.name];
     if (el) return cloneElement(el, { key: i }, ...children);
     const link = links[node.name];
     if (link !== undefined) {
       return createElement('a', { key: i, ...normalizeLink(link) }, ...children);
+    }
+    if (richTags.has(node.name)) {
+      if (VOID_TAGS.has(node.name)) return createElement(node.name, { key: i });
+      return createElement(node.name, { key: i }, ...children);
     }
     return createElement(Fragment, { key: i }, ...children);
   });

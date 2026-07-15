@@ -14,6 +14,9 @@ body:
         - '@verbaly/react'
         - '@verbaly/vue'
         - '@verbaly/svelte'
+        - '@verbaly/sveltekit'
+        - '@verbaly/nuxt'
+        - '@verbaly/next'
         - not sure
     validations:
       required: true
@@ -21,7 +24,7 @@ body:
     id: version
     attributes:
       label: Version
-      placeholder: '0.14.5'
+      placeholder: '0.23.0'
     validations:
       required: true
   - type: textarea

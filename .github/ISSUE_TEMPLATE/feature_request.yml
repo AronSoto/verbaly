@@ -6,7 +6,7 @@ body:
     id: friction
     attributes:
       label: What friction does this remove?
-      description: Verbaly adds features that remove friction from the write→ship cycle, not surface for its own sake — real use cases carry a lot of weight here.
+      description: Verbaly adds features that remove friction from the write→ship cycle, not surface for its own sake; real use cases carry a lot of weight here.
     validations:
       required: true
   - type: textarea

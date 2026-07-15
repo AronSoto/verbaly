@@ -8,6 +8,56 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.23.0] · 2026-07-14
+
+**The 1.0-readiness release: one `<Trans>` contract everywhere, live extraction and a coverage view.** The three framework adapters now share the exact same `<Trans>` surface and rendering rules, the CLI learns `status` (how much is left to translate, per locale) and `extract --watch` (live extraction for bundlers without the Vite plugin), and the last planned pre-1.0 breaking changes land: `@verbaly/svelte` moves to Svelte 5 only, and React/Vue `<Trans>` render whitelisted tags as real elements like the rest of the toolkit always did. **Two breaking changes**, both called out below.
+
+### Highlights
+
+- **`<Trans>` is now the same component in React, Vue and Svelte.** Same props everywhere (`id`, `values`, `instance`, `components`, `richTags`, `links`) and same rendering rules: your custom component wins, then named links, then the safe tag whitelist, and anything unknown degrades to plain text.
+- **Breaking: React and Vue `<Trans>` now render whitelisted tags for real.** A message like `The <em>build</em> gate` shows a real `<em>` element, matching Svelte and the DOM interpreter. Before, React and Vue flattened it to plain text. If you relied on that, pass `richTags={[]}`.
+- **Breaking: `@verbaly/svelte` requires Svelte 5.** Svelte 4 support is retired while the project is still 0.x. In exchange, the Svelte `<Trans>` finally gets the `components` prop: map a tag in your message to your own component.
+- **`verbaly status` tells you how much is left to translate.** One line per language ("es: 45/48 translated (94%)"), no CI noise. `verbaly check` stays the build gate.
+- **`verbaly extract --watch` keeps catalogs and types in sync as you code.** Made for webpack, Rspack and Rollup setups, where the Vite plugin's live extraction isn't available.
+- **Easier to give feedback.** The README now says exactly where a bug report or a friction report goes, and the issue forms cover all ten packages.
+
+### Added
+
+- **`components` prop on Svelte `<Trans>`** (`@verbaly/svelte`): maps a tag name to a Svelte component; the tag content arrives as `children`. Wins over `links` and the whitelist, mirroring React/Vue. Typed as `Record<string, Component<{ children?: Snippet }>>` in `Trans.svelte.d.ts`.
+- **`instance` and `richTags` props on React and Vue `<Trans>`** (`@verbaly/react`, `@verbaly/vue`): render from an explicit instance without a provider/plugin (parity with Svelte), and override the tag whitelist per usage. Without a provider and without `instance`, `<Trans>` throws the usual actionable error.
+- **`verbaly status`** (`@verbaly/compiler` CLI): per-locale translation coverage against the needed key set (extracted + source catalog), with a checkmark on complete locales. Informational only: exit code stays 0. Exported for tooling as `status(cfg, catalogs, registry)` + `formatStatusResult` (`StatusResult`, `LocaleStatus` types).
+- **`verbaly extract --watch`** (`@verbaly/compiler` CLI): initial extract, then re-extract debounced on source file changes (`fs.watch` recursive; Node ≥ 20 covers all platforms). Watches source files only, so extract's own catalog/dts writes never retrigger a run. Rejected together with `--prune` (a mid-edit state could unreference keys and prune would drop their translations) and with `--dry-run`. The primitive is exported as `watchProject(cfg, run, options?)` (`WatchProjectOptions`).
+
+### Changed
+
+- **Breaking: React and Vue `<Trans>` render whitelisted phrasing tags as real elements** (`@verbaly/react`, `@verbaly/vue`): same whitelist as `data-verbaly-rich` (`richTags` overrides it), resolution order `components` → `links` → whitelist → unwrap. They used to unwrap every tag not in `components`/`links` to inner text, silently dropping formatting that `bindDom`, `verbaly render` and the Svelte `<Trans>` displayed. Migration: pass `richTags={[]}` to keep the old flattening. React guards the void tags (`br`, `wbr`), which reject children in React's renderer.
+- **Breaking: `@verbaly/svelte` peer moves to `svelte: ^5.0.0`** (was `^4.0.0 || ^5.0.0`): `Trans.svelte`/`TransNodes.svelte` migrate to runes (`$props`/`$derived`), which is what makes a sane `components` implementation possible (children flow through Svelte 5 snippets; the Svelte 4/5 slot-vs-snippet split was the original blocker, noted since 0.10.0). Stores and context helpers are unchanged. Svelte 4 apps: stay on `@verbaly/svelte@0.22.0`.
+- **`writeCatalog` skips identical writes** (`@verbaly/compiler`): content-compared like `writeDts` has been since 0.21.0, so an unchanged extract no longer touches catalog files (no spurious rebuilds for whatever watches them, including `extract --watch` consumers' bundlers).
+- **npm-visible prose sweep** (all packages, repo): package.json descriptions, all eleven READMEs, CONTRIBUTING and the issue/PR templates drop the em dash per the project style rule; the compiler README's CLI list gains `status` and `extract --watch`; the bug report form now lists `@verbaly/sveltekit`/`@verbaly/nuxt`/`@verbaly/next` and CONTRIBUTING's monorepo map includes the three meta-framework packages.
+
+### Notes
+
+- **The Svelte 4 decision, with data** (verified 2026-07-14): svelte@5 is 77.0% of the ~4.8M weekly svelte downloads, svelte@4 is 17.7% and falling; Verbaly's audience is new projects (the 0.x adopter installing an i18n library today is overwhelmingly on 5). Pre-1.0 this retirement costs one explicit changelog line; post-1.0 it would cost a 2.0.0. Recorded as the last planned breaking change in the queue.
+- **API freeze audit (pre-1.0 pass) ran across the ten packages.** Fixed: the `<Trans>` divergence (above). Kept as conscious decisions: `parse`/`flatten` stay under their generic names (documented low-level API, scoped by the module import); per-call helpers say `supported` while config/integrations say `locales` (a call-site list vs the project's locale set); `LOCALE_COOKIE` stays a sveltekit re-export of core's `LOCALE_STORAGE_KEY`. With this pass, 1.0 criterion 2 (no known breaking changes queued) is met.
+- Feedback infrastructure refreshed for 1.0 criterion 3: README gains a **Feedback** section (bug/friction/star paths), issue templates updated (version placeholder, ten packages), CONTRIBUTING mentions all release-train packages.
+- 551 tests (compiler **218** · core 186 · next 30 · nuxt 21 · svelte **25** · vite 18 · vue **16** · react **15** · sveltekit 12 · unplugin 10), was 533: +10 compiler (status coverage/format/empty ×3, watch run-and-filter + burst-coalescing ×2, identical-write skip ×1, CLI status + `--watch` guardrails ×4), +3 react (whitelist render, custom `richTags`, `instance` prop reactivity), +3 vue (same trio), +2 svelte (`components` children, precedence over links and whitelist).
+- Bench re-run (ritual): lookup **36.7×**, interpolation **10.2×**, plural **5.0×**, currency **6.2×** vs i18next 26, in family with 0.22.0 (30.3×/10.3×/5.0×/5.4×). Core runtime untouched this release: bundle sizes unchanged (3.28 KB tree-shaken · 5.21 KB full · 1.60 KB devtools, min+gzip; re-measured 3.33/5.24/1.60, esbuild harness variance).
+- `pnpm outdated`: `@sveltejs/kit` devDep 2.69.2 → 2.69.3 (tests green). Zero new dependencies.
+- publint **All good** ×10 · attw: core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10), next root dual 🟢 ×4 with ESM-only `./server`/`./client` by design. Svelte tarball verified: peers rewritten to `svelte ^5.0.0` + `verbaly ^0.23.0`, only `dist/` + LICENSE + README.
+- Competitive seal 0.23.0 (2026-07-14, same-day re-check, identical to 0.22.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged.
+
+### Docs impact (pending)
+
+- **`docs/frameworks/react`** and **`docs/frameworks/vue`**: the `<Trans>` sections gain the unified contract: whitelisted tags render as real elements (same whitelist as `data-verbaly-rich`), new `richTags` and `instance` props, resolution order components → links → whitelist → unwrap. **Flag the behavior change** (previously flattened; `richTags={[]}` restores it).
+- **`docs/frameworks/svelte`**: `<Trans>` gains `components` (example: tag → component receiving children); **Svelte 4 support removed** (peer `^5.0.0`, breaking): update any "Svelte 4/5" or "4 and 5" wording on this page, in `frameworks.ts` descriptions and in `docs/init/what-is` if present. The "no `components` by design" note (if mirrored anywhere) is obsolete.
+- **`docs/guide/cli`**: new `status` command row (coverage per locale, exit 0) and the `extract --watch` flag (live extraction without Vite; rejected with `--prune`/`--dry-run`). The translators page can mention `status` as the "how much is left" view.
+- **`docs/guide/translators`**: optional one-liner: `verbaly status` shows per-locale progress before exporting.
+- Landing compare table: no cell changes (same-day seal). Playground: no changes (message format untouched).
+- **`/changelog`** (`releases.ts`): 0.23.0 entry, theme + Highlights above in plain language.
+- Bump web to `verbaly@^0.23.0` + `@verbaly/compiler@^0.23.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.22.0] · 2026-07-14
 
 **Your catalogs become native mobile resources.** `verbaly export` learns two new formats: `android-xml` writes drop-in `res/values-*/strings.xml` folders and `ios-strings` writes `*.lproj/Localizable.strings`, so a web app and its mobile companion can share one set of translations. The same release makes catalog reads safer: a corrupt catalog file now stops the CLI with a clear error instead of being silently treated as empty. No breaking changes.

@@ -88,6 +88,45 @@ describe('runCli: dispatch and exit codes', () => {
   });
 });
 
+describe('runCli: status', () => {
+  it('prints per-locale coverage and never fails the process', async () => {
+    const root = makeProject({
+      en: { a: 'A', b: 'B' },
+      es: { a: 'La A', b: '' },
+      pt: { a: 'Um A', b: 'Um B' },
+    });
+    await runCli(['status', '--root', root]);
+    expect(process.exitCode).toBeUndefined();
+    const text = output(log);
+    expect(text).toContain('2 messages · source: en');
+    expect(text).toContain('es: 1/2 translated (50%)');
+    expect(text).toContain('pt: 2/2 translated (100%) ✓');
+  });
+});
+
+describe('runCli: extract --watch guardrails', () => {
+  it('rejects --watch with --prune', async () => {
+    const root = makeProject({ en: { a: 'A' } }, '');
+    await runCli(['extract', '--root', root, '--watch', '--prune']);
+    expect(output(error)).toContain('--watch runs alone');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('rejects --watch with --dry-run', async () => {
+    const root = makeProject({ en: { a: 'A' } }, '');
+    await runCli(['extract', '--root', root, '--watch', '--dry-run']);
+    expect(output(error)).toContain('--watch runs alone');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('rejects --watch on other commands', async () => {
+    const root = makeProject({ en: { a: 'A' } });
+    await runCli(['check', '--root', root, '--watch']);
+    expect(output(error)).toContain('--watch is not a "check" flag');
+    expect(process.exitCode).toBe(1);
+  });
+});
+
 describe('runCli: stray flags fail loudly', () => {
   it("rejects --locale on translate with a --locales hint (never silently ignored)", async () => {
     const root = makeProject({ en: { a: 'A' }, es: { a: '' } });

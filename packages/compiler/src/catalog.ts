@@ -45,7 +45,13 @@ export function serializeCatalog(catalog: Catalog): string {
 
 export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catalog): string {
   const serialized = serializeCatalog(catalog);
-  mkdirSync(cfg.dir, { recursive: true });
-  writeFileSync(catalogPath(cfg, locale), serialized);
+  const path = catalogPath(cfg, locale);
+  // identical writes are skipped: a rewrite retriggers whatever watches the catalog
+  try {
+    if (readFileSync(path, 'utf8') === serialized) return serialized;
+  } catch {
+    mkdirSync(cfg.dir, { recursive: true });
+  }
+  writeFileSync(path, serialized);
   return serialized;
 }

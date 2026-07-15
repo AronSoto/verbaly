@@ -1,14 +1,15 @@
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
-import { loadCatalogs, readCatalog, serializeCatalog, writeCatalog } from '../src/catalog';
+import { catalogPath, loadCatalogs, readCatalog, serializeCatalog, writeCatalog } from '../src/catalog';
 import { check, formatCheckResult } from '../src/check';
 import { resolveConfig } from '../src/config';
 import { syncCatalogs } from '../src/extract';
 import { stableKey } from '../src/key';
 import { MessageRegistry } from '../src/registry';
+import { formatStatusResult, status } from '../src/status';
 
 function makeProject(locales: Record<string, Record<string, string>>) {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-'));
@@ -53,6 +54,52 @@ describe('catalogs', () => {
     const cfg = makeProject({ es: {} });
     writeFileSync(join(cfg.dir, 'es.json'), '{corrupt');
     expect(() => readCatalog(cfg, 'es')).toThrow(/not valid JSON/);
+  });
+
+  it('skips identical writes so catalog watchers never retrigger', async () => {
+    const cfg = makeProject({ es: {} });
+    writeCatalog(cfg, 'es', { hola: 'Hola' });
+    const before = statSync(catalogPath(cfg, 'es')).mtimeMs;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    writeCatalog(cfg, 'es', { hola: 'Hola' });
+    expect(statSync(catalogPath(cfg, 'es')).mtimeMs).toBe(before);
+    writeCatalog(cfg, 'es', { hola: 'Chau' });
+    expect(readCatalog(cfg, 'es')).toEqual({ hola: 'Chau' });
+  });
+});
+
+describe('status', () => {
+  const key = stableKey('Hola {name}');
+
+  it('reports per-locale coverage against the needed set', () => {
+    const cfg = makeProject({
+      es: { [key]: 'Hola {name}', extra: 'Extra' },
+      en: { [key]: 'Hello {name}', extra: '' },
+      pt: { [key]: 'Olá {name}', extra: 'Extra' },
+    });
+    const result = status(cfg, loadCatalogs(cfg), registryFor('t`Hola ${name}`;'));
+    expect(result.messages).toBe(2);
+    expect(result.source).toBe('es');
+    expect(result.locales).toContainEqual({ locale: 'en', translated: 1, total: 2 });
+    expect(result.locales).toContainEqual({ locale: 'pt', translated: 2, total: 2 });
+  });
+
+  it('formats coverage with a checkmark on complete locales', () => {
+    const cfg = makeProject({
+      es: { [key]: 'Hola {name}' },
+      en: { [key]: '' },
+      pt: { [key]: 'Olá {name}' },
+    });
+    const text = formatStatusResult(status(cfg, loadCatalogs(cfg), registryFor('t`Hola ${name}`;')));
+    expect(text).toContain('1 messages · source: es');
+    expect(text).toContain('en: 0/1 translated (0%)');
+    expect(text).toContain('pt: 1/1 translated (100%) ✓');
+  });
+
+  it('points at the config when there are no target locales', () => {
+    const cfg = makeProject({ es: {} });
+    const text = formatStatusResult(status(cfg, loadCatalogs(cfg), registryFor('')));
+    expect(text).toContain('no target locales');
   });
 });
 

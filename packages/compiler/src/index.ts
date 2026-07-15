@@ -30,6 +30,8 @@ export { claudeProvider } from './providers/claude';
 export { PSEUDO_LOCALE, pseudoCatalogs, pseudoLocalize } from './pseudo';
 export { renderHtml, renderSite } from './render';
 export { MessageRegistry } from './registry';
+export { formatStatusResult, status } from './status';
+export { watchProject } from './watch';
 export { transformCode } from './transform';
 export { structureMatches, translateCatalogs } from './translate';
 
@@ -58,6 +60,8 @@ export type {
 export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
 export type { PluginOptions } from './plugin';
 export type { SyncResult } from './extract';
+export type { LocaleStatus, StatusResult } from './status';
+export type { WatchProjectOptions } from './watch';
 export type { InitOptions, InitResult } from './init';
 export type {
   Alternate,

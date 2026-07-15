@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>React bindings for Verbaly — hooks over the reactive core.</em></p>
+<p align="center"><em>React bindings for Verbaly: hooks over the reactive core.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/react"><img src="https://img.shields.io/npm/v/@verbaly/react?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -11,7 +11,7 @@
 
 ---
 
-React hooks for [Verbaly](https://github.com/AronSoto/verbaly) — a thin layer (React 18/19) over the reactive core via `useSyncExternalStore`.
+React hooks for [Verbaly](https://github.com/AronSoto/verbaly): a thin layer (React 18/19) over the reactive core via `useSyncExternalStore`.
 
 ## 🚀 Install
 
@@ -33,9 +33,9 @@ function Inbox() {
 }
 ```
 
-### ✨ Rich text — `<Trans>`
+### ✨ Rich text: `<Trans>`
 
-Write the source text in place — the compiler extracts it (key, catalogs, props):
+Write the source text in place and the compiler extracts it (key, catalogs, props):
 
 ```tsx
 import { Trans } from '@verbaly/react';
@@ -46,9 +46,9 @@ import { Trans } from '@verbaly/react';
 <Trans id="x7Ka9q2f" components={{ "a": <a href="/terms" /> }} />
 ```
 
-Runtime-first still works — pass `id` (+ `values`/`components`) yourself and nothing is touched. JSX whitespace rules apply: a line break between an element and text renders no space (use `{' '}`).
+Runtime-first still works: pass `id` (+ `values`/`components`) yourself and nothing is touched. Whitelisted phrasing tags in a message (`<em>`, `<code>`…) render as real elements, same whitelist as `data-verbaly-rich` (`richTags` overrides it); unknown tags unwrap to inert text. JSX whitespace rules apply: a line break between an element and text renders no space (use `{' '}`).
 
-Named links without custom components — hrefs come from your code, never from messages (`javascript:` blocked):
+Named links without custom components; hrefs come from your code, never from messages (`javascript:` blocked):
 
 ```tsx
 // message: 'Read the <docs>guide</docs>'
@@ -57,7 +57,7 @@ Named links without custom components — hrefs come from your code, never from 
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 
-> ⚠️ Early development (`0.x`) — API not stable yet.
+> ⚠️ Early development (`0.x`): API not stable yet.
 
 ## License
 

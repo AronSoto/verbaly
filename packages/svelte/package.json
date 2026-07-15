@@ -1,7 +1,7 @@
 {
   "name": "@verbaly/svelte",
-  "version": "0.22.0",
-  "description": "Svelte bindings for Verbaly — stores over the reactive core.",
+  "version": "0.23.0",
+  "description": "Svelte bindings for Verbaly: stores over the reactive core.",
   "keywords": [
     "i18n",
     "svelte",
@@ -44,7 +44,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "svelte": "^4.0.0 || ^5.0.0",
+    "svelte": "^5.0.0",
     "verbaly": "workspace:^"
   },
   "devDependencies": {

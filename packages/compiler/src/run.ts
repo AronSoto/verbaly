@@ -9,7 +9,9 @@ import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { renderSite } from './render';
+import { formatStatusResult, status } from './status';
 import { translateCatalogs, type TranslateProvider } from './translate';
+import { watchProject } from './watch';
 import type { ResolvedConfig } from './config';
 
 const HELP = `verbaly · i18n compiler
@@ -18,6 +20,7 @@ Usage:
   verbaly init       scaffold config + locale catalogs (detects your bundler)
   verbaly doctor     diagnose the setup (config, catalogs, plugin, types, keys)
   verbaly extract    scan sources, update catalogs and types
+  verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
   verbaly export     write translator files (XLIFF 2.0, CSV) or mobile resources (Android, iOS)
@@ -31,6 +34,7 @@ Options:
   --source <locale>  source locale (default: en)
   --locales <csv>    extra locales; for translate: target locales to fill
   --prune            drop keys no longer referenced (extract)
+  --watch            keep extracting as source files change (extract)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would happen, write nothing (translate, import, extract)
   --format <f>       export format: xliff (default), csv, android-xml or ios-strings (export)
@@ -58,6 +62,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       source: { type: 'string' },
       locales: { type: 'string' },
       prune: { type: 'boolean' },
+      watch: { type: 'boolean' },
       model: { type: 'string' },
       locale: { type: 'string' },
       site: { type: 'string' },
@@ -127,32 +132,54 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'extract') {
     const dryRun = values['dry-run'];
+    if (values.watch && (dryRun || values.prune)) {
+      console.error(
+        '[verbaly] --watch runs alone: prune is a deliberate one-shot action and dry-run writes nothing',
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    async function runExtract(): Promise<void> {
+      const registry = await extractProject(cfg);
+      const catalogs = loadCatalogs(cfg);
+      if (values.prune) {
+        const removed = pruneCatalogs(cfg, catalogs, registry);
+        for (const [locale, keys] of Object.entries(removed)) {
+          console.log(
+            dryRun
+              ? `  ${locale}: would prune ${keys.length}: ${keys.join(', ')}`
+              : `  ${locale}: -${keys.length} pruned`,
+          );
+        }
+      }
+      const { added } = syncCatalogs(cfg, catalogs, registry);
+      if (!dryRun) {
+        for (const locale of cfg.locales) {
+          writeCatalog(cfg, locale, catalogs[locale] ?? {});
+        }
+        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+      }
+      const total = registry.messages().size;
+      console.log(
+        `[verbaly] ${total} messages · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
+      );
+      for (const [locale, keys] of Object.entries(added)) {
+        console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
+      }
+    }
+
+    await runExtract();
+    if (values.watch) {
+      watchProject(cfg, runExtract);
+      console.log('[verbaly] watching for source changes (ctrl+c to stop)');
+    }
+    return;
+  }
+
+  if (command === 'status') {
     const registry = await extractProject(cfg);
-    const catalogs = loadCatalogs(cfg);
-    if (values.prune) {
-      const removed = pruneCatalogs(cfg, catalogs, registry);
-      for (const [locale, keys] of Object.entries(removed)) {
-        console.log(
-          dryRun
-            ? `  ${locale}: would prune ${keys.length}: ${keys.join(', ')}`
-            : `  ${locale}: -${keys.length} pruned`,
-        );
-      }
-    }
-    const { added } = syncCatalogs(cfg, catalogs, registry);
-    if (!dryRun) {
-      for (const locale of cfg.locales) {
-        writeCatalog(cfg, locale, catalogs[locale] ?? {});
-      }
-      writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
-    }
-    const total = registry.messages().size;
-    console.log(
-      `[verbaly] ${total} messages · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
-    );
-    for (const [locale, keys] of Object.entries(added)) {
-      console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
-    }
+    console.log(formatStatusResult(status(cfg, loadCatalogs(cfg), registry)));
     return;
   }
 
@@ -307,7 +334,8 @@ const COMMON_FLAGS = new Set(['root', 'dir', 'source', 'locales', 'help']);
 const COMMAND_FLAGS: Record<string, string[]> = {
   init: [],
   doctor: [],
-  extract: ['prune', 'dry-run'],
+  extract: ['prune', 'dry-run', 'watch'],
+  status: [],
   check: [],
   translate: ['model', 'dry-run'],
   export: ['format', 'out', 'missing'],

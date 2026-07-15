@@ -1,7 +1,7 @@
 {
   "name": "@verbaly/vite",
-  "version": "0.22.0",
-  "description": "Zero-config Vite plugin for Verbaly — extraction, codegen and HMR.",
+  "version": "0.23.0",
+  "description": "Zero-config Vite plugin for Verbaly: extraction, codegen and HMR.",
   "keywords": [
     "i18n",
     "vite-plugin",

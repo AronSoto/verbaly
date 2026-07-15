@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <em>Effortless i18n — write natural text, ship type-safe, tree-shakeable translations.</em>
+  <em>Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.</em>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
 
 ---
 
-Most i18n tools make you maintain key files by hand — keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a runtime under **~3KB**, zero dependencies.
+Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a runtime under **~3KB**, zero dependencies.
 
 ```ts
 // You write this:
@@ -29,7 +29,7 @@ t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
 t.id('inbox.title')`Hello ${name}`; // → t('inbox.title', { name })
 ```
 
-Missing a translation? **The build fails** — raw keys never reach production.
+Missing a translation? **The build fails**, so raw keys never reach production.
 
 ## 🚀 Try it in 30 seconds
 
@@ -45,7 +45,7 @@ export default { plugins: [verbaly({ locales: ['en', 'es', 'pt'] })] };
 ```
 
 ```ts
-// anywhere in your app — extracted + typed on save
+// anywhere in your app, extracted + typed on save
 import { t, setLocale } from 'virtual:verbaly';
 
 t`Hello ${name}`;
@@ -69,18 +69,18 @@ v.t('greeting', { name: 'Aron' }); // "Hello Aron"
 v.setLocale('es'); // auto-loads the catalog; or: await v.loadLocale('es') first
 ```
 
-### 🌐 Plain HTML — no framework needed
+### 🌐 Plain HTML, no framework needed
 
 ```html
 <h1 data-verbaly="home.title"></h1>
 <p data-verbaly="home.intro" data-verbaly-rich></p>
-<!-- rich: 'The build <em>gate</em>' renders a real <em> — whitelist, XSS-safe -->
+<!-- rich: 'The build <em>gate</em>' renders a real <em> (whitelist, XSS-safe) -->
 <p
   data-verbaly="home.cta"
   data-verbaly-rich
   data-verbaly-links='{"repo":"https://github.com/x"}'
 ></p>
-<!-- links: 'See the <repo>repo</repo>' renders <a href> — hrefs from you, never from messages -->
+<!-- links: 'See the <repo>repo</repo>' renders <a href>; hrefs from you, never from messages -->
 ```
 
 ```ts
@@ -108,14 +108,14 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 
 ## ✨ What you get
 
-- **Hybrid compiler + runtime** — static text compiled (types + tree-shaking), dynamic content via a real runtime path.
-- **Type-safe params** — `{name}`, plurals, currency and dates inferred from the message; wrong/missing params fail to compile.
-- **`Intl`-powered format** — number/currency/date/time/relative/list/unit + CLDR plurals and select/gender, tiny surface. `'Updated {when:relative}'` · `'{langs:list}'` · `'{d:unit/kilometer}'`.
-- **Plain, portable JSON catalogs** — no proprietary format, no lock-in.
-- **DOM interpreter** for framework-less HTML — with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
-- **Lazy catalogs** — `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
-- **Runtime devtools** — opt-in `verbaly/devtools` answers "what key is this text?" in the browser: hover to see any element's key/locale/source, plus a live missing-keys panel. Tree-shaken out of production (its own chunk). Or wire the `onResolve` hook yourself.
-- **Fast, with receipts** — fully memoized hot path, benchmarked every release: 5–35× faster than i18next on lookup, interpolation and plurals.
+- **Hybrid compiler + runtime**: static text compiled (types + tree-shaking), dynamic content via a real runtime path.
+- **Type-safe params**: `{name}`, plurals, currency and dates inferred from the message; wrong/missing params fail to compile.
+- **`Intl`-powered format**: number/currency/date/time/relative/list/unit + CLDR plurals and select/gender, tiny surface. `'Updated {when:relative}'` · `'{langs:list}'` · `'{d:unit/kilometer}'`.
+- **Plain, portable JSON catalogs**: no proprietary format, no lock-in.
+- **DOM interpreter** for framework-less HTML, with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
+- **Lazy catalogs**: `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
+- **Runtime devtools**: opt-in `verbaly/devtools` answers "what key is this text?" in the browser: hover to see any element's key/locale/source, plus a live missing-keys panel. Tree-shaken out of production (its own chunk). Or wire the `onResolve` hook yourself.
+- **Fast, with receipts**: fully memoized hot path, benchmarked every release: 5–35× faster than i18next on lookup, interpolation and plurals.
 
 ## 🧩 Ecosystem
 
@@ -129,9 +129,9 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 
 📖 **Docs & live playground:** https://verbaly-web.vercel.app
 
-🔁 **Coming from i18next?** Keep your keys and catalogs — the [migration guide](https://verbaly-web.vercel.app/docs/migrate) maps everything one-to-one.
+🔁 **Coming from i18next?** Keep your keys and catalogs: the [migration guide](https://verbaly-web.vercel.app/docs/migrate) maps everything one-to-one.
 
-> ⚠️ Early development (`0.x`) — API not stable yet.
+> ⚠️ Early development (`0.x`): API not stable yet.
 
 ## License
 

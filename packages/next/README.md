@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>Next.js integration for Verbaly — App Router/RSC with per-request locale negotiation, Turbopack and webpack support, flash-free hydration.</em></p>
+<p align="center"><em>Next.js integration for Verbaly: App Router/RSC with per-request locale negotiation, Turbopack and webpack support, flash-free hydration.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/next"><img src="https://img.shields.io/npm/v/@verbaly/next?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -11,7 +11,7 @@
 
 ---
 
-Server Components render already translated in the visitor's language — cookie first, then `Accept-Language`, then your fallback — and Client Components hydrate with the **same locale and the same catalog**: no flash of untranslated text, no hydration mismatch. Each request gets its **own instance** (React `cache()`): no locale leaking between concurrent users.
+Server Components render already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and Client Components hydrate with the **same locale and the same catalog**: no flash of untranslated text, no hydration mismatch. Each request gets its **own instance** (React `cache()`): no locale leaking between concurrent users.
 
 Works with **Turbopack** (the Next 16 default) and webpack: the config wrapper generates the runtime module as real files and wires the `t`-template compiler as a loader for both.
 
@@ -23,7 +23,7 @@ pnpm add verbaly @verbaly/next @verbaly/react
 
 ## ⚡ Wire it up
 
-**1. The config wrapper** — this is the whole build setup:
+**1. The config wrapper**, the whole build setup:
 
 ```ts
 // next.config.ts
@@ -40,7 +40,7 @@ Locales live in your `verbaly.config` (created by `npx verbaly init`), or inline
 export default withVerbaly({}, { locales: ['en', 'es', 'pt'] });
 ```
 
-**2. The provider** — root layout, Server Component:
+**2. The provider**: root layout, Server Component:
 
 ```tsx
 // app/layout.tsx
@@ -60,7 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 }
 ```
 
-**3. Write text** — Server Components use `getT()`:
+**3. Write text**: Server Components use `getT()`:
 
 ```tsx
 import { getT } from '@verbaly/next/server';
@@ -83,7 +83,7 @@ export function Counter() {
 }
 ```
 
-**4. Switching languages** — persists the cookie the server reads and re-renders Server Components:
+**4. Switching languages**: persists the cookie the server reads and re-renders Server Components:
 
 ```tsx
 'use client';
@@ -99,7 +99,7 @@ That's it. `next dev` extracts your messages live (catalogs + `verbaly.d.ts` sta
 
 ## 📖 Options
 
-Second argument of `withVerbaly` — every [`verbaly.config`](https://www.npmjs.com/package/@verbaly/compiler) option, plus:
+Second argument of `withVerbaly`: every [`verbaly.config`](https://www.npmjs.com/package/@verbaly/compiler) option, plus:
 
 | Option | What it does |
 | --- | --- |
@@ -107,7 +107,7 @@ Second argument of `withVerbaly` — every [`verbaly.config`](https://www.npmjs.
 | `fallback` | Locale when nothing matches (defaults to the source locale). |
 | `failOnMissing` | `false` opts out of the build gate. |
 
-- Negotiation reads `headers()`/`cookies()`, so negotiated routes render dynamically — for fully static output use [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) per locale.
+- Negotiation reads `headers()`/`cookies()`, so negotiated routes render dynamically; for fully static output use [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) per locale.
 - The generated `.verbaly/` directory is build output (it ships its own `.gitignore`).
 
 ## 📚 Docs

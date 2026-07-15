@@ -160,7 +160,7 @@ describe('@verbaly/react <Trans>', () => {
     expect(container.querySelector('a')!.textContent).toBe('panel');
   });
 
-  it('degrades unknown tags to inner text', () => {
+  it('renders whitelisted tags as real elements', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <b>bold</b> c' } } });
     act(() => {
       root.render(
@@ -170,7 +170,43 @@ describe('@verbaly/react <Trans>', () => {
       );
     });
     expect(container.textContent).toBe('a bold c');
+    expect(container.querySelector('b')!.textContent).toBe('bold');
+  });
+
+  it('degrades unknown tags to inner text', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <banana>b</banana> c' } } });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="m" />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('a b c');
+    expect(container.querySelector('banana')).toBeNull();
+  });
+
+  it('honors a custom richTags whitelist', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <b>bold</b> c' } } });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="m" richTags={['em']} />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('a bold c');
     expect(container.querySelector('b')).toBeNull();
+  });
+
+  it('renders from an instance prop without a provider', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'hola <em>mundo</em>' } } });
+    act(() => {
+      root.render(<Trans id="m" instance={v} />);
+    });
+    expect(container.querySelector('em')!.textContent).toBe('mundo');
+    act(() => v.addMessages('es', { m: 'chau <em>mundo</em>' }));
+    expect(container.textContent).toBe('chau mundo');
   });
 
   it('re-renders tags on locale change', () => {

@@ -150,7 +150,7 @@ describe('@verbaly/vue <Trans>', () => {
     expect(el.querySelector('a')!.textContent).toBe('panel');
   });
 
-  it('degrades unknown tags to inner text', () => {
+  it('renders whitelisted tags as real elements', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <b>bold</b> c' } } });
     const comp = defineComponent({
       setup() {
@@ -159,7 +159,46 @@ describe('@verbaly/vue <Trans>', () => {
     });
     const { el } = mount(comp, verbalyPlugin(v));
     expect(el.textContent).toBe('a bold c');
+    expect(el.querySelector('b')!.textContent).toBe('bold');
+  });
+
+  it('degrades unknown tags to inner text', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <banana>b</banana> c' } } });
+    const comp = defineComponent({
+      setup() {
+        return () => h(Trans, { id: 'm' });
+      },
+    });
+    const { el } = mount(comp, verbalyPlugin(v));
+    expect(el.textContent).toBe('a b c');
+    expect(el.querySelector('banana')).toBeNull();
+  });
+
+  it('honors a custom richTags whitelist', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <b>bold</b> c' } } });
+    const comp = defineComponent({
+      setup() {
+        return () => h(Trans, { id: 'm', richTags: ['em'] });
+      },
+    });
+    const { el } = mount(comp, verbalyPlugin(v));
+    expect(el.textContent).toBe('a bold c');
     expect(el.querySelector('b')).toBeNull();
+  });
+
+  it('renders from an instance prop without the plugin', async () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'hola <em>mundo</em>' } } });
+    const comp = defineComponent({
+      setup() {
+        return () => h(Trans, { id: 'm', instance: v });
+      },
+    });
+    const { el, errors } = mount(comp);
+    expect(errors).toHaveLength(0);
+    expect(el.querySelector('em')!.textContent).toBe('mundo');
+    v.addMessages('es', { m: 'chau <em>mundo</em>' });
+    await nextTick();
+    expect(el.textContent).toBe('chau mundo');
   });
 
   it('re-renders tags on locale change', async () => {

@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>Vue 3 bindings for Verbaly — composables over the reactive core.</em></p>
+<p align="center"><em>Vue 3 bindings for Verbaly: composables over the reactive core.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/vue"><img src="https://img.shields.io/npm/v/@verbaly/vue?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -11,7 +11,7 @@
 
 ---
 
-Vue 3 composables for [Verbaly](https://github.com/AronSoto/verbaly) — a thin layer over the reactive core with per-component cleanup (`onScopeDispose`).
+Vue 3 composables for [Verbaly](https://github.com/AronSoto/verbaly): a thin layer over the reactive core with per-component cleanup (`onScopeDispose`).
 
 ## 🚀 Install
 
@@ -39,7 +39,7 @@ app.use(verbalyPlugin(verbaly));
 </template>
 ```
 
-Or skip the keys entirely — write the source text in place and the compiler extracts it, right in your `.vue` files (script and template):
+Or skip the keys entirely: write the source text in place and the compiler extracts it, right in your `.vue` files (script and template):
 
 ```html
 <template>
@@ -47,7 +47,7 @@ Or skip the keys entirely — write the source text in place and the compiler ex
 </template>
 ```
 
-### ✨ Rich text — `<Trans>`
+### ✨ Rich text: `<Trans>`
 
 ```html
 <script setup>
@@ -61,7 +61,7 @@ Or skip the keys entirely — write the source text in place and the compiler ex
 </template>
 ```
 
-Named links without render functions — hrefs come from your code, never from messages (`javascript:` blocked):
+Whitelisted phrasing tags in a message (`<em>`, `<code>`…) render as real elements, same whitelist as `data-verbaly-rich` (`richTags` overrides it); unknown tags unwrap to inert text. Named links need no render functions; hrefs come from your code, never from messages (`javascript:` blocked):
 
 ```html
 <!-- message: 'Read the <docs>guide</docs>' -->
@@ -70,7 +70,7 @@ Named links without render functions — hrefs come from your code, never from m
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
 
-> ⚠️ Early development (`0.x`) — API not stable yet.
+> ⚠️ Early development (`0.x`): API not stable yet.
 
 ## License
 

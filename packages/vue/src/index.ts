@@ -16,6 +16,7 @@ import {
 import {
   normalizeLink,
   parseTags,
+  RICH_TAGS,
   type DictionaryInput,
   type Params,
   type RichLink,
@@ -88,11 +89,13 @@ export const Trans = defineComponent({
   props: {
     id: { type: String, required: true },
     values: { type: Object as PropType<Params>, default: undefined },
+    instance: { type: Object as PropType<Verbaly>, default: undefined },
     components: { type: Object as PropType<TransComponents>, default: () => ({}) },
+    richTags: { type: Array as PropType<string[]>, default: undefined },
     links: { type: Object as PropType<Record<string, RichLink>>, default: () => ({}) },
   },
   setup(props) {
-    const instance = useVerbaly();
+    const instance = props.instance ?? useVerbaly();
     const version = trackVersion(instance);
     return () => {
       void version.value;
@@ -100,7 +103,15 @@ export const Trans = defineComponent({
         props.id,
         props.values,
       );
-      return h(Fragment, toNodes(parseTags(text), props.components, props.links));
+      return h(
+        Fragment,
+        toNodes(
+          parseTags(text),
+          props.components,
+          props.links,
+          new Set(props.richTags ?? RICH_TAGS),
+        ),
+      );
     };
   },
 });
@@ -109,15 +120,19 @@ function toNodes(
   nodes: TagNode[],
   components: TransComponents,
   links: Record<string, RichLink>,
+  richTags: Set<string>,
 ): VNodeChild[] {
   return nodes.map((node) => {
     if (typeof node === 'string') return node;
-    const children = toNodes(node.children, components, links);
+    const children = toNodes(node.children, components, links, richTags);
     const fn = components[node.name];
     if (fn) return fn(children);
     const link = links[node.name];
     if (link !== undefined) {
       return h('a', normalizeLink(link), children);
+    }
+    if (richTags.has(node.name)) {
+      return h(node.name, null, children);
     }
     return children;
   });

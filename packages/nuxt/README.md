@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>Nuxt integration for Verbaly — zero-config module with per-request locale negotiation and flash-free hydration.</em></p>
+<p align="center"><em>Nuxt integration for Verbaly: zero-config module with per-request locale negotiation and flash-free hydration.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/nuxt"><img src="https://img.shields.io/npm/v/@verbaly/nuxt?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -11,7 +11,7 @@
 
 ---
 
-Server-rendered pages arrive already translated in the visitor's language — cookie first, then `Accept-Language`, then your fallback — and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
+Server-rendered pages arrive already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
 
 One line in `nuxt.config` wires everything: the Vite plugin (live extraction + the `virtual:verbaly` module), the per-request negotiation and `<html lang>`.
 
@@ -23,7 +23,7 @@ pnpm add verbaly @verbaly/nuxt @verbaly/vue
 
 ## ⚡ Wire it up
 
-**1. The module** — this is the whole setup:
+**1. The module**, the whole setup:
 
 ```ts
 // nuxt.config.ts
@@ -38,7 +38,7 @@ Locales live in your `verbaly.config` (created by `npx verbaly init`), or inline
 modules: [['@verbaly/nuxt', { locales: ['en', 'es', 'pt'] }]],
 ```
 
-**2. Write text** — components use the Vue bindings as usual:
+**2. Write text**: components use the Vue bindings as usual:
 
 ```vue
 <script setup>
@@ -51,7 +51,7 @@ const t = useT();
 </template>
 ```
 
-**3. Switching languages** (client) — persists the cookie the server reads:
+**3. Switching languages** (client): persists the cookie the server reads:
 
 ```vue
 <script setup>
@@ -76,7 +76,7 @@ Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in 
 | `cookie` | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
 | `fallback` | Locale when nothing matches (defaults to the source locale). |
 
-- No dependency on `nuxt` or `@nuxt/kit` — the module is typed structurally; the only moving parts are core primitives (`resolveRequestLocale`) and the generated `createRequestInstance`.
+- No dependency on `nuxt` or `@nuxt/kit`: the module is typed structurally; the only moving parts are core primitives (`resolveRequestLocale`) and the generated `createRequestInstance`.
 - For fully static sites (`nuxi generate`), consider [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) for pre-translated output per locale.
 
 ## 📚 Docs

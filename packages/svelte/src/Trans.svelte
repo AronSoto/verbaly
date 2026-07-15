@@ -4,26 +4,28 @@
   import { useVerbaly } from '@verbaly/svelte';
   import TransNodes from './TransNodes.svelte';
 
-  export let id;
-  export let values = undefined;
-  export let instance = undefined;
-  export let richTags = undefined;
-  export let links = undefined;
+  let { id, values, instance, components, richTags, links } = $props();
 
+  // the instance is fixed at mount on purpose
+  // svelte-ignore state_referenced_locally
   const v = instance ?? useVerbaly();
-  let version = v.version;
-  const unsubscribe = v.subscribe(() => (version = v.version));
-  onDestroy(unsubscribe);
+  let version = $state(v.version);
+  onDestroy(v.subscribe(() => (version = v.version)));
 
-  $: allowed = new Set(richTags ?? RICH_TAGS);
+  const allowed = $derived(new Set(richTags ?? RICH_TAGS));
   // normalize + sanitize hrefs once (never from messages)
-  $: linkDefs = links
-    ? Object.fromEntries(
-        Object.entries(links).map(([name, link]) => [name, normalizeLink(link)]),
-      )
-    : undefined;
+  const linkDefs = $derived(
+    links
+      ? Object.fromEntries(
+          Object.entries(links).map(([name, link]) => [name, normalizeLink(link)]),
+        )
+      : undefined,
+  );
   // version keeps this reactive to locale/catalog changes
-  $: nodes = (version, parseTags(v.t(id, values)));
+  const nodes = $derived.by(() => {
+    void version;
+    return parseTags(v.t(id, values));
+  });
 </script>
 
-<TransNodes {nodes} {allowed} links={linkDefs} />
+<TransNodes {nodes} {allowed} {components} links={linkDefs} />

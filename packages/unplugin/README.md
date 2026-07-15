@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>Verbaly for webpack, Rollup, esbuild and Rspack — powered by unplugin.</em></p>
+<p align="center"><em>Verbaly for webpack, Rollup, esbuild and Rspack, powered by unplugin.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/unplugin"><img src="https://img.shields.io/npm/v/@verbaly/unplugin?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -11,7 +11,7 @@
 
 ---
 
-[Verbaly](https://github.com/AronSoto/verbaly) beyond Vite: the same compiler — typed `virtual:verbaly` module, per-locale code-splitting and the **missing-translation build gate** — wrapped with [unplugin](https://github.com/unjs/unplugin) so it runs on **webpack 5, Rollup, esbuild, Rspack** (and Vite, though [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) is richer there: live extraction + HMR).
+[Verbaly](https://github.com/AronSoto/verbaly) beyond Vite: the same compiler (typed `virtual:verbaly` module, per-locale code-splitting and the **missing-translation build gate**) wrapped with [unplugin](https://github.com/unjs/unplugin) so it runs on **webpack 5, Rollup, esbuild, Rspack** (and Vite, though [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) is richer there: live extraction + HMR).
 
 ## 🚀 Install
 
@@ -39,19 +39,20 @@ verbaly.esbuild({ locales: ['en', 'es'] });
 verbaly.rspack({ locales: ['en', 'es'] });
 ```
 
-Extraction runs via the CLI — add it to your dev loop or CI:
+Extraction runs via the CLI: add it to your dev loop or CI:
 
 ```bash
-npx verbaly extract   # scan sources, sync catalogs, write verbaly.d.ts
+npx verbaly extract           # scan sources, sync catalogs, write verbaly.d.ts
+npx verbaly extract --watch   # keep extracting as you code (dev loop)
 ```
 
-- **Same virtual module** — `import { t, setLocale } from 'virtual:verbaly'`.
-- **Build gate** — missing translations fail the build (`failOnMissing: false` to opt out).
+- **Same virtual module**: `import { t, setLocale } from 'virtual:verbaly'`.
+- **Build gate**: missing translations fail the build (`failOnMissing: false` to opt out).
 - ESM-only, like the compiler. Use `webpack.config.mjs` (or `"type": "module"`).
 
 📖 Docs & live playground: **https://verbaly-web.vercel.app**
 
-> ⚠️ Early development (`0.x`) — API not stable yet.
+> ⚠️ Early development (`0.x`): API not stable yet.
 
 ## License
 

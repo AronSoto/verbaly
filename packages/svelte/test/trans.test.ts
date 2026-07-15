@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createVerbaly } from 'verbaly';
 import Trans from '../src/Trans.svelte';
 import App from './fixtures/App.svelte';
+import Wrap from './fixtures/Wrap.svelte';
 
 function setup() {
   return createVerbaly({
@@ -103,6 +104,29 @@ describe('<Trans>', () => {
     expect(a.getAttribute('rel')).toBe('noopener');
     expect(a.textContent).toBe('guide');
     expect(target.textContent).toContain('Read the guide now');
+  });
+
+  it('renders a mapped component with the tag content as children', () => {
+    const { target } = render(Trans, {
+      id: 'guide',
+      instance: setup(),
+      components: { docs: Wrap },
+    });
+    const strong = target.querySelector('strong.wrapped')!;
+    expect(strong.textContent).toBe('guide');
+    expect(target.textContent).toContain('Read the guide now');
+  });
+
+  it('components win over links and the whitelist', () => {
+    const { target } = render(Trans, {
+      id: 'title',
+      instance: setup(),
+      components: { em: Wrap },
+      links: { em: '/never' },
+    });
+    expect(target.querySelector('a')).toBeNull();
+    expect(target.querySelector('em')).toBeNull();
+    expect(target.querySelector('strong.wrapped')!.textContent).toBe('build');
   });
 
   it('accepts string shorthand and blocks unsafe hrefs', () => {

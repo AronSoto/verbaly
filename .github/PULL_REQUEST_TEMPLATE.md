@@ -4,7 +4,7 @@
 
 ## Why
 
-<!-- Link the issue this addresses. Features without a prior issue may be closed — see CONTRIBUTING.md. -->
+<!-- Link the issue this addresses. Features without a prior issue may be closed; see CONTRIBUTING.md. -->
 
 Closes #
 

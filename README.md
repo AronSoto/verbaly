@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <em>Effortless i18n — write natural text, ship type-safe, tree-shakeable translations.</em>
+  <em>Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.</em>
   <br />
   <strong>TypeScript</strong> · <strong>Vite</strong> · <strong>Compiler + runtime</strong> · <strong>Zero-config</strong>
 </p>
@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.22.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.23.0" alt="Socket supply chain security" /></a>
   <img src="https://img.shields.io/badge/gzip-~3KB-3fb950" alt="~3KB gzip" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
@@ -24,7 +24,7 @@
 
 ## What is Verbaly?
 
-Most i18n tools make you **maintain key files by hand** — keys drift from the code, there's no type-safety, and setup is heavy.
+Most i18n tools make you **maintain key files by hand**: keys drift from the code, there's no type-safety, and setup is heavy.
 
 **Verbaly inverts the flow.** You write the source text right in your code. A build plugin extracts the messages, generates **stable keys, types, and one module per locale**. So you get compiler-grade safety with a runtime under **~3KB**.
 
@@ -36,7 +36,7 @@ t`Hello ${name}, you have ${count} messages`;
 t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
 ```
 
-Missing a translation? **The build fails** — raw keys never reach production.
+Missing a translation? **The build fails**, so raw keys never reach production.
 
 ---
 
@@ -63,7 +63,7 @@ t`Hello ${name}`; // extracted + typed on save
 await setLocale('es'); // per-locale bundle loaded on demand
 ```
 
-The same works inside `.svelte` and `.vue` components — script and markup:
+The same works inside `.svelte` and `.vue` components, script and markup:
 
 ```svelte
 <h1>{$t`Hello ${name}`}</h1>
@@ -83,31 +83,31 @@ Plain HTML, no framework? Bind by attribute:
 
 | Package                                  | Version                                                                                                          | Description                                                          |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`verbaly`](packages/core)               | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly)                     | Core runtime — `t`, locale store, `Intl` formatting, DOM interpreter |
+| [`verbaly`](packages/core)               | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly)                     | Core runtime: `t`, locale store, `Intl` formatting, DOM interpreter |
 | [`@verbaly/compiler`](packages/compiler) | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler) | Message extraction, type-safe codegen and CLI                        |
 | [`@verbaly/vite`](packages/vite)         | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite)         | Zero-config Vite plugin with live extraction                         |
 | [`@verbaly/unplugin`](packages/unplugin) | [![npm](https://img.shields.io/npm/v/@verbaly/unplugin?label=)](https://www.npmjs.com/package/@verbaly/unplugin) | webpack, Rollup, esbuild & Rspack via unplugin                       |
 | [`@verbaly/react`](packages/react)       | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react)       | React hooks (`useT`, `useLocale`) + `<Trans>`                        |
 | [`@verbaly/vue`](packages/vue)           | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)           | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                  |
-| [`@verbaly/svelte`](packages/svelte)     | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)     | Svelte stores (`useT`, `useLocale`) — 4 & 5                          |
-| [`@verbaly/sveltekit`](packages/sveltekit) | [![npm](https://img.shields.io/npm/v/@verbaly/sveltekit?label=)](https://www.npmjs.com/package/@verbaly/sveltekit) | SvelteKit SSR — per-request locale, flash-free hydration           |
-| [`@verbaly/nuxt`](packages/nuxt)         | [![npm](https://img.shields.io/npm/v/@verbaly/nuxt?label=)](https://www.npmjs.com/package/@verbaly/nuxt)         | Nuxt SSR — zero-config module, per-request locale, flash-free hydration |
-| [`@verbaly/next`](packages/next)         | [![npm](https://img.shields.io/npm/v/@verbaly/next?label=)](https://www.npmjs.com/package/@verbaly/next)         | Next.js App Router/RSC — Turbopack & webpack, per-request locale, flash-free hydration |
+| [`@verbaly/svelte`](packages/svelte)     | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)     | Svelte 5 stores (`useT`, `useLocale`) + `<Trans>`                          |
+| [`@verbaly/sveltekit`](packages/sveltekit) | [![npm](https://img.shields.io/npm/v/@verbaly/sveltekit?label=)](https://www.npmjs.com/package/@verbaly/sveltekit) | SvelteKit SSR: per-request locale, flash-free hydration           |
+| [`@verbaly/nuxt`](packages/nuxt)         | [![npm](https://img.shields.io/npm/v/@verbaly/nuxt?label=)](https://www.npmjs.com/package/@verbaly/nuxt)         | Nuxt SSR: zero-config module, per-request locale, flash-free hydration |
+| [`@verbaly/next`](packages/next)         | [![npm](https://img.shields.io/npm/v/@verbaly/next?label=)](https://www.npmjs.com/package/@verbaly/next)         | Next.js App Router/RSC: Turbopack & webpack, per-request locale, flash-free hydration |
 
 ---
 
 ## Why it's different
 
-- **Hybrid compiler + runtime** — static text is compiled (types + tree-shaking); dynamic/CMS content has a real runtime path. No forced trade-off.
-- **Type-safe params** — `{name}`, plurals, currency and dates are inferred from the message itself. Wrong or missing params fail to compile.
-- **`Intl` all the way** — number, currency, date/time, relative time (`{when:relative}`), lists (`{langs:list}`) and units (`{d:unit/kilometer}`) — zero dependencies, the platform does the heavy lifting.
-- **Tiny & tree-shakeable** — ~3KB gzip core, zero dependencies, per-locale code-splitting.
-- **Fast, with receipts** — fully memoized hot path: 5–35× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
-- **No proprietary format** — plain, portable JSON catalogs. No lock-in. Most TMS platforms ingest them natively, and `verbaly export`/`import` round-trips XLIFF 2.0 or CSV with human translators — imports are structure-validated, so a typo in a `{param}` or tag never reaches your UI. The same catalogs also export as native mobile resources (`--format android-xml` / `ios-strings`) for a companion app.
-- **Works with plain HTML** — a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe), named links (`richLinks` — hrefs from your code, never from messages) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
-- **Fails the build on missing translations** — the #1 i18n pain, gone.
-- **Static sites ship translated** — `verbaly render` pre-fills your built HTML per locale (`dist/es/…`, `<html lang>` set). No flash of untranslated content on SSG.
-- **i18n QA built in** — `verbaly pseudo` generates a pseudo-locale (`⟦Ĥéĺĺó ~⟧`) that exposes hardcoded strings and clipped layouts; `verbaly translate` fills real locales via Claude or your own provider; `verbaly doctor` diagnoses the whole setup with the exact fix for each finding.
+- **Hybrid compiler + runtime**: static text is compiled (types + tree-shaking); dynamic/CMS content has a real runtime path. No forced trade-off.
+- **Type-safe params**: `{name}`, plurals, currency and dates are inferred from the message itself. Wrong or missing params fail to compile.
+- **`Intl` all the way**: number, currency, date/time, relative time (`{when:relative}`), lists (`{langs:list}`) and units (`{d:unit/kilometer}`). Zero dependencies, the platform does the heavy lifting.
+- **Tiny & tree-shakeable**: ~3KB gzip core, zero dependencies, per-locale code-splitting.
+- **Fast, with receipts**: fully memoized hot path: 5–35× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
+- **No proprietary format**: plain, portable JSON catalogs. No lock-in. Most TMS platforms ingest them natively, and `verbaly export`/`import` round-trips XLIFF 2.0 or CSV with human translators; imports are structure-validated, so a typo in a `{param}` or tag never reaches your UI. The same catalogs also export as native mobile resources (`--format android-xml` / `ios-strings`) for a companion app.
+- **Works with plain HTML**: a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe), named links (`richLinks`; hrefs from your code, never from messages) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
+- **Fails the build on missing translations**: the #1 i18n pain, gone.
+- **Static sites ship translated**: `verbaly render` pre-fills your built HTML per locale (`dist/es/…`, `<html lang>` set). No flash of untranslated content on SSG.
+- **i18n QA built in**: `verbaly pseudo` generates a pseudo-locale (`⟦Ĥéĺĺó ~⟧`) that exposes hardcoded strings and clipped layouts; `verbaly translate` fills real locales via Claude or your own provider; `verbaly doctor` diagnoses the whole setup with the exact fix for each finding.
 
 ### How it compares
 
@@ -116,7 +116,7 @@ Plain HTML, no framework? Bind by attribute:
 | Type-safe keys & params   | ✅ inferred from text | plugin/manual      | partial                | ✅             | ✅            |
 | Runtime size (gzip)       | **~3KB, zero deps**   | ~14KB (+9KB react) | ~5KB                   | ~0 (compiled)  | ~1KB          |
 | Setup                     | 1 Vite plugin         | heavy config       | macros + Babel/SWC     | inlang project | generator     |
-| Key maintenance           | **none — extracted**  | by hand            | extract → compile step | by hand        | by hand       |
+| Key maintenance           | **none, extracted**   | by hand            | extract → compile step | by hand        | by hand       |
 | Dynamic / CMS content     | ✅ real runtime path  | ✅                 | ✅                     | ⚠️ weak        | ✅            |
 | Plain HTML (no framework) | ✅ DOM interpreter    | ❌                 | ❌                     | ❌             | ❌            |
 | Missing-translation gate  | ✅ build fails        | runtime warning    | CI step                | ✅             | ❌            |
@@ -135,7 +135,19 @@ pnpm typecheck
 pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 ```
 
-> ⚠️ Early development. `0.x` published — API not stable yet.
+> ⚠️ Early development. `0.x` published: API not stable yet.
+
+---
+
+## Feedback
+
+Using Verbaly? That already helps. What helps even more:
+
+- **Something broke or surprised you** → [open a bug](https://github.com/AronSoto/verbaly/issues/new?template=bug_report.yml). A minimal snippet is enough.
+- **Something felt like friction** → [tell us what](https://github.com/AronSoto/verbaly/issues/new?template=feature_request.yml). The roadmap is driven by real use, not by feature lists.
+- **It just works** → a [star](https://github.com/AronSoto/verbaly) or a mention helps others find it.
+
+Contributions welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -159,4 +171,4 @@ pnpm --filter verbaly bench   # hot-path benchmarks vs i18next
 
 ## License
 
-[MIT](./LICENSE) © Aron Soto — [@AronSoto](https://github.com/AronSoto)
+[MIT](./LICENSE) © Aron Soto · [@AronSoto](https://github.com/AronSoto)

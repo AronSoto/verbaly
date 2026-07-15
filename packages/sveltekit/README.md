@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>SvelteKit SSR integration for Verbaly — per-request locale negotiation and flash-free hydration.</em></p>
+<p align="center"><em>SvelteKit SSR integration for Verbaly: per-request locale negotiation and flash-free hydration.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/sveltekit"><img src="https://img.shields.io/npm/v/@verbaly/sveltekit?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -11,7 +11,7 @@
 
 ---
 
-Server-rendered pages arrive already translated in the visitor's language — cookie first, then `Accept-Language`, then your fallback — and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
+Server-rendered pages arrive already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
 
 ## 🚀 Install
 
@@ -37,7 +37,7 @@ export default { plugins: [verbaly(), sveltekit()] };
 <html lang="%verbaly.lang%">
 ```
 
-**3. Server hook** — negotiates the locale per request:
+**3. Server hook**: negotiates the locale per request:
 
 ```ts
 // src/hooks.server.ts
@@ -63,7 +63,7 @@ declare namespace App {
 export const load = ({ locals }) => ({ locale: locals.verbalyLocale });
 ```
 
-**5. One instance per render, catalog awaited** — this is the no-FOUC guarantee, in one call:
+**5. One instance per render, catalog awaited**: the no-FOUC guarantee, in one call:
 
 ```ts
 // src/routes/+layout.ts
@@ -89,7 +89,7 @@ export const load = async ({ data }) => ({
 {@render children()}
 ```
 
-**6. Switching languages** (client) — persists the cookie the server hook reads:
+**6. Switching languages** (client): persists the cookie the server hook reads:
 
 ```html
 <script>
@@ -108,10 +108,10 @@ export const load = async ({ data }) => ({
 | --- | --- |
 | `verbalyHandle({ locales, fallback?, cookie? })` | SvelteKit `handle` hook: resolves the request locale (cookie → `Accept-Language` → fallback), sets `event.locals.verbalyLocale`, fills `%verbaly.lang%` in `app.html`. |
 | `switchLocale(instance, locale, { cookie?, maxAge? })` | Awaits the catalog, switches the locale, writes the cookie and syncs `<html lang>`. SSR-safe. |
-| `LOCALE_COOKIE` | Default cookie name (`verbaly-locale`) — shared with core's `localStorage` key. |
+| `LOCALE_COOKIE` | Default cookie name (`verbaly-locale`), shared with core's `localStorage` key. |
 
 - `cookie: false` disables cookie reading/writing (pure `Accept-Language`).
-- No dependency on `@sveltejs/kit` — the hook is typed structurally and stays compatible across Kit 2.x.
+- No dependency on `@sveltejs/kit`: the hook is typed structurally and stays compatible across Kit 2.x.
 
 ## 📚 Docs
 

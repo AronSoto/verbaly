@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
-<p align="center"><em>Zero-config Vite plugin for Verbaly — live extraction, codegen and HMR.</em></p>
+<p align="center"><em>Zero-config Vite plugin for Verbaly: live extraction, codegen and HMR.</em></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/vite"><img src="https://img.shields.io/npm/v/@verbaly/vite?logo=npm&color=cb3837" alt="npm version" /></a>
@@ -29,17 +29,17 @@ export default {
 ```
 
 ```ts
-// anywhere in your app — extracted + typed on save
+// anywhere in your app, extracted + typed on save
 import { t, setLocale } from 'virtual:verbaly';
 ```
 
-- **Live extraction** with debounced catalog writes + HMR — from `.js/.ts/.jsx/.tsx` and `.svelte`/`.vue` files (script and markup).
-- **Per-locale code-splitting** — `setLocale` lazy-loads only what's used.
-- **Build gate** — missing translations stop the build (same as `verbaly check`); `failOnMissing: false` opts out.
+- **Live extraction** with debounced catalog writes + HMR, from `.js/.ts/.jsx/.tsx` and `.svelte`/`.vue` files (script and markup).
+- **Per-locale code-splitting**: `setLocale` lazy-loads only what's used.
+- **Build gate**: missing translations stop the build (same as `verbaly check`); `failOnMissing: false` opts out.
 
 📖 Docs & live playground: **https://verbaly-web.vercel.app**
 
-> ⚠️ Early development (`0.x`) — API not stable yet.
+> ⚠️ Early development (`0.x`): API not stable yet.
 
 ## License
 

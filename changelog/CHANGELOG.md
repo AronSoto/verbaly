@@ -46,7 +46,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - publint **All good** ×10 · attw: core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10), next root dual 🟢 ×4 with ESM-only `./server`/`./client` by design. Svelte tarball verified: peers rewritten to `svelte ^5.0.0` + `verbaly ^0.23.0`, only `dist/` + LICENSE + README.
 - Competitive seal 0.23.0 (2026-07-14, same-day re-check, identical to 0.22.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/frameworks/react`** and **`docs/frameworks/vue`**: the `<Trans>` sections gain the unified contract: whitelisted tags render as real elements (same whitelist as `data-verbaly-rich`), new `richTags` and `instance` props, resolution order components → links → whitelist → unwrap. **Flag the behavior change** (previously flattened; `richTags={[]}` restores it).
 - **`docs/frameworks/svelte`**: `<Trans>` gains `components` (example: tag → component receiving children); **Svelte 4 support removed** (peer `^5.0.0`, breaking): update any "Svelte 4/5" or "4 and 5" wording on this page, in `frameworks.ts` descriptions and in `docs/init/what-is` if present. The "no `components` by design" note (if mirrored anywhere) is obsolete.

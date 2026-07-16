@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { bindDom, normalizeLink, safeHref } from '../src/dom';
+import { bindDom, normalizeLink, safeAttribute, safeHref } from '../src/dom';
 import { createVerbaly } from '../src/instance';
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -171,6 +171,17 @@ describe('safeHref / normalizeLink', () => {
     expect(normalizeLink('javascript:alert(1)').href).toBeUndefined();
     warn.mockRestore();
   });
+
+  it('safeAttribute blocks handler/style/srcdoc names and unsafe URLs', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(safeAttribute('onclick', 'x')).toBeUndefined();
+    expect(safeAttribute('style', 'x')).toBeUndefined();
+    expect(safeAttribute('SRCDOC', 'x')).toBeUndefined();
+    expect(safeAttribute('href', 'javascript:alert(1)')).toBeUndefined();
+    expect(safeAttribute('href', '/docs')).toBe('/docs');
+    expect(safeAttribute('title', 'hola')).toBe('hola');
+    warn.mockRestore();
+  });
 });
 
 function setupRich() {
@@ -184,6 +195,7 @@ function setupRich() {
         inbox: 'tienes <strong>{count}</strong> mensajes',
         evil: 'hola <script>alert(1)</script> mundo',
         custom: 'texto <q>citado</q>',
+        braces: 'usa <code>&#123;fecha:relative&#125;</code> con {n} valores',
       },
       en: {
         gate: 'The build <em>gate</em>',
@@ -247,6 +259,14 @@ describe('bindDom rich', () => {
     const el = richEl('custom');
     unbind = bindDom(v, { richTags: ['q'] });
     expect(el.querySelector('q')?.textContent).toBe('citado');
+  });
+
+  it('numeric entities render literal braces without touching real params', () => {
+    const v = setupRich();
+    const el = richEl('braces', '{"n":2}');
+    unbind = bindDom(v);
+    expect(el.querySelector('code')?.textContent).toBe('{fecha:relative}');
+    expect(el.textContent).toBe('usa {fecha:relative} con 2 valores');
   });
 
   it('without the rich attribute tags stay literal', () => {

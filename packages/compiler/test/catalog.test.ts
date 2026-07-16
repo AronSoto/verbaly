@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
-import { catalogPath, loadCatalogs, readCatalog, serializeCatalog, writeCatalog } from '../src/catalog';
+import {
+  catalogPath,
+  loadCatalogs,
+  readCatalog,
+  serializeCatalog,
+  writeCatalog,
+} from '../src/catalog';
 import { check, formatCheckResult } from '../src/check';
 import { resolveConfig } from '../src/config';
 import { syncCatalogs } from '../src/extract';
@@ -90,7 +96,9 @@ describe('status', () => {
       en: { [key]: '' },
       pt: { [key]: 'Olá {name}' },
     });
-    const text = formatStatusResult(status(cfg, loadCatalogs(cfg), registryFor('t`Hola ${name}`;')));
+    const text = formatStatusResult(
+      status(cfg, loadCatalogs(cfg), registryFor('t`Hola ${name}`;')),
+    );
     expect(text).toContain('1 messages · source: es');
     expect(text).toContain('en: 0/1 translated (0%)');
     expect(text).toContain('pt: 1/1 translated (100%) ✓');

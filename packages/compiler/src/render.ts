@@ -4,9 +4,10 @@ import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
 import {
   createVerbaly,
+  normalizeLink,
   parseTags,
   RICH_TAGS,
-  safeHref,
+  safeAttribute,
   type MessageTree,
   type Params,
   type RichLink,
@@ -154,12 +155,14 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       const map = parseArgs(attrMapRaw);
       if (map) {
         for (const [name, attrKey] of Object.entries(map)) {
-          if (typeof attrKey !== 'string' || name.toLowerCase().startsWith('on')) continue;
+          if (typeof attrKey !== 'string') continue;
           if (!v.has(attrKey)) {
             missing.add(attrKey);
             continue;
           }
-          setAttribute(ms, html, chunkStart, openEnd, attrChunk, name, t(attrKey, args));
+          const value = safeAttribute(name, t(attrKey, args));
+          if (value !== undefined)
+            setAttribute(ms, html, chunkStart, openEnd, attrChunk, name, value);
         }
       }
     }
@@ -173,7 +176,10 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
 // injects <link rel="alternate" hreflang> into <head>, idempotent via markers
 function injectAlternates(ms: MagicString, html: string, alternates: Alternate[]): void {
   const links = alternates
-    .map((a) => `<link rel="alternate" hreflang="${escapeAttr(a.hreflang)}" href="${escapeAttr(a.href)}">`)
+    .map(
+      (a) =>
+        `<link rel="alternate" hreflang="${escapeAttr(a.hreflang)}" href="${escapeAttr(a.href)}">`,
+    )
     .join('');
   const block = `${HREFLANG_OPEN}${links}${HREFLANG_CLOSE}`;
   const from = html.indexOf(HREFLANG_OPEN);
@@ -401,11 +407,8 @@ function richToHtml(
     if (typeof node === 'string') {
       out += escapeHtml(node);
     } else if (links?.[node.name] !== undefined) {
-      const link = links[node.name]!;
-      const { href, target, rel }: Exclude<RichLink, string> =
-        typeof link === 'string' ? { href: link } : link;
-      const safe = safeHref(href);
-      let attrs = safe !== undefined ? ` href="${escapeAttr(safe)}"` : '';
+      const { href, target, rel } = normalizeLink(links[node.name]!);
+      let attrs = href !== undefined ? ` href="${escapeAttr(href)}"` : '';
       if (target) attrs += ` target="${escapeAttr(target)}"`;
       if (rel) attrs += ` rel="${escapeAttr(rel)}"`;
       out += `<a${attrs}>${richToHtml(node.children, allowed, links)}</a>`;

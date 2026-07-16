@@ -8,6 +8,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.24.0] · 2026-07-16
+
+**Literal braces reach your messages, and pre-rendered pages get the runtime's full protection.** Rich text now decodes numeric HTML entities (`&#123;` and `&#x7B;` style), so a message can finally show a literal `{` or `}` without confusing the placeholder syntax. In the same pass, `verbaly render` closes a gap with the runtime: translated attributes in static HTML now go through the exact same security guards as the browser interpreter. No breaking changes.
+
+### Highlights
+
+- **Messages can now show literal curly braces.** Write `&#123;` and `&#125;` in a rich message and they render as `{` and `}`. Before, a raw brace broke the placeholder syntax and the entity came out as literal text, so there was no way to display one. Hex forms like `&#x7B;` work too, in the browser, in every `<Trans>` and in pre-rendered pages.
+- **Pre-rendered pages are now as safe as the browser.** `verbaly render` translates attributes with the same rules the runtime always used: unsafe links (`javascript:` and friends) never land in the HTML, and dangerous attributes like `style` and `srcdoc` are never written from translations.
+
+### Added
+
+- **Numeric character references in rich text** (`verbaly` core): `parseTags` decodes decimal (`&#123;`) and hexadecimal (`&#x7B;`, case-insensitive) references alongside the named `lt`/`gt`/`amp` set. Decoding stays post-tokenize on text runs only, so a decoded brace or angle bracket can never re-enter the message parser or the tag tokenizer. Out-of-range code points (above U+10FFFF) and malformed references stay literal. Applies everywhere `parseTags` runs: `bindDom` rich, the three `<Trans>` adapters and `verbaly render`.
+- **`safeAttribute(name, value)`** (`verbaly` core): the attribute guard as a public helper: returns `undefined` for `on*`/`style`/`srcdoc` names and for URL attributes (`href`, `src`, `xlink:href`, `action`, `formaction`) whose value fails `safeHref`; the value otherwise. `bindDom` and `verbaly render` both consume it, so the guard lives once (same pattern as `normalizeLink`).
+
+### Fixed
+
+- **`verbaly render` skipped the runtime's attribute guards** (`@verbaly/compiler`): the `data-verbaly-attr` path only blocked `on*` names, so a malicious or compromised catalog could pre-render `href="javascript:..."`, `style` or `srcdoc` values into the static HTML that ships before hydration (and `bindDom` skips those attributes, so nothing overwrote them after hydration either). Both sides now share `safeAttribute`, restoring the render == runtime invariant on the attribute path. Found by this release's audit, not reported externally.
+
+### Changed
+
+- **`richToHtml` link handling goes through `normalizeLink`** (`@verbaly/compiler`, internal): `render` re-inlined the string-vs-object link normalization plus `safeHref`; it now consumes core's `normalizeLink` like every adapter. No behavior change.
+- **README dash sweep leftovers** (root + core): two `5–35×` ranges survived the 0.23.0 sweep with an en dash; now `5-35×`.
+
+### Notes
+
+- Friction origin (dogfooding): verbaly-web's changelog page translates versioned prose and had five highlights it could not bind, because messages mentioning placeholder syntax had no way to show a literal brace. This release gives them a path (`&#123;`); the web re-binds them in its sync.
+- 563 tests (compiler **221** · core **195** · next 30 · nuxt 21 · svelte 25 · vite 18 · vue 16 · react 15 · sveltekit 12 · unplugin 10), was 551: +7 core tags (decimal, hex case-insensitivity, inside tag children, numeric angle brackets stay inert, decode-once, out-of-range literal, malformed literal), +2 core dom (rich braces alongside real params, `safeAttribute` contract), +3 compiler render (style/srcdoc block, URL sanitization mirror of `bindDom`, numeric-entity round-trip).
+- Bench re-run (ritual): lookup **28.8×**, interpolation **11.1×**, plural **5.0×**, currency **5.8×** vs i18next 26, in family with 0.23.0 (36.7×/10.2×/5.0×/6.2×). Bundle sizes: 3.33 KB tree-shaken · 5.32 KB full · 1.60 KB devtools (min+gzip); the full surface grows ~0.1 KB for the numeric decoder + `safeAttribute`, the tree-shaken path is unchanged.
+- `pnpm outdated`: devDep patches taken and validated (svelte 5.56.5, tsdown 0.22.8). Zero new dependencies.
+- publint **All good** ×10 · attw: core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10), next root dual 🟢 ×4 with ESM-only `./server`/`./client` by design. Core tarball verified: 0.24.0, `dist/` + LICENSE + README only, `safeAttribute` in the built output; compiler tarball: `verbaly` dep rewritten to `0.24.0`.
+- Competitive seal 0.24.0 (2026-07-16, re-check, identical to 0.23.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged.
+
+### Docs impact (synced)
+
+- **`/changelog` (`releases.ts` + catalogs)**: re-bind the five highlights left unbound for lack of a brace path (0.20 h1, 0.17 h6, 0.11 h2, 0.8 h1, 0.7 h1): add their `changelog_rel.*.hN` keys ×3 with braces written as `&#123;`/`&#125;`, and drop the "llaves literales NO se bindea" exception from the web PLAN and `verbaly-docs-sync` (the standard becomes: braces in versioned prose = numeric entities).
+- **`docs/frameworks/dom`** (rich text section): the entity note grows from named `lt`/`gt`/`amp` to numeric references; one line with the `&#123;` example (show a literal brace inside `<code>`).
+- **`docs/guide/format`**: optional one-liner where escapes are documented: in rich messages, `&#123;` is the way to display a literal brace (the `{{` escape remains the plain-text path).
+- **`docs/guide/server`** (or wherever `render` security is mentioned): note that translated attributes in pre-rendered HTML now pass the same guards as the runtime (unsafe URLs blocked, `style`/`srcdoc` never written).
+- **`/changelog`** (`releases.ts`): 0.24.0 entry, theme + Highlights above in plain language.
+- Landing compare table: no cell changes (seal identical). Playground: no changes (message format untouched).
+- Bump web to `verbaly@^0.24.0` + `@verbaly/compiler@^0.24.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.23.0] · 2026-07-14
 
 **The 1.0-readiness release: one `<Trans>` contract everywhere, live extraction and a coverage view.** The three framework adapters now share the exact same `<Trans>` surface and rendering rules, the CLI learns `status` (how much is left to translate, per locale) and `extract --watch` (live extraction for bundlers without the Vite plugin), and the last planned pre-1.0 breaking changes land: `@verbaly/svelte` moves to Svelte 5 only, and React/Vue `<Trans>` render whitelisted tags as real elements like the rest of the toolkit always did. **Two breaking changes**, both called out below.

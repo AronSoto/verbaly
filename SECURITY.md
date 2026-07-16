@@ -22,4 +22,4 @@ How the runtime enforces this today:
 - Attributes never come from messages, and `on*` handlers are blocked.
 - Link hrefs come only from your code, never from catalogs; `javascript:`/`data:`/`vbscript:` URLs are rejected.
 
-One more thing worth reporting: releases are published from CI with **npm provenance**, so a Verbaly version on npm *without* a provenance attestation is suspect.
+One more thing worth reporting: releases are published from CI with **npm provenance**, so a Verbaly version on npm _without_ a provenance attestation is suspect.

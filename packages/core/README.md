@@ -115,7 +115,7 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 - **DOM interpreter** for framework-less HTML, with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
 - **Lazy catalogs**: `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
 - **Runtime devtools**: opt-in `verbaly/devtools` answers "what key is this text?" in the browser: hover to see any element's key/locale/source, plus a live missing-keys panel. Tree-shaken out of production (its own chunk). Or wire the `onResolve` hook yourself.
-- **Fast, with receipts**: fully memoized hot path, benchmarked every release: 5–35× faster than i18next on lookup, interpolation and plurals.
+- **Fast, with receipts**: fully memoized hot path, benchmarked every release: 5-35× faster than i18next on lookup, interpolation and plurals.
 
 ## 🧩 Ecosystem
 

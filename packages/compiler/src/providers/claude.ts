@@ -73,4 +73,3 @@ export async function loadSdk(
     throw error;
   }
 }
-

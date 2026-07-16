@@ -128,7 +128,7 @@ describe('runCli: extract --watch guardrails', () => {
 });
 
 describe('runCli: stray flags fail loudly', () => {
-  it("rejects --locale on translate with a --locales hint (never silently ignored)", async () => {
+  it('rejects --locale on translate with a --locales hint (never silently ignored)', async () => {
     const root = makeProject({ en: { a: 'A' }, es: { a: '' } });
     await runCli(['translate', '--root', root, '--locale', 'es']);
     expect(output(error)).toContain('--locale is not a "translate" flag (did you mean --locales?)');

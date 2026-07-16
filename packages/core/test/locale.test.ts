@@ -1,11 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  negotiateLocale,
-  persistLocale,
-  resolveLocale,
-  resolveRequestLocale,
-} from '../src/locale';
+import { negotiateLocale, persistLocale, resolveLocale, resolveRequestLocale } from '../src/locale';
 
 const SUPPORTED = ['en', 'es', 'pt'];
 
@@ -166,15 +161,13 @@ describe('negotiateLocale', () => {
 
 describe('resolveRequestLocale', () => {
   it('prefers the cookie over the header', () => {
-    expect(
-      resolveRequestLocale({ supported: SUPPORTED, cookie: 'pt', header: 'es' }),
-    ).toBe('pt');
+    expect(resolveRequestLocale({ supported: SUPPORTED, cookie: 'pt', header: 'es' })).toBe('pt');
   });
 
   it('falls through to the header when the cookie does not match', () => {
-    expect(
-      resolveRequestLocale({ supported: SUPPORTED, cookie: 'fr', header: 'es-PE' }),
-    ).toBe('es');
+    expect(resolveRequestLocale({ supported: SUPPORTED, cookie: 'fr', header: 'es-PE' })).toBe(
+      'es',
+    );
   });
 
   it('narrows a regional cookie', () => {

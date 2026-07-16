@@ -29,9 +29,7 @@ pnpm add verbaly @verbaly/next @verbaly/react
 // next.config.ts
 import { withVerbaly } from '@verbaly/next';
 
-export default withVerbaly({
-  /* your Next config */
-});
+export default withVerbaly({/* your Next config */});
 ```
 
 Locales live in your `verbaly.config` (created by `npx verbaly init`), or inline:
@@ -101,11 +99,11 @@ That's it. `next dev` extracts your messages live (catalogs + `verbaly.d.ts` sta
 
 Second argument of `withVerbaly`: every [`verbaly.config`](https://www.npmjs.com/package/@verbaly/compiler) option, plus:
 
-| Option | What it does |
-| --- | --- |
-| `cookie` | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
-| `fallback` | Locale when nothing matches (defaults to the source locale). |
-| `failOnMissing` | `false` opts out of the build gate. |
+| Option          | What it does                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `cookie`        | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
+| `fallback`      | Locale when nothing matches (defaults to the source locale).                                            |
+| `failOnMissing` | `false` opts out of the build gate.                                                                     |
 
 - Negotiation reads `headers()`/`cookies()`, so negotiated routes render dynamically; for fully static output use [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) per locale.
 - The generated `.verbaly/` directory is build output (it ships its own `.gitignore`).

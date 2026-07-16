@@ -72,10 +72,7 @@ export function exportCatalogs(
     const entries = options.missing ? untranslated : all;
 
     const path = join(dir, `${locale}.${format === 'csv' ? 'csv' : 'xlf'}`);
-    const content =
-      format === 'csv'
-        ? toCsv(entries)
-        : toXliff(cfg.sourceLocale, locale, entries);
+    const content = format === 'csv' ? toCsv(entries) : toXliff(cfg.sourceLocale, locale, entries);
     writeFileSync(path, content);
     files.push({
       locale,

@@ -128,7 +128,10 @@ export async function switchLocale(
   document.documentElement.lang = locale;
 }
 
-export function persistLocale(locale: string, storageKey: string | false = LOCALE_STORAGE_KEY): void {
+export function persistLocale(
+  locale: string,
+  storageKey: string | false = LOCALE_STORAGE_KEY,
+): void {
   if (storageKey) getStorage()?.setItem(storageKey, locale);
   if (typeof document !== 'undefined') document.documentElement.lang = locale;
 }

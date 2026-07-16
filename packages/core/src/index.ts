@@ -1,5 +1,5 @@
 export { createVerbaly } from './instance';
-export { bindDom, normalizeLink, RICH_TAGS, safeHref } from './dom';
+export { bindDom, normalizeLink, RICH_TAGS, safeAttribute, safeHref } from './dom';
 export {
   LOCALE_STORAGE_KEY,
   negotiateLocale,

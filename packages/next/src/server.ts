@@ -1,11 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import * as React from 'react';
-import {
-  LOCALE_STORAGE_KEY,
-  resolveRequestLocale,
-  type TFunction,
-  type Verbaly,
-} from 'verbaly';
+import { LOCALE_STORAGE_KEY, resolveRequestLocale, type TFunction, type Verbaly } from 'verbaly';
 import {
   createRequestInstance,
   loadMessages,
@@ -26,8 +21,7 @@ const perRequest: <T extends () => Promise<RequestState>>(fn: T) => T =
 const getRequestState = perRequest(async (): Promise<RequestState> => {
   const cookieName = requestOptions?.cookie ?? LOCALE_STORAGE_KEY;
   const headerStore = await headers();
-  const cookieValue =
-    cookieName === false ? undefined : (await cookies()).get(cookieName)?.value;
+  const cookieValue = cookieName === false ? undefined : (await cookies()).get(cookieName)?.value;
   const locale = resolveRequestLocale({
     supported: locales,
     cookie: cookieValue,

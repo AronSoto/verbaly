@@ -133,6 +133,8 @@ describe('generateDts', () => {
       "options?: import('verbaly').VerbalyOptions<VerbalyKey>,\n  ): import('verbaly').Verbaly<VerbalyKey>;",
     );
     expect(dts).toContain('export const locales: string[];');
-    expect(dts).toContain('export function loadMessages(locale: string): Promise<Record<string, string>>;');
+    expect(dts).toContain(
+      'export function loadMessages(locale: string): Promise<Record<string, string>>;',
+    );
   });
 });

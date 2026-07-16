@@ -29,6 +29,14 @@ export function normalizeLink(link: RichLink): { href?: string; target?: string;
   return { href: safeHref(href), target, rel };
 }
 
+// one attribute guard for bindDom + render, a catalog is untrusted input: undefined = skip
+export function safeAttribute(name: string, value: string): string | undefined {
+  const lower = name.toLowerCase();
+  if (lower.startsWith('on') || BLOCKED_ATTR.test(lower)) return undefined;
+  if (URL_ATTR.test(lower)) return safeHref(value);
+  return value;
+}
+
 // phrasing-only, attribute-less → XSS-safe
 export const RICH_TAGS = [
   'em',
@@ -145,16 +153,9 @@ export function bindDom<D extends DictionaryInput>(
     const attrMap = fromCache(attrsCache, el, rawAttrs, () => parseArgs(rawAttrs));
     if (attrMap) {
       for (const [name, attrKey] of Object.entries(attrMap)) {
-        const lower = name.toLowerCase();
-        if (typeof attrKey !== 'string' || lower.startsWith('on') || BLOCKED_ATTR.test(lower))
-          continue;
-        let value = t(attrKey, args);
-        if (URL_ATTR.test(lower)) {
-          const safe = safeHref(value);
-          if (safe === undefined) continue;
-          value = safe;
-        }
-        el.setAttribute(name, value);
+        if (typeof attrKey !== 'string') continue;
+        const value = safeAttribute(name, t(attrKey, args));
+        if (value !== undefined) el.setAttribute(name, value);
       }
     }
   }

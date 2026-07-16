@@ -36,7 +36,9 @@ describe('writeGeneratedModules', () => {
     const cfg = makeConfig();
     writeGeneratedModules(cfg, {}, { cookie: 'my-locale', fallback: 'es' });
     const runtime = readFileSync(join(generatedDir(cfg.root), 'index.js'), 'utf8');
-    expect(runtime).toContain('export const requestOptions = {"cookie":"my-locale","fallback":"es"};');
+    expect(runtime).toContain(
+      'export const requestOptions = {"cookie":"my-locale","fallback":"es"};',
+    );
   });
 
   it('is idempotent: identical content is not rewritten', () => {

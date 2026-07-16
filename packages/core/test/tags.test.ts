@@ -54,4 +54,34 @@ describe('parseTags', () => {
       { name: 'b', children: ['bold'] },
     ]);
   });
+
+  it('decodes decimal entities', () => {
+    expect(parseTags('a &#123;b&#125; c')).toEqual(['a {b} c']);
+  });
+
+  it('decodes hex entities, case-insensitive', () => {
+    expect(parseTags('&#x7B;x&#X7d;')).toEqual(['{x}']);
+  });
+
+  it('decodes numeric entities inside tag children', () => {
+    expect(parseTags('<code>&#123;when:relative&#125;</code>')).toEqual([
+      { name: 'code', children: ['{when:relative}'] },
+    ]);
+  });
+
+  it('numeric angle brackets never become tags', () => {
+    expect(parseTags('&#60;em&#62;x&#60;/em&#62;')).toEqual(['<em>x</em>']);
+  });
+
+  it('double-escaped numeric entity decodes once', () => {
+    expect(parseTags('&amp;#123;')).toEqual(['&#123;']);
+  });
+
+  it('out-of-range code point stays literal', () => {
+    expect(parseTags('&#x110000;')).toEqual(['&#x110000;']);
+  });
+
+  it('malformed numeric refs stay literal', () => {
+    expect(parseTags('&#; &#x; &#12')).toEqual(['&#; &#x; &#12']);
+  });
 });

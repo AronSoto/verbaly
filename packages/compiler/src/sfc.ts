@@ -53,9 +53,11 @@ export function analyzeSfc(code: string, file: string): Analysis {
         end: msg.end + offset,
         tagStart: msg.tagStart + offset,
         tagEnd: msg.tagEnd + offset,
-        params: msg.params.map(
-          (p): TaggedParam => ({ ...p, start: p.start + offset, end: p.end + offset }),
-        ),
+        params: msg.params.map((p): TaggedParam => ({
+          ...p,
+          start: p.start + offset,
+          end: p.end + offset,
+        })),
         ...(markupSegment && { singleQuote: true }),
       });
     }

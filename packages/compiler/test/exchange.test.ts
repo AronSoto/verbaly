@@ -182,10 +182,7 @@ describe('importCatalogs', () => {
   it('rejects targets that break params or tags, keeps catalog intact', () => {
     const config = cfg();
     const catalogs: Catalogs = { en: { greet: 'Hello {name}' }, es: { greet: '' } };
-    const file = scratch(
-      'es.csv',
-      'key,source,target\r\ngreet,Hello {name},Hola {nombre}\r\n',
-    );
+    const file = scratch('es.csv', 'key,source,target\r\ngreet,Hello {name},Hola {nombre}\r\n');
     const result = importCatalogs(config, catalogs, [file]);
     expect(result.rejected).toEqual({ es: ['greet'] });
     expect(catalogs.es!.greet).toBe('');

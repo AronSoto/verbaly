@@ -258,9 +258,13 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
     const note = isMobileFormat(result.format) ? 'untranslated skipped' : 'untranslated';
-    console.log(`[verbaly] exported ${result.files.length} locales (${result.format}) → ${result.dir}`);
+    console.log(
+      `[verbaly] exported ${result.files.length} locales (${result.format}) → ${result.dir}`,
+    );
     for (const file of result.files) {
-      console.log(`  ${file.locale}: ${file.total} messages (${file.untranslated} ${note}) → ${file.path}`);
+      console.log(
+        `  ${file.locale}: ${file.total} messages (${file.untranslated} ${note}) → ${file.path}`,
+      );
     }
     return;
   }
@@ -268,7 +272,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'import') {
     const files = positionals.slice(1);
     if (files.length === 0) {
-      console.error('[verbaly] import needs at least one file: verbaly import verbaly-export/es.xlf');
+      console.error(
+        '[verbaly] import needs at least one file: verbaly import verbaly-export/es.xlf',
+      );
       process.exitCode = 1;
       return;
     }
@@ -284,13 +290,19 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       console.log(`  ${locale}: +${keys.length} ${verb}`);
     }
     for (const [locale, keys] of Object.entries(result.skipped)) {
-      console.log(`  ${locale}: ${keys.length} already translated, kept (use --overwrite to replace)`);
+      console.log(
+        `  ${locale}: ${keys.length} already translated, kept (use --overwrite to replace)`,
+      );
     }
     for (const [locale, keys] of Object.entries(result.rejected)) {
-      console.warn(`  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`);
+      console.warn(
+        `  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,
+      );
     }
     for (const [locale, keys] of Object.entries(result.unknown)) {
-      console.warn(`  ${locale}: ${keys.length} unknown keys ignored (not in the source catalog): ${keys.join(', ')}`);
+      console.warn(
+        `  ${locale}: ${keys.length} unknown keys ignored (not in the source catalog): ${keys.join(', ')}`,
+      );
     }
     if (Object.keys(result.imported).length === 0) {
       console.log('[verbaly] nothing to import ✓');
@@ -368,4 +380,3 @@ async function resolveProvider(
   const { claudeProvider } = await import('./providers/claude');
   return claudeProvider({ model: model ?? cfg.translate.model });
 }
-

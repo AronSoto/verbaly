@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.23.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.24.0" alt="Socket supply chain security" /></a>
   <img src="https://img.shields.io/badge/gzip-~3KB-3fb950" alt="~3KB gzip" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
@@ -81,18 +81,18 @@ Plain HTML, no framework? Bind by attribute:
 
 ## Packages
 
-| Package                                  | Version                                                                                                          | Description                                                          |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`verbaly`](packages/core)               | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly)                     | Core runtime: `t`, locale store, `Intl` formatting, DOM interpreter |
-| [`@verbaly/compiler`](packages/compiler) | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler) | Message extraction, type-safe codegen and CLI                        |
-| [`@verbaly/vite`](packages/vite)         | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite)         | Zero-config Vite plugin with live extraction                         |
-| [`@verbaly/unplugin`](packages/unplugin) | [![npm](https://img.shields.io/npm/v/@verbaly/unplugin?label=)](https://www.npmjs.com/package/@verbaly/unplugin) | webpack, Rollup, esbuild & Rspack via unplugin                       |
-| [`@verbaly/react`](packages/react)       | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react)       | React hooks (`useT`, `useLocale`) + `<Trans>`                        |
-| [`@verbaly/vue`](packages/vue)           | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)           | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                  |
-| [`@verbaly/svelte`](packages/svelte)     | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)     | Svelte 5 stores (`useT`, `useLocale`) + `<Trans>`                          |
-| [`@verbaly/sveltekit`](packages/sveltekit) | [![npm](https://img.shields.io/npm/v/@verbaly/sveltekit?label=)](https://www.npmjs.com/package/@verbaly/sveltekit) | SvelteKit SSR: per-request locale, flash-free hydration           |
-| [`@verbaly/nuxt`](packages/nuxt)         | [![npm](https://img.shields.io/npm/v/@verbaly/nuxt?label=)](https://www.npmjs.com/package/@verbaly/nuxt)         | Nuxt SSR: zero-config module, per-request locale, flash-free hydration |
-| [`@verbaly/next`](packages/next)         | [![npm](https://img.shields.io/npm/v/@verbaly/next?label=)](https://www.npmjs.com/package/@verbaly/next)         | Next.js App Router/RSC: Turbopack & webpack, per-request locale, flash-free hydration |
+| Package                                    | Version                                                                                                            | Description                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| [`verbaly`](packages/core)                 | [![npm](https://img.shields.io/npm/v/verbaly?label=)](https://www.npmjs.com/package/verbaly)                       | Core runtime: `t`, locale store, `Intl` formatting, DOM interpreter                   |
+| [`@verbaly/compiler`](packages/compiler)   | [![npm](https://img.shields.io/npm/v/@verbaly/compiler?label=)](https://www.npmjs.com/package/@verbaly/compiler)   | Message extraction, type-safe codegen and CLI                                         |
+| [`@verbaly/vite`](packages/vite)           | [![npm](https://img.shields.io/npm/v/@verbaly/vite?label=)](https://www.npmjs.com/package/@verbaly/vite)           | Zero-config Vite plugin with live extraction                                          |
+| [`@verbaly/unplugin`](packages/unplugin)   | [![npm](https://img.shields.io/npm/v/@verbaly/unplugin?label=)](https://www.npmjs.com/package/@verbaly/unplugin)   | webpack, Rollup, esbuild & Rspack via unplugin                                        |
+| [`@verbaly/react`](packages/react)         | [![npm](https://img.shields.io/npm/v/@verbaly/react?label=)](https://www.npmjs.com/package/@verbaly/react)         | React hooks (`useT`, `useLocale`) + `<Trans>`                                         |
+| [`@verbaly/vue`](packages/vue)             | [![npm](https://img.shields.io/npm/v/@verbaly/vue?label=)](https://www.npmjs.com/package/@verbaly/vue)             | Vue 3 composables (`useT`, `useLocale`) + `<Trans>`                                   |
+| [`@verbaly/svelte`](packages/svelte)       | [![npm](https://img.shields.io/npm/v/@verbaly/svelte?label=)](https://www.npmjs.com/package/@verbaly/svelte)       | Svelte 5 stores (`useT`, `useLocale`) + `<Trans>`                                     |
+| [`@verbaly/sveltekit`](packages/sveltekit) | [![npm](https://img.shields.io/npm/v/@verbaly/sveltekit?label=)](https://www.npmjs.com/package/@verbaly/sveltekit) | SvelteKit SSR: per-request locale, flash-free hydration                               |
+| [`@verbaly/nuxt`](packages/nuxt)           | [![npm](https://img.shields.io/npm/v/@verbaly/nuxt?label=)](https://www.npmjs.com/package/@verbaly/nuxt)           | Nuxt SSR: zero-config module, per-request locale, flash-free hydration                |
+| [`@verbaly/next`](packages/next)           | [![npm](https://img.shields.io/npm/v/@verbaly/next?label=)](https://www.npmjs.com/package/@verbaly/next)           | Next.js App Router/RSC: Turbopack & webpack, per-request locale, flash-free hydration |
 
 ---
 
@@ -102,7 +102,7 @@ Plain HTML, no framework? Bind by attribute:
 - **Type-safe params**: `{name}`, plurals, currency and dates are inferred from the message itself. Wrong or missing params fail to compile.
 - **`Intl` all the way**: number, currency, date/time, relative time (`{when:relative}`), lists (`{langs:list}`) and units (`{d:unit/kilometer}`). Zero dependencies, the platform does the heavy lifting.
 - **Tiny & tree-shakeable**: ~3KB gzip core, zero dependencies, per-locale code-splitting.
-- **Fast, with receipts**: fully memoized hot path: 5–35× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
+- **Fast, with receipts**: fully memoized hot path: 5-35× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
 - **No proprietary format**: plain, portable JSON catalogs. No lock-in. Most TMS platforms ingest them natively, and `verbaly export`/`import` round-trips XLIFF 2.0 or CSV with human translators; imports are structure-validated, so a typo in a `{param}` or tag never reaches your UI. The same catalogs also export as native mobile resources (`--format android-xml` / `ios-strings`) for a companion app.
 - **Works with plain HTML**: a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe), named links (`richLinks`; hrefs from your code, never from messages) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
 - **Fails the build on missing translations**: the #1 i18n pain, gone.

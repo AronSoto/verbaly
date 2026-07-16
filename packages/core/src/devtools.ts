@@ -19,10 +19,7 @@ const HOTKEY: Record<NonNullable<DevtoolsOptions['hotkey']>, keyof MouseEvent> =
   meta: 'metaKey',
 };
 
-function statusOf(
-  info: { from: string } | undefined,
-  currentLocale: string,
-): ResolveStatus {
+function statusOf(info: { from: string } | undefined, currentLocale: string): ResolveStatus {
   return !info ? 'miss' : info.from === currentLocale ? 'hit' : 'fallback';
 }
 

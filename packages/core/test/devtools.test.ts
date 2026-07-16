@@ -30,7 +30,9 @@ describe('attachDevtools', () => {
     expect(panel.querySelector('.ok')!.textContent).toBe('1 ok');
     expect(panel.querySelector('.fb')!.textContent).toBe('1 fallback');
     expect(panel.querySelector('.miss')!.textContent).toBe('1 missing');
-    expect(panel.querySelector('.verbaly-dt-miss')!.textContent).toContain('src/i18n/locale/es.json');
+    expect(panel.querySelector('.verbaly-dt-miss')!.textContent).toContain(
+      'src/i18n/locale/es.json',
+    );
   });
 
   it('re-renders on locale change', () => {

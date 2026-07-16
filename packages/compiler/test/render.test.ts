@@ -69,6 +69,39 @@ describe('renderHtml', () => {
     expect(html).not.toContain('onclick="Menú');
   });
 
+  it('blocks style and srcdoc via data-verbaly-attr', () => {
+    const input =
+      '<div data-verbaly-attr=\'{"style":"nav.aria","srcdoc":"nav.aria","title":"nav.aria"}\'></div>';
+    const { html } = render(input);
+    expect(html).toContain('title="Menú principal"');
+    expect(html).not.toContain('style=');
+    expect(html).not.toContain('srcdoc=');
+  });
+
+  it('sanitizes URL attributes via data-verbaly-attr (mirror of bindDom)', () => {
+    const catalogs = { en: { evil: 'javascript:alert(1)', ok: '/en/docs' } };
+    const { html } = renderHtml(
+      '<a data-verbaly-attr=\'{"href":"evil","title":"ok"}\'></a><img data-verbaly-attr=\'{"src":"ok"}\'>',
+      { locale: 'en', catalogs },
+    );
+    expect(html).not.toContain('javascript:');
+    expect(html).toContain('title="/en/docs"');
+    expect(html).toContain('src="/en/docs"');
+  });
+
+  it('pre-renders numeric entities as literal braces (round-trip with the runtime)', () => {
+    const catalogs = { en: { m: 'Use <code>&#123;when:relative&#125;</code> for {name}' } };
+    const { html } = renderHtml(
+      '<p data-verbaly="m" data-verbaly-rich data-verbaly-args=\'{"name":"Aron"}\'></p>',
+      {
+        locale: 'en',
+        catalogs,
+      },
+    );
+    expect(html).toContain('<code>{when:relative}</code>');
+    expect(html).toContain('for Aron');
+  });
+
   it('inserts missing attributes before the closing bracket', () => {
     const { html } = render('<input data-verbaly-attr=\'{"placeholder":"home.hint"}\'>');
     expect(html).toContain('placeholder="Busca y encuentra"');

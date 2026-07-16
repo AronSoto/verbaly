@@ -71,10 +71,10 @@ That's it. The module negotiates the locale per request (cookie → `Accept-Lang
 
 Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in `nuxt.config.ts`: autocomplete and typo checking, since 0.21.0). Every [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) option passes through, plus:
 
-| Option | What it does |
-| --- | --- |
-| `cookie` | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
-| `fallback` | Locale when nothing matches (defaults to the source locale). |
+| Option     | What it does                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `cookie`   | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
+| `fallback` | Locale when nothing matches (defaults to the source locale).                                            |
 
 - No dependency on `nuxt` or `@nuxt/kit`: the module is typed structurally; the only moving parts are core primitives (`resolveRequestLocale`) and the generated `createRequestInstance`.
 - For fully static sites (`nuxi generate`), consider [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) for pre-translated output per locale.

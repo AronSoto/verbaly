@@ -50,8 +50,7 @@ export interface NextConfigLike {
 // constraint is `object` (not NextConfigLike): an all-optional target would
 // reject configs sharing no keys with it (TS weak-type rule)
 export type NextConfigInput<C extends object> =
-  | C
-  | ((phase: string, context: { defaultConfig?: unknown }) => C | Promise<C>);
+  C | ((phase: string, context: { defaultConfig?: unknown }) => C | Promise<C>);
 
 // next/constants values: literal to keep this module import-free of next
 const DEV_PHASE = 'phase-development-server';
@@ -72,7 +71,9 @@ export function withVerbaly<C extends object>(
 
   return async (phase, context = {}) => {
     const base: C =
-      typeof nextConfig === 'function' ? await nextConfig(phase, context) : (nextConfig ?? ({} as C));
+      typeof nextConfig === 'function'
+        ? await nextConfig(phase, context)
+        : (nextConfig ?? ({} as C));
     const root = verbalyConfig.root ?? process.cwd();
 
     // production server / export: everything is bundled, so no FS work, config only

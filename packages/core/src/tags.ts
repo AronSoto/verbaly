@@ -3,11 +3,15 @@ export type TagNode = string | { name: string; children: TagNode[] };
 
 const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
 
-// text runs only, post-tokenize
-const ENTITY = /&(lt|gt|amp);/g;
+// text runs only, post-tokenize: decoded braces/angles never re-enter a parser
+const ENTITY = /&(?:(lt|gt|amp)|#(\d+)|#[xX]([0-9a-fA-F]+));/g;
 const ENTITY_MAP: Record<string, string> = { lt: '<', gt: '>', amp: '&' };
 const decodeEntities = (s: string): string =>
-  s.replace(ENTITY, (_, name: string) => ENTITY_MAP[name]!);
+  s.replace(ENTITY, (full, name?: string, dec?: string, hex?: string) => {
+    if (name) return ENTITY_MAP[name]!;
+    const code = dec ? parseInt(dec, 10) : parseInt(hex!, 16);
+    return code <= 0x10ffff ? String.fromCodePoint(code) : full;
+  });
 
 export function parseTags(text: string): TagNode[] {
   TAG.lastIndex = 0;

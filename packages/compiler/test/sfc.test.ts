@@ -90,7 +90,7 @@ describe('analyzeSfc svelte', () => {
 
 describe('analyzeSfc vue', () => {
   it('extracts tagged templates from script setup', () => {
-    const code = "<script setup lang=\"ts\">\nconst msg = t`Hola ${name}`;\n</script>";
+    const code = '<script setup lang="ts">\nconst msg = t`Hola ${name}`;\n</script>';
     const { tagged } = analyzeSfc(code, 'App.vue');
     expect(tagged[0]?.message).toBe('Hola {name}');
     expect(tagged[0]?.singleQuote).toBeUndefined();

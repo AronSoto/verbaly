@@ -17,6 +17,15 @@ describe('MessageRegistry', () => {
     expect(registry.usedKeys().size).toBe(0);
   });
 
+  it('origins merges tagged and used-key files per key', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze('t`Hola`;', 'a.ts'));
+    registry.update('b.ts', analyze("t('" + stableKey('Hola') + "');", 'b.ts'));
+
+    const origins = registry.origins();
+    expect(origins.get(stableKey('Hola'))?.sort()).toEqual(['a.ts', 'b.ts']);
+  });
+
   it('warns on key collisions and keeps the first message', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const registry = new MessageRegistry();

@@ -107,11 +107,19 @@ describe('renderHtml', () => {
     expect(html).toContain('placeholder="Busca y encuentra"');
   });
 
-  it('sets <html lang> for the locale', () => {
+  it('sets <html lang> and <html dir> for the locale', () => {
     const { html } = render('<html lang="en"><body></body></html>');
-    expect(html).toContain('<html lang="es">');
+    expect(html).toContain('<html lang="es" dir="ltr">');
     const inserted = render('<html><body></body></html>');
-    expect(inserted.html).toContain('<html lang="es">');
+    expect(inserted.html).toContain('<html lang="es" dir="ltr">');
+  });
+
+  it('mirrors an rtl locale with dir="rtl"', () => {
+    const result = renderHtml('<html lang="en" dir="ltr"><body></body></html>', {
+      locale: 'ar',
+      catalogs: { en: {}, ar: {} },
+    });
+    expect(result.html).toContain('<html lang="ar" dir="rtl">');
   });
 
   it('falls back to source when the locale entry is empty', () => {

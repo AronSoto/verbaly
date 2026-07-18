@@ -100,6 +100,16 @@ describe('runtime plugin (server)', () => {
     expect(head.htmlAttrs.lang.value).toBe('pt');
   });
 
+  it('sets <html dir> and keeps it in sync with the live locale', async () => {
+    const instance = await run({ 'accept-language': 'es' });
+    const head = headInputs[0] as { htmlAttrs: { dir: { value: string } } };
+    expect(head.htmlAttrs.dir.value).toBe('ltr');
+
+    await instance.loadLocale('ar');
+    instance.setLocale('ar');
+    expect(head.htmlAttrs.dir.value).toBe('rtl');
+  });
+
   it('gives every request its own instance: no locale leaking', async () => {
     const first = await run({ 'accept-language': 'pt' });
     resetNuxtMock(); // next request: fresh nuxt app state

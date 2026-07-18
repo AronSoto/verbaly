@@ -50,11 +50,11 @@ Catalogs are **flat JSON**: most TMS platforms (Crowdin, Lokalise, Phrase, …) 
 
 ```bash
 npx verbaly export                    # verbaly-export/<locale>.xlf (XLIFF 2.0, source + target per unit)
-npx verbaly export --format csv       # spreadsheet-friendly: key,source,target
+npx verbaly export --format csv       # spreadsheet-friendly: key,source,target,location
 npx verbaly import verbaly-export/es.xlf   # fill the catalog back
 ```
 
-`export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). `import` reads XLIFF 2.0/1.2 or CSV back and **validates every entry like `translate` does**: a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
+`export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). Every entry carries **where the text lives in your source** (XLIFF `location` notes, a `location` column in CSV), so translators and TMS tools see the context instead of guessing it. `import` reads XLIFF 2.0/1.2 or CSV back and **validates every entry like `translate` does**: a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
 
 ## 📱 Mobile resources
 

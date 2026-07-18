@@ -1,3 +1,4 @@
+import { displayNames } from './intl';
 import type { Verbaly } from './types';
 
 export interface ResolveLocaleOptions {
@@ -18,6 +19,38 @@ export function narrowLocales(lang: string): string[] {
     parts.pop();
   }
   return out;
+}
+
+// fallback tables for engines without Intl.Locale getTextInfo (Firefox)
+const RTL_SCRIPTS = /^(Arab|Aran|Hebr|Thaa|Nkoo|Syrc|Samr|Mand|Adlm|Rohg|Yezi)$/;
+const RTL_LANGS = /^(ar|he|fa|ur|ps|sd|ug|yi|dv|ckb)$/;
+
+interface TextInfoLocale extends Intl.Locale {
+  getTextInfo?(): { direction?: string };
+  textInfo?: { direction?: string };
+}
+
+export function localeDirection(locale: string): 'ltr' | 'rtl' {
+  try {
+    const loc = new Intl.Locale(locale) as TextInfoLocale;
+    const direction = (loc.getTextInfo?.() ?? loc.textInfo)?.direction;
+    if (direction === 'rtl' || direction === 'ltr') return direction;
+    const script = loc.script ?? loc.maximize().script;
+    if (script) return RTL_SCRIPTS.test(script) ? 'rtl' : 'ltr';
+    return RTL_LANGS.test(loc.language) ? 'rtl' : 'ltr';
+  } catch {
+    // malformed tag: best effort on the primary subtag, never throw
+    return RTL_LANGS.test(locale.split('-')[0]!.toLowerCase()) ? 'rtl' : 'ltr';
+  }
+}
+
+// localized language name for locale switchers; defaults to the endonym
+export function localeName(locale: string, displayIn: string = locale): string {
+  try {
+    return displayNames(displayIn).of(locale) ?? locale;
+  } catch {
+    return locale; // unknown tag or missing Intl data: the code beats a crash
+  }
 }
 
 export function resolveLocale(options: ResolveLocaleOptions): string {
@@ -126,6 +159,7 @@ export async function switchLocale(
     document.cookie = `${cookie}=${encodeURIComponent(locale)}; path=/; max-age=${maxAge}; samesite=lax`;
   }
   document.documentElement.lang = locale;
+  document.documentElement.dir = localeDirection(locale);
 }
 
 export function persistLocale(
@@ -133,7 +167,10 @@ export function persistLocale(
   storageKey: string | false = LOCALE_STORAGE_KEY,
 ): void {
   if (storageKey) getStorage()?.setItem(storageKey, locale);
-  if (typeof document !== 'undefined') document.documentElement.lang = locale;
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = localeDirection(locale);
+  }
 }
 
 function preferredLanguages(): readonly string[] {

@@ -18,6 +18,7 @@ export interface ExportOptions {
   format?: ExportFormat;
   out?: string;
   missing?: boolean;
+  origins?: Record<string, string[]>;
 }
 
 export interface ExportedFile {
@@ -67,7 +68,12 @@ export function exportCatalogs(
     const all = Object.keys(source)
       .filter((key) => source[key])
       .sort()
-      .map((key) => ({ key, source: source[key]!, target: catalog[key] ?? '' }));
+      .map((key) => ({
+        key,
+        source: source[key]!,
+        target: catalog[key] ?? '',
+        location: options.origins?.[key],
+      }));
     const untranslated = all.filter((entry) => !entry.target);
     const entries = options.missing ? untranslated : all;
 
@@ -169,6 +175,7 @@ interface ExchangeEntry {
   key: string;
   source: string;
   target: string;
+  location?: string[];
 }
 
 interface ParsedFile {
@@ -196,9 +203,18 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
 // XLIFF 2.0 (writes) / 2.0 + 1.2 (reads)
 function toXliff(sourceLocale: string, locale: string, entries: ExchangeEntry[]): string {
   const units = entries
-    .map(({ key, source, target }) =>
+    .map(({ key, source, target, location }) =>
       [
         `    <unit id="${escapeXml(key)}">`,
+        ...(location?.length
+          ? [
+              '      <notes>',
+              ...location.map(
+                (file) => `        <note category="location">${escapeXml(file)}</note>`,
+              ),
+              '      </notes>',
+            ]
+          : []),
         `      <segment state="${target ? 'translated' : 'initial'}">`,
         `        <source>${escapeXml(source)}</source>`,
         `        <target>${escapeXml(target)}</target>`,
@@ -259,12 +275,13 @@ function unescapeXml(text: string): string {
   });
 }
 
-// CSV (RFC 4180)
+// CSV (RFC 4180); import reads columns by header name, so location round-trips inert
 function toCsv(entries: ExchangeEntry[]): string {
   const rows = entries.map(
-    ({ key, source, target }) => `${csvField(key)},${csvField(source)},${csvField(target)}`,
+    ({ key, source, target, location }) =>
+      `${csvField(key)},${csvField(source)},${csvField(target)},${csvField(location?.join('; ') ?? '')}`,
   );
-  return ['key,source,target', ...rows, ''].join('\r\n');
+  return ['key,source,target,location', ...rows, ''].join('\r\n');
 }
 
 function csvField(text: string): string {

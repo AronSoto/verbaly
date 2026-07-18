@@ -44,12 +44,13 @@ export default withVerbaly({}, { locales: ['en', 'es', 'pt'] });
 // app/layout.tsx
 import { getRequestLocale, getVerbalyProps } from '@verbaly/next/server';
 import { VerbalyProvider } from '@verbaly/next/client';
+import { localeDirection } from 'verbaly';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
   const props = await getVerbalyProps();
   return (
-    <html lang={locale}>
+    <html lang={locale} dir={localeDirection(locale)}>
       <body>
         <VerbalyProvider {...props}>{children}</VerbalyProvider>
       </body>

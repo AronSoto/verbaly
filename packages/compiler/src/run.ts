@@ -1,3 +1,4 @@
+import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
 import { check, formatCheckResult } from './check';
@@ -252,6 +253,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       format,
       out: values.out,
       missing: values.missing,
+      // mobile formats are delivery-only: no translator reads them, skip the scan
+      origins: isMobileFormat(format) ? undefined : await collectOrigins(cfg),
     });
     if (result.files.length === 0) {
       console.log('[verbaly] no target locales to export (add locales to your config)');
@@ -369,6 +372,16 @@ function rejectStrayFlags(command: string, values: Record<string, unknown>): boo
   }
   process.exitCode = 1;
   return true;
+}
+
+// root-relative, forward slashes: paths a translator can read on any OS
+async function collectOrigins(cfg: ResolvedConfig): Promise<Record<string, string[]>> {
+  const registry = await extractProject(cfg);
+  const origins: Record<string, string[]> = {};
+  for (const [key, files] of registry.origins()) {
+    origins[key] = files.map((file) => relative(cfg.root, file).replaceAll('\\', '/'));
+  }
+  return origins;
 }
 
 async function resolveProvider(

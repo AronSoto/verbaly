@@ -51,4 +51,11 @@ describe('switchLocale (browser)', () => {
     await switchLocale(makeInstance(), 'es');
     expect(document.documentElement.lang).toBe('es');
   });
+
+  it('syncs <html dir> to the locale direction', async () => {
+    await switchLocale(makeInstance(), 'ar');
+    expect(document.documentElement.dir).toBe('rtl');
+    await switchLocale(makeInstance(), 'es');
+    expect(document.documentElement.dir).toBe('ltr');
+  });
 });

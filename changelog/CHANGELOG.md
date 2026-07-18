@@ -8,6 +8,56 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.25.0] · 2026-07-18
+
+**The whole language, not just the text: automatic RTL, real language names, and context for translators.** Adding Arabic or Hebrew now just works: the page direction follows the locale everywhere (browser switch, SvelteKit, Nuxt, Next.js and pre-rendered pages). Locale switchers get real language names from the platform instead of hardcoded tables. And translator exports now say where each text lives in your source. No breaking changes.
+
+### Highlights
+
+- **Right-to-left languages just work now.** Add Arabic, Hebrew or Persian and the page direction follows the language on its own: when the user switches, when the server renders, and in pre-rendered static pages. No `dir` attribute to manage, ever.
+- **Language switchers without hardcoded names.** `localeName('es')` returns 'español', `localeName('de', 'en')` returns 'German'. The names come from the platform (`Intl.DisplayNames`), so any locale works without you maintaining a table.
+- **Need the direction yourself?** `localeDirection('ar')` returns `'rtl'`. It is the same helper the rest of the toolkit uses, exported for your own layouts (like Next.js's root layout).
+- **Translators now see where each text lives.** `verbaly export` marks every message with the source files it came from: XLIFF gets standard location notes, CSV gets a `location` column. Context stops being guesswork in the translation tool.
+
+### Added
+
+- **`localeDirection(locale)`** (`verbaly` core): returns `'ltr' | 'rtl'`. Uses `Intl.Locale` `getTextInfo`/`textInfo` where the engine has it, falls back to the locale's script (via `maximize()`) against an RTL-script table, then to an RTL-language table (Firefox has no `getTextInfo`). Never throws: a malformed tag degrades to a primary-subtag check.
+- **`localeName(locale, displayIn?)`** (`verbaly` core): localized language name via `Intl.DisplayNames` (cached like every other `Intl` constructor). Defaults to the endonym (`localeName('es')` → 'español'); pass `displayIn` for exonyms. Falls back to the tag itself on unknown input, never throws.
+- **Source locations in translator exports** (`@verbaly/compiler`): `verbaly export` now scans the project (the same extract pass) and maps every key to its root-relative source files. XLIFF 2.0 units gain `<notes><note category="location">src/App.tsx</note></notes>`; CSV gains a `location` column (multiple files joined with `; `). Mobile formats skip the scan on purpose: they are delivery artifacts, no translator reads them. Programmatic path: `ExportOptions.origins` + `MessageRegistry.origins()`.
+- **`%verbaly.dir%` placeholder** (`@verbaly/sveltekit`): `verbalyHandle` fills it with the request locale's direction, next to `%verbaly.lang%`: `<html lang="%verbaly.lang%" dir="%verbaly.dir%">`.
+
+### Changed
+
+- **`switchLocale` and `persistLocale` now set `<html dir>`** (`verbaly` core) alongside the `<html lang>` they already set, using `localeDirection`. Client-side locale switches keep the direction right with zero consumer code.
+- **`verbaly render` writes `dir` on `<html>`** (`@verbaly/compiler`) next to the `lang` it already wrote, per mirrored locale (same `setLang` opt-out gates both). Pre-rendered pages now match what the runtime sets after hydration (the render == runtime invariant, extended to direction).
+- **`@verbaly/nuxt` keeps `<html dir>` in sync** with the live locale, next to the reactive `lang` it already managed.
+- **CSV export header is now `key,source,target,location`** (`@verbaly/compiler`). Import reads columns by header name, so files in the old three-column shape still import fine; the new column is ignored on the way back.
+- **Deps refresh, validated green**: magic-string 1.0.0 (pure ESM: fine, the compiler is ESM-only), svelte 5.56.6, vite 8.1.5, vue 3.5.40, @sveltejs/kit 2.70.0, @anthropic-ai/sdk 0.112.3. **tsdown stays 0.22.8**: 0.22.9 resolves a `rolldown-plugin-dts` whose `yuku-parser` (≥0.6.8) dropped the `walk` export and the dts build crashes; `yuku-parser` is pinned to 0.6.1 via pnpm override until upstream catches up (watched debt, see PLAN).
+
+### Notes
+
+- Design: direction handling follows the "lives once" pattern (`localeDirection` in core; `switchLocale`, `persistLocale`, render, sveltekit and nuxt all consume it). Competitors expose at most a lookup (i18next's `dir()`), none applies it end-to-end across client switch, SSR and SSG: that end-to-end wiring is the new territory. Lingui's PO catalogs already carry origin comments; among XLIFF/CSV toolchains, location notes are standard-conformant (XLIFF 2.0 `<notes>`) and ours now emits them.
+- Next.js gets no code change on purpose (thin-adapter rule): the layout owns `<html>`, so the README documents `dir={localeDirection(locale)}` with the core helper.
+- 579 tests (compiler **225** · core **205** · next 30 · svelte 25 · nuxt 22 · vite 18 · vue 16 · react 15 · sveltekit 13 · unplugin 10), was 563: +10 core (localeDirection rtl/ltr/script-override/malformed, localeName endonym/exonym/regional/garbage, persistLocale dir, switchLocale dir), +4 compiler (render dir ltr+rtl mirror, xliff notes + csv column, location round-trip through import, registry origins merge), +1 sveltekit (dir placeholder), +1 nuxt (reactive dir).
+- Bench re-run (ritual): lookup **46.0×**, interpolation **17.1×**, plural **4.1×**, currency **5.2×** vs i18next 26, in family with 0.24.0 (28.8×/11.1×/5.0×/5.8×). Bundle sizes: **3.29 KB tree-shaken** (unchanged: the new helpers tree-shake out of the `createVerbaly` path) · **5.54 KB full** (+0.22 = `localeDirection` + `localeName` + the DisplayNames cache) · 1.60 KB devtools (min+gzip).
+- publint **All good** ×10 · attw: core/react/vue node16 CJS/ESM 🟢 (known-OK: `verbaly/devtools` node10), next root dual 🟢 ×4 with ESM-only `./server`/`./client` by design. Tarballs verified: core 0.25.0 (`dist/` + LICENSE + README), compiler with `verbaly` rewritten to `0.25.0` and magic-string `^1.0.0`.
+- Competitive seal 0.25.0 (2026-07-18, re-check, identical to 0.24.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. Territory unchanged, plus the new end-to-end direction claim above.
+
+### Docs impact (synced)
+
+- **`docs/reference/api`**: two new helper rows (`localeDirection`, `localeName`) in the helpers table; the `switchLocale`/`persistLocale` descriptions gain "+ `<html dir>`".
+- **`docs/guide/translators`**: the export section notes that XLIFF/CSV now carry source-file locations (context for the translator); CSV header example becomes `key,source,target,location`.
+- **`docs/guide/cli`**: `export` row mentions location notes; `render` row mentions `<html dir>` next to `<html lang>`.
+- **`docs/frameworks/svelte` (#sveltekit)**: `app.html` snippet gains `dir="%verbaly.dir%"`.
+- **`docs/frameworks/vue` (#nuxt)**: the "keeps `<html lang>` in sync" line becomes lang + dir.
+- **`docs/frameworks/react` (#next)**: layout snippet gains `dir={localeDirection(locale)}` (import from `verbaly`).
+- **`docs/frameworks/dom`** (or wherever `persistLocale` is shown): mention it now sets the page direction too.
+- **Playground / locale switcher dogfood**: the web's hardcoded `LOCALE_NAMES` endonym table can now come from `localeName()` (real package export); optional but it is exactly the friction this release removes.
+- **`/changelog`** (`releases.ts` + `changelog_rel.v0_25_0` keys ×3): 0.25.0 entry, theme + Highlights above in plain language.
+- Landing compare table: no cell changes (seal identical). Bump web to `verbaly@^0.25.0` + `@verbaly/compiler@^0.25.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.24.0] · 2026-07-16
 
 **Literal braces reach your messages, and pre-rendered pages get the runtime's full protection.** Rich text now decodes numeric HTML entities (`&#123;` and `&#x7B;` style), so a message can finally show a literal `{` or `}` without confusing the placeholder syntax. In the same pass, `verbaly render` closes a gap with the runtime: translated attributes in static HTML now go through the exact same security guards as the browser interpreter. No breaking changes.

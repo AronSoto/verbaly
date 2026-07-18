@@ -97,6 +97,13 @@ describe('verbalyHandle', () => {
     );
   });
 
+  it('fills %verbaly.dir% with the locale direction', async () => {
+    const event = makeEvent({ 'accept-language': 'ar' });
+    const { opts } = await run(verbalyHandle({ locales: ['en', 'ar'] }), event);
+    const html = '<html lang="%verbaly.lang%" dir="%verbaly.dir%">';
+    expect(opts?.transformPageChunk?.({ html, done: true })).toBe('<html lang="ar" dir="rtl">');
+  });
+
   it('passes the resolved response through', async () => {
     const { response } = await run(verbalyHandle({ locales: LOCALES }), makeEvent());
     expect(await response.text()).toBe('ok');

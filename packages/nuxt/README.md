@@ -13,7 +13,7 @@
 
 Server-rendered pages arrive already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
 
-One line in `nuxt.config` wires everything: the Vite plugin (live extraction + the `virtual:verbaly` module), the per-request negotiation and `<html lang>`.
+One line in `nuxt.config` wires everything: the Vite plugin (live extraction + the `virtual:verbaly` module), the per-request negotiation and `<html lang>`/`<html dir>`.
 
 ## 🚀 Install
 
@@ -65,7 +65,7 @@ const verbaly = useVerbaly();
 </template>
 ```
 
-That's it. The module negotiates the locale per request (cookie → `Accept-Language` → fallback), awaits the catalog **before** render, installs the Vue plugin, and keeps `<html lang>` in sync.
+That's it. The module negotiates the locale per request (cookie → `Accept-Language` → fallback), awaits the catalog **before** render, installs the Vue plugin, and keeps `<html lang>` and `<html dir>` in sync.
 
 ## 📖 Options
 

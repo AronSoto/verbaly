@@ -1,6 +1,6 @@
 import { defineNuxtPlugin, useHead, useRuntimeConfig, useState } from '#imports';
 import { verbalyPlugin, type VerbalyPlugin } from '@verbaly/vue';
-import { LOCALE_STORAGE_KEY, resolveRequestLocale } from 'verbaly';
+import { LOCALE_STORAGE_KEY, localeDirection, resolveRequestLocale } from 'verbaly';
 import { createRequestInstance, locales, sourceLocale } from 'virtual:verbaly';
 import { shallowRef } from 'vue';
 
@@ -73,10 +73,12 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtAppLike) => {
   const instance = await createRequestInstance(locale.value);
   nuxtApp.vueApp.use(verbalyPlugin(instance));
 
-  // <html lang> follows the live locale
+  // <html lang> and <html dir> follow the live locale
   const lang = shallowRef(instance.locale);
+  const dir = shallowRef(localeDirection(instance.locale));
   instance.subscribe(() => {
     lang.value = instance.locale;
+    dir.value = localeDirection(instance.locale);
   });
-  useHead({ htmlAttrs: { lang } });
+  useHead({ htmlAttrs: { lang, dir } });
 });

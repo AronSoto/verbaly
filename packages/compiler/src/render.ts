@@ -4,6 +4,7 @@ import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
 import {
   createVerbaly,
+  localeDirection,
   normalizeLink,
   parseTags,
   RICH_TAGS,
@@ -102,7 +103,9 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     const chunkStart = m.index + 1 + rawName.length;
 
     if (tagName === 'html' && options.setLang !== false) {
+      // lang and dir together: what persistLocale/switchLocale set at runtime
       setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'lang', options.locale);
+      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'dir', localeDirection(options.locale));
       continue;
     }
 

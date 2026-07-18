@@ -62,9 +62,39 @@ describe('exportCatalogs', () => {
     };
     const result = exportCatalogs(config, catalogs, { format: 'csv', missing: true });
     const es = readFileSync(result.files[0]!.path, 'utf8');
-    expect(es.startsWith('key,source,target\r\n')).toBe(true);
-    expect(es).toContain('a,"Hello, ""world""",');
+    expect(es.startsWith('key,source,target,location\r\n')).toBe(true);
+    expect(es).toContain('a,"Hello, ""world""",,');
     expect(es).not.toContain('Done');
+  });
+
+  it('writes origins as xliff location notes and a csv column', () => {
+    const config = cfg();
+    const catalogs: Catalogs = { en: { a: 'Hello' }, es: { a: '' } };
+    const origins = { a: ['src/App.tsx', 'src/pages/home.vue'] };
+
+    const xliff = exportCatalogs(config, catalogs, { origins });
+    const xlf = readFileSync(xliff.files[0]!.path, 'utf8');
+    expect(xlf).toContain('<note category="location">src/App.tsx</note>');
+    expect(xlf).toContain('<note category="location">src/pages/home.vue</note>');
+
+    const csv = exportCatalogs(config, catalogs, { format: 'csv', origins });
+    const es = readFileSync(csv.files[0]!.path, 'utf8');
+    expect(es).toContain('a,Hello,,src/App.tsx; src/pages/home.vue');
+  });
+
+  it('round-trips an xliff with location notes through import', () => {
+    const config = cfg();
+    const catalogs: Catalogs = { en: { a: 'Hello' }, es: { a: '' } };
+    const result = exportCatalogs(config, catalogs, { origins: { a: ['src/App.tsx'] } });
+    const path = result.files[0]!.path;
+    const translated = readFileSync(path, 'utf8').replace(
+      '<target></target>',
+      '<target>Hola</target>',
+    );
+    writeFileSync(path, translated);
+    const imported = importCatalogs(config, catalogs, [path]);
+    expect(imported.imported.es).toEqual(['a']);
+    expect(catalogs.es!.a).toBe('Hola');
   });
 });
 

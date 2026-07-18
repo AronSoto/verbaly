@@ -5,6 +5,7 @@ const dtfCache = new Map<string, Intl.DateTimeFormat>();
 const prCache = new Map<string, Intl.PluralRules>();
 const rtfCache = new Map<string, Intl.RelativeTimeFormat>();
 const lfCache = new Map<string, Intl.ListFormat>();
+const dnCache = new Map<string, Intl.DisplayNames>();
 
 function cached<T>(cache: Map<string, T>, key: string, make: () => T): T {
   let hit = cache.get(key);
@@ -45,4 +46,8 @@ export function relativeTimeFormat(locale: string): Intl.RelativeTimeFormat {
 
 export function listFormat(locale: string, type: Intl.ListFormatType): Intl.ListFormat {
   return cached(lfCache, locale + type, () => new Intl.ListFormat(locale, { type }));
+}
+
+export function displayNames(locale: string): Intl.DisplayNames {
+  return cached(dnCache, locale, () => new Intl.DisplayNames(locale, { type: 'language' }));
 }

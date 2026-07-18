@@ -42,4 +42,17 @@ export class MessageRegistry {
     }
     return out;
   }
+
+  // key → every source file that writes or uses it (translator context)
+  origins(): Map<string, string[]> {
+    const out = this.usedKeys();
+    for (const analysis of this.files.values()) {
+      for (const msg of analysis.tagged) {
+        const files = out.get(msg.key) ?? [];
+        if (!files.includes(msg.file)) files.push(msg.file);
+        out.set(msg.key, files);
+      }
+    }
+    return out;
+  }
 }

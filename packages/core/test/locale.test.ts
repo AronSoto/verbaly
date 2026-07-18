@@ -1,6 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { negotiateLocale, persistLocale, resolveLocale, resolveRequestLocale } from '../src/locale';
+import {
+  localeDirection,
+  localeName,
+  negotiateLocale,
+  persistLocale,
+  resolveLocale,
+  resolveRequestLocale,
+} from '../src/locale';
 
 const SUPPORTED = ['en', 'es', 'pt'];
 
@@ -12,6 +19,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   localStorage.clear();
   document.documentElement.removeAttribute('lang');
+  document.documentElement.removeAttribute('dir');
 });
 
 describe('resolveLocale', () => {
@@ -182,11 +190,66 @@ describe('resolveRequestLocale', () => {
   });
 });
 
+describe('localeDirection', () => {
+  it('detects rtl languages', () => {
+    expect(localeDirection('ar')).toBe('rtl');
+    expect(localeDirection('he')).toBe('rtl');
+    expect(localeDirection('fa-IR')).toBe('rtl');
+    expect(localeDirection('ur')).toBe('rtl');
+  });
+
+  it('detects ltr languages', () => {
+    expect(localeDirection('en')).toBe('ltr');
+    expect(localeDirection('es-419')).toBe('ltr');
+    expect(localeDirection('zh-Hant-TW')).toBe('ltr');
+    expect(localeDirection('ja')).toBe('ltr');
+  });
+
+  it('honors an explicit script over the language default', () => {
+    expect(localeDirection('az-Arab')).toBe('rtl');
+    expect(localeDirection('az')).toBe('ltr');
+  });
+
+  it('never throws on malformed tags', () => {
+    expect(localeDirection('not a locale!')).toBe('ltr');
+    expect(localeDirection('')).toBe('ltr');
+    expect(localeDirection('AR')).toBe('rtl');
+  });
+});
+
+describe('localeName', () => {
+  it('returns the endonym by default', () => {
+    expect(localeName('es')).toBe('español');
+    expect(localeName('en')).toBe('English');
+  });
+
+  it('translates the name into another locale', () => {
+    expect(localeName('de', 'en')).toBe('German');
+    expect(localeName('en', 'es')).toBe('inglés');
+  });
+
+  it('handles regional tags', () => {
+    expect(localeName('pt-BR')).toContain('português');
+  });
+
+  it('falls back to the tag itself on garbage', () => {
+    expect(localeName('???')).toBe('???');
+    expect(localeName('es', '???')).toBe('es');
+  });
+});
+
 describe('persistLocale', () => {
   it('stores the locale and syncs <html lang>', () => {
     persistLocale('es');
     expect(localStorage.getItem('verbaly-locale')).toBe('es');
     expect(document.documentElement.lang).toBe('es');
+  });
+
+  it('syncs <html dir> with the locale direction', () => {
+    persistLocale('ar');
+    expect(document.documentElement.dir).toBe('rtl');
+    persistLocale('es');
+    expect(document.documentElement.dir).toBe('ltr');
   });
 
   it('writes to a custom storage key', () => {

@@ -1,8 +1,9 @@
-import { LOCALE_STORAGE_KEY, resolveRequestLocale } from 'verbaly';
+import { LOCALE_STORAGE_KEY, localeDirection, resolveRequestLocale } from 'verbaly';
 
 // derived from core's localStorage key: one identity per user across channels
 export const LOCALE_COOKIE: string = LOCALE_STORAGE_KEY;
 const LANG_PLACEHOLDER = '%verbaly.lang%';
+const DIR_PLACEHOLDER = '%verbaly.dir%';
 
 // structural subset of @sveltejs/kit: no runtime or type dependency on kit
 interface HandleEvent {
@@ -25,7 +26,7 @@ export interface VerbalyHandleOptions {
 }
 
 // server hook: cookie → Accept-Language → fallback, per request.
-// Sets event.locals.verbalyLocale and fills %verbaly.lang% in app.html.
+// Sets event.locals.verbalyLocale and fills %verbaly.lang% / %verbaly.dir% in app.html.
 export function verbalyHandle(options: VerbalyHandleOptions) {
   const { locales, cookie = LOCALE_COOKIE } = options;
   if (!Array.isArray(locales) || locales.length === 0) {
@@ -46,7 +47,10 @@ export function verbalyHandle(options: VerbalyHandleOptions) {
 
     event.locals.verbalyLocale = resolved;
     return resolve(event, {
-      transformPageChunk: ({ html }) => html.replaceAll(LANG_PLACEHOLDER, resolved),
+      transformPageChunk: ({ html }) =>
+        html
+          .replaceAll(LANG_PLACEHOLDER, resolved)
+          .replaceAll(DIR_PLACEHOLDER, localeDirection(resolved)),
     });
   };
 }

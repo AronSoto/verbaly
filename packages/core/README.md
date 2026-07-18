@@ -95,7 +95,16 @@ bindDom(v, {
 }); // renders + re-renders on locale change
 
 v.setLocale('es');
-persistLocale('es'); // localStorage + <html lang>
+persistLocale('es'); // localStorage + <html lang> + <html dir>
+```
+
+```ts
+// locale switchers without hardcoded names or direction tables
+import { localeDirection, localeName } from 'verbaly';
+
+localeName('es'); // 'español' (endonym, via Intl.DisplayNames)
+localeName('de', 'en'); // 'German'
+localeDirection('ar'); // 'rtl': switchLocale/persistLocale already apply it to <html dir>
 ```
 
 ```ts
@@ -114,6 +123,7 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 - **Plain, portable JSON catalogs**: no proprietary format, no lock-in.
 - **DOM interpreter** for framework-less HTML, with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
 - **Lazy catalogs**: `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
+- **RTL and locale names built in**: `localeDirection` keeps `<html dir>` right when you add Arabic or Hebrew (applied by `switchLocale`/`persistLocale` and `verbaly render`), and `localeName` gives your locale switcher real language names via `Intl.DisplayNames`.
 - **Runtime devtools**: opt-in `verbaly/devtools` answers "what key is this text?" in the browser: hover to see any element's key/locale/source, plus a live missing-keys panel. Tree-shaken out of production (its own chunk). Or wire the `onResolve` hook yourself.
 - **Fast, with receipts**: fully memoized hot path, benchmarked every release: 5-35× faster than i18next on lookup, interpolation and plurals.
 

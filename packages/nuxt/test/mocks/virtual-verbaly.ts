@@ -1,12 +1,13 @@
 import { createVerbaly, type Verbaly, type VerbalyOptions } from 'verbaly';
 
 export const sourceLocale = 'en';
-export const locales = ['en', 'es', 'pt'];
+export const locales = ['en', 'es', 'pt', 'ar'];
 export const loadedLocales: string[] = [];
 
 const TARGETS: Record<string, Record<string, string>> = {
   es: { greet: 'Hola' },
   pt: { greet: 'Olá' },
+  ar: { greet: 'مرحبا' },
 };
 
 export function createInstance(options: VerbalyOptions = {}): Verbaly {
@@ -22,6 +23,10 @@ export function createInstance(options: VerbalyOptions = {}): Verbaly {
       pt: () => {
         loadedLocales.push('pt');
         return Promise.resolve(TARGETS['pt']!);
+      },
+      ar: () => {
+        loadedLocales.push('ar');
+        return Promise.resolve(TARGETS['ar']!);
       },
     },
     ...options,

@@ -34,7 +34,7 @@ export default { plugins: [verbaly(), sveltekit()] };
 **2. The lang placeholder** in `src/app.html`:
 
 ```html
-<html lang="%verbaly.lang%"></html>
+<html lang="%verbaly.lang%" dir="%verbaly.dir%"></html>
 ```
 
 **3. Server hook**: negotiates the locale per request:
@@ -106,7 +106,7 @@ export const load = async ({ data }) => ({
 
 | Export                                                 | What it does                                                                                                                                                           |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `verbalyHandle({ locales, fallback?, cookie? })`       | SvelteKit `handle` hook: resolves the request locale (cookie → `Accept-Language` → fallback), sets `event.locals.verbalyLocale`, fills `%verbaly.lang%` in `app.html`. |
+| `verbalyHandle({ locales, fallback?, cookie? })`       | SvelteKit `handle` hook: resolves the request locale (cookie → `Accept-Language` → fallback), sets `event.locals.verbalyLocale`, fills `%verbaly.lang%` and `%verbaly.dir%` in `app.html`. |
 | `switchLocale(instance, locale, { cookie?, maxAge? })` | Awaits the catalog, switches the locale, writes the cookie and syncs `<html lang>`. SSR-safe.                                                                          |
 | `LOCALE_COOKIE`                                        | Default cookie name (`verbaly-locale`), shared with core's `localStorage` key.                                                                                         |
 

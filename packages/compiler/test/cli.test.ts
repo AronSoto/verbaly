@@ -102,6 +102,68 @@ describe('runCli: status', () => {
     expect(text).toContain('es: 1/2 translated (50%)');
     expect(text).toContain('pt: 2/2 translated (100%) ✓');
   });
+
+  it('prints machine-readable coverage with --json', async () => {
+    const root = makeProject({ en: { a: 'A' }, es: { a: '' } });
+    await runCli(['status', '--root', root, '--json']);
+    const parsed = JSON.parse(output(log)) as {
+      messages: number;
+      source: string;
+      locales: { locale: string; translated: number; total: number }[];
+    };
+    expect(parsed).toEqual({
+      messages: 1,
+      source: 'en',
+      locales: [{ locale: 'es', translated: 0, total: 1 }],
+    });
+    expect(process.exitCode).toBeUndefined();
+  });
+});
+
+describe('runCli: extract dts option', () => {
+  it('dts: false skips the type file, a path redirects it', async () => {
+    const root = makeProject({ en: {} }, 'export const x = t`Hi there`;\n');
+    writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ dts: false }));
+    await runCli(['extract', '--root', root]);
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+
+    writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ dts: '.types/verbaly.d.ts' }));
+    await runCli(['extract', '--root', root]);
+    expect(existsSync(join(root, '.types', 'verbaly.d.ts'))).toBe(true);
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+  });
+});
+
+describe('runCli: wrap', () => {
+  it('reports without writing by default and rewrites with --write', async () => {
+    const root = makeProject({ en: {} });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const file = join(root, 'src', 'App.tsx');
+    writeFileSync(file, 'export const x = <h1>Welcome back</h1>;\n');
+
+    await runCli(['wrap', '--root', root]);
+    expect(output(log)).toContain('would wrap 1 texts in 1 files');
+    expect(output(log)).toContain('src/App.tsx:1  "Welcome back"');
+    expect(readFileSync(file, 'utf8')).toContain('<h1>Welcome back</h1>');
+    expect(process.exitCode).toBeUndefined();
+
+    await runCli(['wrap', '--root', root, '--write']);
+    expect(readFileSync(file, 'utf8')).toContain('{t`Welcome back`}');
+    expect(output(log)).toContain('const t = useT()');
+  });
+
+  it('says so when there is nothing to wrap', async () => {
+    const root = makeProject({ en: {} }, 'export const x = 1;\n');
+    await runCli(['wrap', '--root', root]);
+    expect(output(log)).toContain('nothing to wrap');
+  });
+
+  it('rejects --write on other commands as a stray flag', async () => {
+    const root = makeProject({ en: {} });
+    await runCli(['status', '--root', root, '--write']);
+    expect(output(error)).toContain('--write is not a "status" flag');
+    expect(process.exitCode).toBe(1);
+  });
 });
 
 describe('runCli: extract --watch guardrails', () => {
@@ -207,6 +269,29 @@ describe('runCli: check', () => {
     await runCli(['extract', '--root', root]);
     await runCli(['check', '--root', root]);
     expect(output(error)).toContain('check failed');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('emits github annotations with source file and line via --reporter', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      "const pad = 1;\nexport const x = t`Hello there`;\nexport const y = t('ghost');\n",
+    );
+    await runCli(['extract', '--root', root]);
+    process.exitCode = undefined;
+    await runCli(['check', '--root', root, '--reporter', 'github']);
+    const text = output(error);
+    expect(text).toContain('::error file=src/app.ts,line=2::missing [es]');
+    expect(text).toContain('Hello there');
+    expect(text).toContain('::error file=src/app.ts::unknown key "ghost"');
+    expect(text).toContain('check failed: 1 missing, 1 unknown');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('rejects an unknown reporter', async () => {
+    const root = makeProject({ en: {} });
+    await runCli(['check', '--root', root, '--reporter', 'junit']);
+    expect(output(error)).toContain('unknown reporter "junit"');
     expect(process.exitCode).toBe(1);
   });
 

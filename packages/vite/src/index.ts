@@ -2,6 +2,7 @@ import {
   LOCALE_MODULE_PREFIX,
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
+  createSourceFilter,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -36,6 +37,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let isBuild = false;
   let server: ViteDevServer | undefined;
   let writeTimer: ReturnType<typeof setTimeout> | undefined;
+  let included: (id: string) => boolean;
   const registry = new MessageRegistry();
   const selfWrites = new Map<string, string>();
 
@@ -52,13 +54,20 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
     server.ws.send({ type: 'full-reload' });
   }
 
+  // cfg.dts carries the option merged from file config and inline overrides
+  // (@verbaly/astro fills its override in astro:config:done, before Vite resolves config)
+  function flushDts(): void {
+    if (cfg.dts === false) return;
+    writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
+  }
+
   function flushCatalogs(): void {
     syncCatalogs(cfg, catalogs, registry);
     for (const locale of cfg.locales) {
       const serialized = writeCatalog(cfg, locale, catalogs[locale] ?? {});
       selfWrites.set(locale, serialized);
     }
-    writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+    flushDts();
     invalidateVirtual();
   }
 
@@ -81,8 +90,9 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       isBuild = viteConfig.command === 'build';
       cfg = await loadConfig(options.root ?? viteConfig.root, options);
       catalogs = loadCatalogs(cfg);
+      included = createSourceFilter(cfg);
       if (!isBuild) {
-        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+        flushDts();
       }
     },
 
@@ -103,7 +113,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       devServer.watcher.on('change', onCatalogFile);
       devServer.watcher.on('add', onCatalogFile);
       devServer.watcher.on('unlink', (file) => {
-        if (isTransformTarget(file)) {
+        if (isTransformTarget(file) && included(file)) {
           registry.remove(file);
           scheduleFlush();
         }
@@ -119,7 +129,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
     },
 
     transform(code, id) {
-      if (!isTransformTarget(id)) return undefined;
+      if (!isTransformTarget(id) || !included(id)) return undefined;
       const { analysis, result } = transformSource(code, id, registry);
 
       if (!isBuild && analysis.tagged.length > 0) {

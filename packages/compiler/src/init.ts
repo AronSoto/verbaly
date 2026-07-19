@@ -12,12 +12,12 @@ export interface InitOptions {
 export interface InitResult {
   created: string[];
   skipped: string[];
-  bundler: 'vite' | 'webpack' | 'rollup' | 'rspack' | 'esbuild' | undefined;
+  bundler: 'astro' | 'vite' | 'webpack' | 'rollup' | 'rspack' | 'esbuild' | undefined;
   configFile: string;
   next: string[];
 }
 
-const BUNDLERS = ['vite', 'webpack', 'rollup', 'rspack', 'esbuild'] as const;
+const BUNDLERS = ['astro', 'vite', 'webpack', 'rollup', 'rspack', 'esbuild'] as const;
 
 export function detectBundler(root: string): InitResult['bundler'] {
   const path = join(root, 'package.json');
@@ -77,7 +77,12 @@ export function init(options: InitOptions = {}): InitResult {
 
   const bundler = detectBundler(root);
   const next: string[] = [];
-  if (bundler === 'vite') {
+  if (bundler === 'astro') {
+    next.push(
+      'install the integration: pnpm add -D @verbaly/astro',
+      'add verbaly() to the integrations in astro.config',
+    );
+  } else if (bundler === 'vite') {
     next.push(
       'install the plugin: pnpm add -D @verbaly/vite',
       'add verbaly() to the plugins in vite.config',

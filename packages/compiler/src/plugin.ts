@@ -1,3 +1,5 @@
+import { relative } from 'node:path';
+import picomatch from 'picomatch';
 import type { Analysis } from './analyze';
 import { loadCatalogs, type Catalogs } from './catalog';
 import { check, formatCheckResult } from './check';
@@ -13,7 +15,7 @@ export interface PluginOptions extends VerbalyConfig {
 
 export const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;
 export const LOCALE_MODULE_PREFIX = `${RESOLVED_VIRTUAL_ID}/locale/`;
-export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue)$/;
+export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue|astro)$/;
 
 export function resolveVirtualId(id: string): string | undefined {
   if (id === VIRTUAL_ID || id.startsWith(`${VIRTUAL_ID}/`)) return '\0' + id;
@@ -34,6 +36,15 @@ export function loadVirtualModule(
 
 export function isTransformTarget(id: string): boolean {
   return SOURCE_FILE_RE.test(id) && !id.includes('node_modules') && !id.startsWith('\0');
+}
+
+export function createSourceFilter(cfg: ResolvedConfig): (id: string) => boolean {
+  if (cfg.include.length === 0) return () => false;
+  const matches = picomatch(cfg.include, { ignore: cfg.exclude });
+  return (id) => {
+    const rel = relative(cfg.root, id).replaceAll('\\', '/');
+    return !rel.startsWith('..') && matches(rel);
+  };
 }
 
 // analyze + register + rewrite: the per-file transform every bundler plugin runs

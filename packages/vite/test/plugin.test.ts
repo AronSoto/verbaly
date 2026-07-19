@@ -88,6 +88,32 @@ describe('virtual modules', () => {
 });
 
 describe('dev transform', () => {
+  it('never touches files outside the include scope', async () => {
+    const root = makeProject({ es: {} });
+    const { transform } = await setup(root, 'serve');
+    expect(transform(CODE, join(root, 'demo', 'app.ts'))).toBeUndefined();
+  });
+
+  it('include: [] disables source scanning entirely', async () => {
+    const root = makeProject({ es: {} });
+    const { transform } = await setup(root, 'serve', { include: [] });
+    expect(transform(CODE, join(root, 'src', 'app.ts'))).toBeUndefined();
+  });
+
+  it('honors a dts path override, creating its directory', async () => {
+    const root = makeProject({ es: {} });
+    const target = join(root, '.astro', 'integrations', 'verbaly', 'verbaly.d.ts');
+    await setup(root, 'serve', { dts: target });
+    expect(existsSync(target)).toBe(true);
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+  });
+
+  it('dts: false skips type generation', async () => {
+    const root = makeProject({ es: {} });
+    await setup(root, 'serve', { dts: false });
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+  });
+
   it('rewrites code and feeds the source catalog', async () => {
     const root = makeProject({ es: {}, en: {} });
     const { transform, load } = await setup(root, 'serve');

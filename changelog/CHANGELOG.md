@@ -1,10 +1,66 @@
 # Changelog
 
-Version history of **Verbaly** — one file, full detail per version, newest first. The ten packages share one version number (aligned releases).
+Version history of **Verbaly** — one file, full detail per version, newest first. The eleven packages share one version number (aligned releases).
 
 Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section — the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes; the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.26.0] · 2026-07-18
+
+**Astro joins the family, and adopting Verbaly on an existing app stops being a chore.** A new `@verbaly/astro` integration wires everything with one line and runs the per-locale rendering by itself; the compiler now extracts text written directly in `.astro` files; a new `verbaly wrap` command finds your hardcoded JSX text and wraps it for you; and `verbaly check` can now report failures as clickable annotations on your GitHub pull requests. No breaking changes.
+
+### Highlights
+
+- **Astro support, one line.** Add `verbaly()` to the integrations in `astro.config` and everything is wired: live extraction while you code, type-safe keys, and the build gate. The typed keys live inside Astro's own `.astro` folder, so no extra file lands in your project. If you use the pre-translated mirror flow, `verbaly render` now runs by itself after every build.
+- **Write your text right in `.astro` files.** The same `` t`…` `` you already use in `.js`, `.tsx`, `.svelte` and `.vue` now works in the frontmatter and in the markup of Astro components. The compiler extracts it, types it, and keeps the catalogs in sync.
+- **Migrating an existing app? Let `verbaly wrap` do the boring part.** It scans your React (or any JSX) code, finds the hardcoded user-visible text, and wraps it in `` t`…` `` for you. It reports first; nothing is touched until you pass `--write`. Anything ambiguous is listed for a human instead of guessed.
+- **CI failures now point at your code.** `verbaly check --reporter github` turns every missing translation into a GitHub annotation on the exact file and line where the text lives, right on the pull request.
+- **`verbaly status --json`** gives you the coverage numbers machine-readable, ready for badges and dashboards.
+
+### Added
+
+- **`@verbaly/astro`** (new package, the eleventh): a thin Astro integration. `astro:config:setup` injects `@verbaly/vite` with the project root pinned (Astro's Vite root can differ); `astro:config:done` registers the generated types through Astro's `injectTypes`, so they live under `.astro/` (already referenced by every Astro tsconfig) and **no `verbaly.d.ts` lands in the project**, with the dev server refreshing that same file as messages change; `astro:build:done` runs the same `renderSite` as the CLI. The mirror is opt-in (a `render` section in the config, or `render: true | RenderConfig` inline) so path-based i18n routing sites are never mirrored on top; server output skips it with a clear warning. Structural typing like sveltekit/nuxt: no runtime or type dependency on `astro` (method-style hooks for bivariance; assignability to the real `AstroIntegration` pinned in a type test against the astro devDep).
+- **`.astro` extraction** (`@verbaly/compiler`): `analyzeFile` now dispatches `.astro` files. The frontmatter (the `---` fenced block) is parsed with Babel at shifted offsets, exactly like SFC script blocks; the markup pass reuses the strict scanner (`t` only, no `$t`), with the frontmatter blanked out. The default `include` gains the `astro` extension, and `SOURCE_FILE_RE` accepts `.astro` so the vite/unplugin transform rewrites it (live extraction + HMR come free through `@verbaly/vite`).
+- **`verbaly wrap`** (`@verbaly/compiler`): onboarding codemod for JSX/TSX. Wraps hardcoded text children (joining text and expressions into one message: `<p>Hello {name}</p>` becomes ``<p>{t`Hello ${name}`}</p>``) and user-visible string attributes (`title`, `alt`, `placeholder`, `aria-label`). Report-only by default; `--write` applies. It errs on skipping, never on inventing: mixed text-and-markup (a split sentence ships broken translations), segments already using `t`, and expressions that render markup are reported as "needs a human"; `<Trans>` children and `data-verbaly` subtrees are left alone. Backticks and `${` in literal text are escaped so the output extracts back to exactly what was reported. Programmatic API: `wrapProject`/`wrapCode`.
+- **`verbaly check --reporter github`** (`@verbaly/compiler`): failures become `::error` workflow annotations. Missing keys annotate the source file and line where the message lives (one annotation per key, locales grouped); unknown keys annotate the file that uses them. `githubCheckAnnotations` is exported for tooling.
+- **`verbaly status --json`** (`@verbaly/compiler`): prints the `StatusResult` as JSON (exit 0 stays; `check` remains the CI gate).
+- **`verbaly init` detects Astro** (`@verbaly/compiler`): an `astro` dependency wins over `vite` (Astro projects often list both) and the next steps point at `@verbaly/astro`.
+- **`dts` config option** (`@verbaly/compiler`): where the generated types land. A path moves the file, `false` skips it; honored by `extract`, `doctor` and the bundler plugins (`writeDts` also accepts an explicit path and creates the directory). The default stays `<root>/verbaly.d.ts`, the one spot TypeScript includes with zero tsconfig; framework integrations with their own types slot pass their path through it (that is how `@verbaly/astro` wires `injectTypes`).
+
+### Changed
+
+- **The bundler plugins now respect the config's `include`/`exclude`** (`@verbaly/vite`, `@verbaly/unplugin`, via the new `createSourceFilter` in `@verbaly/compiler`): the transform only rewrites files the CLI would scan (transform scope == extract scope), and `include: []` disables source scanning entirely while keeping the virtual modules and the build gate. Found dogfooding `@verbaly/astro` on verbaly-web: a docs site whose pages display literal `` t`…` `` snippets got them extracted as phantom keys and rewritten in the shipped HTML; scoping the transform to the config is the fix, and it also makes a file the CLI never extracts impossible to rewrite into a key the gate then reports missing. picomatch (already in the tree via tinyglobby) becomes an explicit compiler dependency.
+
+### Fixed
+
+- **`translate.ts` had a raw NUL byte** (`@verbaly/compiler`) in the invalid-params sentinel, so git treated the file as binary since it landed: zero reviewable diffs (the exact 0.14.5 lesson). Now the `\u0000` escape, identical semantics.
+
+### Notes
+
+- **Verified e2e against Astro 7.1.1** (real `astro build` via the JS API, temporary fixture): frontmatter and markup `` t`…` `` extracted by the real CLI, rewritten through the real Vite pipeline (our `enforce: 'pre'` transform runs before Astro's compiler, same as svelte/vue), rendered via `virtual:verbaly`'s `createRequestInstance`, the post-build mirror produced `dist/es/index.html` with `<html lang="es">`, `dir`, and `data-verbaly` content pre-filled, and the injected types landed in `.astro/integrations/_verbaly_astro/verbaly.d.ts`, referenced by Astro's own `types.d.ts`, with no root file created.
+- The `dts` decision (with Aron, 2026-07-19): per-project types cannot ship in a package's `dist` (they hold YOUR keys), so someone must generate them in the project; the whole ecosystem does (`next-env.d.ts`, `vite-env.d.ts`, `.nuxt/`, `.svelte-kit/`, Prisma into node_modules). The policy is now: use the framework's own types slot when it exists (Astro's `injectTypes` today; Nuxt's `prepare:types` hook is backlog), root file as the zero-config fallback elsewhere.
+- Design: the integration keeps the thinness rule (zero new negotiation/instance/render code: it wires `@verbaly/vite` + `renderSite`). The `render` option widens the config field on purpose: `boolean` toggles, an object is both the opt-in and the settings.
+- `wrap` scope decision: JSX/TSX first (React, Solid, Preact are the same carrier); SFC markup wrapping waits for real demand. The command cannot know how each framework brings `t` into scope (React's `useT()` is per component), so the CLI says it plainly: apply, follow the TS errors, run `verbaly extract`.
+- Dogfood note: verbaly-web now builds through `@verbaly/astro` (the manual `verbaly render` step in its build script is gone) with `include: []`, since its docs pages ARE verbaly snippets. Known limitation recorded in the PLAN backlog: the markup scanner reads raw markup, so display-only `t(`/`` t` `` text outside expression braces can still produce phantom keys when the file IS in scope; candidate-in-expression-context is the follow-up if more consumers hit it.
+- Territory extension (pillar 5): write-in-source now covers `.astro` markup. Competitive seal 0.26.0 (2026-07-18, re-check, identical versions to 0.25.0): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. In the Astro space: astro-i18next stalled at 1.0.0-beta.21, Astro's built-in i18n is routing-only (no catalogs, no type safety); nobody extracts natural text from `.astro` markup, and no i18n codemod in the space wraps existing JSX text.
+- **622 tests** (compiler **256** · core 205 · next 30 · svelte 25 · nuxt 22 · **vite 22** · vue 16 · react 15 · sveltekit 13 · unplugin 10 · **astro 8**), was 579: +31 compiler (9 astro extraction/transform, 15 wrap unit, 3 wrap CLI, 2 check reporter, 1 status json, 1 dts option), +4 vite (include scope, `include: []` opt-out, dts path override, `dts: false`), +8 astro (plugin injection, types injection + root-free dev flow, mirror e2e on a temp project, inline render config, opt-in heuristics, server-output skip, AstroIntegration assignability).
+- Bench re-run (ritual): lookup **53.6×**, interpolation **9.7×**, plural **5.0×**, currency **5.5×** vs i18next 26, in family with 0.25.0 (46.0×/17.1×/4.1×/5.2×). Bundle sizes unchanged (core untouched): **3.29 KB tree-shaken** · **5.54 KB full** · 1.60 KB devtools (min+gzip).
+- publint **All good** ×11 · attw: astro ESM-only profile like nuxt/sveltekit (node16-from-CJS = dynamic import only, by design), the rest unchanged 🟢. Tarball: `@verbaly/astro` 6 files (`dist/` + LICENSE + README).
+- **Publish note**: `@verbaly/astro` is a new package. The workflow picks `packages/*` up automatically, but the first publish needs the manual step + Trusted Publisher setup (PLAN → Publicación), then re-run the workflow (it resumes per-package).
+
+### Docs impact (synced)
+
+- **`frameworks.ts`**: new `astro` entry (devicon has `astro`); it propagates to hero icons, sidebar select, docs dropdown chips and the what-is grid.
+- **NEW page `docs/frameworks/astro`**: own page (base framework, like react/vue/svelte). Lead + benefits + Installation (`pnpm add verbaly @verbaly/astro`, integration in `astro.config`) + write-in-place in `.astro` (frontmatter and markup snippet) + the two shipping modes: path-based i18n routing (Astro owns routes, `createRequestInstance` per page) and mirror mode (`data-verbaly` + automatic `verbaly render` post-build, hreflang/sitemap via config). Note the `render: boolean | RenderConfig` option.
+- **`docs/guide/cli`**: new `wrap` row (report by default, `--write` applies, what it skips); `check` row gains `--reporter github`; `status` row gains `--json`; `extract` row's extension list gains `.astro`.
+- **`docs/guide/migrate`**: `verbaly wrap` becomes the first step of the migration story (scan, review the report, `--write`, then `extract`).
+- **`docs/frameworks/vite`**: the SFC live-extraction bullet gains `.astro`.
+- **verbaly-web dogfood (recommended)**: the web is an Astro site; replace `astro build && verbaly render` in `package.json` with the `@verbaly/astro` integration (config stays in `verbaly.config.mjs`, the integration picks its `render` section up as the opt-in). That swap is the whole point of the package.
+- **`/changelog`** (`releases.ts` + `changelog_rel.v0_26_0` keys ×3): 0.26.0 entry, theme + Highlights above in plain language.
+- Landing compare table: seal identical, no cell changes; if the "write in the markup" row names extensions, add `.astro`. Bump web to `verbaly@^0.26.0` + `@verbaly/compiler@^0.26.0` (+ `@verbaly/astro@^0.26.0` if the dogfood swap lands), **`pnpm install` only after the npm publish**.
 
 ---
 

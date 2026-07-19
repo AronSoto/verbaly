@@ -1,7 +1,7 @@
 import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
-import { check, formatCheckResult } from './check';
+import { check, formatCheckResult, githubCheckAnnotations } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { doctor } from './doctor';
@@ -13,6 +13,7 @@ import { renderSite } from './render';
 import { formatStatusResult, status } from './status';
 import { translateCatalogs, type TranslateProvider } from './translate';
 import { watchProject } from './watch';
+import { wrapProject } from './wrap';
 import type { ResolvedConfig } from './config';
 
 const HELP = `verbaly · i18n compiler
@@ -20,6 +21,7 @@ const HELP = `verbaly · i18n compiler
 Usage:
   verbaly init       scaffold config + locale catalogs (detects your bundler)
   verbaly doctor     diagnose the setup (config, catalogs, plugin, types, keys)
+  verbaly wrap       find hardcoded JSX text and wrap it in t\`…\` (report; --write applies)
   verbaly extract    scan sources, update catalogs and types
   verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
@@ -36,6 +38,9 @@ Options:
   --locales <csv>    extra locales; for translate: target locales to fill
   --prune            drop keys no longer referenced (extract)
   --watch            keep extracting as source files change (extract)
+  --write            apply the rewrites instead of only reporting (wrap)
+  --json             machine-readable output (status)
+  --reporter <name>  failure format: text (default) or github annotations (check)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would happen, write nothing (translate, import, extract)
   --format <f>       export format: xliff (default), csv, android-xml or ios-strings (export)
@@ -64,6 +69,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       locales: { type: 'string' },
       prune: { type: 'boolean' },
       watch: { type: 'boolean' },
+      write: { type: 'boolean' },
+      json: { type: 'boolean' },
+      reporter: { type: 'string' },
       model: { type: 'string' },
       locale: { type: 'string' },
       site: { type: 'string' },
@@ -159,7 +167,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         for (const locale of cfg.locales) {
           writeCatalog(cfg, locale, catalogs[locale] ?? {});
         }
-        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+        if (cfg.dts !== false) writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
       }
       const total = registry.messages().size;
       console.log(
@@ -178,20 +186,65 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     return;
   }
 
+  if (command === 'wrap') {
+    const result = await wrapProject(cfg, { write: values.write });
+    if (result.wrapped.length === 0 && result.skipped.length === 0) {
+      console.log(`[verbaly] nothing to wrap (${result.files} files scanned) ✓`);
+      return;
+    }
+    const verb = values.write ? 'wrapped' : 'would wrap';
+    const note = values.write ? '' : ' (report only, use --write to apply)';
+    console.log(
+      `[verbaly] ${verb} ${result.wrapped.length} texts in ${result.changed.length} files${note}`,
+    );
+    for (const entry of result.wrapped) {
+      const attr = entry.kind === 'attribute' ? `${entry.attribute} → ` : '';
+      console.log(`  ${entry.file}:${entry.line}  ${attr}"${entry.text}"`);
+    }
+    if (result.skipped.length > 0) {
+      console.log('  needs a human:');
+      for (const entry of result.skipped) {
+        console.log(`  ${entry.file}:${entry.line}  "${entry.text}" (${entry.reason})`);
+      }
+    }
+    if (values.write && result.changed.length > 0) {
+      console.log(
+        '  next: make t available where TS complains (React: const t = useT()), then run verbaly extract',
+      );
+    }
+    return;
+  }
+
   if (command === 'status') {
     const registry = await extractProject(cfg);
-    console.log(formatStatusResult(status(cfg, loadCatalogs(cfg), registry)));
+    const result = status(cfg, loadCatalogs(cfg), registry);
+    console.log(values.json ? JSON.stringify(result) : formatStatusResult(result));
     return;
   }
 
   if (command === 'check') {
+    const reporter = values.reporter ?? 'text';
+    if (reporter !== 'text' && reporter !== 'github') {
+      console.error(`[verbaly] unknown reporter "${values.reporter}", use text or github`);
+      process.exitCode = 1;
+      return;
+    }
     const registry = await extractProject(cfg);
     const result = check(cfg, loadCatalogs(cfg), registry);
     if (result.ok) {
       console.log('[verbaly] all translations complete ✓');
       return;
     }
-    console.error(`[verbaly] check failed\n${formatCheckResult(result)}`);
+    if (reporter === 'github') {
+      for (const line of githubCheckAnnotations(result, registry, cfg.root)) {
+        console.error(line);
+      }
+      console.error(
+        `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown`,
+      );
+    } else {
+      console.error(`[verbaly] check failed\n${formatCheckResult(result)}`);
+    }
     process.exitCode = 1;
     return;
   }
@@ -350,8 +403,9 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   init: [],
   doctor: [],
   extract: ['prune', 'dry-run', 'watch'],
-  status: [],
-  check: [],
+  wrap: ['write'],
+  status: ['json'],
+  check: ['reporter'],
   translate: ['model', 'dry-run'],
   export: ['format', 'out', 'missing'],
   import: ['locale', 'overwrite', 'dry-run'],

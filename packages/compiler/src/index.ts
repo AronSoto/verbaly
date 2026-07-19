@@ -1,7 +1,7 @@
 export { analyze } from './analyze';
 export { SFC_FILE_RE, analyzeFile, analyzeSfc } from './sfc';
 export { loadCatalogs, readCatalog, catalogPath, serializeCatalog, writeCatalog } from './catalog';
-export { check, formatCheckResult } from './check';
+export { check, formatCheckResult, githubCheckAnnotations } from './check';
 export {
   VIRTUAL_ID,
   generateDts,
@@ -14,6 +14,7 @@ export {
   LOCALE_MODULE_PREFIX,
   RESOLVED_VIRTUAL_ID,
   SOURCE_FILE_RE,
+  createSourceFilter,
   isTransformTarget,
   loadVirtualModule,
   resolveVirtualId,
@@ -33,6 +34,7 @@ export { MessageRegistry } from './registry';
 export { formatStatusResult, status } from './status';
 export { watchProject } from './watch';
 export { transformCode } from './transform';
+export { wrapCode, wrapProject } from './wrap';
 export { structureMatches, translateCatalogs } from './translate';
 
 export type {
@@ -79,3 +81,4 @@ export type {
 } from './translate';
 export type { ParamType } from './params';
 export type { TransformResult } from './transform';
+export type { WrapCodeResult, WrapEntry, WrapOptions, WrapResult, WrapSkip } from './wrap';

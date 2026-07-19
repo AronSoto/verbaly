@@ -28,6 +28,7 @@ export interface VerbalyConfig {
   locales?: string[];
   include?: string[];
   exclude?: string[];
+  dts?: string | false;
   translate?: TranslateConfig;
   render?: RenderConfig;
 }
@@ -39,6 +40,7 @@ export interface ResolvedConfig {
   locales: string[];
   include: string[];
   exclude: string[];
+  dts: string | false | undefined;
   translate: TranslateConfig;
   render: RenderConfig;
 }
@@ -62,8 +64,9 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     dir,
     sourceLocale,
     locales: [...locales],
-    include: config.include ?? ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue}'],
+    include: config.include ?? ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}'],
     exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],
+    dts: typeof config.dts === 'string' ? resolve(root, config.dts) : config.dts,
     translate: config.translate ?? {},
     render: config.render ?? {},
   };

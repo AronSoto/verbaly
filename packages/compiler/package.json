@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/compiler",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "description": "Message extraction and type-safe codegen for Verbaly.",
   "keywords": [
     "i18n",
@@ -45,6 +45,7 @@
     "@babel/parser": "^8.0.4",
     "bundle-require": "^5.1.0",
     "magic-string": "^1.0.0",
+    "picomatch": "^4.0.5",
     "tinyglobby": "^0.2.17",
     "verbaly": "workspace:*"
   },
@@ -62,6 +63,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
+    "@types/picomatch": "^4.0.3",
     "esbuild": "^0.28.1"
   },
   "scripts": {

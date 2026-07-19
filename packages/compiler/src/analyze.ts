@@ -35,7 +35,8 @@ export interface Analysis {
   usedKeys: UsedKey[];
 }
 
-interface AstNode {
+// exported for wrap.ts (module-internal reuse, not part of the package surface)
+export interface AstNode {
   type: string;
   start: number;
   end: number;
@@ -227,7 +228,7 @@ function buildTransMessage(
 }
 
 // JSX text semantics: newline-indent boundaries removed, interior joins = one space
-function cleanJsxText(raw: string): string {
+export function cleanJsxText(raw: string): string {
   const lines = raw.split(/\r\n|[\r\n]/);
   let out = '';
   for (let i = 0; i < lines.length; i++) {
@@ -257,7 +258,7 @@ function containsTaggedT(node: AstNode, names: ReadonlySet<string>): boolean {
   return found;
 }
 
-function isTReference(node: AstNode, names: ReadonlySet<string>): boolean {
+export function isTReference(node: AstNode, names: ReadonlySet<string>): boolean {
   if (node.type === 'Identifier') return names.has(node.name as string);
   if (node.type === 'MemberExpression' && !node.computed) {
     const prop = node.property as AstNode;
@@ -327,7 +328,7 @@ function uniqueName(base: string, source: string, taken: Map<string, string>): s
   return name;
 }
 
-function walk(node: AstNode, visit: (node: AstNode) => void): void {
+export function walk(node: AstNode, visit: (node: AstNode) => void): void {
   visit(node);
   for (const key in node) {
     if (SKIP_KEYS.has(key)) continue;

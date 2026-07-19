@@ -118,8 +118,8 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     );
   }
 
-  if (source) {
-    const dtsPath = join(cfg.root, 'verbaly.d.ts');
+  if (source && cfg.dts !== false) {
+    const dtsPath = cfg.dts ?? join(cfg.root, 'verbaly.d.ts');
     if (!existsSync(dtsPath)) {
       warn('types', 'verbaly.d.ts has not been generated', 'run `npx verbaly extract`');
     } else if (readFileSync(dtsPath, 'utf8') !== generateDts(source)) {

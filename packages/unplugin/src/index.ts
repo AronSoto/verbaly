@@ -1,6 +1,7 @@
 import {
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
+  createSourceFilter,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -21,10 +22,12 @@ export type UnpluginVerbalyOptions = PluginOptions;
 const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = {}) => {
   let cfg: ResolvedConfig;
   let catalogs: Catalogs;
+  let included: (id: string) => boolean;
   const registry = new MessageRegistry();
   const ready = (async () => {
     cfg = await loadConfig(options.root ?? process.cwd(), options);
     catalogs = loadCatalogs(cfg);
+    included = createSourceFilter(cfg);
   })();
 
   return {
@@ -52,6 +55,7 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
     },
 
     transform(code, id) {
+      if (!included(id)) return null;
       return transformSource(code, id, registry).result;
     },
 

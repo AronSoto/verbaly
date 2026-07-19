@@ -125,6 +125,70 @@ describe('analyzeSfc vue', () => {
   });
 });
 
+describe('analyzeSfc astro', () => {
+  it('extracts tagged templates from the frontmatter with file offsets', () => {
+    const code = '---\nconst greeting = t`Hola ${name}`;\n---\n<h1>{greeting}</h1>';
+    const { tagged } = analyzeSfc(code, 'index.astro');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('Hola {name}');
+    expect(tagged[0]?.singleQuote).toBeUndefined();
+    expect(code.slice(tagged[0]!.start, tagged[0]!.end)).toBe('t`Hola ${name}`');
+  });
+
+  it('extracts from markup expressions with single quotes', () => {
+    const code = '---\nconst x = 1;\n---\n<h1>{t`Hello ${name}`}</h1>';
+    const { tagged } = analyzeSfc(code, 'index.astro');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('Hello {name}');
+    expect(tagged[0]?.singleQuote).toBe(true);
+    expect(code.slice(tagged[0]!.start, tagged[0]!.end)).toBe('t`Hello ${name}`');
+  });
+
+  it('extracts from attribute expressions and client script blocks', () => {
+    const code =
+      '---\n---\n<img alt={t`Company logo`} src="/logo.png" />\n' +
+      '<script>\n  const msg = t`Loaded`;\n</script>';
+    const { tagged } = analyzeSfc(code, 'index.astro');
+    expect(tagged.map((m) => m.message).sort()).toEqual(['Company logo', 'Loaded']);
+    for (const msg of tagged) {
+      expect(code.slice(msg.start, msg.end)).toBe(`t\`${msg.message.replace(/\{(\w+)\}/g, '${$1}')}\``);
+    }
+  });
+
+  it('handles files without frontmatter', () => {
+    const { tagged } = analyzeSfc('<p>{t`Plain markup`}</p>', 'index.astro');
+    expect(tagged[0]?.message).toBe('Plain markup');
+  });
+
+  it('never treats a --- ruler mid-file as frontmatter', () => {
+    const code = '<p>intro</p>\n---\nconst nope = t`hidden`;\n---';
+    const { tagged } = analyzeSfc(code, 'index.astro');
+    // no top fence: the whole file is markup, the t`…` inside is still found by the scanner
+    expect(tagged.map((m) => m.message)).toEqual(['hidden']);
+    expect(tagged[0]?.singleQuote).toBe(true);
+  });
+
+  it('records call keys and explicit ids', () => {
+    const code = "---\nconst a = t('inbox');\n---\n<h1>{t.id('home.title')`Hola`}</h1>";
+    const { tagged, usedKeys } = analyzeSfc(code, 'index.astro');
+    expect(usedKeys.map((u) => u.key)).toEqual(['inbox']);
+    expect(tagged[0]?.key).toBe('home.title');
+  });
+
+  it('ignores comments and does not accept $t', () => {
+    const code = '---\n---\n<!-- {t`nope`} -->\n<p>{$t`Nope`}</p>';
+    const { tagged } = analyzeSfc(code, 'index.astro');
+    expect(tagged).toHaveLength(0);
+  });
+
+  it('never turns prose into keys or messages', () => {
+    const code = "---\n---\n<p>don't (worry), it`s fine</p>";
+    const { tagged, usedKeys } = analyzeSfc(code, 'index.astro');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+});
+
 describe('transformCode on SFCs', () => {
   it('rewrites svelte markup with single quotes', () => {
     const key = stableKey('Hello {name}');
@@ -147,6 +211,16 @@ describe('transformCode on SFCs', () => {
   it('rewrites explicit ids in markup', () => {
     const result = transformCode("<h1>{$t.id('home.title')`Hola`}</h1>", 'App.svelte');
     expect(result?.code).toBe("<h1>{$t('home.title')}</h1>");
+  });
+
+  it('rewrites astro frontmatter with double quotes and markup with single quotes', () => {
+    const key = stableKey('Hola');
+    const markupKey = stableKey('Hello {name}');
+    const code = '---\nconst a = t`Hola`;\n---\n<h1>{t`Hello ${name}`}</h1>';
+    const result = transformCode(code, 'index.astro');
+    expect(result?.code).toBe(
+      `---\nconst a = t(${JSON.stringify(key)});\n---\n<h1>{t('${markupKey}', { 'name': name })}</h1>`,
+    );
   });
 
   it('returns null for an SFC without messages', () => {

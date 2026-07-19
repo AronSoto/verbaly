@@ -1,6 +1,6 @@
 import { analyze, type Analysis, type TaggedParam, type UsedKey } from './analyze';
 
-export const SFC_FILE_RE = /\.(?:svelte|vue)$/;
+export const SFC_FILE_RE = /\.(?:svelte|vue|astro)$/;
 
 // single dispatch point: SFCs get the block/markup analyzer, everything else plain analyze
 export function analyzeFile(code: string, file: string): Analysis {
@@ -10,6 +10,8 @@ export function analyzeFile(code: string, file: string): Analysis {
 const SCRIPT_RE = /(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)/gi;
 const STYLE_RE = /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi;
 const COMMENT_RE = /<!--[\s\S]*?-->/g;
+// astro component script: --- fences at the top of the file
+const FRONTMATTER_RE = /^(\uFEFF?\s*---\r?\n)([\s\S]*?)\r?\n---(?=\r?\n|$)/;
 
 // no whitespace after t: prose like "won't ('x')" must never become a used key
 const CANDIDATE_SVELTE = /(?<![\w$])\$?t(?=[`(]|\.id\()/g;
@@ -23,14 +25,22 @@ export function analyzeSfc(code: string, file: string): Analysis {
   const tagged: Analysis['tagged'] = [];
   const usedKeys: UsedKey[] = [];
 
+  const frontmatter = file.endsWith('.astro') ? FRONTMATTER_RE.exec(code) : null;
+  if (frontmatter?.[2]) {
+    merge(analyzeSegment(frontmatter[2], file, options), frontmatter[1]!.length, false);
+  }
+
   for (const match of code.matchAll(SCRIPT_RE)) {
     const content = match[2]!;
     if (!content) continue;
     merge(analyzeSegment(content, file, options), match.index + match[1]!.length, false);
   }
 
-  // markup = everything left once scripts, styles and comments are blanked out
-  const markup = blank(blank(blank(code, SCRIPT_RE), STYLE_RE), COMMENT_RE);
+  // markup = everything left once frontmatter, scripts, styles and comments are blanked out
+  const body = frontmatter
+    ? ' '.repeat(frontmatter[0].length) + code.slice(frontmatter[0].length)
+    : code;
+  const markup = blank(blank(blank(body, SCRIPT_RE), STYLE_RE), COMMENT_RE);
   const candidates = svelte ? CANDIDATE_SVELTE : CANDIDATE_VUE;
   let consumedTo = 0;
   for (const match of markup.matchAll(candidates)) {

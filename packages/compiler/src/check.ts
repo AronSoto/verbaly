@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { relative } from 'node:path';
 import type { Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import type { MessageRegistry } from './registry';
@@ -74,4 +76,76 @@ export function formatCheckResult(result: CheckResult): string {
 
 function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+// GitHub workflow commands: every failure becomes a clickable ::error annotation on the PR
+export function githubCheckAnnotations(
+  result: CheckResult,
+  registry: MessageRegistry,
+  root: string,
+): string[] {
+  const messages = registry.messages();
+  const contents = new Map<string, string | undefined>();
+  const readSource = (file: string): string | undefined => {
+    if (!contents.has(file)) {
+      try {
+        contents.set(file, readFileSync(file, 'utf8'));
+      } catch {
+        contents.set(file, undefined);
+      }
+    }
+    return contents.get(file);
+  };
+
+  const lines: string[] = [];
+
+  // one annotation per key, locales grouped: N locales must not bury the PR in N copies
+  const byKey = new Map<string, MissingEntry & { locales: string[] }>();
+  for (const entry of result.missing) {
+    const grouped = byKey.get(entry.key);
+    if (grouped) grouped.locales.push(entry.locale);
+    else byKey.set(entry.key, { ...entry, locales: [entry.locale] });
+  }
+
+  for (const entry of byKey.values()) {
+    const origin = messages.get(entry.key);
+    const hint = entry.source ? `: "${truncate(entry.source, 60)}"` : '';
+    const text = escapeData(`missing [${entry.locales.join(', ')}] ${entry.key}${hint}`);
+    if (origin) {
+      const file = relative(root, origin.file).replaceAll('\\', '/');
+      const content = readSource(origin.file);
+      const line = content === undefined ? undefined : lineAt(content, origin.start);
+      lines.push(`::error file=${escapeProperty(file)}${line ? `,line=${line}` : ''}::${text}`);
+    } else {
+      lines.push(`::error::${text}`);
+    }
+  }
+
+  for (const entry of result.unknown) {
+    const text = escapeData(`unknown key "${entry.key}" (not in any catalog)`);
+    const file = entry.files[0];
+    lines.push(
+      file
+        ? `::error file=${escapeProperty(relative(root, file).replaceAll('\\', '/'))}::${text}`
+        : `::error::${text}`,
+    );
+  }
+  return lines;
+}
+
+function lineAt(content: string, offset: number): number {
+  let line = 1;
+  const end = Math.min(offset, content.length);
+  for (let i = 0; i < end; i++) {
+    if (content[i] === '\n') line += 1;
+  }
+  return line;
+}
+
+function escapeData(text: string): string {
+  return text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+}
+
+function escapeProperty(text: string): string {
+  return escapeData(text).replaceAll(':', '%3A').replaceAll(',', '%2C');
 }

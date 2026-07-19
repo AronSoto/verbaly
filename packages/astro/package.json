@@ -1,12 +1,13 @@
 {
-  "name": "@verbaly/sveltekit",
+  "name": "@verbaly/astro",
   "version": "0.26.0",
-  "description": "SvelteKit SSR integration for Verbaly: per-request locale negotiation and flash-free hydration.",
+  "description": "Astro integration for Verbaly: write-in-source extraction for .astro files plus automatic per-locale static rendering.",
   "keywords": [
     "i18n",
-    "sveltekit",
-    "ssr",
-    "hydration",
+    "astro",
+    "astro-integration",
+    "withastro",
+    "ssg",
     "verbaly"
   ],
   "license": "MIT",
@@ -14,9 +15,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AronSoto/verbaly.git",
-    "directory": "packages/sveltekit"
+    "directory": "packages/astro"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/sveltekit",
+  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/astro",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },
@@ -39,12 +40,15 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "@verbaly/compiler": "workspace:^",
+    "@verbaly/vite": "workspace:^"
+  },
   "peerDependencies": {
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^2.70.0",
-    "svelte": "^5.56.6",
+    "astro": "^7.1.1",
     "verbaly": "workspace:*"
   },
   "scripts": {

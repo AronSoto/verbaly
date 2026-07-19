@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { Catalog } from './catalog';
 import type { ResolvedConfig } from './config';
 import { collectParams, renderParamType } from './params';
@@ -137,14 +137,16 @@ declare module 'virtual:verbaly/locale/*' {
 `;
 }
 
-// skip unchanged writes: a rewritten verbaly.d.ts churns the consumer's TS server
-export function writeDts(cfg: ResolvedConfig, catalog: Catalog): void {
-  const file = join(cfg.root, 'verbaly.d.ts');
+// skip unchanged writes: a rewritten verbaly.d.ts churns the consumer's TS server.
+// file defaults to the project root: the one spot TS includes with zero tsconfig;
+export function writeDts(cfg: ResolvedConfig, catalog: Catalog, file?: string): void {
+  file ??= join(cfg.root, 'verbaly.d.ts');
   const content = generateDts(catalog);
   try {
     if (readFileSync(file, 'utf8') === content) return;
   } catch {
     // new file
   }
+  mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, content);
 }

@@ -288,6 +288,28 @@ describe('relative time with explicit unit', () => {
   });
 });
 
+describe('more format paths', () => {
+  const w = createVerbaly({
+    locale: 'en',
+    messages: { en: { listUnit: '{xs:list/unit}', auto: '{d}' } },
+  });
+
+  it('list/unit uses the unit list type', () => {
+    expect(w.t('listUnit', { xs: ['5m', '30s'] })).toContain('5m');
+  });
+
+  it('auto-formats a Date value with no explicit format', () => {
+    const d = new Date('2020-06-15T12:00:00Z');
+    expect(w.t('auto', { d })).toBe(new Intl.DateTimeFormat('en').format(d));
+  });
+
+  it('relative Date under a second falls back to the seconds unit', () => {
+    const rel = createVerbaly({ locale: 'en', messages: { en: { now: '{d:relative}' } } });
+    // a Date essentially at "now": no unit threshold matched, seconds fallback
+    expect(rel.t('now', { d: new Date() })).toMatch(/second|now/);
+  });
+});
+
 describe('intl cache cap', () => {
   it('reuses cached formatters', () => {
     expect(numberFormat('en')).toBe(numberFormat('en'));

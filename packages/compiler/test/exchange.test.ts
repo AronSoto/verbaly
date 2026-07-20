@@ -67,6 +67,21 @@ describe('exportCatalogs', () => {
     expect(es).not.toContain('Done');
   });
 
+  it('tolerates a missing source catalog and a target with no catalog', () => {
+    const config = cfg(['en', 'es']);
+    // no en entry at all, es present but empty: export must not throw, just write empty files
+    const result = exportCatalogs(config, { es: {} });
+    expect(result.files.map((f) => f.locale)).toEqual(['es']);
+    expect(result.files[0]).toMatchObject({ total: 0, untranslated: 0 });
+  });
+
+  it('mobile export tolerates a missing source and target catalog', () => {
+    const config = cfg(['en', 'es']);
+    const result = exportCatalogs(config, {}, { format: 'ios-strings' });
+    expect(result.files.map((f) => f.locale)).toEqual(['en', 'es']);
+    expect(result.files.every((f) => f.total === 0)).toBe(true);
+  });
+
   it('writes origins as xliff location notes and a csv column', () => {
     const config = cfg();
     const catalogs: Catalogs = { en: { a: 'Hello' }, es: { a: '' } };
@@ -120,6 +135,14 @@ describe('exportCatalogs: mobile formats', () => {
     const enXml = readFileSync(en!.path, 'utf8');
     expect(enXml).toContain("It\\'s over");
     expect(en).toMatchObject({ total: 2, untranslated: 0 });
+  });
+
+  it('android-xml uses BCP-47 b+ qualifier for script-tagged locales', () => {
+    const config = cfg(['en', 'zh-Hant-TW']);
+    const catalogs: Catalogs = { en: { a: 'A' }, 'zh-Hant-TW': { a: '甲' } };
+    const result = exportCatalogs(config, catalogs, { format: 'android-xml' });
+    const zh = result.files.find((f) => f.locale === 'zh-Hant-TW')!;
+    expect(zh.path.replace(/\\/g, '/')).toContain('/values-b+zh+Hant+TW/strings.xml');
   });
 
   it('android-xml escapes markup and sanitizes resource names', () => {
@@ -301,5 +324,48 @@ describe('parseExchangeFile', () => {
       `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v"><unit id="a"><segment><source>Hi</source><target>&#72;ola &#x2014; s&#237;</target></segment></unit></file></xliff>`,
     );
     expect(parseExchangeFile(file).entries).toEqual({ a: 'Hola — sí' });
+  });
+
+  it('throws on an XLIFF with no target language and no --locale', () => {
+    const file = scratch(
+      'catalog.xlf',
+      `<xliff version="2.0" srcLang="en"><file id="v"><unit id="a"><segment><source>Hi</source><target>Hola</target></segment></unit></file></xliff>`,
+    );
+    expect(() => parseExchangeFile(file)).toThrow(/no trgLang\/target-language/);
+    expect(parseExchangeFile(file, 'es').entries).toEqual({ a: 'Hola' });
+  });
+
+  it('skips units without an id and reads a missing target as untranslated', () => {
+    const file = scratch(
+      'es.xlf',
+      `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v">` +
+        `<unit><segment><source>No id</source><target>Ignorado</target></segment></unit>` +
+        `<unit id="empty"><segment><source>Pending</source></segment></unit>` +
+        `</file></xliff>`,
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ empty: '' });
+  });
+
+  it('decodes named apos and quot entities in ids and targets', () => {
+    const file = scratch(
+      'es.xlf',
+      `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v">` +
+        `<unit id="it&apos;s"><segment><source>x</source><target>a &quot;b&quot; &apos;c&apos;</target></segment></unit>` +
+        `</file></xliff>`,
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ "it's": `a "b" 'c'` });
+  });
+
+  it('parses quoted CSV fields with embedded commas, quotes and newlines', () => {
+    const file = scratch(
+      'es.csv',
+      'key,source,target\r\n' + 'multi,"Hello, ""world""","Hola,\nmundo ""x"""\r\n',
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ multi: 'Hola,\nmundo "x"' });
+  });
+
+  it('reads CSV rows shorter than the header as empty targets', () => {
+    const file = scratch('es.csv', 'key,source,target\r\nlonely\r\n');
+    expect(parseExchangeFile(file).entries).toEqual({ lonely: '' });
   });
 });

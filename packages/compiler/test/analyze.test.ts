@@ -51,6 +51,46 @@ describe('analyze', () => {
     const { tagged } = analyze('export const A = () => <p>{t`Hi ${n}`}</p>;', 'App.tsx');
     expect(tagged[0]?.message).toBe('Hi {n}');
   });
+
+  it('ignores calls without a string literal key', () => {
+    const { tagged, usedKeys } = analyze('t(); t(key); t(123);', 'app.ts');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('bails the outer template on a nested t but extracts the inner one', () => {
+    const { tagged } = analyze("t`a ${t.id('inner')`b`}`;", 'app.ts');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.key).toBe('inner');
+    expect(tagged[0]?.message).toBe('b');
+  });
+
+  it('keeps templates whose params hold unrelated tags', () => {
+    const { tagged } = analyze('t`x ${css`red`}`;', 'app.ts');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('x {_0}');
+  });
+
+  it('falls back to raw text when an escape has no cooked value', () => {
+    const { tagged } = analyze('t`bad \\uXYZ end`;', 'app.ts');
+    expect(tagged[0]?.message).toBe('bad \\uXYZ end');
+  });
+
+  it('names computed member expressions positionally', () => {
+    const { tagged } = analyze("t`Hi ${user['name']}`;", 'app.ts');
+    expect(tagged[0]?.message).toBe('Hi {_0}');
+  });
+
+  it('names private member expressions positionally', () => {
+    const code = 'class A { #n = 1; m() { return t`v ${this.#n}`; } }';
+    const { tagged } = analyze(code, 'app.ts');
+    expect(tagged[0]?.message).toBe('v {_0}');
+  });
+
+  it('walks arrays with holes', () => {
+    const { tagged } = analyze('const x = [1, , 2]; t`Hola`;', 'app.ts');
+    expect(tagged[0]?.message).toBe('Hola');
+  });
 });
 
 describe('analyze t.id', () => {
@@ -76,6 +116,33 @@ describe('analyze t.id', () => {
   it('ignores unrelated .id tags', () => {
     const { tagged } = analyze("css.id('x')`color: red`;", 'app.ts');
     expect(tagged).toHaveLength(0);
+  });
+
+  it('ignores call tags whose callee is not a member', () => {
+    const { tagged } = analyze("fn('k')`msg`;", 'app.ts');
+    expect(tagged).toHaveLength(0);
+  });
+
+  it('ignores computed id access', () => {
+    const { tagged } = analyze("t['id']('k')`msg`;", 'app.ts');
+    expect(tagged).toHaveLength(0);
+  });
+
+  it('ignores member tags whose property is not id', () => {
+    const { tagged } = analyze("t.plural('k')`msg`;", 'app.ts');
+    expect(tagged).toHaveLength(0);
+  });
+
+  it('ignores private-name member tags', () => {
+    const code = "class A { #id = 0; m() { return t.#id('k')`msg`; } }";
+    const { tagged } = analyze(code, 'app.ts');
+    expect(tagged).toHaveLength(0);
+  });
+
+  it('skips id calls with the wrong arity', () => {
+    const { tagged, usedKeys } = analyze("t.id('a', 'b')`msg`; t.id()`msg`;", 'app.ts');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
   });
 });
 
@@ -185,5 +252,80 @@ describe('analyze <Trans>', () => {
   it('ignores other jsx elements', () => {
     const { tagged } = analyze('const A = () => <p>Hello</p>;', 'App.tsx');
     expect(tagged).toHaveLength(0);
+  });
+
+  it('skips <Trans> with a dynamic id', () => {
+    const { tagged, usedKeys } = analyze(
+      'const A = () => <Trans id={key}>Hi</Trans>;',
+      'App.tsx',
+    );
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('skips <Trans> with a bare id attribute', () => {
+    const { tagged, usedKeys } = analyze('const A = () => <Trans id>Hi</Trans>;', 'App.tsx');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('records the key when id children are only whitespace', () => {
+    const { tagged, usedKeys } = analyze(
+      'const A = () => <Trans id="home.title">   </Trans>;',
+      'App.tsx',
+    );
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys.map((u) => u.key)).toEqual(['home.title']);
+  });
+
+  it('records the key when id children bail on a nested t', () => {
+    const { tagged, usedKeys } = analyze(
+      'const A = () => <Trans id="home.title">{t`inner`}</Trans>;',
+      'App.tsx',
+    );
+    // the nested t`inner` is still extracted on its own
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('inner');
+    expect(usedKeys.map((u) => u.key)).toEqual(['home.title']);
+  });
+
+  it('skips <Trans> with hand-written props and no id', () => {
+    const { tagged, usedKeys } = analyze(
+      'const A = () => <Trans count={n}>Hi</Trans>;',
+      'App.tsx',
+    );
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('skips <Trans> without children', () => {
+    const { tagged, usedKeys } = analyze('const A = () => <Trans></Trans>;', 'App.tsx');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('drops empty jsx expressions', () => {
+    const { tagged } = analyze('const A = () => <Trans>a{/* note */}b</Trans>;', 'App.tsx');
+    expect(tagged[0]?.message).toBe('ab');
+  });
+
+  it('dedupes repeated components with identical sources', () => {
+    const { tagged } = analyze(
+      'const A = () => <Trans><b>one</b> and <b>two</b></Trans>;',
+      'App.tsx',
+    );
+    expect(tagged[0]?.message).toBe('<b>one</b> and <b>two</b>');
+    expect(tagged[0]?.jsx?.components).toEqual([{ name: 'b', source: '<b />' }]);
+  });
+
+  it('bails when a nested element contains a fragment', () => {
+    const { tagged } = analyze('const A = () => <Trans><b>x<></></b></Trans>;', 'App.tsx');
+    expect(tagged).toHaveLength(0);
+  });
+
+  it('drops blank lines between a param and following text', () => {
+    const code = 'const A = () => <Trans>{n}\n\nhello</Trans>;';
+    const { tagged } = analyze(code, 'App.tsx');
+    expect(tagged[0]?.message).toBe('{n}hello');
   });
 });

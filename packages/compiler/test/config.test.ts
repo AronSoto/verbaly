@@ -60,6 +60,34 @@ describe('loadConfig', () => {
     const cfg = await loadConfig(root);
     expect(cfg.sourceLocale).toBe('es');
   });
+
+  it('falls back to defaults when an mjs config has no default export', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.mjs'), "export const foo = 1;\n");
+    const cfg = await loadConfig(root);
+    expect(cfg.sourceLocale).toBe('en');
+  });
+
+  it('falls back to defaults when a ts config has no default export', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.ts'), 'export const foo: number = 1;\n');
+    const cfg = await loadConfig(root);
+    expect(cfg.sourceLocale).toBe('en');
+  });
+
+  it('rethrows a ts config that fails to bundle for a non-esbuild reason', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.ts'), 'export default {   // unterminated\n');
+    await expect(loadConfig(root)).rejects.toThrow();
+  });
+});
+
+describe('resolveConfig defaults', () => {
+  it('uses the process cwd when no root is given', () => {
+    const cfg = resolveConfig();
+    expect(cfg.root).toBe(process.cwd());
+    expect(cfg.sourceLocale).toBe('en');
+  });
 });
 
 describe('locale discovery', () => {
@@ -103,5 +131,18 @@ describe('pruneCatalogs', () => {
     expect(removed.es).toEqual(['old']);
     expect(removed.en).toEqual(['old']);
     expect(catalogs.es).toEqual({ used: 'Usada' });
+  });
+
+  it('skips a configured locale that has no catalog object', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{"old":"Vieja"}');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'es', locales: ['es', 'pt'] });
+    // pt is configured but absent from the catalogs map: prune must not crash on it
+    const removed = pruneCatalogs(cfg, { es: { old: 'Vieja' } }, new MessageRegistry());
+    expect(removed.es).toEqual(['old']);
+    expect(removed.pt).toBeUndefined();
   });
 });

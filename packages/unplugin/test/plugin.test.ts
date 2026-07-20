@@ -85,6 +85,21 @@ describe('transform', () => {
     expect(p.transformInclude(join(root, 'src', 'style.css'))).toBe(false);
     expect(p.transformInclude(join(root, 'src', 'app.tsx'))).toBe(true);
   });
+
+  it('returns null for a transform target outside the include scope', async () => {
+    const root = makeProject({ es: {} });
+    const p = await setup(root);
+    // a .ts file that the extractor would never scan must not be rewritten
+    expect(p.transform(CODE, join(root, 'demo', 'app.ts'))).toBeNull();
+  });
+
+  it('defaults the root to the process cwd when none is given', async () => {
+    const plugin = rawPlugin({ sourceLocale: 'es' });
+    await (plugin.buildStart as () => Promise<void>).call({});
+    expect((plugin.resolveId as (id: string) => string | null).call({}, 'virtual:verbaly')).toBe(
+      '\0virtual:verbaly',
+    );
+  });
 });
 
 describe('build gate', () => {

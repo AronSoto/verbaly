@@ -107,6 +107,17 @@ describe('@verbaly/react', () => {
     expect(container.textContent).toBe('Olá Aron');
   });
 
+  it('server-renders through getServerSnapshot', async () => {
+    const { renderToString } = await import('react-dom/server');
+    const v = makeInstance();
+    const markup = renderToString(
+      <VerbalyProvider instance={v}>
+        <Hello />
+      </VerbalyProvider>,
+    );
+    expect(markup).toContain('Hola Aron');
+  });
+
   it('useLocale reads and sets', () => {
     const v = makeInstance();
     act(() => {
@@ -243,6 +254,23 @@ describe('@verbaly/react <Trans>', () => {
     expect(a.getAttribute('target')).toBe('_blank');
     expect(a.getAttribute('rel')).toBe('noopener');
     expect(a.textContent).toBe('guía');
+  });
+
+  it('throws without an instance prop or a provider', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const bare = createRoot(document.createElement('div'));
+    expect(() => act(() => bare.render(<Trans id="m" />))).toThrow(/instance prop or a <VerbalyProvider>/);
+    act(() => bare.unmount());
+    spy.mockRestore();
+  });
+
+  it('renders void tags with no children', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'line<br></br>break' } } });
+    act(() => {
+      root.render(<Trans id="m" instance={v} />);
+    });
+    expect(container.querySelector('br')).not.toBeNull();
+    expect(container.textContent).toBe('linebreak');
   });
 
   it('components win over links and unsafe hrefs are blocked', () => {

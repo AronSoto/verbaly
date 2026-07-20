@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { displayNames } from '../src/intl';
 import {
   localeDirection,
   localeName,
@@ -87,6 +88,18 @@ describe('resolveLocale', () => {
     vi.stubGlobal('navigator', undefined);
     vi.stubGlobal('localStorage', undefined);
     expect(resolveLocale({ supported: SUPPORTED })).toBe('en');
+  });
+
+  it('uses navigator.language when languages is missing', () => {
+    vi.stubGlobal('navigator', { language: 'pt' });
+    expect(resolveLocale({ supported: SUPPORTED })).toBe('pt');
+  });
+
+  it('an empty supported list falls back to en', () => {
+    stubNavigator(['es']);
+    expect(resolveLocale({ supported: [] })).toBe('en');
+    expect(negotiateLocale('es', [])).toBe('en');
+    expect(resolveRequestLocale({ supported: [] })).toBe('en');
   });
 
   it('survives blocked storage (privacy mode)', () => {
@@ -214,6 +227,47 @@ describe('localeDirection', () => {
     expect(localeDirection('not a locale!')).toBe('ltr');
     expect(localeDirection('')).toBe('ltr');
     expect(localeDirection('AR')).toBe('rtl');
+    expect(localeDirection('ar-!!')).toBe('rtl');
+  });
+});
+
+describe('localeDirection without Intl textInfo (Firefox)', () => {
+  const original = Object.getOwnPropertyDescriptor(Intl, 'Locale')!;
+  const RealLocale = Intl.Locale;
+
+  // emulates engines whose Intl.Locale lacks getTextInfo/textInfo
+  function installFakeLocale(overrides: PropertyDescriptorMap = {}): void {
+    class Fake extends RealLocale {}
+    Object.defineProperties(Fake.prototype, {
+      textInfo: { get: () => undefined, configurable: true },
+      getTextInfo: { value: undefined, configurable: true },
+      ...overrides,
+    });
+    Object.defineProperty(Intl, 'Locale', {
+      value: Fake,
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  afterEach(() => {
+    Object.defineProperty(Intl, 'Locale', original);
+  });
+
+  it('falls back to the script subtag, maximizing when absent', () => {
+    installFakeLocale();
+    expect(localeDirection('az-Arab')).toBe('rtl');
+    expect(localeDirection('ar')).toBe('rtl'); // no script: via maximize()
+    expect(localeDirection('en')).toBe('ltr');
+  });
+
+  it('falls back to the language subtag when no script resolves', () => {
+    installFakeLocale({
+      script: { get: () => undefined, configurable: true },
+      maximize: { value: () => ({ script: undefined }), configurable: true },
+    });
+    expect(localeDirection('ar')).toBe('rtl');
+    expect(localeDirection('en')).toBe('ltr');
   });
 });
 
@@ -235,6 +289,13 @@ describe('localeName', () => {
   it('falls back to the tag itself on garbage', () => {
     expect(localeName('???')).toBe('???');
     expect(localeName('es', '???')).toBe('es');
+  });
+
+  it('falls back to the tag when DisplayNames returns undefined', () => {
+    // Intl allows of() to return undefined (fallback: none engines)
+    const spy = vi.spyOn(displayNames('en'), 'of').mockReturnValue(undefined);
+    expect(localeName('zz', 'en')).toBe('zz');
+    spy.mockRestore();
   });
 });
 

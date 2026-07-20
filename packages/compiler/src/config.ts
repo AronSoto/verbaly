@@ -53,7 +53,11 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
   const locales = new Set<string>([sourceLocale, ...(config.locales ?? [])]);
   if (existsSync(dir)) {
     for (const file of readdirSync(dir)) {
-      if (file.endsWith('.json') && file !== `${PSEUDO_LOCALE}.json`) {
+      if (
+        file.endsWith('.json') &&
+        !file.startsWith('.') &&
+        file !== `${PSEUDO_LOCALE}.json`
+      ) {
         locales.add(file.slice(0, -5));
       }
     }

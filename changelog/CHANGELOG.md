@@ -8,6 +8,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.27.0] · 2026-07-19
+
+**Machine translations now arrive as drafts you review, not as finished work you trust blindly.** `verbaly translate` marks everything it writes as an unreviewed draft, a new `verbaly review` command lets you approve them, and `verbaly check --drafts` can block a merge until a human has signed off. The translation model also gets told where each string lives in your code, so it translates with context. No breaking changes.
+
+### Highlights
+
+- **Machine output is a draft until you say otherwise.** `verbaly translate` still fills the gaps, but every string it writes is now flagged as an unreviewed draft. Your catalogs stay exactly as clean as before: the review state lives in a separate `.verbaly-drafts.json` file next to them.
+- **Approve translations when you have read them.** `verbaly review` lists everything waiting for a human; `verbaly review --approve` accepts it (all of it, or one locale at a time). Importing a translator's file counts as review too, so the draft flag clears automatically.
+- **Block merges on unreviewed machine text.** `verbaly check --drafts` fails CI while any machine translation is still unreviewed. Plain `verbaly check` is unchanged, so nothing breaks until you opt in.
+- **Better translations, because the model gets context.** `verbaly translate` now tells the provider which source files each string appears in, so tone and length fit where the text is actually used.
+- **See what needs review at a glance.** `verbaly status` (and `--json`) now report the count of unreviewed drafts per locale.
+
+### Added
+
+- **Draft tracking** (`@verbaly/compiler`, new `drafts.ts`): a `.verbaly-drafts.json` sidecar in the catalogs directory records which keys are unreviewed machine translations, per locale. It is deliberately a **separate file**: catalogs stay flat JSON with no extra metadata (the format rule holds). Committed like catalogs (review state is shared across the team). Content-compared writes (an unchanged save never churns the file); a corrupt file throws with the path. New exports: `loadDrafts`, `saveDrafts`, `markDrafts`, `clearDrafts`, `effectiveDrafts`, `DRAFTS_FILE`, and the `Drafts` type.
+- **`verbaly review`** (`@verbaly/compiler`): lists machine translations awaiting review (optionally one `--locale`); `--approve` marks them reviewed and clears them from the sidecar. Exit 0 always (it is informational, like `status`).
+- **`verbaly check --drafts`** (`@verbaly/compiler`): opt-in gate that also fails (exit 1) when unreviewed drafts remain, naming the keys per locale. Without the flag, `check` behaves exactly as before (a draft has a value, so it is not "missing").
+- **Source-location context for translation** (`@verbaly/compiler`): `TranslateRequest` gains an optional `origins` map (key → source files); `translateCatalogs` passes the batch's origins through and the built-in Claude provider adds a "where each string appears" section to the prompt. Only the current batch's origins are sent.
+- **Draft count in status** (`@verbaly/compiler`): `LocaleStatus` gains `drafts`; `formatStatusResult` notes `N unreviewed` inline and `status --json` carries the number.
+
+### Changed
+
+- **`verbaly translate` marks its output as drafts** (`@verbaly/compiler`): the CLI writes the translated values (as always) and records each written key in the sidecar; the log line now reads `+N translated (draft)`.
+- **`verbaly import` clears the draft flag for imported keys** (`@verbaly/compiler`): a file coming back from a human (or a TMS) is reviewed by definition, so its keys leave the draft set. Dry-run touches nothing.
+- **Locale discovery ignores dotfile sidecars** (`@verbaly/compiler`, `config.ts`): `resolveConfig` no longer treats a `.json` file whose name starts with `.` as a locale, so `.verbaly-drafts.json` never becomes a phantom locale (same spirit as the existing pseudo-catalog exclusion). A new sidecar file needs no further change.
+
+### Notes
+
+- Design (with Aron, 2026-07-19): the "draft + review" pipeline is the market's consolidated pattern (translate only what changed, mark it as a draft, gate on review). Verbaly's stable keys already give "translate only what changed" for free (a changed source is a new key), so this release adds the missing half: review state and a gate, without a proprietary catalog format. The sidecar is the deliberate choice over embedding metadata in catalogs (pillar 3: simple surface, the flat-JSON rule stays true).
+- Runtime untouched: this is a compiler/CLI-only release. Core bundle sizes unchanged (**3.29 KB tree-shaken** · 5.54 KB full · 1.60 KB devtools, min+gzip) and the bench is unchanged (last run 0.26.0: lookup 53.6× · interpolation 9.7× · plural 5.0× · currency 5.5× vs i18next 26).
+- **Quality pass (this iteration):** test coverage lifted repo-wide with behavior tests only (no `src/` change beyond this feature): **lines 93.2% → 99.6%**, statements 91.8% → 99.0%, branches 85.8% → 95.1%. The Codecov badge tracks line coverage. The Socket score (77) is Supply-Chain-Security only, with zero alerts: it reflects package age and a single maintainer, not code, and rises with time.
+- **768 tests** (compiler **358** · core **227** · next 41 · nuxt 25 · svelte 25 · vite 23 · react 18 · vue 16 · sveltekit 13 · unplugin 12 · astro 10), was 622. The feature adds the compiler's `drafts` unit suite plus translate/review/check/import/status CLI paths; the rest of the jump is the coverage pass.
+- publint/attw unchanged (no export-shape or packaging change beyond new named exports from `@verbaly/compiler`).
+- Competitive seal 0.27.0 (2026-07-19, re-check): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.6. The "keyless" angle is now shared (next-intl `useExtracted`, Lingo.dev Compiler); Verbaly's edge stays the full write→ship cycle across every framework, and this release adds the reviewed-machine-translation gate that the compiler-based tools in the space do not offer built-in.
+
+### Docs impact (synced)
+
+- **`docs/reference/cli`**: new `verbaly review` row (list drafts, `--approve` accepts, optional `--locale`); `check` row gains `--drafts` (opt-in gate on unreviewed machine translations); `translate` row notes its output is marked as a draft; `status` row notes the unreviewed count; `import` row notes it clears the draft flag; new "Review the drafts" section with the loop.
+- **`docs/guide/translators`**: extend the machine-translation story into a draft → review → approve loop (translate marks drafts, `review --approve` or an imported file accepts them, `check --drafts` gates CI). Mention the `.verbaly-drafts.json` sidecar is committed and never edited by hand.
+- **`docs/reference/api`** (if it lists compiler exports): add `loadDrafts`/`saveDrafts`/`markDrafts`/`clearDrafts`/`effectiveDrafts`/`DRAFTS_FILE` and the `Drafts` type; `TranslateRequest` gains `origins`.
+- **Landing compare table**: seal identical; if a row mentions machine translation, it can now say "with a review gate".
+- **`/changelog`** (`releases.ts` + new `changelog_rel.v0_27_0` keys ×3): 0.27.0 entry, theme + Highlights above in plain language.
+- Bump web to `verbaly@^0.27.0` + `@verbaly/compiler@^0.27.0` (+ the other `@verbaly/*` it depends on), **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.26.0] · 2026-07-18
 
 **Astro joins the family, and adopting Verbaly on an existing app stops being a chore.** A new `@verbaly/astro` integration wires everything with one line and runs the per-locale rendering by itself; the compiler now extracts text written directly in `.astro` files; a new `verbaly wrap` command finds your hardcoded JSX text and wraps it for you; and `verbaly check` can now report failures as clickable annotations on your GitHub pull requests. No breaking changes.

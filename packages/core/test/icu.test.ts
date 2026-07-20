@@ -89,4 +89,26 @@ describe('ICU escape-hatch', () => {
   it('malformed variant without braces renders empty', () => {
     expect(t('{n, plural, one}')('m', { n: 1 })).toBe('');
   });
+
+  it('doubled apostrophe inside a quoted section', () => {
+    expect(t("{n, plural, other {'# can''t'}}")('m', { n: 5 })).toBe("# can't");
+  });
+
+  it('argument without a comma degrades to a simple param', () => {
+    const f = t('{a b} {n, plural, one {# item} other {# items}}');
+    expect(f('m', { a: 'X', n: 2 })).toBe('X 2 items');
+  });
+
+  it('date without a style uses the locale default', () => {
+    expect(t('{d, date}')('m', { d: new Date(2026, 0, 15) })).toContain('2026');
+  });
+
+  it('tolerates a missing comma after the plural keyword', () => {
+    const f = t('{n, plural one {# item} other {# items}}');
+    expect(f('m', { n: 1 })).toBe('1 item');
+  });
+
+  it('unterminated trailing argument never crashes', () => {
+    expect(t('{n, number} and {x, number')('m', { n: 1, x: 2 })).toBe('1 and 2');
+  });
 });

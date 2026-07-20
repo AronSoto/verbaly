@@ -34,10 +34,19 @@ export function claudeProvider(options: ClaudeProviderOptions = {}): TranslatePr
 }
 
 export function buildPrompt(request: TranslateRequest): string {
+  const origins = request.origins;
+  const context =
+    origins && Object.keys(origins).length
+      ? `\n\nWhere each string appears (context for tone and length, do not translate these paths):\n` +
+        Object.entries(origins)
+          .map(([key, files]) => `  ${key}: ${files.join(', ')}`)
+          .join('\n')
+      : '';
   return (
     `Translate each value from "${request.sourceLocale}" to "${request.targetLocale}". ` +
     `Return a JSON object with the same keys and translated values.\n\n` +
-    JSON.stringify(request.messages, null, 2)
+    JSON.stringify(request.messages, null, 2) +
+    context
   );
 }
 

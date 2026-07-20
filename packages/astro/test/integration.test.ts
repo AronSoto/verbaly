@@ -130,6 +130,42 @@ describe('verbaly astro integration', () => {
     expect(existsSync(join(dist, 'es'))).toBe(false);
   });
 
+  it('warns about keys it could not pre-fill during the mirror', async () => {
+    const { root, dist } = makeProject();
+    // a key present in no catalog: the mirror reports it, never invents it
+    writeFileSync(
+      join(dist, 'index.html'),
+      '<html><body><p data-verbaly="ghost">?</p></body></html>',
+    );
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await runBuild(root, dist, { render: true });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('keys not pre-filled: ghost'));
+    log.mockRestore();
+    warn.mockRestore();
+  });
+
+  it('injects types even when the source catalog is missing', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-astro-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ greet: 'Hola' }));
+    let injected: { content: string } | undefined;
+    const integration = verbaly();
+    integration.hooks['astro:config:setup']({
+      config: { root: pathToFileURL(root + '/') },
+      updateConfig: () => undefined,
+    });
+    await integration.hooks['astro:config:done']({
+      buildOutput: 'static',
+      injectTypes: (t) => {
+        injected = t;
+        return fakeInjectTypes(root)(t);
+      },
+    });
+    // no en.json: the generated dts still lands, just with no keys
+    expect(injected?.content).toContain("declare module 'virtual:verbaly'");
+  });
+
   it('skips render on server output and says why', async () => {
     const { root, dist } = makeProject();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);

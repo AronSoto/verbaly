@@ -37,4 +37,9 @@ describe('@verbaly/next loader', () => {
     const { code } = await run(source, 'C:/app/node_modules/pkg/index.js');
     expect(code).toBe(source);
   });
+
+  it('reports a transform error through the async callback', async () => {
+    // unterminated template in a transform target: Babel throws, loader forwards it
+    await expect(run('const x = t`Hello', 'C:/app/src/broken.tsx')).rejects.toThrow();
+  });
 });

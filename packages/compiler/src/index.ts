@@ -22,6 +22,14 @@ export {
   transformSource,
 } from './plugin';
 export { doctor } from './doctor';
+export {
+  DRAFTS_FILE,
+  clearDrafts,
+  effectiveDrafts,
+  loadDrafts,
+  markDrafts,
+  saveDrafts,
+} from './drafts';
 export { exportCatalogs, importCatalogs, isMobileFormat, parseExchangeFile } from './exchange';
 export { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export { detectBundler, init } from './init';
@@ -47,6 +55,7 @@ export type {
 } from './analyze';
 export type { RuntimeModuleOptions } from './codegen';
 export type { Catalog, Catalogs } from './catalog';
+export type { Drafts } from './drafts';
 export type { CheckResult, MissingEntry, UnknownEntry } from './check';
 export type { DoctorEntry, DoctorResult } from './doctor';
 export type {

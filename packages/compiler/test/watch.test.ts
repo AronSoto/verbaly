@@ -37,6 +37,54 @@ describe('watchProject', () => {
     }
   });
 
+  it('queues a change that lands mid-run and re-runs after', async () => {
+    const cfg = makeProject();
+    let runs = 0;
+    const stop = watchProject(
+      cfg,
+      async () => {
+        runs += 1;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      },
+      { debounce: 10 },
+    );
+    try {
+      writeFileSync(join(cfg.root, 'src', 'a.ts'), 't`a`;');
+      await vi.waitFor(() => expect(runs).toBe(1), { timeout: 5000 });
+      // the first run is still sleeping: this change must queue, not get lost
+      writeFileSync(join(cfg.root, 'src', 'b.ts'), 't`b`;');
+      await vi.waitFor(() => expect(runs).toBe(2), { timeout: 5000 });
+    } finally {
+      stop();
+    }
+  });
+
+  it('survives a failing run and keeps watching', async () => {
+    const cfg = makeProject();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let runs = 0;
+    const stop = watchProject(
+      cfg,
+      async () => {
+        runs += 1;
+        if (runs === 1) throw new Error('boom');
+      },
+      { debounce: 10 },
+    );
+    try {
+      writeFileSync(join(cfg.root, 'src', 'a.ts'), 't`a`;');
+      await vi.waitFor(() => expect(runs).toBe(1), { timeout: 5000 });
+      await vi.waitFor(() =>
+        expect(warn.mock.calls.map((c) => c.join(' ')).join('\n')).toContain('watch run failed'),
+      );
+      writeFileSync(join(cfg.root, 'src', 'b.ts'), 't`b`;');
+      await vi.waitFor(() => expect(runs).toBe(2), { timeout: 5000 });
+    } finally {
+      stop();
+      warn.mockRestore();
+    }
+  });
+
   it('coalesces a burst of changes into one run', async () => {
     const cfg = makeProject();
     let runs = 0;

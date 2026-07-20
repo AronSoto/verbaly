@@ -54,4 +54,10 @@ describe('MessageRegistry', () => {
     registry.update('b.ts', analyze("t('k');", 'b.ts'));
     expect(registry.usedKeys().get('k')).toEqual(['a.ts', 'b.ts']);
   });
+
+  it('origins lists a tagged-only message that no t() call references', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze('t`Solo`;', 'a.ts'));
+    expect(registry.origins().get(stableKey('Solo'))).toEqual(['a.ts']);
+  });
 });

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stableKey } from '@verbaly/compiler';
@@ -225,6 +225,23 @@ describe('dev server', () => {
     // real external edit afterwards reloads
     writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ [KEY]: 'Hello {name}' }));
     emit('change', join(root, 'locales', 'en.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(2);
+  });
+
+  it('reloads when its self-written catalog is gone from disk', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    transform(CODE, join(root, 'src', 'app.ts'));
+    await sleep(150); // records the self-write and writes es.json
+    expect(state.reloads).toBe(1);
+
+    // the file the plugin just wrote is removed: safeRead throws, so the echo is not swallowed
+    rmSync(join(root, 'locales', 'es.json'));
+    emit('change', join(root, 'locales', 'es.json'));
     await sleep(100);
     expect(state.reloads).toBe(2);
   });

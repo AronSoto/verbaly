@@ -86,6 +86,25 @@ describe('analyzeSfc svelte', () => {
     const { tagged } = analyzeSfc('<p>{$t`oops', 'App.svelte');
     expect(tagged).toHaveLength(0);
   });
+
+  it('skips empty script blocks', () => {
+    const code = '<script></script>\n<p>{$t`Hi`}</p>';
+    const { tagged } = analyzeSfc(code, 'App.svelte');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('Hi');
+  });
+
+  it('recovers when a script block does not parse', () => {
+    const { tagged, usedKeys } = analyzeSfc("<script>const a = t('x</script>", 'App.svelte');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('scans escaped backticks inside markup templates', () => {
+    const { tagged } = analyzeSfc('<p>{$t`a \\` b`}</p>', 'App.svelte');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('a ` b');
+  });
 });
 
 describe('analyzeSfc vue', () => {
@@ -122,6 +141,43 @@ describe('analyzeSfc vue', () => {
     const code = '<style>\n.x::before { content: "t`nope`"; }\n</style>';
     const { tagged } = analyzeSfc(code, 'App.vue');
     expect(tagged).toHaveLength(0);
+  });
+
+  it('skips t.id without a template in markup', () => {
+    const { tagged, usedKeys } = analyzeSfc("<p>{{ t.id('home') }}</p>", 'App.vue');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('skips an unterminated t.id at EOF', () => {
+    const { tagged, usedKeys } = analyzeSfc("<p>{{ t.id('x", 'App.vue');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('skips candidates already consumed by an outer expression', () => {
+    const { tagged, usedKeys } = analyzeSfc("<p>{{ t`Hi ${t('x')}` }}</p>", 'App.vue');
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0]?.message).toBe('Hi {_0}');
+    // the inner call is reported once, not re-scanned as its own candidate
+    expect(usedKeys.map((u) => u.key)).toEqual(['x']);
+  });
+
+  it('abandons mismatched brackets in markup', () => {
+    const { tagged, usedKeys } = analyzeSfc('<p>{{ t(} }}</p>', 'App.vue');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('handles escaped quotes inside call arguments', () => {
+    const { usedKeys } = analyzeSfc("<p>{{ t('don\\'t') }}</p>", 'App.vue');
+    expect(usedKeys.map((u) => u.key)).toEqual(["don't"]);
+  });
+
+  it('survives an unterminated string at EOF', () => {
+    const { tagged, usedKeys } = analyzeSfc("<p>{{ t('oops", 'App.vue');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
   });
 });
 

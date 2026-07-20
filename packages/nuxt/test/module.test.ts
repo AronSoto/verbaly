@@ -73,6 +73,16 @@ describe('verbalyModule', () => {
     expect(nuxt.options.runtimeConfig.public.verbaly).toEqual({ cookie: false });
   });
 
+  it('getOptions merges configKey options with inline overrides', async () => {
+    const { nuxt } = makeNuxt({ cookie: 'from-config', fallback: 'pt' });
+    expect(await verbalyModule.getOptions({ cookie: 'inline' }, nuxt)).toEqual({
+      cookie: 'inline',
+      fallback: 'pt',
+    });
+    // no args at all: an empty options object, never a throw on the optional chains
+    expect(await verbalyModule.getOptions()).toEqual({});
+  });
+
   it('is assignable to Nuxt NuxtModule (type-level)', () => {
     const typed: NuxtModule<VerbalyNuxtOptions> = verbalyModule;
     expect(typeof typed).toBe('function');

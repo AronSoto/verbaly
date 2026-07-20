@@ -143,6 +143,43 @@ describe('withVerbaly', () => {
     expect(runtime).toContain('"fallback":"es"');
   });
 
+  it('defaults to an empty base config when called with no config', async () => {
+    const root = makeProject();
+    const config = await withVerbaly<NextConfigLike>(undefined, { root, ...inline })(SERVER);
+    expect(config.turbopack?.resolveAlias).toBeDefined();
+  });
+
+  it('registers the webpack module-replacement plugin when the instance is present', async () => {
+    const root = makeProject();
+    const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
+    const created: Array<[RegExp, string]> = [];
+    class FakePlugin {
+      constructor(test: RegExp, resource: string) {
+        created.push([test, resource]);
+      }
+    }
+    const webpackConfig: WebpackConfigLike = {};
+    (config.webpack as (c: WebpackConfigLike, ctx: unknown) => unknown)(webpackConfig, {
+      webpack: { NormalModuleReplacementPlugin: FakePlugin },
+    });
+    expect(webpackConfig.plugins).toHaveLength(1);
+    expect(created[0]![0]).toEqual(/^virtual:verbaly$/);
+    expect(created[0]![1]).toBe(join(root, '.verbaly', 'index.js'));
+  });
+
+  it('appends to a turbopack "*" rule that is already an array', async () => {
+    const root = makeProject();
+    const user: NextConfigLike = {
+      turbopack: { rules: { '*': [{ loaders: ['a'] }, { loaders: ['b'] }] } },
+    };
+    const config = await withVerbaly(user, { root, ...inline })(BUILD);
+    const star = (config.turbopack?.rules as Record<string, unknown>)['*'] as Array<{
+      loaders: string[];
+    }>;
+    expect(star).toHaveLength(3);
+    expect(star[2]?.loaders).toEqual(['@verbaly/next/loader']);
+  });
+
   it('other phases only compose config: no filesystem work', async () => {
     const root = makeProject();
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(SERVER);

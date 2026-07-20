@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { resolveConfig } from '../src/config';
 import { renderHtml, renderSite } from '../src/render';
 
@@ -205,6 +205,65 @@ describe('renderHtml', () => {
     expect(html).not.toContain('<a');
   });
 
+  it('reports a missing key referenced only by data-verbaly-attr', () => {
+    const { html, missing } = render(
+      '<input data-verbaly-attr=\'{"placeholder":"nope"}\' placeholder="x">',
+    );
+    expect(missing).toEqual(['nope']);
+    expect(html).toContain('placeholder="x"');
+  });
+
+  it('skips non-string values in a data-verbaly-attr map', () => {
+    const { html } = render('<div data-verbaly-attr=\'{"title":123,"aria-label":"nav.aria"}\'></div>');
+    expect(html).toContain('aria-label="Menú principal"');
+    expect(html).not.toContain('title="123"');
+  });
+
+  it('warns and ignores an invalid args JSON blob', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { html } = render('<p data-verbaly="home.intro" data-verbaly-args="{not json}"></p>');
+      // args unparsed: the {name} placeholder stays literal, no crash
+      expect(html).toContain('Hola {name}');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid args JSON'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('leaves an unclosed element untouched (no closing tag found)', () => {
+    const { html } = render('<div data-verbaly="home.hint"><span>keep');
+    // findClose returns null: content is not rewritten
+    expect(html).toContain('<span>keep');
+    expect(html).not.toContain('Busca y encuentra');
+  });
+
+  it('ignores a same-name closing tag that lives inside a comment', () => {
+    const input = '<div data-verbaly="home.hint"><!-- </div> --></div><div>after</div>';
+    const { html } = render(input);
+    expect(html).toContain('>Busca y encuentra<');
+    expect(html).toContain('<div>after</div>');
+  });
+
+  it('counts a nested self-closing same-name tag as no depth change', () => {
+    const catalogs = { en: { k: 'Text' } };
+    const { html } = renderHtml('<div data-verbaly="k"><div/></div><div>tail</div>', {
+      locale: 'en',
+      catalogs,
+    });
+    expect(html).toContain('>Text<');
+    expect(html).toContain('<div>tail</div>');
+  });
+
+  it('merges per-element links when there is no global map', () => {
+    const catalogs = { en: { m: 'see <repo>repo</repo>' } };
+    const { html } = renderHtml(
+      '<p data-verbaly="m" data-verbaly-rich data-verbaly-links=\'{"repo":"https://gh.io/x"}\'></p>',
+      { locale: 'en', catalogs },
+    );
+    expect(html).toContain('<a href="https://gh.io/x">repo</a>');
+  });
+
   it('injects hreflang alternates into <head>', () => {
     const { html } = renderHtml('<html><head><title>x</title></head><body></body></html>', {
       locale: 'es',
@@ -393,6 +452,23 @@ describe('renderSite', () => {
     expect(xml).toContain('xhtml:link rel="alternate" hreflang="es"');
     expect(xml).toContain('hreflang="x-default"'); // valid as an alternate link
     expect((xml.match(/<loc>/g) ?? []).length).toBe(2); // one <url> per locale, not x-default
+  });
+
+  it('dedupes a missing key seen on several pages', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'about'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    const page = '<html><head></head><body><p data-verbaly="ghost"></p></body></html>';
+    writeFileSync(join(dist, 'index.html'), page);
+    writeFileSync(join(dist, 'about', 'index.html'), page);
+
+    const cfg = resolveConfig({ root, sourceLocale: 'en', render: { baseUrl: 'https://verb.dev' } });
+    const result = await renderSite(cfg);
+    // same missing key on both pages, listed once per locale
+    expect(result.missing.es).toEqual(['ghost']);
   });
 
   it('clean removes stale locale pages before mirroring', async () => {

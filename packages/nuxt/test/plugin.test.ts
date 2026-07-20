@@ -76,6 +76,17 @@ describe('runtime plugin (server)', () => {
     expect(instance.locale).toBe('pt');
   });
 
+  it('skips cookie parts with no "=" and still finds the locale', async () => {
+    const instance = await run({ cookie: 'flagonly; verbaly-locale=pt' });
+    expect(instance.locale).toBe('pt');
+  });
+
+  it('falls back when a cookie value cannot be percent-decoded', async () => {
+    // a lone % makes decodeURIComponent throw: the raw value is kept, then ignored as a locale
+    const instance = await run({ cookie: 'verbaly-locale=%', 'accept-language': 'es' });
+    expect(instance.locale).toBe('es');
+  });
+
   it('honors a custom fallback', async () => {
     resetNuxtMock({ verbaly: { fallback: 'pt' } });
     const instance = await run({ 'accept-language': 'fr' });

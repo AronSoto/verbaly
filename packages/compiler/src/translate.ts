@@ -6,6 +6,7 @@ export interface TranslateRequest {
   sourceLocale: string;
   targetLocale: string;
   messages: Record<string, string>;
+  origins?: Record<string, string[]>;
 }
 
 export type TranslateProvider = (request: TranslateRequest) => Promise<Record<string, string>>;
@@ -14,6 +15,7 @@ export interface TranslateOptions {
   locales?: string[];
   batchSize?: number;
   dryRun?: boolean;
+  origins?: Record<string, string[]>;
 }
 
 export interface TranslateResult {
@@ -47,10 +49,16 @@ export async function translateCatalogs(
     for (let i = 0; i < missing.length; i += batchSize) {
       const keys = missing.slice(i, i + batchSize);
       const messages = Object.fromEntries(keys.map((key) => [key, source[key]!]));
+      const origins = options.origins
+        ? Object.fromEntries(
+            keys.filter((key) => options.origins![key]).map((key) => [key, options.origins![key]!]),
+          )
+        : undefined;
       const out = await provider({
         sourceLocale: cfg.sourceLocale,
         targetLocale: locale,
         messages,
+        origins,
       });
       for (const key of keys) {
         const text = out[key];

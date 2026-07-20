@@ -74,6 +74,62 @@ describe('attachDevtools', () => {
     expect(scans).toBe(settled);
   });
 
+  it('skips elements with an empty key attribute', () => {
+    document.body.innerHTML = '<p data-verbaly=""></p><p data-verbaly="a"></p>';
+    detach = attachDevtools(make());
+    expect(document.querySelector('.ok')!.textContent).toBe('1 ok');
+    expect(document.querySelector('.miss')!.textContent).toBe('0 missing');
+  });
+
+  describe('hover inspector', () => {
+    function hover(el: Element | Document, init: MouseEventInit = {}) {
+      el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...init }));
+    }
+    const tip = () => document.querySelector<HTMLElement>('.verbaly-dt-tip')!;
+
+    it('stays hidden without the modifier or off a bound element', () => {
+      document.body.innerHTML = '<p data-verbaly="a"></p><span id="plain"></span>';
+      detach = attachDevtools(make());
+      hover(document.querySelector('[data-verbaly]')!);
+      expect(tip().hidden).toBe(true);
+      hover(document.getElementById('plain')!, { altKey: true });
+      expect(tip().hidden).toBe(true);
+    });
+
+    it('shows key, hit status and source on a translated element', () => {
+      document.body.innerHTML = '<p data-verbaly="a"></p>';
+      detach = attachDevtools(make());
+      hover(document.querySelector('[data-verbaly]')!, { altKey: true });
+      expect(tip().hidden).toBe(false);
+      expect(tip().querySelector('.verbaly-dt-key')!.textContent).toBe('a');
+      expect(tip().querySelector('.verbaly-dt-row.hit')!.textContent).toBe('hit');
+      expect(tip().querySelector('.verbaly-dt-src')!.textContent).toBe('Ae');
+    });
+
+    it('names the fallback locale and marks misses without a source', () => {
+      document.body.innerHTML = '<p data-verbaly="b"></p><p data-verbaly="nope"></p>';
+      detach = attachDevtools(make());
+      const [fallback, miss] = document.querySelectorAll('[data-verbaly]');
+      hover(fallback!, { altKey: true });
+      expect(tip().querySelector('.verbaly-dt-row.fallback')!.textContent).toBe(
+        'fallback · from en',
+      );
+      hover(miss!, { altKey: true });
+      expect(tip().querySelector('.verbaly-dt-row.miss')!.textContent).toBe('miss');
+      expect(tip().querySelector('.verbaly-dt-src')).toBeNull();
+    });
+
+    it('hides again when the modifier is released and honors a custom hotkey', () => {
+      document.body.innerHTML = '<p data-verbaly="a"></p>';
+      detach = attachDevtools(make(), { hotkey: 'ctrl' });
+      const el = document.querySelector('[data-verbaly]')!;
+      hover(el, { ctrlKey: true });
+      expect(tip().hidden).toBe(false);
+      hover(el, { altKey: true });
+      expect(tip().hidden).toBe(true);
+    });
+  });
+
   it('throws without a DOM', () => {
     const doc = globalThis.document;
     // @ts-expect-error simulate SSR

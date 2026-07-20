@@ -79,6 +79,23 @@ describe('translateCatalogs', () => {
     expect(catalogs.es!.a).toBe('');
     expect(catalogs.pt!.a).toBe('HELLO');
   });
+
+  it('passes only the batch keys origins to the provider', async () => {
+    const provider = vi.fn(upper);
+    const catalogs: Catalogs = { en: { a: 'Hi', b: 'Bye' }, es: { a: '', b: '' } };
+    await translateCatalogs(cfg(), catalogs, provider, {
+      origins: { a: ['src/a.ts'], c: ['src/c.ts'] },
+    });
+    // only 'a' has an origin among the missing keys; 'c' is not in this batch
+    expect(provider.mock.calls[0]![0].origins).toEqual({ a: ['src/a.ts'] });
+  });
+
+  it('omits origins when none are provided', async () => {
+    const provider = vi.fn(upper);
+    const catalogs: Catalogs = { en: { a: 'Hi' }, es: { a: '' } };
+    await translateCatalogs(cfg(), catalogs, provider);
+    expect(provider.mock.calls[0]![0].origins).toBeUndefined();
+  });
 });
 
 describe('structureMatches', () => {
@@ -120,5 +137,17 @@ describe('claude provider helpers', () => {
     expect(prompt).toContain('"en"');
     expect(prompt).toContain('"pt"');
     expect(prompt).toContain('Hello {name}');
+    expect(prompt).not.toContain('Where each string appears');
+  });
+
+  it('prompt includes source locations when origins are present', () => {
+    const prompt = buildPrompt({
+      sourceLocale: 'en',
+      targetLocale: 'pt',
+      messages: { a: 'Hello' },
+      origins: { a: ['src/App.tsx', 'src/home.vue'] },
+    });
+    expect(prompt).toContain('Where each string appears');
+    expect(prompt).toContain('a: src/App.tsx, src/home.vue');
   });
 });

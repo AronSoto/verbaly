@@ -5,6 +5,7 @@ import { check, formatCheckResult, githubCheckAnnotations } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { doctor } from './doctor';
+import { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
 import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
@@ -26,6 +27,7 @@ Usage:
   verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
+  verbaly review     list machine translations awaiting review (--approve marks them reviewed)
   verbaly export     write translator files (XLIFF 2.0, CSV) or mobile resources (Android, iOS)
   verbaly import <files…>  fill catalogs back from translated XLIFF/CSV files
   verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
@@ -40,6 +42,8 @@ Options:
   --watch            keep extracting as source files change (extract)
   --write            apply the rewrites instead of only reporting (wrap)
   --json             machine-readable output (status)
+  --drafts           also fail on unreviewed machine translations (check)
+  --approve          mark listed drafts as reviewed (review)
   --reporter <name>  failure format: text (default) or github annotations (check)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would happen, write nothing (translate, import, extract)
@@ -71,6 +75,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       watch: { type: 'boolean' },
       write: { type: 'boolean' },
       json: { type: 'boolean' },
+      drafts: { type: 'boolean' },
+      approve: { type: 'boolean' },
       reporter: { type: 'string' },
       model: { type: 'string' },
       locale: { type: 'string' },
@@ -217,7 +223,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'status') {
     const registry = await extractProject(cfg);
-    const result = status(cfg, loadCatalogs(cfg), registry);
+    const result = status(cfg, loadCatalogs(cfg), registry, loadDrafts(cfg));
     console.log(values.json ? JSON.stringify(result) : formatStatusResult(result));
     return;
   }
@@ -230,9 +236,23 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
     const registry = await extractProject(cfg);
-    const result = check(cfg, loadCatalogs(cfg), registry);
-    if (result.ok) {
+    const catalogs = loadCatalogs(cfg);
+    const result = check(cfg, catalogs, registry);
+    // opt-in: unreviewed machine translations block the merge too
+    const unreviewed = values.drafts ? effectiveDrafts(loadDrafts(cfg), catalogs) : {};
+    const draftKeys = Object.entries(unreviewed);
+    if (result.ok && draftKeys.length === 0) {
       console.log('[verbaly] all translations complete ✓');
+      return;
+    }
+    if (result.ok && draftKeys.length > 0) {
+      for (const [locale, keys] of draftKeys) {
+        console.error(`  [${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
+      }
+      console.error(
+        '[verbaly] check failed: machine translations awaiting review (run verbaly review --approve)',
+      );
+      process.exitCode = 1;
       return;
     }
     if (reporter === 'github') {
@@ -256,6 +276,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       locales: values.locales?.split(','),
       batchSize: cfg.translate.batchSize,
       dryRun: values['dry-run'],
+      // dry-run never calls the provider: skip the full extract origins need
+      origins: values['dry-run'] ? undefined : await collectOrigins(cfg),
     });
 
     if (values['dry-run']) {
@@ -270,10 +292,14 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
 
+    // machine output is a draft until a human reviews it (verbaly review / import)
+    const drafts = loadDrafts(cfg);
     for (const locale of Object.keys(result.translated)) {
       writeCatalog(cfg, locale, catalogs[locale] ?? {});
-      console.log(`  ${locale}: +${result.translated[locale]!.length} translated`);
+      markDrafts(drafts, locale, result.translated[locale]!);
+      console.log(`  ${locale}: +${result.translated[locale]!.length} translated (draft)`);
     }
+    if (Object.keys(result.translated).length > 0) saveDrafts(cfg, drafts);
     for (const [locale, keys] of Object.entries(result.invalid)) {
       console.warn(
         `  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,
@@ -281,6 +307,38 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     }
     if (Object.keys(result.translated).length === 0 && Object.keys(result.invalid).length === 0) {
       console.log('[verbaly] nothing to translate ✓');
+    }
+    return;
+  }
+
+  if (command === 'review') {
+    const catalogs = loadCatalogs(cfg);
+    const drafts = loadDrafts(cfg);
+    const live = effectiveDrafts(drafts, catalogs);
+    const targets = values.locale ? { [values.locale]: live[values.locale] ?? [] } : live;
+    const entries = Object.entries(targets).filter(([, keys]) => keys.length);
+
+    if (entries.length === 0) {
+      console.log('[verbaly] no machine translations awaiting review ✓');
+      return;
+    }
+
+    if (values.approve) {
+      let count = 0;
+      for (const [locale, keys] of entries) {
+        clearDrafts(drafts, locale, keys);
+        count += keys.length;
+        console.log(`  ${locale}: ${keys.length} approved`);
+      }
+      saveDrafts(cfg, drafts);
+      console.log(`[verbaly] ${count} translations marked reviewed ✓`);
+      return;
+    }
+
+    const total = entries.reduce((sum, [, keys]) => sum + keys.length, 0);
+    console.log(`[verbaly] ${total} machine translations awaiting review (--approve to accept)`);
+    for (const [locale, keys] of entries) {
+      console.log(`  ${locale}: ${keys.join(', ')}`);
     }
     return;
   }
@@ -340,11 +398,19 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       overwrite: values.overwrite,
       dryRun: values['dry-run'],
     });
+    // a human file clears the machine-draft flag: the imported text is reviewed
+    const drafts = loadDrafts(cfg);
+    let draftsChanged = false;
     for (const [locale, keys] of Object.entries(result.imported)) {
-      if (!values['dry-run']) writeCatalog(cfg, locale, catalogs[locale] ?? {});
+      if (!values['dry-run']) {
+        writeCatalog(cfg, locale, catalogs[locale] ?? {});
+        clearDrafts(drafts, locale, keys);
+        draftsChanged = true;
+      }
       const verb = values['dry-run'] ? 'would import' : 'imported';
       console.log(`  ${locale}: +${keys.length} ${verb}`);
     }
+    if (draftsChanged) saveDrafts(cfg, drafts);
     for (const [locale, keys] of Object.entries(result.skipped)) {
       console.log(
         `  ${locale}: ${keys.length} already translated, kept (use --overwrite to replace)`,
@@ -405,8 +471,9 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   extract: ['prune', 'dry-run', 'watch'],
   wrap: ['write'],
   status: ['json'],
-  check: ['reporter'],
+  check: ['reporter', 'drafts'],
   translate: ['model', 'dry-run'],
+  review: ['approve', 'locale'],
   export: ['format', 'out', 'missing'],
   import: ['locale', 'overwrite', 'dry-run'],
   pseudo: ['locale'],

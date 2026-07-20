@@ -140,6 +140,27 @@ describe('bindDom', () => {
     warn.mockRestore();
   });
 
+  it('skips non-string attr map values', () => {
+    const v = setup();
+    const el = document.createElement('span');
+    el.setAttribute('data-verbaly-attr', '{"title":"home.title","tabindex":3}');
+    document.body.appendChild(el);
+    unbind = bindDom(v);
+    expect(el.getAttribute('title')).toBe('Hola');
+    expect(el.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('accepts document as root', async () => {
+    const v = setup();
+    unbind = bindDom(v, { root: document });
+    expect(document.querySelector('h1')?.textContent).toBe('Hola');
+    const el = document.createElement('span');
+    el.setAttribute('data-verbaly', 'home.title');
+    document.body.appendChild(el);
+    await tick();
+    expect(el.textContent).toBe('Hola');
+  });
+
   it('safe URL attributes pass through', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: { url: '/es/inicio' } } });
     const a = document.createElement('a');
@@ -349,6 +370,24 @@ describe('bindDom rich links', () => {
     expect(a).not.toBeNull();
     expect(a?.hasAttribute('href')).toBe(false);
     expect(el.textContent).toBe('clic aquí');
+  });
+
+  it('per-element links work without global richLinks', () => {
+    const v = setupLinks();
+    const el = richEl('guide');
+    el.setAttribute('data-verbaly-links', '{"docs":"/guia"}');
+    unbind = bindDom(v);
+    expect(el.querySelector('a')?.getAttribute('href')).toBe('/guia');
+  });
+
+  it('invalid links JSON falls back to global richLinks', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = setupLinks();
+    const el = richEl('guide');
+    el.setAttribute('data-verbaly-links', '{oops');
+    unbind = bindDom(v, { richLinks: { docs: '/docs' } });
+    expect(el.querySelector('a')?.getAttribute('href')).toBe('/docs');
+    warn.mockRestore();
   });
 
   it('unknown link names still unwrap', () => {

@@ -220,6 +220,20 @@ describe('units', () => {
     expect(() => bad.t('d', { d: 'garbage' })).not.toThrow();
     spy.mockRestore();
   });
+
+  it('invalid Date object warns and falls back in auto, hash and list: never throws', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({
+      locale: 'en',
+      messages: { en: { auto: '{d}', hash: '{d | other: seen #}', list: '{d:list}' } },
+    });
+    const invalid = new Date(NaN);
+    expect(bad.t('auto', { d: invalid })).toBe(String(invalid));
+    expect(bad.t('hash', { d: invalid })).toBe(`seen ${String(invalid)}`);
+    expect(bad.t('list', { d: [invalid] })).toBe(String(invalid));
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
 });
 
 describe('unknown format', () => {

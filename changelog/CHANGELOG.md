@@ -8,6 +8,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.28.0] · 2026-07-20
+
+**The translator matrix is complete, and the runtime is measurably harder to crash.** `verbaly export`/`import` now speak gettext PO, so any PO editor or TMS works out of the box. XLIFF files now protect your `{params}` and tags as untouchable chips with meaningful names, so a translator can no longer break them by accident. A custom sitemap filename in `render` is finally honored, a rare crash with invalid dates is fixed, and CI now fails automatically if the runtime ever grows past its size budget. No breaking changes.
+
+### Highlights
+
+- **Export and import gettext PO files.** `verbaly export --format po` writes one `.po` file per language, ready for any PO editor (Poedit, Weblate, Crowdin, …). `verbaly import` reads them back with the same safety net as every other format: a translation that breaks a placeholder is rejected, not shipped. Entries a tool marks as `fuzzy` count as untranslated.
+- **Translators can no longer break your placeholders in XLIFF.** `{params}` and tags now travel as protected codes with meaningful names (`name`, `em`, `link`), so translation tools show them as untouchable chips instead of editable text. Plural and select blocks stay editable on purpose: their words need translating.
+- **Custom sitemap names work now.** `render: { sitemap: 'sitemap.xml' }` used to be ignored and always wrote `sitemap-i18n.xml`. The name you configure is the name you get.
+- **A rare crash is gone.** Passing an invalid date to a message could throw instead of degrading gracefully. Found by the new randomized test suite that now hammers the parser with garbage on every run, so this class of bug stays fixed.
+- **The runtime cannot silently grow.** CI now measures the core bundle (min+gzip) on every push and fails if it exceeds its size budget. The ~3KB promise is enforced by a machine, not a habit.
+
+### Added
+
+- **gettext PO export/import** (`@verbaly/compiler`, new `po.ts`): `verbaly export --format po` writes one `<locale>.po` per target with `msgctxt` = catalog key (keys are hashes, so `msgid` alone cannot identify them), `msgid` = source text, `msgstr` = translation, `#:` location comments from origins, and a `Language:` header. `import` accepts `.po` files: locale from the `Language:` header → filename → `--locale`; multiline string continuations; escaped `\n`/`\t`/`\"`/`\\`; a leading BOM tolerated; `fuzzy`-flagged entries read as untranslated (msgfmt semantics); `msgid_plural`/`msgstr[n>0]` are ignored (Verbaly plurals live inside one message). Values keep the `{name}` syntax verbatim, the gettext norm. `ExchangeFormat` gains `'po'`.
+- **Semantic inline codes in XLIFF** (`@verbaly/compiler`, new `inline.ts`): simple `{params}` export as `<ph id="name" disp="{name}"/>`, paired rich tags as `<pc id="em" dispStart="&lt;em&gt;" dispEnd="&lt;/em&gt;">…</pc>`, self-closing tags (`<br/>`) as `<ph>`. Ids are semantic (the param/tag name, NMTOKEN-sanitized, deduped `name`/`name2`), so TMS editors show meaningful protected chips. Variant params (`{v | one: … | other: …}`) stay raw on purpose: their bodies hold translatable text. `disp` carries the exact source slice, so import reconstructs the message verbatim; when a TMS strips `disp`, the id is the fallback and the structural gate still validates the result. Escapes (`{{`, `}}`, `||`) and nesting round-trip losslessly.
+- **Size gate in CI** (`verbaly` core, new `scripts/size.mjs` + `size` script): bundles the three sealed surfaces from `dist` (tree-shaken `createVerbaly`, full core, devtools) with esbuild, measures min+gzip and fails when a budget is exceeded (3.55 / 6.00 / 1.75 KB: the sealed sizes plus ~8% headroom for esbuild variance). Wired into both workflows (`ci.yml` after build, `release.yml` before publish). Raising a budget is a conscious, changelog-documented decision (pillar 2).
+- **Property-based parser tests** (`verbaly` core, new `test/property.test.ts`, devDep `fast-check`): the never-crash invariant (pillar 3) as properties over random strings plus a syntax-soup generator (braces, variants, formats, tags, entities): `parse` and `parseTags` accept anything, `t` always returns a string and formats deterministically for any catalog message and any params (numbers, dates, invalid dates, objects, null).
+
+### Fixed
+
+- **Custom sitemap filename honored in `render`** (`@verbaly/compiler`): `render.sitemap: 'name.xml'` (or `--sitemap` with a config string) was collapsed to a boolean by the enable check, so the string branch was dead code and the file was always `sitemap-i18n.xml`. The flag and the name are now computed separately (backlog finding, 2026-07-19).
+- **Invalid `Date` no longer crashes `t`** (`verbaly` core): an invalid Date reaching auto-format, a variant `#` or a `:list` item threw `RangeError: Invalid time value` from `Intl.DateTimeFormat` (the one unguarded path). `autoFormat` now degrades like every other bad input: `warnOnce` + the plain value. Found by the new property tests on their first run.
+
+### Notes
+
+- Bench re-run (ritual): lookup **28.6×**, interpolation **10.5×**, plural **5.4×**, currency **5.4×** vs i18next 26, in family with 0.26.0 (53.6×/9.7×/5.0×/5.5×) and 0.24.0 (28.8×/11.1×/5.0×/5.8×).
+- Bundle sizes: **3.31 KB tree-shaken** (+0.02 = the invalid-date guard) · **5.57 KB full** (+0.03) · 1.60 KB devtools (min+gzip), now measured by the committed script instead of an ad-hoc harness: the gate reproduces the sealed numbers.
+- **783 tests** (compiler **368** · core **232** · next 41 · nuxt 25 · svelte 25 · vite 23 · react 18 · vue 16 · sveltekit 13 · unplugin 12 · astro 10), was 768: +10 compiler (custom-sitemap regression + inline codes and PO suites), +5 core (4 properties + the invalid-Date regression).
+- New devDeps (build/test-time only, the shipped runtime stays zero-dep): `fast-check ^4.9.0`, `esbuild ^0.28.1` (core). eslint config gains node globals for `**/scripts/*.mjs`.
+- New compiler exports: none beyond the widened `ExchangeFormat`; `inline.ts`/`po.ts` stay internal (the public surface is `exportCatalogs`/`importCatalogs`/`parseExchangeFile`, unchanged).
+- Competitive seal 0.28.0 (2026-07-20, re-check): i18next 26.3.6 · Lingui 6.5.0 · typesafe-i18n 5.27.1 · Paraglide 2.22.0 · next-intl 4.13.2 · @nuxtjs/i18n 10.4.1 · svelte-i18n 4.0.1 · **vue-i18n 11.4.7** (was 11.4.6, patch). Territory unchanged; with PO the TMS matrix (XLIFF 2.0/1.2 · CSV · PO · mobile delivery) is broader than any compiler-based tool in the space.
+
+### Docs impact (synced)
+
+- **`docs/reference/cli`**: `export` row gains `po` in the format list (`xliff`, `csv`, `po`, `android-xml`, `ios-strings`); `import` row mentions `.po` files and that `fuzzy` entries count as untranslated; if the `render` row describes the sitemap, no text change needed (the configured name simply works now).
+- **`docs/guide/translators`**: add PO to the round-trip story (one `.po` per language, `msgctxt` is the key, locations as `#:` comments, works with any PO editor); mention that XLIFF now protects `{params}` and tags as named chips so translators cannot break them, while plural/select bodies stay editable.
+- **Landing compare table**: the TMS/export row can now say XLIFF, CSV and gettext PO.
+- **`/changelog`** (`releases.ts` + new `changelog_rel.v0_28_0` keys ×3): 0.28.0 entry, theme + Highlights above in plain language.
+- Bump web to `verbaly@^0.28.0` + `@verbaly/compiler@^0.28.0` + `@verbaly/astro@^0.28.0`, **`pnpm install` only after the npm publish**.
+
+---
+
 ## [0.27.0] · 2026-07-19
 
 **Machine translations now arrive as drafts you review, not as finished work you trust blindly.** `verbaly translate` marks everything it writes as an unreviewed draft, a new `verbaly review` command lets you approve them, and `verbaly check --drafts` can block a merge until a human has signed off. The translation model also gets told where each string lives in your code, so it translates with context. No breaking changes.

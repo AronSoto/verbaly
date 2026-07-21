@@ -214,7 +214,9 @@ describe('renderHtml', () => {
   });
 
   it('skips non-string values in a data-verbaly-attr map', () => {
-    const { html } = render('<div data-verbaly-attr=\'{"title":123,"aria-label":"nav.aria"}\'></div>');
+    const { html } = render(
+      '<div data-verbaly-attr=\'{"title":123,"aria-label":"nav.aria"}\'></div>',
+    );
     expect(html).toContain('aria-label="Menú principal"');
     expect(html).not.toContain('title="123"');
   });
@@ -454,6 +456,26 @@ describe('renderSite', () => {
     expect((xml.match(/<loc>/g) ?? []).length).toBe(2); // one <url> per locale, not x-default
   });
 
+  it('writes the sitemap under a custom filename when sitemap is a string', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(dist, { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
+
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      render: { baseUrl: 'https://verb.dev', sitemap: 'custom.xml' },
+    });
+    await renderSite(cfg);
+    expect(existsSync(join(dist, 'sitemap-i18n.xml'))).toBe(false);
+    const xml = readFileSync(join(dist, 'custom.xml'), 'utf8');
+    expect(xml).toContain('<loc>https://verb.dev/</loc>');
+  });
+
   it('dedupes a missing key seen on several pages', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
     const dist = join(root, 'dist');
@@ -465,7 +487,11 @@ describe('renderSite', () => {
     writeFileSync(join(dist, 'index.html'), page);
     writeFileSync(join(dist, 'about', 'index.html'), page);
 
-    const cfg = resolveConfig({ root, sourceLocale: 'en', render: { baseUrl: 'https://verb.dev' } });
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      render: { baseUrl: 'https://verb.dev' },
+    });
     const result = await renderSite(cfg);
     // same missing key on both pages, listed once per locale
     expect(result.missing.es).toEqual(['ghost']);

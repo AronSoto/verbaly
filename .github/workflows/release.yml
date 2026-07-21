@@ -56,6 +56,9 @@ jobs:
         run: pnpm build
 
       - if: steps.version.outputs.new == 'true'
+        run: pnpm --filter verbaly size
+
+      - if: steps.version.outputs.new == 'true'
         run: pnpm test
 
       - if: steps.version.outputs.new == 'true'

@@ -2,10 +2,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import type { Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
+import { escapeXml, inlineToMessage, messageToInline, unescapeXml } from './inline';
 import { androidValuesDir, toAndroidXml, toIosStrings } from './mobile';
+import { parsePo, toPo } from './po';
 import { structureMatches } from './translate';
 
-export type ExchangeFormat = 'xliff' | 'csv';
+export type ExchangeFormat = 'xliff' | 'csv' | 'po';
 export type MobileFormat = 'android-xml' | 'ios-strings';
 export type ExportFormat = ExchangeFormat | MobileFormat;
 
@@ -77,8 +79,14 @@ export function exportCatalogs(
     const untranslated = all.filter((entry) => !entry.target);
     const entries = options.missing ? untranslated : all;
 
-    const path = join(dir, `${locale}.${format === 'csv' ? 'csv' : 'xlf'}`);
-    const content = format === 'csv' ? toCsv(entries) : toXliff(cfg.sourceLocale, locale, entries);
+    const ext = format === 'xliff' ? 'xlf' : format;
+    const path = join(dir, `${locale}.${ext}`);
+    const content =
+      format === 'csv'
+        ? toCsv(entries)
+        : format === 'po'
+          ? toPo(cfg.sourceLocale, locale, entries)
+          : toXliff(cfg.sourceLocale, locale, entries);
     writeFileSync(path, content);
     files.push({
       locale,
@@ -197,10 +205,15 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
     const locale = localeOverride ?? basename(file).replace(/\.csv$/i, '');
     return { locale, entries: parseCsv(content) };
   }
-  throw new Error(`[verbaly] ${file}: unsupported format, expected .xlf, .xliff or .csv.`);
+  if (/\.po$/i.test(file)) {
+    const parsed = parsePo(content);
+    const locale = localeOverride ?? parsed.locale ?? basename(file).replace(/\.po$/i, '');
+    return { locale, entries: parsed.entries };
+  }
+  throw new Error(`[verbaly] ${file}: unsupported format, expected .xlf, .xliff, .csv or .po.`);
 }
 
-// XLIFF 2.0 (writes) / 2.0 + 1.2 (reads)
+// XLIFF 2.0 (writes) / 2.0 + 1.2 (reads); params/tags travel as <ph>/<pc> inline codes
 function toXliff(sourceLocale: string, locale: string, entries: ExchangeEntry[]): string {
   const units = entries
     .map(({ key, source, target, location }) =>
@@ -216,8 +229,8 @@ function toXliff(sourceLocale: string, locale: string, entries: ExchangeEntry[])
             ]
           : []),
         `      <segment state="${target ? 'translated' : 'initial'}">`,
-        `        <source>${escapeXml(source)}</source>`,
-        `        <target>${escapeXml(target)}</target>`,
+        `        <source>${messageToInline(source)}</source>`,
+        `        <target>${messageToInline(target)}</target>`,
         '      </segment>',
         '    </unit>',
       ].join('\n'),
@@ -244,35 +257,13 @@ function parseXliff(content: string): { locale?: string; entries: Record<string,
     const id = /\bid\s*=\s*"([^"]*)"/.exec(match[1]!)?.[1];
     if (!id) continue;
     const target = /<target\b[^>]*>([\s\S]*?)<\/target>/.exec(match[2]!)?.[1];
-    entries[unescapeXml(id)] = target === undefined ? '' : unescapeXml(stripCdata(target));
+    entries[unescapeXml(id)] = target === undefined ? '' : inlineToMessage(stripCdata(target));
   }
   return { locale, entries };
 }
 
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 function stripCdata(text: string): string {
   return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
-}
-
-function unescapeXml(text: string): string {
-  return text.replace(/&(lt|gt|amp|quot|apos|#x?[0-9a-fA-F]+);/g, (_, entity: string) => {
-    if (entity === 'lt') return '<';
-    if (entity === 'gt') return '>';
-    if (entity === 'amp') return '&';
-    if (entity === 'quot') return '"';
-    if (entity === 'apos') return "'";
-    const code = entity.startsWith('#x')
-      ? parseInt(entity.slice(2), 16)
-      : parseInt(entity.slice(1), 10);
-    return String.fromCodePoint(code);
-  });
 }
 
 // CSV (RFC 4180); import reads columns by header name, so location round-trips inert

@@ -35,14 +35,14 @@ describe('exportCatalogs', () => {
     expect(es).toContain('srcLang="en"');
     expect(es).toContain('trgLang="es"');
     expect(es).toContain('<unit id="greet">');
-    expect(es).toContain('<source>Hello {name}</source>');
-    expect(es).toContain('<target>Hola {name}</target>');
+    expect(es).toContain('<source>Hello <ph id="name" disp="{name}"/></source>');
+    expect(es).toContain('<target>Hola <ph id="name" disp="{name}"/></target>');
     expect(es).toContain('state="translated"');
     expect(es).toContain('state="initial"');
     expect(result.files[0]).toMatchObject({ total: 2, untranslated: 1 });
   });
 
-  it('escapes XML and skips empty source entries', () => {
+  it('escapes XML, protects rich tags as <pc> and skips empty source entries', () => {
     const config = cfg();
     const catalogs: Catalogs = {
       en: { rich: 'The <em>gate</em> & more', blank: '' },
@@ -50,7 +50,9 @@ describe('exportCatalogs', () => {
     };
     const result = exportCatalogs(config, catalogs);
     const es = readFileSync(result.files[0]!.path, 'utf8');
-    expect(es).toContain('The &lt;em&gt;gate&lt;/em&gt; &amp; more');
+    expect(es).toContain(
+      'The <pc id="em" dispStart="&lt;em&gt;" dispEnd="&lt;/em&gt;">gate</pc> &amp; more',
+    );
     expect(es).not.toContain('blank');
   });
 
@@ -110,6 +112,104 @@ describe('exportCatalogs', () => {
     const imported = importCatalogs(config, catalogs, [path]);
     expect(imported.imported.es).toEqual(['a']);
     expect(catalogs.es!.a).toBe('Hola');
+  });
+});
+
+describe('exportCatalogs: xliff inline codes', () => {
+  it('keeps variant params raw so translators can edit their bodies', () => {
+    const config = cfg();
+    const catalogs: Catalogs = {
+      en: { count: '{n | one: One file | other: # files} in {dir}' },
+      es: {},
+    };
+    const result = exportCatalogs(config, catalogs);
+    const es = readFileSync(result.files[0]!.path, 'utf8');
+    expect(es).toContain('{n | one: One file | other: # files}');
+    expect(es).toContain('<ph id="dir" disp="{dir}"/>');
+  });
+
+  it('gives repeated names unique ids and protects self-closing tags', () => {
+    const config = cfg();
+    const catalogs: Catalogs = {
+      en: { two: '{name} vs {name}, then <br/>' },
+      es: {},
+    };
+    const result = exportCatalogs(config, catalogs);
+    const es = readFileSync(result.files[0]!.path, 'utf8');
+    expect(es).toContain('<ph id="name" disp="{name}"/>');
+    expect(es).toContain('<ph id="name2" disp="{name}"/>');
+    expect(es).toContain('<ph id="br" disp="&lt;br/&gt;"/>');
+  });
+
+  it('round-trips params, tags, formats and escapes losslessly through import', () => {
+    const config = cfg();
+    const message =
+      'Pay {price:currency/EUR} to <em>{name}</em>, use {{literal}} and <a>{n | one: one | other: # things}</a>';
+    const catalogs: Catalogs = { en: { pay: message }, es: {} };
+    const result = exportCatalogs(config, catalogs);
+    const path = result.files[0]!.path;
+    const xlf = readFileSync(path, 'utf8');
+    expect(xlf).toContain('<ph id="price" disp="{price:currency/EUR}"/>');
+    // translate = copy the source segment into the target, codes included
+    const source = /<source>([\s\S]*?)<\/source>/.exec(xlf)![1]!;
+    writeFileSync(path, xlf.replace('<target></target>', `<target>${source}</target>`));
+    const imported = importCatalogs(config, catalogs, [path]);
+    expect(imported.imported.es).toEqual(['pay']);
+    expect(catalogs.es!.pay).toBe(message);
+  });
+
+  it('reconstructs from the semantic id when a TMS strips disp attributes', () => {
+    const config = cfg();
+    const catalogs: Catalogs = { en: { greet: 'Hello {name}', rich: 'A <em>b</em>' } };
+    const file = scratch(
+      'es.xlf',
+      `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v">` +
+        `<unit id="greet"><segment><source>x</source><target>Hola <ph id="name"/></target></segment></unit>` +
+        `<unit id="rich"><segment><source>x</source><target>El <pc id="em">be</pc></target></segment></unit>` +
+        `</file></xliff>`,
+    );
+    const result = importCatalogs(config, catalogs, [file]);
+    expect(result.imported.es).toEqual(['greet', 'rich']);
+    expect(catalogs.es).toEqual({ greet: 'Hola {name}', rich: 'El <em>be</em>' });
+  });
+});
+
+describe('exportCatalogs: po format', () => {
+  it('writes gettext PO with msgctxt keys, locations and a Language header', () => {
+    const config = cfg();
+    const catalogs: Catalogs = {
+      en: { greet: 'Hello {name}', multi: 'Line one\nsays "hi"' },
+      es: { greet: 'Hola {name}', multi: '' },
+    };
+    const result = exportCatalogs(config, catalogs, {
+      format: 'po',
+      origins: { greet: ['src/App.tsx', 'src/pages/home.vue'] },
+    });
+    expect(result.format).toBe('po');
+    expect(result.files[0]!.path.endsWith('es.po')).toBe(true);
+    const es = readFileSync(result.files[0]!.path, 'utf8');
+    expect(es).toContain('"Language: es\\n"');
+    expect(es).toContain('#: src/App.tsx src/pages/home.vue');
+    expect(es).toContain('msgctxt "greet"');
+    expect(es).toContain('msgid "Hello {name}"');
+    expect(es).toContain('msgstr "Hola {name}"');
+    expect(es).toContain('msgid "Line one\\nsays \\"hi\\""');
+    expect(es).toContain('msgstr ""');
+    expect(result.files[0]).toMatchObject({ total: 2, untranslated: 1 });
+  });
+
+  it('full cycle: export po → translate the file → import', () => {
+    const config = cfg();
+    const catalogs: Catalogs = { en: { greet: 'Hello {name}' }, es: {} };
+    const [exported] = exportCatalogs(config, catalogs, { format: 'po' }).files;
+    const translated = readFileSync(exported!.path, 'utf8').replace(
+      /msgstr ""(\r?\n\r?\n|\r?\n$)/,
+      'msgstr "Hola {name}"$1',
+    );
+    writeFileSync(exported!.path, translated);
+    const result = importCatalogs(config, catalogs, [exported!.path]);
+    expect(result.imported).toEqual({ es: ['greet'] });
+    expect(catalogs.es!.greet).toBe('Hola {name}');
   });
 });
 
@@ -367,5 +467,47 @@ describe('parseExchangeFile', () => {
   it('reads CSV rows shorter than the header as empty targets', () => {
     const file = scratch('es.csv', 'key,source,target\r\nlonely\r\n');
     expect(parseExchangeFile(file).entries).toEqual({ lonely: '' });
+  });
+
+  it('po: reads the Language header, fuzzy as untranslated and multiline strings', () => {
+    const file = scratch(
+      'whatever.po',
+      [
+        'msgid ""',
+        'msgstr ""',
+        '"Language: pt\\n"',
+        '"Content-Type: text/plain; charset=UTF-8\\n"',
+        '',
+        'msgctxt "greet"',
+        'msgid "Hello"',
+        'msgstr ""',
+        '"Olá "',
+        '"mundo"',
+        '',
+        '#, fuzzy',
+        'msgctxt "draft"',
+        'msgid "Bye"',
+        'msgstr "Tchau"',
+        '',
+        'msgid "no context"',
+        'msgstr "ignored"',
+        '',
+      ].join('\n'),
+    );
+    const parsed = parseExchangeFile(file);
+    expect(parsed.locale).toBe('pt');
+    expect(parsed.entries).toEqual({ greet: 'Olá mundo', draft: '' });
+  });
+
+  it('po: falls back to the filename for the locale, --locale wins', () => {
+    const file = scratch('pt.po', 'msgctxt "greet"\nmsgid "Hello"\nmsgstr "Olá"\n');
+    expect(parseExchangeFile(file).locale).toBe('pt');
+    expect(parseExchangeFile(file, 'es').locale).toBe('es');
+    expect(parseExchangeFile(file).entries).toEqual({ greet: 'Olá' });
+  });
+
+  it('po: unescapes backslash sequences in values', () => {
+    const file = scratch('es.po', 'msgctxt "path"\nmsgid "x"\nmsgstr "a\\tb\\n\\"c\\" \\\\end"\n');
+    expect(parseExchangeFile(file).entries).toEqual({ path: 'a\tb\n"c" \\end' });
   });
 });

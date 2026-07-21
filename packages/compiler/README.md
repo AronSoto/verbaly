@@ -26,8 +26,8 @@ npx verbaly extract --prune  # drop orphaned keys
 npx verbaly status         # translation coverage per locale, at a glance
 npx verbaly check          # exit 1 if anything is missing (CI)
 npx verbaly translate      # fill missing translations via Claude (or your provider)
-npx verbaly export         # translator files (XLIFF 2.0, CSV) or mobile resources (Android, iOS)
-npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV files
+npx verbaly export         # translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
+npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV/PO files
 npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA)
 npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
 ```
@@ -51,10 +51,11 @@ Catalogs are **flat JSON**: most TMS platforms (Crowdin, Lokalise, Phrase, …) 
 ```bash
 npx verbaly export                    # verbaly-export/<locale>.xlf (XLIFF 2.0, source + target per unit)
 npx verbaly export --format csv       # spreadsheet-friendly: key,source,target,location
+npx verbaly export --format po        # gettext PO (msgctxt = key, works with any PO editor)
 npx verbaly import verbaly-export/es.xlf   # fill the catalog back
 ```
 
-`export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). Every entry carries **where the text lives in your source** (XLIFF `location` notes, a `location` column in CSV), so translators and TMS tools see the context instead of guessing it. `import` reads XLIFF 2.0/1.2 or CSV back and **validates every entry like `translate` does**: a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
+`export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). Every entry carries **where the text lives in your source** (XLIFF `location` notes, a `location` column in CSV, `#:` comments in PO), so translators and TMS tools see the context instead of guessing it. In XLIFF, `{params}` and rich tags travel as **protected inline codes with semantic ids** (`<ph id="name"/>`, `<pc id="em">`), so TMS editors show them as untouchable chips instead of editable raw syntax. `import` reads XLIFF 2.0/1.2, CSV or PO back (PO entries flagged `fuzzy` count as untranslated) and **validates every entry like `translate` does**: a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
 
 ## 📱 Mobile resources
 

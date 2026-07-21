@@ -3,5 +3,3 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
-overrides:
-  yuku-parser: 0.6.1

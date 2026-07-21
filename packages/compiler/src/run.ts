@@ -28,8 +28,8 @@ Usage:
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
   verbaly review     list machine translations awaiting review (--approve marks them reviewed)
-  verbaly export     write translator files (XLIFF 2.0, CSV) or mobile resources (Android, iOS)
-  verbaly import <files…>  fill catalogs back from translated XLIFF/CSV files
+  verbaly export     write translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
+  verbaly import <files…>  fill catalogs back from translated XLIFF/CSV/PO files
   verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
   verbaly render     pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
 
@@ -47,7 +47,7 @@ Options:
   --reporter <name>  failure format: text (default) or github annotations (check)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would happen, write nothing (translate, import, extract)
-  --format <f>       export format: xliff (default), csv, android-xml or ios-strings (export)
+  --format <f>       export format: xliff (default), csv, po, android-xml or ios-strings (export)
   --out <path>       export directory (export, default: verbaly-export)
   --missing          export only untranslated entries (export)
   --overwrite        replace existing translations on import (import)
@@ -345,9 +345,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'export') {
     const format = (values.format ?? 'xliff') as ExportFormat;
-    if (!['xliff', 'csv', 'android-xml', 'ios-strings'].includes(format)) {
+    if (!['xliff', 'csv', 'po', 'android-xml', 'ios-strings'].includes(format)) {
       console.error(
-        `[verbaly] unknown format "${values.format}", use xliff, csv, android-xml or ios-strings`,
+        `[verbaly] unknown format "${values.format}", use xliff, csv, po, android-xml or ios-strings`,
       );
       process.exitCode = 1;
       return;

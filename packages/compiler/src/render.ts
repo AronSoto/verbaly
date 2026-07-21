@@ -105,7 +105,15 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     if (tagName === 'html' && options.setLang !== false) {
       // lang and dir together: what persistLocale/switchLocale set at runtime
       setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'lang', options.locale);
-      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'dir', localeDirection(options.locale));
+      setAttribute(
+        ms,
+        html,
+        chunkStart,
+        openEnd,
+        attrChunk,
+        'dir',
+        localeDirection(options.locale),
+      );
       continue;
     }
 
@@ -226,7 +234,8 @@ export async function renderSite(
   const attribute = options.attribute ?? cfg.render.attribute;
   const baseUrl = (options.baseUrl ?? cfg.render.baseUrl)?.replace(/\/+$/, '');
   const wantHreflang = (options.hreflang ?? cfg.render.hreflang ?? true) && baseUrl !== undefined;
-  const wantSitemap = (options.sitemap ?? cfg.render.sitemap ?? false) && baseUrl !== undefined;
+  const sitemap = options.sitemap ?? cfg.render.sitemap ?? false;
+  const wantSitemap = sitemap !== false && baseUrl !== undefined;
   const clean = options.clean ?? cfg.render.clean ?? false;
   const catalogs = loadCatalogs(cfg);
 
@@ -270,7 +279,7 @@ export async function renderSite(
   }
 
   if (wantSitemap && urls.length) {
-    const name = typeof wantSitemap === 'string' ? wantSitemap : 'sitemap-i18n.xml';
+    const name = typeof sitemap === 'string' ? sitemap : 'sitemap-i18n.xml';
     writeFileSync(join(site, name), buildSitemap(urls));
   }
 

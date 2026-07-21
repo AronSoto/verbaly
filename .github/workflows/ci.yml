@@ -22,6 +22,8 @@ jobs:
 
       - run: pnpm build # topological: core → compiler → vite/adapters
 
+      - run: pnpm --filter verbaly size # pillar 2 gate: core gzip budgets
+
       - run: pnpm typecheck
 
       - run: pnpm lint

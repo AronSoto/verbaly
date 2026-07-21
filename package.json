@@ -22,7 +22,7 @@
     "eslint": "^10.7.0",
     "prettier": "^3.9.5",
     "prettier-plugin-astro": "^0.14.1",
-    "tsdown": "^0.22.8",
+    "tsdown": "^0.22.12",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.64.0",
     "unrun": "^0.3.1",

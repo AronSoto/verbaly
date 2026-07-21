@@ -160,7 +160,14 @@ function warnOnce(msg: string): void {
 export function autoFormat(value: unknown, locale: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return numberFormat(locale).format(value);
-  if (value instanceof Date) return dateTimeFormat(locale).format(value);
+  if (value instanceof Date) {
+    // an invalid Date makes Intl throw: degrade like every other bad format input
+    if (Number.isNaN(value.getTime())) {
+      warnOnce('invalid date value');
+      return String(value);
+    }
+    return dateTimeFormat(locale).format(value);
+  }
   return String(value);
 }
 

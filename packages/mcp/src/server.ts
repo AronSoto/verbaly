@@ -6,6 +6,7 @@ import {
   effectiveDrafts,
   extractProject,
   formatCheckResult,
+  formatCheckWarnings,
   formatStatusResult,
   loadCatalogs,
   loadConfig,
@@ -51,9 +52,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         return await run(args);
       } catch (error) {
         return {
-          content: [
-            { type: 'text', text: error instanceof Error ? error.message : String(error) },
-          ],
+          content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }],
           isError: true,
         };
       }
@@ -79,9 +78,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
   server.registerTool(
     'verbaly_missing',
     {
-      title: 'Missing translations',
+      title: 'Missing and broken translations',
       description:
-        'List missing translations and unknown keys, the same gate `verbaly check` runs in CI. Optionally also lists machine translations awaiting review. Read-only.',
+        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings such as an incomplete plural set for the locale are listed too and do not fail the gate. Optionally also lists machine translations awaiting review. Read-only.',
       inputSchema: {
         root: rootInput,
         drafts: z
@@ -100,6 +99,8 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
 
       const lines: string[] = [];
       if (!result.ok) lines.push(formatCheckResult(result));
+      const warnings = formatCheckWarnings(result);
+      if (warnings) lines.push(`warnings (the gate still passes):\n${warnings}`);
       for (const [locale, keys] of unreviewed) {
         if (keys.length) lines.push(`[${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
       }
@@ -201,7 +202,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       }
       if (Object.keys(result.translated).length > 0) saveDrafts(cfg, drafts);
       for (const [locale, keys] of Object.entries(result.invalid)) {
-        lines.push(`${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`);
+        lines.push(
+          `${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,
+        );
       }
       if (lines.length === 0) return text('nothing to translate');
       lines.push('drafts await human review: verbaly review (--approve accepts them)');

@@ -1,8 +1,8 @@
 import { parse, type MessageNode } from 'verbaly';
+import { PLURAL_CATEGORIES } from './validate';
 
 export type ParamType = 'number' | 'string' | 'date' | 'unknown';
 
-const PLURAL_KEYS = new Set(['zero', 'one', 'two', 'few', 'many']);
 const NUMBER_FORMATS = new Set(['number', 'integer', 'percent', 'currency']);
 const DATE_FORMATS = new Set(['date', 'time']);
 
@@ -20,7 +20,7 @@ function visit(nodes: MessageNode[], out: Map<string, Set<ParamType>>): void {
 
     if (node.variants) {
       for (const [key, body] of node.variants) {
-        if (PLURAL_KEYS.has(key) || /^=\d+$/.test(key)) types.add('number');
+        if (PLURAL_CATEGORIES.has(key) || /^=\d+$/.test(key)) types.add('number');
         else if (key !== 'other') types.add('string');
         visit(body, out);
       }

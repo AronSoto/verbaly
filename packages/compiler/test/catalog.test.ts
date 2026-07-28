@@ -86,8 +86,20 @@ describe('status', () => {
     const result = status(cfg, loadCatalogs(cfg), registryFor('t`Hola ${name}`;'));
     expect(result.messages).toBe(2);
     expect(result.source).toBe('es');
-    expect(result.locales).toContainEqual({ locale: 'en', translated: 1, total: 2, drafts: 0 });
-    expect(result.locales).toContainEqual({ locale: 'pt', translated: 2, total: 2, drafts: 0 });
+    expect(result.locales).toContainEqual({
+      locale: 'en',
+      translated: 1,
+      total: 2,
+      drafts: 0,
+      broken: 0,
+    });
+    expect(result.locales).toContainEqual({
+      locale: 'pt',
+      translated: 2,
+      total: 2,
+      drafts: 0,
+      broken: 0,
+    });
   });
 
   it('formats coverage with a checkmark on complete locales', () => {

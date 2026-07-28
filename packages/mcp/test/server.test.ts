@@ -133,9 +133,7 @@ describe('createVerbalyMcp', () => {
       '1 unreviewed',
     );
     expect(
-      resultText(
-        await client.callTool({ name: 'verbaly_missing', arguments: { drafts: true } }),
-      ),
+      resultText(await client.callTool({ name: 'verbaly_missing', arguments: { drafts: true } })),
     ).toContain('unreviewed');
   });
 

@@ -120,7 +120,7 @@ describe('runCli: status', () => {
     expect(parsed).toEqual({
       messages: 1,
       source: 'en',
-      locales: [{ locale: 'es', translated: 0, total: 1, drafts: 0 }],
+      locales: [{ locale: 'es', translated: 0, total: 1, drafts: 0, broken: 0 }],
     });
     expect(process.exitCode).toBeUndefined();
   });
@@ -133,7 +133,10 @@ describe('runCli: extract dts option', () => {
     await runCli(['extract', '--root', root]);
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
 
-    writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ dts: '.types/verbaly.d.ts' }));
+    writeFileSync(
+      join(root, 'verbaly.config.json'),
+      JSON.stringify({ dts: '.types/verbaly.d.ts' }),
+    );
     await runCli(['extract', '--root', root]);
     expect(existsSync(join(root, '.types', 'verbaly.d.ts'))).toBe(true);
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
@@ -324,6 +327,45 @@ describe('runCli: check', () => {
     expect(output(log)).toContain('all translations complete');
     expect(process.exitCode).toBeUndefined();
   });
+
+  it('exits 1 on a hand-edited translation that dropped its param', async () => {
+    const key = stableKey('Hello {name}');
+    const root = makeProject(
+      { en: { [key]: 'Hello {name}' }, es: { [key]: 'Hola' } },
+      'export const x = t`Hello ${name}`;\n',
+    );
+    await runCli(['check', '--root', root]);
+    const text = output(error);
+    expect(text).toContain('broken translations:');
+    expect(text).toContain('{name}');
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('prints locale plural warnings and still passes', async () => {
+    const key = stableKey('{count | one: one item | other: # items}');
+    const root = makeProject({
+      en: { [key]: '{count | one: one item | other: # items}' },
+      pl: { [key]: '{count | one: 1 element | other: # elementow}' },
+    });
+    await runCli(['check', '--root', root]);
+    expect(output(warn)).toContain('the gate still passes');
+    expect(output(warn)).toContain('few');
+    expect(output(log)).toContain('all translations complete');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('reports a warning as a github warning command, not an error', async () => {
+    const key = stableKey('{count | one: one item | other: # items}');
+    const root = makeProject({
+      en: { [key]: '{count | one: one item | other: # items}' },
+      pl: { [key]: '{count | one: 1 element | other: # elementow}' },
+    });
+    await runCli(['check', '--root', root, '--reporter', 'github']);
+    const text = output(error);
+    expect(text).toContain('::warning::[pl]');
+    expect(text).not.toContain('::error');
+    expect(process.exitCode).toBeUndefined();
+  });
 });
 
 describe('runCli: init', () => {
@@ -454,9 +496,9 @@ describe('runCli: translate + review drafts', () => {
     expect(output(log)).toContain('es: 1 approved');
     expect(output(log)).toContain('1 translations marked reviewed');
     expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(true);
-    expect(
-      JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8')),
-    ).toEqual({});
+    expect(JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'))).toEqual(
+      {},
+    );
   });
 
   it('review says so when nothing is awaiting review', async () => {

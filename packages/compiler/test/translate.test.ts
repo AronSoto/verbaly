@@ -113,6 +113,31 @@ describe('structureMatches', () => {
     expect(structureMatches('Hola {name}', 'Hello {nombre}')).toBe(false);
     expect(structureMatches('<em>a</em>', 'a')).toBe(false);
   });
+
+  it('rejects a flattened plural block and one that would render empty', () => {
+    const source = '{n | one: un ítem | other: # ítems}';
+    expect(structureMatches(source, '{n} ítems')).toBe(false);
+    expect(structureMatches(source, '{n | one: one item}')).toBe(false);
+  });
+
+  it('accepts a translation that adds the plural forms its language needs', () => {
+    expect(
+      structureMatches(
+        '{n | one: un ítem | other: # ítems}',
+        '{n | one: 1 element | few: # elementy | many: # elementów | other: # elementu}',
+      ),
+    ).toBe(true);
+  });
+
+  it('never rejects for a locale-specific plural gap: that is a check warning', () => {
+    // pl wants few and many, but one/other still renders, so the file is not dropped
+    expect(
+      structureMatches(
+        '{n | one: un ítem | other: # ítems}',
+        '{n | one: 1 element | other: # elementów}',
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('claude provider helpers', () => {

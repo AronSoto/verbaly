@@ -104,11 +104,11 @@ export const load = async ({ data }) => ({
 
 ## 📖 API
 
-| Export                                                 | What it does                                                                                                                                                           |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Export                                                 | What it does                                                                                                                                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verbalyHandle({ locales, fallback?, cookie? })`       | SvelteKit `handle` hook: resolves the request locale (cookie → `Accept-Language` → fallback), sets `event.locals.verbalyLocale`, fills `%verbaly.lang%` and `%verbaly.dir%` in `app.html`. |
-| `switchLocale(instance, locale, { cookie?, maxAge? })` | Awaits the catalog, switches the locale, writes the cookie and syncs `<html lang>`. SSR-safe.                                                                          |
-| `LOCALE_COOKIE`                                        | Default cookie name (`verbaly-locale`), shared with core's `localStorage` key.                                                                                         |
+| `switchLocale(instance, locale, { cookie?, maxAge? })` | Awaits the catalog, switches the locale, writes the cookie and syncs `<html lang>`. SSR-safe.                                                                                              |
+| `LOCALE_COOKIE`                                        | Default cookie name (`verbaly-locale`), shared with core's `localStorage` key.                                                                                                             |
 
 - `cookie: false` disables cookie reading/writing (pure `Accept-Language`).
 - No dependency on `@sveltejs/kit`: the hook is typed structurally and stays compatible across Kit 2.x.

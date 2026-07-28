@@ -259,7 +259,9 @@ describe('@verbaly/react <Trans>', () => {
   it('throws without an instance prop or a provider', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const bare = createRoot(document.createElement('div'));
-    expect(() => act(() => bare.render(<Trans id="m" />))).toThrow(/instance prop or a <VerbalyProvider>/);
+    expect(() => act(() => bare.render(<Trans id="m" />))).toThrow(
+      /instance prop or a <VerbalyProvider>/,
+    );
     act(() => bare.unmount());
     spy.mockRestore();
   });

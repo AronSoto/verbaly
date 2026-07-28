@@ -63,7 +63,7 @@ describe('loadConfig', () => {
 
   it('falls back to defaults when an mjs config has no default export', async () => {
     const root = makeRoot();
-    writeFileSync(join(root, 'verbaly.config.mjs'), "export const foo = 1;\n");
+    writeFileSync(join(root, 'verbaly.config.mjs'), 'export const foo = 1;\n');
     const cfg = await loadConfig(root);
     expect(cfg.sourceLocale).toBe('en');
   });

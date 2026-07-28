@@ -11,7 +11,7 @@ Verbaly inverts the i18n flow: you write natural text in the source and the comp
 
 1. **Write text in the source**, wrapped in a tagged template:
    ```ts
-   t`Hello ${name}, you have ${count} messages`
+   t`Hello ${name}, you have ${count} messages`;
    ```
    In markup it must sit in expression context: JSX ``{t`…`}``, Vue ``{{ t`…` }}`` or ``:title="t`…`"``, Svelte ``{$t`…`}``, Astro ``{t`…`}``. Display-only text is never extracted.
 2. **Extract**: `npx verbaly extract` scans sources, fills `locales/<locale>.json` and refreshes the generated types. With a bundler plugin (`@verbaly/vite`, `@verbaly/unplugin`, or the framework integrations) dev-mode extraction is automatic.
@@ -32,16 +32,16 @@ Prefer the MCP server when available: `claude mcp add verbaly -- npx -y @verbaly
 
 ## Framework wiring (one-liners)
 
-| Stack | Setup |
-| --- | --- |
-| Vite SPA | `verbaly()` from `@verbaly/vite` in `vite.config` |
-| React | `@verbaly/react`: `VerbalyProvider` + `useT()` + `<Trans>` |
-| Vue | `@verbaly/vue`: `verbalyPlugin` + `useT()` + `<Trans>` |
-| Svelte 5 | `@verbaly/svelte`: context + `$t` store + `<Trans>` |
-| SvelteKit | `verbalyHandle` from `@verbaly/sveltekit` in `hooks.server` |
-| Nuxt | `modules: ['@verbaly/nuxt']` |
-| Next.js | `withVerbaly` from `@verbaly/next` + `/server` + `/client` |
-| Astro | `verbaly()` from `@verbaly/astro` in `astro.config` |
-| Plain HTML | `bindDom` + `data-verbaly` attributes |
+| Stack      | Setup                                                       |
+| ---------- | ----------------------------------------------------------- |
+| Vite SPA   | `verbaly()` from `@verbaly/vite` in `vite.config`           |
+| React      | `@verbaly/react`: `VerbalyProvider` + `useT()` + `<Trans>`  |
+| Vue        | `@verbaly/vue`: `verbalyPlugin` + `useT()` + `<Trans>`      |
+| Svelte 5   | `@verbaly/svelte`: context + `$t` store + `<Trans>`         |
+| SvelteKit  | `verbalyHandle` from `@verbaly/sveltekit` in `hooks.server` |
+| Nuxt       | `modules: ['@verbaly/nuxt']`                                |
+| Next.js    | `withVerbaly` from `@verbaly/next` + `/server` + `/client`  |
+| Astro      | `verbaly()` from `@verbaly/astro` in `astro.config`         |
+| Plain HTML | `bindDom` + `data-verbaly` attributes                       |
 
 Full docs: https://verbaly-web.vercel.app/docs

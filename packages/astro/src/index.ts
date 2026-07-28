@@ -70,8 +70,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         const cfg = await loadConfig(root, vite);
         // mirror mode is opt-in: a `render` section in the config (or render: true) turns it on;
         // path-based i18n routing sites must never get their pages mirrored on top
-        const wanted =
-          render === undefined ? Object.keys(cfg.render).length > 0 : Boolean(render);
+        const wanted = render === undefined ? Object.keys(cfg.render).length > 0 : Boolean(render);
         if (!wanted) return;
         if (buildOutput === 'server') {
           console.warn(

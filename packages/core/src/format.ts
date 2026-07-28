@@ -21,7 +21,10 @@ export function formatNodes(nodes: MessageNode[], ctx: FormatContext): string {
 
 function formatParam(node: ParamNode, ctx: FormatContext): string {
   const value = ctx.params?.[node.name];
-  if (value === undefined) return `{${node.name}}`;
+  if (value === undefined) {
+    warnOnce(`missing param "${node.name}"`);
+    return `{${node.name}}`;
+  }
 
   if (node.variants) {
     const chosen = pickVariant(node.variants, value, ctx.locale, node.ordinal);

@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/nuxt",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "Nuxt integration for Verbaly: zero-config module with per-request locale negotiation and flash-free hydration.",
   "keywords": [
     "i18n",
@@ -50,10 +50,10 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
-    "@nuxt/schema": "^4.5.0",
-    "@verbaly/vue": "workspace:*",
-    "happy-dom": "^20.11.0",
-    "verbaly": "workspace:*",
+    "@nuxt/schema": "^4.5.1",
+    "@verbaly/vue": "workspace:^",
+    "happy-dom": "^20.11.1",
+    "verbaly": "workspace:^",
     "vue": "^3.5.40"
   },
   "scripts": {

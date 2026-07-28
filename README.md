@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.29.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.30.0" alt="Socket supply chain security" /></a>
   <img src="https://img.shields.io/badge/gzip-~3KB-3fb950" alt="~3KB gzip" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
@@ -146,6 +146,41 @@ Verbaly ships first-class support for AI coding agents:
   ```
 
 - **llms.txt**: the docs site publishes [verbaly-web.vercel.app/llms.txt](https://verbaly-web.vercel.app/llms.txt) for agents that read documentation.
+
+---
+
+## Editor: translations on hover
+
+Verbaly keys are hashes, so reading `t('a1B2c3D4')` in a diff tells you nothing. The [i18n-ally](https://marketplace.visualstudio.com/items?itemName=Lokalise.i18n-ally) extension can show the real text inline and on hover once you point it at your catalogs. Two files, and no Verbaly config changes:
+
+`.vscode/settings.json`
+
+```json
+{
+  "i18n-ally.localesPaths": ["locales"],
+  "i18n-ally.keystyle": "flat",
+  "i18n-ally.sourceLanguage": "en",
+  "i18n-ally.displayLanguage": "en"
+}
+```
+
+`.vscode/i18n-ally-custom-framework.yml`
+
+```yaml
+languageIds:
+  - javascript
+  - typescript
+  - javascriptreact
+  - typescriptreact
+  - vue
+  - svelte
+  - astro
+usageMatchRegex:
+  - "[^\\w\\d]t\\(\\s*['\"`]({key})['\"`]"
+monopoly: true
+```
+
+`keystyle: flat` matters: Verbaly catalogs are flat maps, so the default nested guess would read a dotted key as a path. Use the extension for reading, not for writing: its extract and rename actions assume you own the keys, and in Verbaly the compiler does. New keys come from `verbaly extract`, translations from your catalogs, `verbaly export`/`import` or `verbaly translate`.
 
 ---
 

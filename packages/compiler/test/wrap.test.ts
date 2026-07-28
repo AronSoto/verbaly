@@ -10,9 +10,7 @@ describe('wrapCode', () => {
   it('wraps a plain text child', () => {
     const out = wrapCode('const x = <h1>Welcome back</h1>;', 'App.tsx');
     expect(out.code).toBe('const x = <h1>{t`Welcome back`}</h1>;');
-    expect(out.wrapped).toEqual([
-      { file: 'App.tsx', line: 1, text: 'Welcome back', kind: 'text' },
-    ]);
+    expect(out.wrapped).toEqual([{ file: 'App.tsx', line: 1, text: 'Welcome back', kind: 'text' }]);
   });
 
   it('joins text and expressions into one message', () => {
@@ -34,7 +32,10 @@ describe('wrapCode', () => {
   });
 
   it('wraps user-visible string attributes', () => {
-    const out = wrapCode('const x = <img alt="Company logo" src="/a.png" width="20" />;', 'App.tsx');
+    const out = wrapCode(
+      'const x = <img alt="Company logo" src="/a.png" width="20" />;',
+      'App.tsx',
+    );
     expect(out.code).toBe('const x = <img alt={t`Company logo`} src="/a.png" width="20" />;');
     expect(out.wrapped[0]).toMatchObject({ kind: 'attribute', attribute: 'alt' });
   });

@@ -255,10 +255,7 @@ describe('analyze <Trans>', () => {
   });
 
   it('skips <Trans> with a dynamic id', () => {
-    const { tagged, usedKeys } = analyze(
-      'const A = () => <Trans id={key}>Hi</Trans>;',
-      'App.tsx',
-    );
+    const { tagged, usedKeys } = analyze('const A = () => <Trans id={key}>Hi</Trans>;', 'App.tsx');
     expect(tagged).toHaveLength(0);
     expect(usedKeys).toHaveLength(0);
   });
@@ -290,10 +287,7 @@ describe('analyze <Trans>', () => {
   });
 
   it('skips <Trans> with hand-written props and no id', () => {
-    const { tagged, usedKeys } = analyze(
-      'const A = () => <Trans count={n}>Hi</Trans>;',
-      'App.tsx',
-    );
+    const { tagged, usedKeys } = analyze('const A = () => <Trans count={n}>Hi</Trans>;', 'App.tsx');
     expect(tagged).toHaveLength(0);
     expect(usedKeys).toHaveLength(0);
   });

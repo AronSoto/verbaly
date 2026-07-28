@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
+import { flatten, type MessageTree } from 'verbaly';
 import type { Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import type { MessageRegistry } from './registry';
+import { validateMessage, validatePair, type IssueSeverity, type StructureIssue } from './validate';
 
 export interface MissingEntry {
   locale: string;
@@ -15,10 +17,18 @@ export interface UnknownEntry {
   files: string[];
 }
 
+export interface BrokenEntry {
+  locale: string;
+  key: string;
+  severity: IssueSeverity;
+  issue: string;
+}
+
 export interface CheckResult {
   ok: boolean;
   missing: MissingEntry[];
   unknown: UnknownEntry[];
+  broken: BrokenEntry[];
 }
 
 export function check(
@@ -53,7 +63,41 @@ export function check(
     }
   }
 
-  return { ok: missing.length === 0 && unknown.length === 0, missing, unknown };
+  // presence is not correctness: a translation can be there and still render wrong.
+  // flatten first, so a hand-written nested catalog is validated leaf by leaf like a
+  // generated flat one (the runtime flattens too, so both shapes reach t() the same)
+  const broken: BrokenEntry[] = [];
+  const add = (locale: string, key: string, issues: StructureIssue[]): void => {
+    for (const issue of issues) {
+      broken.push({ locale, key, severity: issue.severity, issue: issue.message });
+    }
+  };
+
+  const sourceFlat = flatten(source as MessageTree);
+  for (const key of needed) {
+    const text = sourceFlat[key] ?? extracted.get(key)?.message;
+    if (text) sourceFlat[key] = text;
+  }
+  for (const [key, text] of Object.entries(sourceFlat)) {
+    add(cfg.sourceLocale, key, validateMessage(text, cfg.sourceLocale));
+  }
+  for (const locale of cfg.locales) {
+    if (locale === cfg.sourceLocale) continue;
+    for (const [key, translated] of Object.entries(
+      flatten((catalogs[locale] ?? {}) as MessageTree),
+    )) {
+      if (!translated) continue; // '' is untranslated, already reported as missing
+      add(locale, key, validateMessage(translated, locale));
+      const text = sourceFlat[key];
+      if (text) add(locale, key, validatePair(text, translated));
+    }
+  }
+
+  const ok =
+    missing.length === 0 &&
+    unknown.length === 0 &&
+    !broken.some((entry) => entry.severity === 'error');
+  return { ok, missing, unknown, broken };
 }
 
 export function formatCheckResult(result: CheckResult): string {
@@ -71,7 +115,20 @@ export function formatCheckResult(result: CheckResult): string {
       lines.push(`  ${entry.key} (used in ${entry.files.join(', ')})`);
     }
   }
+  const errors = result.broken.filter((entry) => entry.severity === 'error');
+  if (errors.length > 0) {
+    lines.push('broken translations:');
+    for (const entry of errors) lines.push(`  [${entry.locale}] ${entry.key}: ${entry.issue}`);
+  }
   return lines.join('\n');
+}
+
+// warnings never fail the gate, so they print on their own
+export function formatCheckWarnings(result: CheckResult): string {
+  return result.broken
+    .filter((entry) => entry.severity === 'warning')
+    .map((entry) => `  [${entry.locale}] ${entry.key}: ${entry.issue}`)
+    .join('\n');
 }
 
 function truncate(text: string, max: number): string {
@@ -129,6 +186,21 @@ export function githubCheckAnnotations(
         ? `::error file=${escapeProperty(relative(root, file).replaceAll('\\', '/'))}::${text}`
         : `::error::${text}`,
     );
+  }
+
+  // a broken translation points at the source line that wrote the message
+  for (const entry of result.broken) {
+    const origin = messages.get(entry.key);
+    const text = escapeData(`[${entry.locale}] ${entry.key}: ${entry.issue}`);
+    const command = entry.severity === 'error' ? 'error' : 'warning';
+    if (!origin) {
+      lines.push(`::${command}::${text}`);
+      continue;
+    }
+    const file = relative(root, origin.file).replaceAll('\\', '/');
+    const content = readSource(origin.file);
+    const line = content === undefined ? undefined : lineAt(content, origin.start);
+    lines.push(`::${command} file=${escapeProperty(file)}${line ? `,line=${line}` : ''}::${text}`);
   }
   return lines;
 }

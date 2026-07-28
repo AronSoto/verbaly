@@ -1,7 +1,8 @@
 export { analyze } from './analyze';
 export { SFC_FILE_RE, analyzeFile, analyzeSfc } from './sfc';
 export { loadCatalogs, readCatalog, catalogPath, serializeCatalog, writeCatalog } from './catalog';
-export { check, formatCheckResult, githubCheckAnnotations } from './check';
+export { check, formatCheckResult, formatCheckWarnings, githubCheckAnnotations } from './check';
+export { PLURAL_CATEGORIES, validateMessage, validatePair } from './validate';
 export {
   VIRTUAL_ID,
   generateDts,
@@ -56,7 +57,8 @@ export type {
 export type { RuntimeModuleOptions } from './codegen';
 export type { Catalog, Catalogs } from './catalog';
 export type { Drafts } from './drafts';
-export type { CheckResult, MissingEntry, UnknownEntry } from './check';
+export type { BrokenEntry, CheckResult, MissingEntry, UnknownEntry } from './check';
+export type { IssueSeverity, StructureIssue } from './validate';
 export type { DoctorEntry, DoctorResult } from './doctor';
 export type {
   ExchangeFormat,

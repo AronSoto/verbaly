@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
-import { check, formatCheckResult, githubCheckAnnotations } from './check';
+import { check, formatCheckResult, formatCheckWarnings, githubCheckAnnotations } from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { doctor } from './doctor';
@@ -239,6 +239,16 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     // opt-in: unreviewed machine translations block the merge too
     const unreviewed = values.drafts ? effectiveDrafts(loadDrafts(cfg), catalogs) : {};
     const draftKeys = Object.entries(unreviewed);
+    // the annotations carry both severities, so they print whether the gate passes or not
+    if (reporter === 'github') {
+      for (const line of githubCheckAnnotations(result, registry, cfg.root)) {
+        console.error(line);
+      }
+    } else {
+      const warnings = formatCheckWarnings(result);
+      if (warnings) console.warn(`[verbaly] warnings (the gate still passes)\n${warnings}`);
+    }
+
     if (result.ok && draftKeys.length === 0) {
       console.log('[verbaly] all translations complete ✓');
       return;
@@ -253,12 +263,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       process.exitCode = 1;
       return;
     }
+    const brokenCount = result.broken.filter((entry) => entry.severity === 'error').length;
     if (reporter === 'github') {
-      for (const line of githubCheckAnnotations(result, registry, cfg.root)) {
-        console.error(line);
-      }
       console.error(
-        `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown`,
+        `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`,
       );
     } else {
       console.error(`[verbaly] check failed\n${formatCheckResult(result)}`);

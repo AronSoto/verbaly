@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/react",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "React bindings for Verbaly: hooks over the reactive core.",
   "keywords": [
     "i18n",
@@ -53,15 +53,17 @@
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "happy-dom": "^20.11.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "verbaly": "workspace:*"
+    "happy-dom": "^20.11.1",
+    "preact": "^10.29.7",
+    "preact-render-to-string": "^6.7.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "verbaly": "workspace:^"
   },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests && vitest run --config vitest.preact.config.ts",
     "typecheck": "tsc --noEmit"
   }
 }

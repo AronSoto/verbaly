@@ -7,4 +7,5 @@ export default defineConfig({
       verbaly: fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
     },
   },
+  test: { exclude: ['**/node_modules/**', 'test/preact.test.tsx'] },
 });

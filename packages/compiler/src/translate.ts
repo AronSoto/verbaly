@@ -1,6 +1,6 @@
 import type { Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
-import { collectParams } from './params';
+import { validateMessage, validatePair } from './validate';
 
 export interface TranslateRequest {
   sourceLocale: string;
@@ -86,32 +86,14 @@ export async function resolveProvider(
   return claudeProvider({ model: model ?? cfg.translate.model });
 }
 
-// params and tags must survive translation verbatim
+// params, tags and the plural/select blocks must survive translation verbatim.
+// no locale here on purpose: this gate only rejects what renders wrong, and the
+// locale-specific plural advice is check's warning, never a reason to drop a file
 export function structureMatches(source: string, translated: string): boolean {
-  return (
-    sameMembers(paramNames(source), paramNames(translated)) &&
-    sameMembers(tagTokens(source), tagTokens(translated))
-  );
-}
-
-function paramNames(message: string): string[] {
   try {
-    return [...collectParams(message).keys()].sort();
+    const issues = [...validateMessage(translated), ...validatePair(source, translated)];
+    return !issues.some((issue) => issue.severity === 'error');
   } catch {
-    return ['\u0000invalid'];
+    return false; // unparseable input rejects the translation, it never crashes the caller
   }
-}
-
-const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
-
-function tagTokens(message: string): string[] {
-  const out: string[] = [];
-  for (const match of message.matchAll(TAG)) {
-    out.push(`${match[1]}${match[2]}${match[3]}`);
-  }
-  return out.sort();
-}
-
-function sameMembers(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((value, i) => value === b[i]);
 }

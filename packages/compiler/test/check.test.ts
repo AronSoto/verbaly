@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
-import { check, formatCheckResult, githubCheckAnnotations } from '../src/check';
+import {
+  check,
+  formatCheckResult,
+  formatCheckWarnings,
+  githubCheckAnnotations,
+} from '../src/check';
 import type { CheckResult } from '../src/check';
 import type { Catalogs } from '../src/catalog';
 import { resolveConfig } from '../src/config';
@@ -37,6 +42,109 @@ describe('check', () => {
   });
 });
 
+describe('check: broken translations', () => {
+  it('fails on a translation that exists but dropped its param or its tag', () => {
+    const catalogs: Catalogs = {
+      en: { greet: 'Hello {name}', save: '<em>Save</em> your work' },
+      es: { greet: 'Hola', save: 'Guarda tu trabajo' },
+    };
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    expect(result.missing).toEqual([]);
+    expect(result.ok).toBe(false);
+    const errors = result.broken.filter((entry) => entry.severity === 'error');
+    expect(errors.map((entry) => entry.key).sort()).toEqual(['greet', 'save']);
+    expect(errors.every((entry) => entry.locale === 'es')).toBe(true);
+  });
+
+  it('fails on a plural block that renders empty for uncovered counts', () => {
+    const catalogs: Catalogs = {
+      en: { items: '{count | one: one item | other: # items}' },
+      pl: { items: '{count | one: 1 element | few: # elementy}' },
+    };
+    const result = check(cfg(['en', 'pl']), catalogs, new MessageRegistry());
+    expect(result.ok).toBe(false);
+    const broken = result.broken.filter((entry) => entry.severity === 'error');
+    expect(broken).toHaveLength(1);
+    expect(broken[0]!.issue).toContain('renders empty');
+  });
+
+  it('passes with warnings when the plural set is only incomplete for the locale', () => {
+    const catalogs: Catalogs = {
+      en: { items: '{count | one: one item | other: # items}' },
+      pl: { items: '{count | one: 1 element | other: # elementow}' },
+    };
+    const result = check(cfg(['en', 'pl']), catalogs, new MessageRegistry());
+    expect(result.ok).toBe(true);
+    expect(result.broken).toHaveLength(1);
+    expect(result.broken[0]!.severity).toBe('warning');
+    expect(formatCheckWarnings(result)).toContain('[pl] items');
+    // a warning never reaches the failure report
+    expect(formatCheckResult(result)).not.toContain('items');
+  });
+
+  it('flags a source message whose own plural block has no other case', () => {
+    const catalogs: Catalogs = {
+      en: { items: '{count | one: one item}' },
+      es: { items: '{count | one: un elemento}' },
+    };
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    expect(result.ok).toBe(false);
+    const locales = result.broken
+      .filter((entry) => entry.severity === 'error')
+      .map((entry) => entry.locale);
+    expect(locales).toContain('en');
+    expect(locales).toContain('es');
+  });
+
+  it('stays quiet on a faithful catalog', () => {
+    const catalogs: Catalogs = {
+      en: { greet: 'Hello {name}', items: '{count | one: one item | other: # items}' },
+      es: { greet: 'Hola {name}', items: '{count | one: un elemento | other: # elementos}' },
+    };
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    expect(result.broken).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('never reports a key it already reported as missing', () => {
+    const catalogs: Catalogs = { en: { greet: 'Hello {name}' }, es: {} };
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    expect(result.missing).toHaveLength(1);
+    expect(result.broken).toEqual([]);
+  });
+
+  it('validates a hand-written nested catalog leaf by leaf', () => {
+    // the runtime flattens, so a nested catalog is as real as a generated flat one:
+    // walking it as if every value were a string used to crash the whole gate
+    const catalogs = {
+      en: { hero: { title: 'Hello {name}', lead: '<em>Ship</em> it' } },
+      es: { hero: { title: 'Hola', lead: 'Publicalo' } },
+    } as unknown as Catalogs;
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    expect(result.ok).toBe(false);
+    const errors = result.broken.filter((entry) => entry.severity === 'error');
+    expect(errors.map((entry) => entry.key).sort()).toEqual(['hero.lead', 'hero.title']);
+  });
+
+  it('stays quiet on a faithful nested catalog', () => {
+    const catalogs = {
+      en: { hero: { title: 'Hello {name}' } },
+      es: { hero: { title: 'Hola {name}' } },
+    } as unknown as Catalogs;
+    expect(check(cfg(), catalogs, new MessageRegistry()).broken).toEqual([]);
+  });
+
+  it('validates against the extracted message when the source catalog lags', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze('t`Hello ${name}`;', 'a.ts'));
+    const key = [...registry.messages().keys()][0]!;
+    const result = check(cfg(), { en: {}, es: { [key]: 'Hola' } }, registry);
+    const broken = result.broken.filter((entry) => entry.severity === 'error');
+    expect(broken).toHaveLength(1);
+    expect(broken[0]!.issue).toContain('{name}');
+  });
+});
+
 describe('formatCheckResult', () => {
   it('renders missing entries with and without a source hint, plus unknown keys', () => {
     const result: CheckResult = {
@@ -46,6 +154,7 @@ describe('formatCheckResult', () => {
         { locale: 'es', key: 'bare' },
       ],
       unknown: [{ key: 'ghost', files: ['src/a.ts'] }],
+      broken: [],
     };
     const text = formatCheckResult(result);
     expect(text).toContain('  [es] greet: "Hello there"');
@@ -60,6 +169,7 @@ describe('formatCheckResult', () => {
       ok: false,
       missing: [{ locale: 'es', key: 'k', source: long }],
       unknown: [],
+      broken: [],
     });
     expect(text).toContain('…"');
     expect(text).not.toContain(long);
@@ -72,7 +182,10 @@ describe('githubCheckAnnotations', () => {
     mkdirSync(join(config.root, 'src'));
     writeFileSync(join(config.root, 'src', 'app.ts'), code);
     const registry = new MessageRegistry();
-    registry.update(join(config.root, 'src', 'app.ts'), analyze(code, join(config.root, 'src', 'app.ts')));
+    registry.update(
+      join(config.root, 'src', 'app.ts'),
+      analyze(code, join(config.root, 'src', 'app.ts')),
+    );
     return { config, registry };
   }
 
@@ -114,6 +227,7 @@ describe('githubCheckAnnotations', () => {
       ok: false,
       missing: [{ locale: 'es', key: 'k', source: '100% off\nreally, now: go' }],
       unknown: [],
+      broken: [],
     };
     const [line] = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(line).toContain('100%25 off%0Areally, now: go');
@@ -123,6 +237,7 @@ describe('githubCheckAnnotations', () => {
     const result: CheckResult = {
       ok: false,
       missing: [],
+      broken: [],
       unknown: [
         { key: 'used', files: ['/root/src/a.ts'] },
         { key: 'orphan', files: [] },
@@ -131,6 +246,30 @@ describe('githubCheckAnnotations', () => {
     const lines = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(lines).toContain('::error file=src/a.ts::unknown key "used" (not in any catalog)');
     expect(lines).toContain('::error::unknown key "orphan" (not in any catalog)');
+  });
+
+  it('annotates a broken translation at the line that wrote the message', () => {
+    const { config, registry } = project('export const x = t`Hello ${name}`;\n');
+    const key = [...registry.messages().keys()][0]!;
+    const result = check(
+      config,
+      { en: { [key]: 'Hello {name}' }, es: { [key]: 'Hola' } },
+      registry,
+    );
+    const lines = githubCheckAnnotations(result, registry, config.root);
+    const broken = lines.find((l) => l.includes('{name}') && l.includes('[es]'));
+    expect(broken).toMatch(/::error file=src\/app\.ts,line=1::/);
+  });
+
+  it('emits a warning command for a warning, so it never fails the job', () => {
+    const result: CheckResult = {
+      ok: true,
+      missing: [],
+      unknown: [],
+      broken: [{ locale: 'pl', key: 'items', severity: 'warning', issue: 'pl also needs few' }],
+    };
+    const [line] = githubCheckAnnotations(result, new MessageRegistry(), '/root');
+    expect(line).toBe('::warning::[pl] items: pl also needs few');
   });
 
   it('reads each source file only once across multiple missing keys', () => {

@@ -35,10 +35,10 @@ The server reads the project from its working directory; pass `--root <path>` (o
 
 | Tool                | What it does                                                                                                             |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `verbaly_status`    | Coverage per locale: total messages, translated counts, drafts awaiting review. Read-only.                                |
-| `verbaly_missing`   | Missing translations and unknown keys (the same gate `verbaly check` runs in CI). Read-only.                              |
-| `verbaly_extract`   | Scan sources, add new messages to the catalogs, refresh the generated types. `dryRun` previews; `prune` drops dead keys.  |
-| `verbaly_translate` | Fill missing entries with the configured provider (default: Claude). Output is saved as drafts awaiting human review.     |
+| `verbaly_status`    | Coverage per locale: total messages, translated counts, drafts awaiting review. Read-only.                               |
+| `verbaly_missing`   | Missing translations and unknown keys (the same gate `verbaly check` runs in CI). Read-only.                             |
+| `verbaly_extract`   | Scan sources, add new messages to the catalogs, refresh the generated types. `dryRun` previews; `prune` drops dead keys. |
+| `verbaly_translate` | Fill missing entries with the configured provider (default: Claude). Output is saved as drafts awaiting human review.    |
 
 Machine translations stay drafts until a human accepts them (`verbaly review --approve`), so an agent can fill gaps without silently shipping unreviewed text.
 

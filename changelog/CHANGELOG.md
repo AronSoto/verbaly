@@ -41,7 +41,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - The `run.ts` helpers `collectOrigins`/`resolveProvider` moved to `extract.ts`/`translate.ts` (now public, see Added); the CLI behavior is byte-identical.
 - Competitive seal 0.29.0 (2026-07-27, re-check): i18next 26.3.6 · **Lingui 6.6.0** · typesafe-i18n 5.27.1 · **Paraglide 2.23.0** · **next-intl 4.13.4** · **@nuxtjs/i18n 10.5.0** · svelte-i18n 4.0.1 · **vue-i18n 11.4.8** (minor/patch bumps, no landscape shift). Lingui validated the Agent Skill route; none of the sealed tools ships a first-party MCP server for the translation cycle as of this check, so the adoption channel (MCP + skill + llms.txt) is currently a differentiator.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/reference/cli`**: new "Coding agents" section after the commands table: the `@verbaly/mcp` install one-liner, the four tools (status/missing read-only, extract/translate writing), the draft rule (machine output waits for `verbaly review`), and a pointer to the Agent Skill in the repo.
 - **`docs/guide/translators`**: one short paragraph in the machine-translation loop: an agent can run the same cycle via MCP and its output still lands as drafts behind the same review gate.

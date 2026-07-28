@@ -1,4 +1,4 @@
-import type { Catalogs } from './catalog';
+import type { Catalog, Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { effectiveDrafts, type Drafts } from './drafts';
 import { flatten, type MessageTree } from 'verbaly';
@@ -26,24 +26,30 @@ export function status(
   registry: MessageRegistry,
   drafts: Drafts = {},
 ): StatusResult {
-  const source = catalogs[cfg.sourceLocale] ?? {};
-  const needed = new Set<string>([...registry.messages().keys(), ...Object.keys(source)]);
-  const live = effectiveDrafts(drafts, catalogs);
-
   const extracted = registry.messages();
+
+  // one flat view, like check: it is the shape t() sees, and counting a nested catalog by
+  // its top-level namespaces reported 100% while its leaves were still untranslated
+  const flat: Record<string, Catalog> = {};
+  for (const locale of cfg.locales) {
+    flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);
+  }
+  const source = flat[cfg.sourceLocale] ?? {};
+  const needed = new Set<string>([...extracted.keys(), ...Object.keys(source)]);
+  const live = effectiveDrafts(drafts, flat);
+
   const locales: LocaleStatus[] = [];
   for (const locale of cfg.locales) {
     if (locale === cfg.sourceLocale) continue;
+    const catalog = flat[locale] ?? {};
     let translated = 0;
     for (const key of needed) {
-      if (catalogs[locale]?.[key]) translated += 1;
+      if (catalog[key]) translated += 1;
     }
-    // counted over the flattened catalog: a nested hand-written one has no top-level messages
     let broken = 0;
-    const flatSource = flatten((source ?? {}) as MessageTree);
-    for (const [key, text] of Object.entries(flatten((catalogs[locale] ?? {}) as MessageTree))) {
+    for (const [key, text] of Object.entries(catalog)) {
       if (!text) continue;
-      const from = flatSource[key] ?? extracted.get(key)?.message;
+      const from = source[key] ?? extracted.get(key)?.message;
       const issues = [...validateMessage(text, locale), ...(from ? validatePair(from, text) : [])];
       if (issues.some((issue) => issue.severity === 'error')) broken += 1;
     }

@@ -2,7 +2,7 @@ import { relative } from 'node:path';
 import picomatch from 'picomatch';
 import type { Analysis } from './analyze';
 import { loadCatalogs, type Catalogs } from './catalog';
-import { check, formatCheckResult } from './check';
+import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
 import type { MessageRegistry } from './registry';
@@ -64,12 +64,13 @@ export function runBuildGate(
   registry: MessageRegistry,
   failOnMissing?: boolean,
 ): void {
-  if (failOnMissing === false) return;
-  const result = check(cfg, loadCatalogs(cfg), registry);
-  if (!result.ok) {
-    throw new Error(
-      `[verbaly] build blocked\n${formatCheckResult(result)}\n` +
-        `Run \`npx verbaly extract\` and fill the missing translations.`,
-    );
-  }
+  const found = check(cfg, loadCatalogs(cfg), registry);
+  // `failOnMissing: false` means "let me build with untranslated strings", never "let me
+  // ship a translation that renders wrong": a missing one falls back to the source locale,
+  // a broken one renders the wrong text or nothing at all
+  const result = failOnMissing === false ? { ...found, missing: [] } : found;
+  if (gatePasses(result)) return;
+  throw new Error(
+    `[verbaly] build blocked\n${formatCheckResult(result)}\n${checkNextSteps(result)}`,
+  );
 }

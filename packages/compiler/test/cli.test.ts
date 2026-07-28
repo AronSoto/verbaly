@@ -369,14 +369,14 @@ describe('runCli: check', () => {
 });
 
 describe('runCli: init', () => {
-  it('scaffolds config and catalogs, reports the detected bundler and next steps', async () => {
+  it('scaffolds config and catalogs, reports the detected host and next steps', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-cli-'));
     writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { vite: '^8' } }));
     await runCli(['init', '--root', root, '--locales', 'es,pt']);
     expect(process.exitCode).toBeUndefined();
     const text = output(log);
     expect(text).toContain('created:');
-    expect(text).toContain('detected bundler: vite');
+    expect(text).toContain('detected: vite');
     expect(text).toContain('next steps:');
     expect(existsSync(join(root, 'locales', 'es.json'))).toBe(true);
   });

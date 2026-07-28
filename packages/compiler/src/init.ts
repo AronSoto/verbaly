@@ -12,26 +12,97 @@ export interface InitOptions {
 export interface InitResult {
   created: string[];
   skipped: string[];
-  bundler: 'astro' | 'vite' | 'webpack' | 'rollup' | 'rspack' | 'esbuild' | undefined;
+  host: Host | undefined;
   configFile: string;
   next: string[];
 }
 
-const BUNDLERS = ['astro', 'vite', 'webpack', 'rollup', 'rspack', 'esbuild'] as const;
+export type Host =
+  'nuxt' | 'next' | 'sveltekit' | 'astro' | 'vite' | 'webpack' | 'rspack' | 'rollup' | 'esbuild';
 
-export function detectBundler(root: string): InitResult['bundler'] {
+export interface HostSetup {
+  name: Host;
+  pkg: string;
+  wire: string;
+}
+
+const HOSTS: (HostSetup & { dep: string })[] = [
+  {
+    name: 'nuxt',
+    dep: 'nuxt',
+    pkg: '@verbaly/nuxt',
+    wire: "add '@verbaly/nuxt' to the modules in nuxt.config",
+  },
+  {
+    name: 'next',
+    dep: 'next',
+    pkg: '@verbaly/next',
+    wire: 'wrap the export of next.config with withVerbaly',
+  },
+  {
+    name: 'sveltekit',
+    dep: '@sveltejs/kit',
+    pkg: '@verbaly/vite',
+    wire: 'add verbaly() to the plugins in vite.config (per-request locale: @verbaly/sveltekit)',
+  },
+  {
+    name: 'astro',
+    dep: 'astro',
+    pkg: '@verbaly/astro',
+    wire: 'add verbaly() to the integrations in astro.config',
+  },
+  {
+    name: 'vite',
+    dep: 'vite',
+    pkg: '@verbaly/vite',
+    wire: 'add verbaly() to the plugins in vite.config',
+  },
+  {
+    name: 'webpack',
+    dep: 'webpack',
+    pkg: '@verbaly/unplugin',
+    wire: 'add the verbaly webpack plugin to your build config',
+  },
+  {
+    name: 'rspack',
+    dep: '@rspack/core',
+    pkg: '@verbaly/unplugin',
+    wire: 'add the verbaly rspack plugin to your build config',
+  },
+  {
+    name: 'rollup',
+    dep: 'rollup',
+    pkg: '@verbaly/unplugin',
+    wire: 'add the verbaly rollup plugin to your build config',
+  },
+  {
+    name: 'esbuild',
+    dep: 'esbuild',
+    pkg: '@verbaly/unplugin',
+    wire: 'add the verbaly esbuild plugin to your build config',
+  },
+];
+
+// any of these wires the build; the detected host only decides which one we recommend
+export const WIRING_PACKAGES = [...new Set(HOSTS.map((host) => host.pkg))];
+
+export function readDependencies(root: string): Record<string, string> {
   const path = join(root, 'package.json');
-  if (!existsSync(path)) return undefined;
+  if (!existsSync(path)) return {};
   try {
     const pkg = JSON.parse(readFileSync(path, 'utf8')) as {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-    return BUNDLERS.find((name) => deps[name]);
+    return { ...pkg.dependencies, ...pkg.devDependencies };
   } catch {
-    return undefined;
+    return {};
   }
+}
+
+export function detectHost(root: string): HostSetup | undefined {
+  const deps = readDependencies(root);
+  return HOSTS.find((host) => deps[host.dep]);
 }
 
 function configSource(options: InitOptions, typescript: boolean): string {
@@ -75,26 +146,10 @@ export function init(options: InitOptions = {}): InitResult {
     }
   }
 
-  const bundler = detectBundler(root);
-  const next: string[] = [];
-  if (bundler === 'astro') {
-    next.push(
-      'install the integration: pnpm add -D @verbaly/astro',
-      'add verbaly() to the integrations in astro.config',
-    );
-  } else if (bundler === 'vite') {
-    next.push(
-      'install the plugin: pnpm add -D @verbaly/vite',
-      'add verbaly() to the plugins in vite.config',
-    );
-  } else if (bundler) {
-    next.push(
-      'install the plugin: pnpm add -D @verbaly/unplugin',
-      `add the verbaly ${bundler} plugin to your build config`,
-    );
-  } else {
-    next.push('run "verbaly extract" after writing your first t`…` message');
-  }
+  const host = detectHost(root);
+  const next = host
+    ? [`pnpm add -D ${host.pkg}`, host.wire]
+    : ['run "verbaly extract" after writing your first t`…` message'];
 
-  return { created, skipped, bundler, configFile, next };
+  return { created, skipped, host: host?.name, configFile, next };
 }

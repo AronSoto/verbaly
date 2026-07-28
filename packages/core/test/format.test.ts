@@ -7,6 +7,7 @@ const v = createVerbaly({
   messages: {
     es: {
       greeting: 'Hola {name}',
+      farewell: 'Adiós {name}',
       inbox: '{count | =0: sin mensajes | one: un mensaje | other: # mensajes}',
       pronoun: '{gender | male: él | female: ella | other: elle}',
       braces: 'Usa {{clave}} literal',
@@ -53,14 +54,24 @@ describe('interpolation', () => {
     expect(v.t('greeting', { name: 'Aron' })).toBe('Hola Aron');
   });
 
-  it('keeps placeholder when param missing, and warns once', () => {
+  it('keeps placeholder when param missing, and warns once naming the message', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     // @ts-expect-error params required
     expect(v.t('greeting')).toBe('Hola {name}');
     // @ts-expect-error params required
     expect(v.t('greeting')).toBe('Hola {name}');
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0]![0]).toContain('missing param "name"');
+    expect(spy.mock.calls[0]![0]).toContain('missing param "name" in "greeting"');
+    spy.mockRestore();
+  });
+
+  it('warns again for another message missing the same param name', () => {
+    // deduping by param name alone left every message after the first one silent
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // @ts-expect-error params required
+    expect(v.t('farewell')).toBe('Adiós {name}');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toContain('in "farewell"');
     spy.mockRestore();
   });
 

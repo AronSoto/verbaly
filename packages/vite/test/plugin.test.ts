@@ -316,11 +316,28 @@ describe('build check', () => {
     expect(() => buildEnd()).toThrowError(/build blocked/);
   });
 
-  it('failOnMissing: false opts out of the gate', async () => {
+  it('failOnMissing: false waives untranslated strings', async () => {
     const root = makeProject({ es: {}, en: {} });
     const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
     transform(CODE, join(root, 'src', 'app.ts'));
     expect(() => buildEnd()).not.toThrow();
+  });
+
+  it('failOnMissing: false still blocks a broken translation', async () => {
+    // opting out means "let me build with untranslated strings", not "let me ship a
+    // translation that renders wrong": a missing one falls back, a broken one does not
+    const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
+    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
+    transform(CODE, join(root, 'src', 'app.ts'));
+    expect(() => buildEnd()).toThrowError(/broken translations/);
+  });
+
+  it('names the remedy that matches the failure', async () => {
+    const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
+    const { transform, buildEnd } = await setup(root, 'build');
+    transform(CODE, join(root, 'src', 'app.ts'));
+    // a broken translation is not repaired by extract, which is all it used to say
+    expect(() => buildEnd()).toThrowError(/params, tags and plural cases/);
   });
 
   it('does not write catalogs during build', async () => {

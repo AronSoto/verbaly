@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
 import {
   check,
+  checkNextSteps,
   formatCheckResult,
   formatCheckWarnings,
+  gatePasses,
   githubCheckAnnotations,
 } from '../src/check';
 import type { CheckResult } from '../src/check';
@@ -30,6 +32,29 @@ describe('check', () => {
     expect(result.ok).toBe(false);
     // the key is missing in en (no source) and es
     expect(result.missing.some((m) => m.locale === 'en')).toBe(true);
+  });
+
+  it('checks a nested catalog leaf by leaf, not by its top-level groups', () => {
+    // hand-written catalogs nest; the runtime flattens them before t() sees a key, so
+    // comparing group names called a locale complete while its leaves were untranslated
+    const catalogs = {
+      en: { nav: { home: 'Home', docs: 'Docs' } },
+      es: { nav: { home: 'Inicio', docs: '' } },
+    } as unknown as Catalogs;
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    expect(result.ok).toBe(false);
+    expect(result.missing).toEqual([{ locale: 'es', key: 'nav.docs', source: 'Docs' }]);
+  });
+
+  it('validates a nested leaf against its source leaf', () => {
+    const catalogs = {
+      en: { cart: { total: 'You have {count} items' } },
+      es: { cart: { total: 'Tienes elementos' } },
+    } as unknown as Catalogs;
+    const result = check(cfg(), catalogs, new MessageRegistry());
+    const errors = result.broken.filter((entry) => entry.severity === 'error');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.key).toBe('cart.total');
   });
 
   it('flags a source-catalog key that is not extracted as missing downstream', () => {
@@ -173,6 +198,45 @@ describe('formatCheckResult', () => {
     });
     expect(text).toContain('…"');
     expect(text).not.toContain(long);
+  });
+});
+
+describe('checkNextSteps', () => {
+  const result = (patch: Partial<CheckResult>): CheckResult => ({
+    ok: false,
+    missing: [],
+    unknown: [],
+    broken: [],
+    ...patch,
+  });
+
+  it('gives the remedy that matches the failure, not always extract', () => {
+    const missing = checkNextSteps(result({ missing: [{ locale: 'es', key: 'k' }] }));
+    expect(missing).toContain('verbaly extract');
+
+    const broken = checkNextSteps(
+      result({ broken: [{ locale: 'es', key: 'k', severity: 'error', issue: 'lost {name}' }] }),
+    );
+    // extract rewrites catalogs from the source: it can never repair a translation
+    expect(broken).not.toContain('verbaly extract');
+    expect(broken).toContain('params, tags and plural cases');
+
+    const unknown = checkNextSteps(result({ unknown: [{ key: 'ghost', files: [] }] }));
+    expect(unknown).toContain('fix the key');
+  });
+
+  it('says nothing about categories that did not fail', () => {
+    const steps = checkNextSteps(result({ unknown: [{ key: 'ghost', files: [] }] }));
+    expect(steps.split('\n')).toHaveLength(1);
+  });
+
+  it('stays quiet about warnings: they never block anything', () => {
+    const warned = result({
+      ok: true,
+      broken: [{ locale: 'pl', key: 'k', severity: 'warning', issue: 'pl also needs few' }],
+    });
+    expect(gatePasses(warned)).toBe(true);
+    expect(checkNextSteps(warned)).toBe('');
   });
 });
 

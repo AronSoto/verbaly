@@ -1,6 +1,12 @@
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
-import { check, formatCheckResult, formatCheckWarnings, githubCheckAnnotations } from './check';
+import {
+  check,
+  checkNextSteps,
+  formatCheckResult,
+  formatCheckWarnings,
+  githubCheckAnnotations,
+} from './check';
 import { writeDts } from './codegen';
 import { loadConfig } from './config';
 import { doctor } from './doctor';
@@ -110,7 +116,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     });
     if (result.created.length) console.log(`[verbaly] created: ${result.created.join(', ')}`);
     if (result.skipped.length) console.log(`  kept (already there): ${result.skipped.join(', ')}`);
-    if (result.bundler) console.log(`  detected bundler: ${result.bundler}`);
+    if (result.host) console.log(`  detected: ${result.host}`);
     console.log(
       ['  next steps:', ...result.next.map((step, i) => `    ${i + 1}. ${step}`)].join('\n'),
     );
@@ -264,13 +270,11 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
     const brokenCount = result.broken.filter((entry) => entry.severity === 'error').length;
-    if (reporter === 'github') {
-      console.error(
-        `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`,
-      );
-    } else {
-      console.error(`[verbaly] check failed\n${formatCheckResult(result)}`);
-    }
+    const report =
+      reporter === 'github'
+        ? `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`
+        : `[verbaly] check failed\n${formatCheckResult(result)}`;
+    console.error(`${report}\n${checkNextSteps(result)}`);
     process.exitCode = 1;
     return;
   }

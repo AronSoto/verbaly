@@ -21,7 +21,7 @@ Extraction covers `.js`/`.ts`/`.jsx`/`.tsx` **and `.svelte`, `.vue` and `.astro`
 
 ```bash
 npx verbaly init           # scaffold config + locale catalogs (detects your bundler)
-npx verbaly doctor         # diagnose the setup (config, catalogs, plugin, types, keys)
+npx verbaly doctor         # diagnose the setup (config, catalogs, wiring, types, translations)
 npx verbaly wrap           # onboarding codemod: report plain JSX text, --write wraps it in t``
 npx verbaly extract        # sync catalogs + types
 npx verbaly extract --watch  # keep extracting as you code (dev loop)

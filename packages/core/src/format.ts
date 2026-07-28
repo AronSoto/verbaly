@@ -7,6 +7,7 @@ interface FormatContext {
   params: Params | undefined;
   formatters: Record<string, Formatter>;
   hashValue?: unknown;
+  key?: string;
 }
 
 export function formatNodes(nodes: MessageNode[], ctx: FormatContext): string {
@@ -22,7 +23,7 @@ export function formatNodes(nodes: MessageNode[], ctx: FormatContext): string {
 function formatParam(node: ParamNode, ctx: FormatContext): string {
   const value = ctx.params?.[node.name];
   if (value === undefined) {
-    warnOnce(`missing param "${node.name}"`);
+    warnOnce(`missing param "${node.name}"${ctx.key ? ` in "${ctx.key}"` : ''}`);
     return `{${node.name}}`;
   }
 

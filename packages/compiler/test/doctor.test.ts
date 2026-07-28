@@ -11,10 +11,11 @@ const KEY = stableKey('Hola {name}');
 
 interface ProjectOptions {
   config?: boolean;
-  catalogs?: Record<string, Record<string, string> | string>; // string = raw file content
+  catalogs?: Record<string, Record<string, unknown> | string>; // string = raw file content
   code?: string;
   dts?: boolean;
   pkg?: Record<string, unknown>;
+  include?: string[];
 }
 
 function makeProject(options: ProjectOptions = {}) {
@@ -33,13 +34,13 @@ function makeProject(options: ProjectOptions = {}) {
   if (options.dts !== false) {
     const source = catalogs['es'];
     if (typeof source === 'object') {
-      writeFileSync(join(root, 'verbaly.d.ts'), generateDts(source));
+      writeFileSync(join(root, 'verbaly.d.ts'), generateDts(source as Record<string, string>));
     }
   }
   if (options.pkg) {
     writeFileSync(join(root, 'package.json'), JSON.stringify(options.pkg));
   }
-  return resolveConfig({ root, sourceLocale: 'es' });
+  return resolveConfig({ root, sourceLocale: 'es', include: options.include });
 }
 
 function entry(entries: DoctorEntry[], check: string): DoctorEntry | undefined {
@@ -94,6 +95,27 @@ describe('doctor', () => {
     expect(result.ok).toBe(false);
     expect(entry(result.entries, 'locale en')?.message).toContain('not valid JSON');
     expect(entry(result.entries, 'locale pt')?.message).toContain('non-string value at "a"');
+  });
+
+  it('accepts a nested catalog and names the path of a bad leaf', async () => {
+    // the runtime flattens trees and so does the gate: rejecting them made the docs site
+    // fail its own doctor while its build passed
+    const nested = await doctor(
+      makeProject({
+        catalogs: { es: { nav: { home: 'Inicio' } }, en: { nav: { home: 'Home' } } },
+        code: '',
+        dts: false,
+      }),
+    );
+    expect(nested.ok).toBe(true);
+    expect(entry(nested.entries, 'locale es')).toBeUndefined();
+    expect(entry(nested.entries, 'translations')?.message).toBe('all translations complete');
+
+    const bad = await doctor(
+      makeProject({ catalogs: { es: { nav: { count: 3 } } }, code: '', dts: false }),
+    );
+    expect(bad.ok).toBe(false);
+    expect(entry(bad.entries, 'locale es')?.message).toContain('non-string value at "nav.count"');
   });
 
   it('warns on an empty source catalog', async () => {
@@ -159,5 +181,66 @@ describe('doctor', () => {
 
     const none = await doctor(makeProject());
     expect(entry(none.entries, 'plugin')?.message).toContain('CLI flow');
+  });
+
+  it('recommends the integration of the host it detected, like init does', async () => {
+    // it used to send every non-vite project to @verbaly/unplugin, so an Astro or Nuxt
+    // app got the opposite advice from the init it had just run
+    const astro = await doctor(makeProject({ pkg: { dependencies: { astro: '^7.0.0' } } }));
+    expect(entry(astro.entries, 'plugin')?.fix).toContain('@verbaly/astro');
+
+    const nuxt = await doctor(makeProject({ pkg: { dependencies: { nuxt: '^4.0.0' } } }));
+    expect(entry(nuxt.entries, 'plugin')?.fix).toContain('@verbaly/nuxt');
+
+    // a meta-framework wins over the bundler underneath it
+    const next = await doctor(
+      makeProject({ pkg: { dependencies: { next: '^16.0.0', vite: '^8.0.0' } } }),
+    );
+    expect(entry(next.entries, 'plugin')?.message).toContain('next');
+    expect(entry(next.entries, 'plugin')?.fix).toContain('@verbaly/next');
+
+    // wired with any of them counts: the astro integration wraps the vite plugin
+    const viteInAstro = await doctor(
+      makeProject({ pkg: { dependencies: { astro: '^7.0.0', '@verbaly/vite': '^0.30.0' } } }),
+    );
+    expect(entry(viteInAstro.entries, 'plugin')?.level).toBe('ok');
+  });
+
+  it('reports broken translations, so it cannot call a failing build healthy', async () => {
+    const result = await doctor(
+      makeProject({
+        catalogs: { es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } },
+        dts: true,
+      }),
+    );
+    const e = result.entries.find((x) => x.check === 'translations' && x.level === 'error');
+    expect(e?.message).toContain('1 broken translation (en)');
+    expect(e?.fix).toContain('verbaly check');
+    expect(result.ok).toBe(false); // check exits 1 on this project, doctor now agrees
+  });
+
+  it('reports structural warnings without failing', async () => {
+    const plural = '{count | one: un elemento | other: # elementos}';
+    const cfg = makeProject({
+      catalogs: { es: { [KEY]: plural }, pl: { [KEY]: plural } },
+      code: '',
+      dts: false,
+    });
+    const result = await doctor(cfg);
+    const e = result.entries.find((x) => x.check === 'translations' && x.level === 'warn');
+    expect(e?.message).toContain('structural');
+    expect(result.ok).toBe(true);
+  });
+
+  it('stays quiet about orphans and types when source scanning is off', async () => {
+    // include: [] means the compiler reads no code, so it cannot know what is referenced:
+    // claiming orphans there would push a --prune that deletes a working catalog
+    const result = await doctor(
+      makeProject({ catalogs: { es: { hand: 'Escrito a mano' } }, dts: false, include: [] }),
+    );
+    expect(entry(result.entries, 'sources')?.message).toContain('include: []');
+    expect(entry(result.entries, 'orphans')).toBeUndefined();
+    expect(entry(result.entries, 'types')).toBeUndefined();
+    expect(result.ok).toBe(true);
   });
 });

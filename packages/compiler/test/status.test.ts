@@ -28,6 +28,26 @@ describe('status', () => {
     });
   });
 
+  it('counts a nested catalog by its leaves', () => {
+    // by top-level groups this read 1/1 (100%) with half the site untranslated
+    const result = status(
+      cfg(['en', 'es']),
+      {
+        en: { nav: { home: 'Home', docs: 'Docs' } },
+        es: { nav: { home: 'Inicio', docs: '' } },
+      } as never,
+      new MessageRegistry(),
+    );
+    expect(result.messages).toBe(2);
+    expect(result.locales[0]).toEqual({
+      locale: 'es',
+      translated: 1,
+      total: 2,
+      drafts: 0,
+      broken: 0,
+    });
+  });
+
   it('tolerates a missing source catalog (nothing needed, all locales complete)', () => {
     const result = status(cfg(['en', 'es']), {}, new MessageRegistry());
     expect(result.messages).toBe(0);

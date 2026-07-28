@@ -120,6 +120,24 @@ describe('validatePair', () => {
     expect(errors(issues)).toHaveLength(1);
   });
 
+  it('leaves angle-bracket prose alone: a lone <Enter> is text, not markup', () => {
+    // rich rendering drops an unclosed tag and plain text prints it verbatim, so neither
+    // shape is structure the translation has to keep. Demanding it failed correct work
+    expect(validatePair('Press <Enter> to continue', 'Pulsa <Intro> para continuar')).toEqual([]);
+    expect(validatePair('Use <T> for the type', 'Usa <T> para el tipo')).toEqual([]);
+  });
+
+  it('still catches a closed tag inside prose that also carries a lone one', () => {
+    const issues = validatePair('Press <Enter> to <em>save</em>', 'Pulsa <Intro> para guardar');
+    expect(errors(issues)).toHaveLength(1);
+    expect(errors(issues)[0]).toContain('<em>');
+  });
+
+  it('catches a half-closed pair, the wrapper is gone at render time', () => {
+    const issues = validatePair('Read the <em>docs</em>', 'Lee la <em>documentacion');
+    expect(errors(issues)).toHaveLength(1);
+  });
+
   it('accepts a self-closing tag round trip and flags losing it', () => {
     expect(validatePair('one<br/>two', 'uno<br/>dos')).toEqual([]);
     expect(errors(validatePair('one<br/>two', 'uno dos'))).toHaveLength(1);

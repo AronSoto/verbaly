@@ -1,7 +1,14 @@
 export { analyze } from './analyze';
 export { SFC_FILE_RE, analyzeFile, analyzeSfc } from './sfc';
 export { loadCatalogs, readCatalog, catalogPath, serializeCatalog, writeCatalog } from './catalog';
-export { check, formatCheckResult, formatCheckWarnings, githubCheckAnnotations } from './check';
+export {
+  check,
+  checkNextSteps,
+  formatCheckResult,
+  formatCheckWarnings,
+  gatePasses,
+  githubCheckAnnotations,
+} from './check';
 export { PLURAL_CATEGORIES, validateMessage, validatePair } from './validate';
 export {
   VIRTUAL_ID,
@@ -33,7 +40,7 @@ export {
 } from './drafts';
 export { exportCatalogs, importCatalogs, isMobileFormat, parseExchangeFile } from './exchange';
 export { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
-export { detectBundler, init } from './init';
+export { WIRING_PACKAGES, detectHost, init, readDependencies } from './init';
 export { stableKey } from './key';
 export { collectParams, renderParamType } from './params';
 export { claudeProvider } from './providers/claude';
@@ -75,7 +82,7 @@ export type { PluginOptions } from './plugin';
 export type { SyncResult } from './extract';
 export type { LocaleStatus, StatusResult } from './status';
 export type { WatchProjectOptions } from './watch';
-export type { InitOptions, InitResult } from './init';
+export type { Host, HostSetup, InitOptions, InitResult } from './init';
 export type {
   Alternate,
   RenderHtmlOptions,

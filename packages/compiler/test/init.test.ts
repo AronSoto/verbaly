@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config';
-import { detectBundler, init } from '../src/init';
+import { detectHost, init } from '../src/init';
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-init-'));
@@ -59,21 +59,35 @@ describe('init', () => {
     const root = makeRoot();
     writeFileSync(join(root, 'package.json'), '{"devDependencies":{"vite":"^8.0.0"}}');
     const result = init({ root });
-    expect(result.bundler).toBe('vite');
+    expect(result.host).toBe('vite');
     expect(result.next.join(' ')).toContain('@verbaly/vite');
   });
 
   it('routes other bundlers to @verbaly/unplugin', () => {
     const root = makeRoot();
     writeFileSync(join(root, 'package.json'), '{"devDependencies":{"webpack":"^5.0.0"}}');
-    expect(detectBundler(root)).toBe('webpack');
+    expect(detectHost(root)?.name).toBe('webpack');
     expect(init({ root }).next.join(' ')).toContain('@verbaly/unplugin');
+  });
+
+  it('picks the meta-framework over the bundler it runs on', () => {
+    // a Nuxt or SvelteKit app also has vite: recommending the vite plugin there sent
+    // the user past the integration that wires everything for them
+    const nuxt = makeRoot();
+    writeFileSync(join(nuxt, 'package.json'), '{"dependencies":{"nuxt":"^4.0.0","vite":"^8.0.0"}}');
+    expect(detectHost(nuxt)?.pkg).toBe('@verbaly/nuxt');
+    expect(init({ root: nuxt }).next.join(' ')).toContain('nuxt.config');
+
+    const kit = makeRoot();
+    writeFileSync(join(kit, 'package.json'), '{"devDependencies":{"@sveltejs/kit":"^2.0.0"}}');
+    expect(detectHost(kit)?.name).toBe('sveltekit');
+    expect(detectHost(kit)?.pkg).toBe('@verbaly/vite');
   });
 
   it('falls back to CLI guidance without a bundler', () => {
     const root = makeRoot();
     const result = init({ root });
-    expect(result.bundler).toBeUndefined();
+    expect(result.host).toBeUndefined();
     expect(result.next.join(' ')).toContain('verbaly extract');
   });
 });

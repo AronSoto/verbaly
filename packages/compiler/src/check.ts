@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
-import type { Catalogs } from './catalog';
+import type { Catalog, Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import type { MessageRegistry } from './registry';
 import { validateMessage, validatePair, type IssueSeverity, type StructureIssue } from './validate';
@@ -31,18 +31,34 @@ export interface CheckResult {
   broken: BrokenEntry[];
 }
 
+export function gatePasses(result: Omit<CheckResult, 'ok'>): boolean {
+  return (
+    result.missing.length === 0 &&
+    result.unknown.length === 0 &&
+    !result.broken.some((entry) => entry.severity === 'error')
+  );
+}
+
 export function check(
   cfg: ResolvedConfig,
   catalogs: Catalogs,
   registry: MessageRegistry,
 ): CheckResult {
-  const source = catalogs[cfg.sourceLocale] ?? {};
   const extracted = registry.messages();
+
+  // one flat view of every catalog, because that is the shape t() sees: a hand-written
+  // nested tree is flattened by the runtime, so comparing its top-level namespaces
+  // reported a locale as complete while its leaves were untranslated
+  const flat: Record<string, Catalog> = {};
+  for (const locale of cfg.locales) {
+    flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);
+  }
+  const source = flat[cfg.sourceLocale] ?? {};
 
   const unknown: UnknownEntry[] = [];
   for (const [key, files] of registry.usedKeys()) {
     const known =
-      extracted.has(key) || cfg.locales.some((locale) => catalogs[locale]?.[key] !== undefined);
+      extracted.has(key) || cfg.locales.some((locale) => flat[locale]?.[key] !== undefined);
     if (!known) unknown.push({ key, files });
   }
 
@@ -57,15 +73,13 @@ export function check(
   for (const locale of cfg.locales) {
     if (locale === cfg.sourceLocale) continue;
     for (const key of needed) {
-      if (!catalogs[locale]?.[key]) {
+      if (!flat[locale]?.[key]) {
         missing.push({ locale, key, source: source[key] ?? extracted.get(key)?.message });
       }
     }
   }
 
-  // presence is not correctness: a translation can be there and still render wrong.
-  // flatten first, so a hand-written nested catalog is validated leaf by leaf like a
-  // generated flat one (the runtime flattens too, so both shapes reach t() the same)
+  // presence is not correctness: a translation can be there and still render wrong
   const broken: BrokenEntry[] = [];
   const add = (locale: string, key: string, issues: StructureIssue[]): void => {
     for (const issue of issues) {
@@ -73,31 +87,25 @@ export function check(
     }
   };
 
-  const sourceFlat = flatten(source as MessageTree);
-  for (const key of needed) {
-    const text = sourceFlat[key] ?? extracted.get(key)?.message;
-    if (text) sourceFlat[key] = text;
+  // a key can be used in code before it reaches the catalog: validate that text too
+  const sourceText: Catalog = { ...source };
+  for (const [key, entry] of extracted) {
+    if (!sourceText[key]) sourceText[key] = entry.message;
   }
-  for (const [key, text] of Object.entries(sourceFlat)) {
+  for (const [key, text] of Object.entries(sourceText)) {
     add(cfg.sourceLocale, key, validateMessage(text, cfg.sourceLocale));
   }
   for (const locale of cfg.locales) {
     if (locale === cfg.sourceLocale) continue;
-    for (const [key, translated] of Object.entries(
-      flatten((catalogs[locale] ?? {}) as MessageTree),
-    )) {
+    for (const [key, translated] of Object.entries(flat[locale] ?? {})) {
       if (!translated) continue; // '' is untranslated, already reported as missing
       add(locale, key, validateMessage(translated, locale));
-      const text = sourceFlat[key];
+      const text = sourceText[key];
       if (text) add(locale, key, validatePair(text, translated));
     }
   }
 
-  const ok =
-    missing.length === 0 &&
-    unknown.length === 0 &&
-    !broken.some((entry) => entry.severity === 'error');
-  return { ok, missing, unknown, broken };
+  return { ok: gatePasses({ missing, unknown, broken }), missing, unknown, broken };
 }
 
 export function formatCheckResult(result: CheckResult): string {
@@ -121,6 +129,27 @@ export function formatCheckResult(result: CheckResult): string {
     for (const entry of errors) lines.push(`  [${entry.locale}] ${entry.key}: ${entry.issue}`);
   }
   return lines.join('\n');
+}
+
+// what to do about each kind of failure: extract only fixes one of the three
+export function checkNextSteps(result: CheckResult): string {
+  const steps: string[] = [];
+  if (result.missing.length > 0) {
+    steps.push(
+      'missing: run `npx verbaly extract` to scaffold the keys, then fill them (or run `npx verbaly translate`)',
+    );
+  }
+  if (result.unknown.length > 0) {
+    steps.push(
+      'unknown keys: the key used in the code is in no catalog, fix the key or run `npx verbaly extract`',
+    );
+  }
+  if (result.broken.some((entry) => entry.severity === 'error')) {
+    steps.push(
+      'broken: a translation has to keep the params, tags and plural cases of its source message',
+    );
+  }
+  return steps.join('\n');
 }
 
 // warnings never fail the gate, so they print on their own

@@ -66,7 +66,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
       options.onResolve?.({ key, locale, value, status: 'miss' });
       return value;
     }
-    const value = formatNodes(parse(hit.msg), { locale, params, formatters });
+    const value = formatNodes(parse(hit.msg), { locale, params, formatters, key });
     options.onResolve?.({
       key,
       locale,

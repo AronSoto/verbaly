@@ -86,7 +86,7 @@ Messages with tags (`'The <em>build</em> gate'`) render as real elements, same p
 
 Uses the instance from `provideVerbaly` (or pass `instance={verbaly}` explicitly; `richTags` overrides the whitelist, `links` maps tag names to hrefs with `javascript:` blocked, `components` wins over both). Alternatively the core's DOM interpreter works in any Svelte app: mark elements with `data-verbaly`/`data-verbaly-rich` and call `bindDom`.
 
-📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
+📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/svelte**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

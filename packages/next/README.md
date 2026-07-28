@@ -111,7 +111,7 @@ Second argument of `withVerbaly`: every [`verbaly.config`](https://www.npmjs.com
 
 ## 📚 Docs
 
-Full guide: [verbaly-web.vercel.app/docs](https://verbaly-web.vercel.app/docs)
+Full guide: [verbaly-web.vercel.app/docs/frameworks/react#next](https://verbaly-web.vercel.app/docs/frameworks/react#next)
 
 ## License
 

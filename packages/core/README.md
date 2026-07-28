@@ -29,7 +29,7 @@ t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
 t.id('inbox.title')`Hello ${name}`; // → t('inbox.title', { name })
 ```
 
-Missing a translation? **The build fails**, so raw keys never reach production.
+Missing a translation? **The build fails**, so raw keys never reach production. And a translation that dropped your `{name}` or flattened a plural block fails too: being filled in is not the same as working.
 
 ## 🚀 Try it in 30 seconds
 
@@ -129,17 +129,22 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 
 ## 🧩 Ecosystem
 
-| Package                                               | Description                         |
-| ----------------------------------------------------- | ----------------------------------- |
-| `verbaly`                                             | Core runtime (this package)         |
-| `@verbaly/vite`                                       | Zero-config Vite plugin             |
-| `@verbaly/compiler`                                   | Extraction + codegen + CLI          |
-| `@verbaly/unplugin`                                   | webpack · Rollup · esbuild · Rspack |
-| `@verbaly/react` · `@verbaly/vue` · `@verbaly/svelte` | Framework adapters                  |
+| Package                                                  | Description                                             |
+| -------------------------------------------------------- | ------------------------------------------------------- |
+| `verbaly`                                                | Core runtime (this package)                             |
+| `@verbaly/vite`                                          | Zero-config Vite plugin                                 |
+| `@verbaly/unplugin`                                      | webpack · Rollup · esbuild · Rspack                     |
+| `@verbaly/compiler`                                      | Extraction + codegen + the `verbaly` CLI                |
+| `@verbaly/react` · `@verbaly/vue` · `@verbaly/svelte`    | Framework adapters (React also covers Preact)           |
+| `@verbaly/astro`                                         | Astro integration + per-locale static build             |
+| `@verbaly/next` · `@verbaly/nuxt` · `@verbaly/sveltekit` | SSR: locale per request, hydration with no flash        |
+| `@verbaly/mcp`                                           | MCP server: the translation cycle as tools for an agent |
+
+All twelve share one version number, so you never match compatible ranges.
 
 📖 **Docs & live playground:** https://verbaly-web.vercel.app
 
-🔁 **Coming from i18next?** Keep your keys and catalogs: the [migration guide](https://verbaly-web.vercel.app/docs/migrate) maps everything one-to-one.
+🔁 **Coming from i18next?** Keep your keys and catalogs: the [migration guide](https://verbaly-web.vercel.app/docs/guide/migrate) maps everything one-to-one.
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

@@ -11,7 +11,9 @@
 
 ---
 
-The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `t\`...\``**and JSX`<Trans>` children** into stable hashed keys (or **readable keys** via `` t.id('inbox.title')`…` `` and `<Trans id="inbox.title">…</Trans>`), flat JSON catalog sync, and typed codegen. It also ships the **`verbaly`CLI**. Extraction covers`.js/.ts/.jsx/.tsx`**and`.svelte`/`.vue`single-file components** (script blocks and markup, including Svelte's`$t` store form).
+The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `` t`…` `` **and JSX `<Trans>` children** into stable hashed keys (or **readable keys** via `` t.id('inbox.title')`…` `` and `<Trans id="inbox.title">…</Trans>`), flat JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
+
+Extraction covers `.js`/`.ts`/`.jsx`/`.tsx` **and `.svelte`, `.vue` and `.astro` single-file components**: script blocks and frontmatter, plus markup expressions (Svelte's `$t` store form included). Text that only sits on screen is never extracted, so a documented snippet cannot become a real key.
 
 > Most projects don't install this directly: [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) wraps it with zero config. Reach for it when scripting extraction/checks yourself.
 
@@ -20,12 +22,14 @@ The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extracti
 ```bash
 npx verbaly init           # scaffold config + locale catalogs (detects your bundler)
 npx verbaly doctor         # diagnose the setup (config, catalogs, plugin, types, keys)
+npx verbaly wrap           # onboarding codemod: report plain JSX text, --write wraps it in t``
 npx verbaly extract        # sync catalogs + types
 npx verbaly extract --watch  # keep extracting as you code (dev loop)
 npx verbaly extract --prune  # drop orphaned keys
-npx verbaly status         # translation coverage per locale, at a glance
-npx verbaly check          # exit 1 if anything is missing (CI)
-npx verbaly translate      # fill missing translations via Claude (or your provider)
+npx verbaly status         # coverage per locale, plus unreviewed and broken counts
+npx verbaly check          # exit 1 if anything is missing or broken (CI)
+npx verbaly translate      # fill missing translations via Claude (or your provider), as drafts
+npx verbaly review         # list machine drafts, --approve accepts them
 npx verbaly export         # translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
 npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV/PO files
 npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA)
@@ -34,9 +38,38 @@ npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG, kills t
 
 Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (flat, portable, no proprietary format) and `verbaly.d.ts` with params typed per key.
 
+## 🚦 The build gate
+
+`verbaly check` is the only command that exits 1, and it asks two questions, not one.
+
+**Is every message translated?** A missing key or an empty value fails the build, so raw keys never reach production.
+
+**Can the translation render what the source renders?** Presence is not correctness. These fail too, each with the reason in plain words:
+
+| The translation…                        | Why it fails                                   |
+| --------------------------------------- | ---------------------------------------------- |
+| lost a `{param}`, or renamed it         | the value never reaches the text               |
+| lost an `<em>` (or gained one)          | the emphasis, code or link marker is gone      |
+| turned a plural block into plain text   | one form for every count                       |
+| has a plural block with no `other` case | every count it does not list renders **empty** |
+
+Two more are reported as **warnings** and keep the exit code at 0, because the text still renders: a plural set missing forms the target language needs (Polish or Arabic want more than English), and a dropped `=0` style case that now falls back to `other`.
+
+```bash
+npx verbaly check                     # text report
+npx verbaly check --reporter github   # ::error and ::warning annotations on the PR, at the source line
+npx verbaly check --drafts            # also fail while machine translations await review
+```
+
+Hand-edited catalogs get the same treatment as imported files: the gate does not care where a translation came from.
+
 ## 🤖 Machine translation
 
-`verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK; install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Placeholders, variants and tags are validated after translation: anything not preserved verbatim stays `""` so `check` keeps failing. Plug your own provider in `verbaly.config.ts`:
+`verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK; install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Placeholders, variants and tags are validated after translation: anything not preserved verbatim stays `""` so `check` keeps failing.
+
+**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-drafts.json` (commit it, never edit it by hand). `verbaly review` lists the drafts, `--approve` accepts them, and importing a translator's file clears the flag because a human already reviewed it. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing.
+
+Plug your own provider in `verbaly.config.ts`:
 
 ```ts
 translate: {
@@ -87,7 +120,7 @@ Per-element `data-verbaly-links='{"repo":"https://…"}'` merges over the config
 
 `verbaly pseudo` fills a QA catalog (`en-XA` by default, `--locale <id>` to change) from the source: accented letters, `⟦…⟧` markers and ~33% length padding reveal hardcoded strings, clipped layouts and concatenation bugs. Params, variant blocks and tags survive verbatim, with the same structural validation as `translate`.
 
-📖 Docs: **https://verbaly-web.vercel.app/docs/cli**
+📖 Docs: **https://verbaly-web.vercel.app/docs/reference/cli**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

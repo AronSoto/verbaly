@@ -44,7 +44,7 @@ Machine translations stay drafts until a human accepts them (`verbaly review --a
 
 ## 📚 Docs
 
-Full guide: [verbaly-web.vercel.app/docs](https://verbaly-web.vercel.app/docs)
+Full guide: [verbaly-web.vercel.app/docs/reference/cli#agents](https://verbaly-web.vercel.app/docs/reference/cli#agents)
 
 ## License
 

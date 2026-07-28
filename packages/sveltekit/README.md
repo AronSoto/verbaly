@@ -115,7 +115,7 @@ export const load = async ({ data }) => ({
 
 ## 📚 Docs
 
-Full guide: [verbaly-web.vercel.app/docs/sveltekit](https://verbaly-web.vercel.app/docs/sveltekit)
+Full guide: [verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit](https://verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit)
 
 ## License
 

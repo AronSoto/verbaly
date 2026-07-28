@@ -107,7 +107,7 @@ Plain HTML, no framework? Bind by attribute:
 - **Fast, with receipts**: fully memoized hot path: 5-35× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
 - **No proprietary format**: plain, portable JSON catalogs. No lock-in. Most TMS platforms ingest them natively, and `verbaly export`/`import` round-trips XLIFF 2.0, CSV or gettext PO with human translators; exports carry the source-file location of every message so translators see context, and imports are structure-validated, so a typo in a `{param}` or tag never reaches your UI. The same catalogs also export as native mobile resources (`--format android-xml` / `ios-strings`) for a companion app.
 - **Works with plain HTML**: a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe), named links (`richLinks`; hrefs from your code, never from messages) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
-- **Fails the build on missing translations**: the #1 i18n pain, gone.
+- **Fails the build on missing translations**: the #1 i18n pain, gone. And on **broken** ones: `verbaly check` reads every translation against its source and rejects the ones that cannot render it, whether they came from a translator, a machine or a hand edit. A dropped `{param}`, a lost `<em>`, a flattened plural block, a plural set with no catch-all case (that one renders an empty string, silently) all stop the build with the reason in plain words, annotated on the source line in CI. It also warns, without failing, when a language needs plural forms your catalog does not carry yet.
 - **RTL and language names built in**: adding Arabic or Hebrew just works: `switchLocale`, the SSR integrations and `verbaly render` keep `<html dir>` right on their own, and `localeName('es')` gives your locale switcher real names ('español') via `Intl.DisplayNames`, no hardcoded tables.
 - **Static sites ship translated**: `verbaly render` pre-fills your built HTML per locale (`dist/es/…`, `<html lang>` and `<html dir>` set). No flash of untranslated content on SSG.
 - **i18n QA built in**: `verbaly pseudo` generates a pseudo-locale (`⟦Ĥéĺĺó ~⟧`) that exposes hardcoded strings and clipped layouts; `verbaly translate` fills real locales via Claude or your own provider; `verbaly doctor` diagnoses the whole setup with the exact fix for each finding.
@@ -123,6 +123,7 @@ Plain HTML, no framework? Bind by attribute:
 | Dynamic / CMS content     | ✅ real runtime path  | ✅                 | ✅                     | ⚠️ weak        | ✅            |
 | Plain HTML (no framework) | ✅ DOM interpreter    | ❌                 | ❌                     | ❌             | ❌            |
 | Missing-translation gate  | ✅ build fails        | runtime warning    | CI step                | ✅             | ❌            |
+| Broken-translation gate   | ✅ build fails        | ❌                 | ❌                     | ❌             | ❌            |
 | Catalog format            | plain JSON            | JSON               | PO/JSON                | inlang format  | TS files      |
 
 ---

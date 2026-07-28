@@ -81,7 +81,7 @@ Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in 
 
 ## 📚 Docs
 
-Full guide: [verbaly-web.vercel.app/docs](https://verbaly-web.vercel.app/docs)
+Full guide: [verbaly-web.vercel.app/docs/frameworks/vue#nuxt](https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt)
 
 ## License
 

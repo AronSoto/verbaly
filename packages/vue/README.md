@@ -68,7 +68,7 @@ Whitelisted phrasing tags in a message (`<em>`, `<code>`…) render as real elem
 <Trans id="cta" :links="{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }" />
 ```
 
-📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
+📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/vue**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

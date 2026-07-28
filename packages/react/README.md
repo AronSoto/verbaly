@@ -13,6 +13,8 @@
 
 React hooks for [Verbaly](https://github.com/AronSoto/verbaly): a thin layer (React 18/19) over the reactive core via `useSyncExternalStore`.
 
+**Preact works too**, through `preact/compat`, with no extra package and no configuration of ours: the test suite runs a second time with React resolved to `preact/compat` (hooks, locale switching, `<Trans>` and server rendering), so this is measured, not assumed.
+
 ## 🚀 Install
 
 ```bash
@@ -55,7 +57,7 @@ Named links without custom components; hrefs come from your code, never from mes
 <Trans id="cta" links={{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }} />
 ```
 
-📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks**
+📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/react**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

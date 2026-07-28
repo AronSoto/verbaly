@@ -1,3 +1,5 @@
+// runs the adapter with react resolved to preact/compat, and happy-dom as the environment:
+// both come from vitest.preact.config.ts, so this file needs no environment docblock
 import { createRoot, type Root } from 'react-dom/client';
 import { createVerbaly } from 'verbaly';
 import { act } from 'preact/test-utils';

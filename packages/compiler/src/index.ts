@@ -31,7 +31,7 @@ export {
   saveDrafts,
 } from './drafts';
 export { exportCatalogs, importCatalogs, isMobileFormat, parseExchangeFile } from './exchange';
-export { extractProject, pruneCatalogs, syncCatalogs } from './extract';
+export { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export { detectBundler, init } from './init';
 export { stableKey } from './key';
 export { collectParams, renderParamType } from './params';
@@ -43,7 +43,7 @@ export { formatStatusResult, status } from './status';
 export { watchProject } from './watch';
 export { transformCode } from './transform';
 export { wrapCode, wrapProject } from './wrap';
-export { structureMatches, translateCatalogs } from './translate';
+export { resolveProvider, structureMatches, translateCatalogs } from './translate';
 
 export type {
   Analysis,

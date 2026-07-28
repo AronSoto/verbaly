@@ -17,6 +17,9 @@ const FRONTMATTER_RE = /^(\uFEFF?\s*---\r?\n)([\s\S]*?)\r?\n---(?=\r?\n|$)/;
 const CANDIDATE_SVELTE = /(?<![\w$])\$?t(?=[`(]|\.id\()/g;
 const CANDIDATE_VUE = /(?<![\w$])t(?=[`(]|\.id\()/g;
 
+const MUSTACHE_RE = /\{\{[\s\S]*?\}\}/g;
+const DIRECTIVE_RE = /\s(?:v-[\w-]+(?::[^\s=>/]+)?|[:@][^\s=>/]+)\s*=\s*("[^"]*"|'[^']*')/g;
+
 export function analyzeSfc(code: string, file: string): Analysis {
   // svelte components consume t as a store: $t`…` is the idiomatic form
   const svelte = file.endsWith('.svelte');
@@ -42,10 +45,15 @@ export function analyzeSfc(code: string, file: string): Analysis {
     : code;
   const markup = blank(blank(blank(body, SCRIPT_RE), STYLE_RE), COMMENT_RE);
   const candidates = svelte ? CANDIDATE_SVELTE : CANDIDATE_VUE;
+  // display-only text never yields candidates: only expression context counts
+  const ranges = file.endsWith('.vue') ? vueExpressionRanges(markup) : braceRanges(markup);
+  let range = 0;
   let consumedTo = 0;
   for (const match of markup.matchAll(candidates)) {
     const start = match.index;
     if (start < consumedTo) continue;
+    while (range < ranges.length && ranges[range]![1] <= start) range += 1;
+    if (range >= ranges.length || start < ranges[range]![0]) continue;
     const end = expressionExtent(markup, start);
     if (end === undefined) continue;
     merge(analyzeSegment(code.slice(start, end), file, options), start, true);
@@ -89,6 +97,37 @@ function analyzeSegment(
 
 function blank(source: string, re: RegExp): string {
   return source.replace(re, (m) => ' '.repeat(m.length));
+}
+
+// [start, end) content spans of balanced {…} regions (astro expressions, svelte mustaches)
+function braceRanges(markup: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  let i = 0;
+  while (i < markup.length) {
+    if (markup[i] === '{') {
+      const end = balancedEnd(markup, i);
+      if (end !== undefined) {
+        ranges.push([i + 1, end - 1]);
+        i = end;
+        continue;
+      }
+    }
+    i += 1;
+  }
+  return ranges;
+}
+
+// vue expression context: {{ mustaches }} plus quoted values of :/@/v- directive attributes
+function vueExpressionRanges(markup: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  for (const match of markup.matchAll(MUSTACHE_RE)) {
+    ranges.push([match.index + 2, match.index + match[0].length - 2]);
+  }
+  for (const match of markup.matchAll(DIRECTIVE_RE)) {
+    const valueStart = match.index + match[0].length - match[1]!.length + 1;
+    ranges.push([valueStart, valueStart + match[1]!.length - 2]);
+  }
+  return ranges.sort((a, b) => a[0] - b[0]);
 }
 
 // end (exclusive) of the expression starting at a candidate: t`…` | t(...) | t.id('…')`…`

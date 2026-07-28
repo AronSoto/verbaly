@@ -1,4 +1,3 @@
-import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
 import { check, formatCheckResult, githubCheckAnnotations } from './check';
@@ -7,15 +6,14 @@ import { loadConfig } from './config';
 import { doctor } from './doctor';
 import { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
-import { extractProject, pruneCatalogs, syncCatalogs } from './extract';
+import { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { renderSite } from './render';
 import { formatStatusResult, status } from './status';
-import { translateCatalogs, type TranslateProvider } from './translate';
+import { resolveProvider, translateCatalogs } from './translate';
 import { watchProject } from './watch';
 import { wrapProject } from './wrap';
-import type { ResolvedConfig } from './config';
 
 const HELP = `verbaly · i18n compiler
 
@@ -493,24 +491,4 @@ function rejectStrayFlags(command: string, values: Record<string, unknown>): boo
   }
   process.exitCode = 1;
   return true;
-}
-
-// root-relative, forward slashes: paths a translator can read on any OS
-async function collectOrigins(cfg: ResolvedConfig): Promise<Record<string, string[]>> {
-  const registry = await extractProject(cfg);
-  const origins: Record<string, string[]> = {};
-  for (const [key, files] of registry.origins()) {
-    origins[key] = files.map((file) => relative(cfg.root, file).replaceAll('\\', '/'));
-  }
-  return origins;
-}
-
-async function resolveProvider(
-  cfg: ResolvedConfig,
-  model: string | undefined,
-): Promise<TranslateProvider> {
-  const configured = cfg.translate.provider;
-  if (typeof configured === 'function') return configured;
-  const { claudeProvider } = await import('./providers/claude');
-  return claudeProvider({ model: model ?? cfg.translate.model });
 }

@@ -1,27 +1,45 @@
 import type { NuxtModule } from '@nuxt/schema';
-import { describe, expect, it } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import verbalyModule, { type VerbalyNuxtOptions } from '../src/module';
 
 interface ViteConfigCapture {
   plugins?: unknown[];
 }
+interface Hooks {
+  'vite:extendConfig': (config: ViteConfigCapture) => void;
+  'prepare:types': (options: { references: Array<{ path: string }> }) => Promise<void>;
+}
 
-function makeNuxt(configOptions?: VerbalyNuxtOptions) {
-  const hooks = new Map<string, (config: ViteConfigCapture) => void>();
+function makeNuxt(configOptions?: VerbalyNuxtOptions, rootDir = '/srv/app') {
+  const hooks: Partial<Hooks> = {};
   const nuxt = {
     options: {
-      rootDir: '/srv/app',
+      rootDir,
+      buildDir: join(rootDir, '.nuxt'),
       plugins: ['app-plugin.ts'] as unknown[],
       build: { transpile: [] as unknown[] },
       runtimeConfig: { public: {} as Record<string, unknown> },
       ...(configOptions ? { verbaly: configOptions } : {}),
     },
-    hook(name: 'vite:extendConfig', fn: (config: ViteConfigCapture) => void) {
-      hooks.set(name, fn);
+    hook(name: keyof Hooks, fn: Hooks[keyof Hooks]) {
+      hooks[name] = fn as never;
     },
   };
   return { nuxt, hooks };
 }
+
+const tempDirs: string[] = [];
+function tempRoot(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'verbaly-nuxt-'));
+  tempDirs.push(dir);
+  return dir;
+}
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 
 const slashes = (value: unknown): string => String(value).replaceAll('\\', '/');
 
@@ -44,7 +62,7 @@ describe('verbalyModule', () => {
   it('adds a fresh @verbaly/vite instance per Vite build', () => {
     const { nuxt, hooks } = makeNuxt();
     verbalyModule(undefined, nuxt);
-    const extend = hooks.get('vite:extendConfig')!;
+    const extend = hooks['vite:extendConfig']!;
 
     const client: ViteConfigCapture = {};
     const server: ViteConfigCapture = { plugins: [] };
@@ -81,6 +99,42 @@ describe('verbalyModule', () => {
     });
     // no args at all: an empty options object, never a throw on the optional chains
     expect(await verbalyModule.getOptions()).toEqual({});
+  });
+
+  it('writes the dts into the .nuxt slot and registers the type reference', async () => {
+    const root = tempRoot();
+    const { nuxt, hooks } = makeNuxt(undefined, root);
+    verbalyModule(undefined, nuxt);
+    const references: Array<{ path: string }> = [];
+    await hooks['prepare:types']!({ references });
+
+    const file = join(root, '.nuxt', 'verbaly.d.ts');
+    expect(references).toEqual([{ path: file }]);
+    expect(readFileSync(file, 'utf8')).toContain('verbaly');
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false); // never in the project root
+  });
+
+  it('an explicit dts option wins over the slot', async () => {
+    const root = tempRoot();
+    const { nuxt, hooks } = makeNuxt(undefined, root);
+    verbalyModule({ dts: 'types/i18n.d.ts' }, nuxt);
+    const references: Array<{ path: string }> = [];
+    await hooks['prepare:types']!({ references });
+
+    const file = join(root, 'types', 'i18n.d.ts');
+    expect(references).toEqual([{ path: file }]);
+    expect(existsSync(file)).toBe(true);
+  });
+
+  it('dts: false turns the types slot off', async () => {
+    const root = tempRoot();
+    const { nuxt, hooks } = makeNuxt(undefined, root);
+    verbalyModule({ dts: false }, nuxt);
+    const references: Array<{ path: string }> = [];
+    await hooks['prepare:types']!({ references });
+
+    expect(references).toHaveLength(0);
+    expect(existsSync(join(root, '.nuxt', 'verbaly.d.ts'))).toBe(false);
   });
 
   it('is assignable to Nuxt NuxtModule (type-level)', () => {

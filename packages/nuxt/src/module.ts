@@ -1,3 +1,4 @@
+import { loadCatalogs, loadConfig, writeDts } from '@verbaly/compiler';
 import verbalyVite, { type ViteVerbalyOptions } from '@verbaly/vite';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,15 +14,20 @@ export interface VerbalyNuxtOptions extends ViteVerbalyOptions {
 interface ViteConfigLike {
   plugins?: unknown[];
 }
+interface PrepareTypesLike {
+  references: Array<{ path: string } | { types: string }>;
+}
 export interface NuxtLike {
   options: {
     rootDir: string;
+    buildDir: string;
     plugins: unknown[];
     build: { transpile: unknown[] };
     runtimeConfig: { public: Record<string, unknown> };
     verbaly?: VerbalyNuxtOptions;
   };
   hook(name: 'vite:extendConfig', fn: (config: ViteConfigLike) => void): void;
+  hook(name: 'prepare:types', fn: (options: PrepareTypesLike) => Promise<void>): void;
 }
 
 const runtimeDir = join(dirname(fileURLToPath(import.meta.url)), 'runtime');
@@ -36,10 +42,24 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
     ...(fallback !== undefined && { fallback }),
   };
 
+  // types live in Nuxt's own slot (.nuxt/), no file in the project root; set before the
+  // hooks fire so the vite plugin keeps that same file fresh as messages change in dev
+  vite.dts ??= join(nuxt.options.buildDir, 'verbaly.d.ts');
+
   // fresh plugin instance per Vite build: client and server builds never share state.
   // root pinned to the project dir: Nuxt's Vite root is srcDir (app/), where no verbaly.config lives
   nuxt.hook('vite:extendConfig', (config) => {
     (config.plugins ??= []).push(verbalyVite({ root: nuxt.options.rootDir, ...vite }));
+  });
+
+  // prepare:types fires on prepare/dev/build, before anything compiles: the file must
+  // exist when the reference lands in .nuxt/nuxt.d.ts or TS reports it missing
+  nuxt.hook('prepare:types', async ({ references }) => {
+    const cfg = await loadConfig(nuxt.options.rootDir, vite);
+    if (cfg.dts === false) return;
+    const file = cfg.dts ?? join(cfg.root, 'verbaly.d.ts');
+    writeDts(cfg, loadCatalogs(cfg)[cfg.sourceLocale] ?? {}, file);
+    references.push({ path: file });
   });
 
   nuxt.options.build.transpile.push(runtimeDir);

@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.28.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.29.0" alt="Socket supply chain security" /></a>
   <img src="https://img.shields.io/badge/gzip-~3KB-3fb950" alt="~3KB gzip" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
@@ -94,6 +94,7 @@ Plain HTML, no framework? Bind by attribute:
 | [`@verbaly/nuxt`](packages/nuxt)           | [![npm](https://img.shields.io/npm/v/@verbaly/nuxt?label=)](https://www.npmjs.com/package/@verbaly/nuxt)           | Nuxt SSR: zero-config module, per-request locale, flash-free hydration                |
 | [`@verbaly/next`](packages/next)           | [![npm](https://img.shields.io/npm/v/@verbaly/next?label=)](https://www.npmjs.com/package/@verbaly/next)           | Next.js App Router/RSC: Turbopack & webpack, per-request locale, flash-free hydration |
 | [`@verbaly/astro`](packages/astro)         | [![npm](https://img.shields.io/npm/v/@verbaly/astro?label=)](https://www.npmjs.com/package/@verbaly/astro)         | Astro integration: write-in-source `.astro` extraction, automatic per-locale SSG      |
+| [`@verbaly/mcp`](packages/mcp)             | [![npm](https://img.shields.io/npm/v/@verbaly/mcp?label=)](https://www.npmjs.com/package/@verbaly/mcp)             | MCP server: status, missing keys, extraction and machine translation for agents       |
 
 ---
 
@@ -123,6 +124,28 @@ Plain HTML, no framework? Bind by attribute:
 | Plain HTML (no framework) | ✅ DOM interpreter    | ❌                 | ❌                     | ❌             | ❌            |
 | Missing-translation gate  | ✅ build fails        | runtime warning    | CI step                | ✅             | ❌            |
 | Catalog format            | plain JSON            | JSON               | PO/JSON                | inlang format  | TS files      |
+
+---
+
+## Coding agents
+
+Verbaly ships first-class support for AI coding agents:
+
+- **MCP server**: give your agent the whole cycle as tools (`verbaly_status`, `verbaly_missing`, `verbaly_extract`, `verbaly_translate`):
+
+  ```bash
+  claude mcp add verbaly -- npx -y @verbaly/mcp
+  ```
+
+  Machine translations stay drafts until a human approves them (`verbaly review --approve`), so an agent can fill gaps without silently shipping unreviewed text.
+
+- **Agent Skill**: [`skills/verbaly`](skills/verbaly/SKILL.md) teaches an agent the write → extract → check → translate cycle and the rules that keep it safe. Install it into a project:
+
+  ```bash
+  npx degit AronSoto/verbaly/skills/verbaly .claude/skills/verbaly
+  ```
+
+- **llms.txt**: the docs site publishes [verbaly-web.vercel.app/llms.txt](https://verbaly-web.vercel.app/llms.txt) for agents that read documentation.
 
 ---
 

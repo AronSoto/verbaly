@@ -105,6 +105,13 @@ describe('analyzeSfc svelte', () => {
     expect(tagged).toHaveLength(1);
     expect(tagged[0]?.message).toBe('a ` b');
   });
+
+  it('ignores display-only text outside expression braces', () => {
+    const code = '<p>use $t`like this` in your markup</p>\n<pre>$t(\'inbox\')</pre>';
+    const { tagged, usedKeys } = analyzeSfc(code, 'App.svelte');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
 });
 
 describe('analyzeSfc vue', () => {
@@ -179,6 +186,23 @@ describe('analyzeSfc vue', () => {
     expect(tagged).toHaveLength(0);
     expect(usedKeys).toHaveLength(0);
   });
+
+  it('ignores display-only text outside mustaches and directives', () => {
+    const code = "<template><p>call t`like this` or t('inbox') to translate</p></template>";
+    const { tagged, usedKeys } = analyzeSfc(code, 'App.vue');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('extracts from single-quoted directive values', () => {
+    const { tagged } = analyzeSfc('<template><a :title=\'t`Open menu`\'>x</a></template>', 'App.vue');
+    expect(tagged[0]?.message).toBe('Open menu');
+  });
+
+  it('does not extract from plain (non-directive) attributes', () => {
+    const { usedKeys } = analyzeSfc('<template><a title="t(\'inbox\')">x</a></template>', 'App.vue');
+    expect(usedKeys).toHaveLength(0);
+  });
 });
 
 describe('analyzeSfc astro', () => {
@@ -217,9 +241,9 @@ describe('analyzeSfc astro', () => {
   });
 
   it('never treats a --- ruler mid-file as frontmatter', () => {
-    const code = '<p>intro</p>\n---\nconst nope = t`hidden`;\n---';
+    const code = '<p>intro</p>\n---\n<p>{t`hidden`}</p>\n---';
     const { tagged } = analyzeSfc(code, 'index.astro');
-    // no top fence: the whole file is markup, the t`…` inside is still found by the scanner
+    // no top fence: the whole file is markup, the expression inside is still found by the scanner
     expect(tagged.map((m) => m.message)).toEqual(['hidden']);
     expect(tagged[0]?.singleQuote).toBe(true);
   });
@@ -239,6 +263,14 @@ describe('analyzeSfc astro', () => {
 
   it('never turns prose into keys or messages', () => {
     const code = "---\n---\n<p>don't (worry), it`s fine</p>";
+    const { tagged, usedKeys } = analyzeSfc(code, 'index.astro');
+    expect(tagged).toHaveLength(0);
+    expect(usedKeys).toHaveLength(0);
+  });
+
+  it('ignores displayed code snippets outside expression braces', () => {
+    // the verbaly-web dogfood case: docs showing t`…` as literal text invented keys
+    const code = '---\n---\n<pre>const msg = t`Hola ${name}`;</pre>\n<p>write t(\'inbox\') anywhere</p>';
     const { tagged, usedKeys } = analyzeSfc(code, 'index.astro');
     expect(tagged).toHaveLength(0);
     expect(usedKeys).toHaveLength(0);

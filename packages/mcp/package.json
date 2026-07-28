@@ -1,12 +1,12 @@
 {
-  "name": "@verbaly/sveltekit",
+  "name": "@verbaly/mcp",
   "version": "0.29.0",
-  "description": "SvelteKit SSR integration for Verbaly: per-request locale negotiation and flash-free hydration.",
+  "description": "MCP server for Verbaly: translation status, missing keys, extraction and machine translation as tools for coding agents.",
   "keywords": [
     "i18n",
-    "sveltekit",
-    "ssr",
-    "hydration",
+    "mcp",
+    "model-context-protocol",
+    "agent",
     "verbaly"
   ],
   "license": "MIT",
@@ -14,9 +14,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AronSoto/verbaly.git",
-    "directory": "packages/sveltekit"
+    "directory": "packages/mcp"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/sveltekit",
+  "homepage": "https://verbaly-web.vercel.app/docs/reference/cli",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },
@@ -27,6 +27,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "bin": {
+    "verbaly-mcp": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -39,13 +42,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "peerDependencies": {
-    "verbaly": "workspace:^"
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@verbaly/compiler": "workspace:^",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^2.70.1",
-    "svelte": "^5.56.6",
-    "verbaly": "workspace:*"
+    "@types/node": "^26.1.1"
   },
   "scripts": {
     "build": "tsdown",

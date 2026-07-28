@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { relative } from 'node:path';
 import { glob } from 'tinyglobby';
 import type { Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
@@ -16,6 +17,16 @@ export async function extractProject(cfg: ResolvedConfig): Promise<MessageRegist
     registry.update(file, analyzeFile(readFileSync(file, 'utf8'), file));
   }
   return registry;
+}
+
+// root-relative, forward slashes: paths a translator can read on any OS
+export async function collectOrigins(cfg: ResolvedConfig): Promise<Record<string, string[]>> {
+  const registry = await extractProject(cfg);
+  const origins: Record<string, string[]> = {};
+  for (const [key, files] of registry.origins()) {
+    origins[key] = files.map((file) => relative(cfg.root, file).replaceAll('\\', '/'));
+  }
+  return origins;
 }
 
 export interface SyncResult {

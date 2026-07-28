@@ -1,10 +1,56 @@
 # Changelog
 
-Version history of **Verbaly** — one file, full detail per version, newest first. The eleven packages share one version number (aligned releases).
+Version history of **Verbaly** — one file, full detail per version, newest first. The twelve packages share one version number (aligned releases).
 
 Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section — the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes; the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.29.0] · 2026-07-27
+
+**Your coding agent can now run the whole translation cycle.** A new MCP server (`@verbaly/mcp`) gives Claude Code, Cursor and any MCP client four tools: see the coverage, list what's missing, extract new text and machine-translate the gaps, with every machine translation still landing as a draft a human reviews. A public Agent Skill and an `llms.txt` on the docs site complete the channel. Nuxt projects stop getting a `verbaly.d.ts` in their root (types now live in `.nuxt/`), and displayed code snippets in `.vue`/`.astro`/`.svelte` markup can no longer invent phantom keys. No breaking changes.
+
+### Highlights
+
+- **New: `@verbaly/mcp`, the translation cycle as agent tools.** One command (`claude mcp add verbaly -- npx -y @verbaly/mcp`) and your coding agent can check coverage, list missing translations, extract new text and fill the gaps with machine translation. Anything the agent translates is saved as a draft, so nothing ships without a human saying yes.
+- **A public Agent Skill teaches your agent Verbaly.** Install `skills/verbaly` from the repo into your project and the agent knows the write, extract, check, translate cycle and the rules that keep it safe (never hand-write keys, params must survive translation, empty means untranslated).
+- **The docs now speak LLM.** The docs site publishes an `llms.txt` index, so agents that read documentation find their way around Verbaly without scraping HTML.
+- **Nuxt projects keep their root clean.** The generated types now live inside `.nuxt/` and register themselves automatically, exactly like the Astro integration already did. No more `verbaly.d.ts` at the project root, and no tsconfig edits either.
+- **Displayed code can no longer become a translation key.** Docs and tutorial pages that show `` t`…` `` snippets as visible text (in `.vue`, `.astro` or `.svelte` files) used to risk those snippets being extracted as real keys. Now only code inside real expressions counts.
+
+### Added
+
+- **`@verbaly/mcp`** (new package, the twelfth): an MCP server over stdio exposing `verbaly_status` and `verbaly_missing` (read-only, flagged as such) plus `verbaly_extract` and `verbaly_translate` (writing). Orchestration mirrors the CLI over the same compiler primitives; translate keeps the draft contract (`markDrafts`/`saveDrafts`, the result text points to `verbaly review`). Every failure returns as an actionable tool error (`isError` + message), never a crashed server. Bin `verbaly-mcp` (`--root` flag, per-tool `root` argument override); ESM-only; deps `@modelcontextprotocol/sdk` + `zod` + `@verbaly/compiler` (CLI/tooling layer, the shipped runtime stays zero-dep). Tests talk to the real server through the SDK's `InMemoryTransport` + `Client`; the stdio bin smoke-tested by hand (initialize + tools/list).
+- **Public Agent Skill** (`skills/verbaly/SKILL.md`, committed): the cycle, the safety rules and the framework wiring table in agent-readable form; installable via `npx degit AronSoto/verbaly/skills/verbaly .claude/skills/verbaly`. The README gains a "Coding agents" section (MCP + skill + llms.txt).
+- **`llms.txt` on the docs site** (`verbaly-web`, `src/pages/llms.txt.ts`): generated at build time from the real docs navigation (it cannot drift), with per-page descriptions, the current version and the agent channel. Already live in the web repo, pre-publish.
+- **New `@verbaly/compiler` exports**: `collectOrigins(cfg)` (key → root-relative source paths, was private to the CLI) and `resolveProvider(cfg, model?)` (config provider function or the lazy claude provider, ditto). The MCP server consumes them; any tooling can now.
+
+### Changed
+
+- **`@verbaly/nuxt` uses Nuxt's types slot** (decided 2026-07-19, mirror of Astro's `injectTypes`): the module defaults `dts` to `.nuxt/verbaly.d.ts` and hooks `prepare:types` to write the file and push its reference into `.nuxt/nuxt.d.ts`, so consumers get types with zero tsconfig and zero root files; the vite plugin keeps that same file fresh in dev. An explicit `dts` option still wins; `dts: false` turns both off. `@verbaly/compiler` becomes a real dependency of the module (build-time only; the runtime plugin never imports it).
+- **SFC markup candidates count only in expression context** (`@verbaly/compiler`, `sfc.ts`): `.astro`/`.svelte` markup candidates must sit inside balanced `{…}` regions; `.vue` inside `{{ … }}` mustaches or quoted `:`/`@`/`v-` directive values. Display-only text never runs at runtime, so extracting it was always a false positive (the 0.26.0 dogfood finding: verbaly-web's displayed snippets invented keys and needed `include: []` to work around it). Extraction from real code is unchanged; script blocks and frontmatter were never affected.
+
+### Notes
+
+- Runtime untouched: core sizes stay **3.31 KB tree-shaken** · 5.57 KB full · 1.60 KB devtools (min+gzip, size gate green). Bench re-run (ritual): lookup **29.8×**, interpolation **10.8×**, plural **4.7×**, currency **5.2×** vs i18next 26, in family with 0.28.0 (28.6×/10.5×/5.4×/5.4×).
+- **799 tests** (compiler **373** · core 232 · next 41 · **nuxt 28** · svelte 25 · vite 23 · react 18 · vue 16 · sveltekit 13 · unplugin 12 · astro 10 · **mcp 8**), was 783: +5 compiler (expression-context suite), +3 nuxt (types slot), +8 mcp.
+- New deps (all in `@verbaly/mcp`, tooling layer per the layered zero-dep rule): `@modelcontextprotocol/sdk ^1.30.0`, `zod ^4.4.3`; devDep `@types/node ^26.1.1` (the native tsc needed an explicit `"types": ["node"]` in this package's tsconfig, unlike its siblings).
+- **First publish of `@verbaly/mcp` is manual** (a brand-new package cannot have a Trusted Publisher until it exists on npm): publish once by hand, configure the Trusted Publisher, re-run the workflow; the per-package resume skips the eleven already published.
+- The `run.ts` helpers `collectOrigins`/`resolveProvider` moved to `extract.ts`/`translate.ts` (now public, see Added); the CLI behavior is byte-identical.
+- Competitive seal 0.29.0 (2026-07-27, re-check): i18next 26.3.6 · **Lingui 6.6.0** · typesafe-i18n 5.27.1 · **Paraglide 2.23.0** · **next-intl 4.13.4** · **@nuxtjs/i18n 10.5.0** · svelte-i18n 4.0.1 · **vue-i18n 11.4.8** (minor/patch bumps, no landscape shift). Lingui validated the Agent Skill route; none of the sealed tools ships a first-party MCP server for the translation cycle as of this check, so the adoption channel (MCP + skill + llms.txt) is currently a differentiator.
+
+### Docs impact (pending)
+
+- **`docs/reference/cli`**: new "Coding agents" section after the commands table: the `@verbaly/mcp` install one-liner, the four tools (status/missing read-only, extract/translate writing), the draft rule (machine output waits for `verbaly review`), and a pointer to the Agent Skill in the repo.
+- **`docs/guide/translators`**: one short paragraph in the machine-translation loop: an agent can run the same cycle via MCP and its output still lands as drafts behind the same review gate.
+- **`docs/frameworks/vue`** (`#nuxt` section): if it mentions the generated `verbaly.d.ts` at the project root, rewrite: the types live in `.nuxt/` and register themselves (regla 8: as if it were always so).
+- **`docs/frameworks/astro` / `vue` / `svelte`**: where extraction from markup is described, state it plainly: text is extracted from expressions (`{…}`, `{{ … }}`, directive values); displayed snippets in plain text are never extracted.
+- **Landing compare table**: optional new row "Agent tooling (MCP server + skill)" if it reads well; otherwise no change.
+- **`/changelog`** (`releases.ts` + new `changelog_rel.v0_29_0` keys ×3): 0.29.0 entry, theme + Highlights above in plain language.
+- **`llms.txt`**: already implemented in the web this iteration; after the post-publish `pnpm install`, verify it renders `Current version: 0.29.0`.
+- Bump web to `verbaly@^0.29.0` + `@verbaly/compiler@^0.29.0` + `@verbaly/astro@^0.29.0`, **`pnpm install` only after the npm publish**.
 
 ---
 

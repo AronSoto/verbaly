@@ -74,6 +74,18 @@ export async function translateCatalogs(
   return result;
 }
 
+// config provider function wins; otherwise the claude provider, imported lazily
+// (its SDK peer is optional: only translate should ever pay for it)
+export async function resolveProvider(
+  cfg: ResolvedConfig,
+  model?: string,
+): Promise<TranslateProvider> {
+  const configured = cfg.translate.provider;
+  if (typeof configured === 'function') return configured;
+  const { claudeProvider } = await import('./providers/claude');
+  return claudeProvider({ model: model ?? cfg.translate.model });
+}
+
 // params and tags must survive translation verbatim
 export function structureMatches(source: string, translated: string): boolean {
   return (

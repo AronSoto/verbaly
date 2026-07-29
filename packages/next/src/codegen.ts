@@ -26,8 +26,7 @@ function writeIfChanged(file: string, content: string): boolean {
   return true;
 }
 
-// dev-phase pipeline shared by withVerbaly and the watcher: sync catalogs to
-// the sources, refresh verbaly.d.ts, regenerate the runtime modules
+// dev pipeline shared by withVerbaly and the watcher: catalogs, dts, runtime modules
 export function syncAndWrite(
   compiler: Compiler,
   cfg: ResolvedConfig,

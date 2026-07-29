@@ -98,8 +98,7 @@ export function exportCatalogs(
   return { format, dir, files };
 }
 
-// drop-in native resources (res/values-*, *.lproj); the source locale ships as the default,
-// untranslated keys are skipped so the platform falls back to it
+// native resources: source locale is the platform default, untranslated keys are skipped
 function exportMobile(
   cfg: ResolvedConfig,
   catalogs: Catalogs,

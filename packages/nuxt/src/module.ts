@@ -42,18 +42,15 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
     ...(fallback !== undefined && { fallback }),
   };
 
-  // types live in Nuxt's own slot (.nuxt/), no file in the project root; set before the
-  // hooks fire so the vite plugin keeps that same file fresh as messages change in dev
+  // types go to Nuxt's own slot (.nuxt/), set before the hooks fire so dev keeps it fresh
   vite.dts ??= join(nuxt.options.buildDir, 'verbaly.d.ts');
 
-  // fresh plugin instance per Vite build: client and server builds never share state.
-  // root pinned to the project dir: Nuxt's Vite root is srcDir (app/), where no verbaly.config lives
+  // fresh plugin per Vite build (client and server must not share state), root pinned to rootDir
   nuxt.hook('vite:extendConfig', (config) => {
     (config.plugins ??= []).push(verbalyVite({ root: nuxt.options.rootDir, ...vite }));
   });
 
-  // prepare:types fires on prepare/dev/build, before anything compiles: the file must
-  // exist when the reference lands in .nuxt/nuxt.d.ts or TS reports it missing
+  // the file must exist when the reference lands in .nuxt/nuxt.d.ts or TS reports it missing
   nuxt.hook('prepare:types', async ({ references }) => {
     const cfg = await loadConfig(nuxt.options.rootDir, vite);
     if (cfg.dts === false) return;
@@ -69,8 +66,7 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
 
 verbalyModule.meta = { name: '@verbaly/nuxt', configKey: 'verbaly' };
 
-// same merge as the body; also the anchor Nuxt's generated nuxt.config typing infers the
-// options type from (the plain call signature alone degrades the inference to Record)
+// getOptions is the anchor Nuxt's config typing infers from: the call signature alone degrades it
 verbalyModule.getOptions = async (
   inlineOptions?: Partial<VerbalyNuxtOptions>,
   nuxt?: NuxtLike,

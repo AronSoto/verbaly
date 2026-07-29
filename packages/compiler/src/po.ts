@@ -1,7 +1,4 @@
-// gettext PO: msgctxt carries the catalog key (keys are hashes, msgid is the source
-// text), locations ride as #: comments. Params keep the {name} syntax verbatim, the
-// gettext norm. Entries flagged fuzzy read as untranslated (msgfmt semantics); an
-// empty msgstr means untranslated, matching the catalog's '' convention.
+// gettext PO: msgctxt carries the key (keys are hashes), fuzzy or empty msgstr = untranslated
 
 export interface PoEntry {
   key: string;

@@ -324,8 +324,7 @@ describe('build check', () => {
   });
 
   it('failOnMissing: false still blocks a broken translation', async () => {
-    // opting out means "let me build with untranslated strings", not "let me ship a
-    // translation that renders wrong": a missing one falls back, a broken one does not
+    // opting out is about untranslated strings: a missing one falls back, a broken one does not
     const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
     const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
     transform(CODE, join(root, 'src', 'app.ts'));

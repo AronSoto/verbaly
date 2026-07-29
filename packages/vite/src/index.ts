@@ -54,8 +54,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
     server.ws.send({ type: 'full-reload' });
   }
 
-  // cfg.dts carries the option merged from file config and inline overrides
-  // (@verbaly/astro fills its override in astro:config:done, before Vite resolves config)
+  // cfg.dts is the merged option: @verbaly/astro fills its override before Vite resolves config
   function flushDts(): void {
     if (cfg.dts === false) return;
     writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);

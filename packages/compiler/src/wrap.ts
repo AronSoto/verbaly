@@ -38,8 +38,7 @@ const WRAP_ATTRS = new Set(['title', 'alt', 'placeholder', 'aria-label']);
 const T_NAMES: ReadonlySet<string> = new Set(['t']);
 const LETTER = /\p{L}/u;
 
-// onboarding codemod: finds hardcoded JSX text and wraps it in t`…`.
-// Errs on skipping, never on inventing: anything ambiguous lands in the report instead.
+// onboarding codemod: errs on skipping, never on inventing (ambiguous goes to the report)
 export async function wrapProject(
   cfg: ResolvedConfig,
   options: WrapOptions = {},

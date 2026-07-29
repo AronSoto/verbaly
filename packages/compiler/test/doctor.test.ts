@@ -98,8 +98,7 @@ describe('doctor', () => {
   });
 
   it('accepts a nested catalog and names the path of a bad leaf', async () => {
-    // the runtime flattens trees and so does the gate: rejecting them made the docs site
-    // fail its own doctor while its build passed
+    // rejecting nested trees made the docs site fail its own doctor while its build passed
     const nested = await doctor(
       makeProject({
         catalogs: { es: { nav: { home: 'Inicio' } }, en: { nav: { home: 'Home' } } },
@@ -184,8 +183,7 @@ describe('doctor', () => {
   });
 
   it('recommends the integration of the host it detected, like init does', async () => {
-    // it used to send every non-vite project to @verbaly/unplugin, so an Astro or Nuxt
-    // app got the opposite advice from the init it had just run
+    // every non-vite project used to be sent to unplugin, the opposite of what init had said
     const astro = await doctor(makeProject({ pkg: { dependencies: { astro: '^7.0.0' } } }));
     expect(entry(astro.entries, 'plugin')?.fix).toContain('@verbaly/astro');
 
@@ -233,8 +231,7 @@ describe('doctor', () => {
   });
 
   it('stays quiet about orphans and types when source scanning is off', async () => {
-    // include: [] means the compiler reads no code, so it cannot know what is referenced:
-    // claiming orphans there would push a --prune that deletes a working catalog
+    // with no code read, claiming orphans would push a --prune that deletes a working catalog
     const result = await doctor(
       makeProject({ catalogs: { es: { hand: 'Escrito a mano' } }, dts: false, include: [] }),
     );

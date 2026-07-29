@@ -4,9 +4,7 @@ import { createVerbaly } from '../src/instance';
 import { parse } from '../src/parse';
 import { parseTags, type TagNode } from '../src/tags';
 
-// Pillar 3 as a property: whatever a catalog holds, the runtime never crashes.
-// Uniform random strings rarely hit the parser's dark corners, so the generator
-// mixes real syntax fragments (braces, variants, formats, tags, entities) too.
+// pillar 3 as a property: the generator mixes real syntax fragments, random strings miss them
 
 const SYNTAX_SOUP = fc
   .array(

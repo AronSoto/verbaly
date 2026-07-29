@@ -143,8 +143,7 @@ describe('verbalyModule', () => {
   });
 
   it('lets Nuxt infer the configKey options for nuxt.config typing (type-level)', () => {
-    // mirrors the conditional Nuxt emits in .nuxt/types/modules.d.ts (schemaNodeTemplate);
-    // the defaults arg must be `any`: the constraint references the still-uninferred O
+    // mirrors the conditional Nuxt emits in .nuxt/types/modules.d.ts: defaults must be any
     type Inferred =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       typeof verbalyModule extends NuxtModule<infer O, any, boolean>

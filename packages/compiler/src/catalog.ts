@@ -9,8 +9,7 @@ export function catalogPath(cfg: ResolvedConfig, locale: string): string {
   return join(cfg.dir, `${locale}.json`);
 }
 
-// missing file = empty catalog; a corrupt one must fail loudly (read as empty,
-// the next extract would rewrite it and lose every translation)
+// corrupt catalog throws: read as empty, the next extract would wipe the translations
 export function readCatalog(cfg: ResolvedConfig, locale: string): Catalog {
   let content: string;
   try {

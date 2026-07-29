@@ -1,5 +1,4 @@
-// structural shim for typecheck only: the specifier resolves in the consumer's Next build
-// via the bundler alias withVerbaly sets (never shipped: public dts only references 'verbaly')
+// typecheck-only shim: the specifier resolves through the alias withVerbaly sets, never shipped
 
 declare module 'virtual:verbaly' {
   import type { Verbaly, VerbalyOptions } from 'verbaly';

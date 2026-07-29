@@ -74,8 +74,7 @@ export async function translateCatalogs(
   return result;
 }
 
-// config provider function wins; otherwise the claude provider, imported lazily
-// (its SDK peer is optional: only translate should ever pay for it)
+// config provider wins; claude loads lazily so only translate pays for its optional SDK
 export async function resolveProvider(
   cfg: ResolvedConfig,
   model?: string,
@@ -86,9 +85,7 @@ export async function resolveProvider(
   return claudeProvider({ model: model ?? cfg.translate.model });
 }
 
-// params, tags and the plural/select blocks must survive translation verbatim.
-// no locale here on purpose: this gate only rejects what renders wrong, and the
-// locale-specific plural advice is check's warning, never a reason to drop a file
+// no locale on purpose: a locale-specific plural gap must never drop a translator's file
 export function structureMatches(source: string, translated: string): boolean {
   try {
     const issues = [...validateMessage(translated), ...validatePair(source, translated)];

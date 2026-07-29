@@ -145,7 +145,7 @@ export interface SwitchLocaleOptions {
 
 const YEAR = 31536000;
 
-// client-side switch shared by SSR integrations: catalog first (no flash), then locale, then persistence
+// shared by the SSR integrations: catalog first (no flash), then locale, then persistence
 export async function switchLocale(
   instance: Pick<Verbaly, 'loadLocale' | 'setLocale'>,
   locale: string,

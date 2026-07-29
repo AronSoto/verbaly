@@ -71,8 +71,7 @@ describe('init', () => {
   });
 
   it('picks the meta-framework over the bundler it runs on', () => {
-    // a Nuxt or SvelteKit app also has vite: recommending the vite plugin there sent
-    // the user past the integration that wires everything for them
+    // a Nuxt or SvelteKit app also has vite: the vite plugin alone skips their integration
     const nuxt = makeRoot();
     writeFileSync(join(nuxt, 'package.json'), '{"dependencies":{"nuxt":"^4.0.0","vite":"^8.0.0"}}');
     expect(detectHost(nuxt)?.pkg).toBe('@verbaly/nuxt');

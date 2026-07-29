@@ -1,8 +1,4 @@
-// XLIFF 2.0 inline codes: simple {params} export as <ph>, paired rich tags as <pc>,
-// with semantic ids (the param/tag name) so TMS editors protect them as chips instead
-// of exposing raw syntax. disp carries the exact source slice: decoding reconstructs
-// the message verbatim, so the round-trip is lossless. Variant params ({v | one: …})
-// hold translatable text and stay raw on purpose.
+// XLIFF 2.0 inline codes: {params} as <ph>, paired tags as <pc>, disp carries the source slice
 
 type Part =
   | { kind: 'text'; text: string }

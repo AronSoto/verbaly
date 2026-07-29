@@ -65,9 +65,7 @@ export function runBuildGate(
   failOnMissing?: boolean,
 ): void {
   const found = check(cfg, loadCatalogs(cfg), registry);
-  // `failOnMissing: false` means "let me build with untranslated strings", never "let me
-  // ship a translation that renders wrong": a missing one falls back to the source locale,
-  // a broken one renders the wrong text or nothing at all
+  // false = build with untranslated strings, never with broken ones: those render wrong
   const result = failOnMissing === false ? { ...found, missing: [] } : found;
   if (gatePasses(result)) return;
   throw new Error(

@@ -37,8 +37,7 @@ describe('validateMessage', () => {
   });
 
   it('ignores a category no integer count can select', () => {
-    // es, fr, pt and it declare "many" for compact forms ("1 millón"), never for a counter:
-    // demanding it would warn on every Spanish plural in every project
+    // es, fr, pt and it declare "many" for compact forms, no counter ever selects it
     for (const locale of ['es', 'fr', 'pt', 'it']) {
       expect(validateMessage('{count | one: 1 | other: #}', locale)).toEqual([]);
     }
@@ -121,8 +120,7 @@ describe('validatePair', () => {
   });
 
   it('leaves angle-bracket prose alone: a lone <Enter> is text, not markup', () => {
-    // rich rendering drops an unclosed tag and plain text prints it verbatim, so neither
-    // shape is structure the translation has to keep. Demanding it failed correct work
+    // an unclosed tag is dropped in rich and printed in plain text: never structure to keep
     expect(validatePair('Press <Enter> to continue', 'Pulsa <Intro> para continuar')).toEqual([]);
     expect(validatePair('Use <T> for the type', 'Usa <T> para el tipo')).toEqual([]);
   });

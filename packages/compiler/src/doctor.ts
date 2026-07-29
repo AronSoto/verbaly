@@ -58,8 +58,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       }
       try {
         const parsed = JSON.parse(readFileSync(file, 'utf8')) as MessageTree;
-        // nested groups are a real shape: the runtime flattens them and so does the gate,
-        // so the only broken value is a leaf that is not text
+        // nested groups are a real shape: only a leaf that is not text is broken
         const bad = badLeaf(parsed);
         if (bad) {
           catalogsHealthy = false;
@@ -112,8 +111,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     );
   }
 
-  // with source scanning off the compiler reads no code, so it cannot claim a key is
-  // unreferenced nor generate types for it: the catalogs are the whole truth there
+  // with include: [] no code is read, so orphans and types cannot be claimed here
   const scanning = cfg.include.length > 0;
   if (!scanning) {
     ok('sources', 'source scanning is off (include: []), the catalogs are the source of truth');

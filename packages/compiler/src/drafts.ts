@@ -65,8 +65,7 @@ export function clearDrafts(drafts: Drafts, locale: string, keys?: string[]): vo
   if (!drafts[locale].length) delete drafts[locale];
 }
 
-// a draft only counts while its translation is still present: a pruned or re-emptied
-// key is no longer a "reviewable" draft, it is simply missing again
+// a draft counts only while its translation is present: a pruned key is missing, not a draft
 export function effectiveDrafts(drafts: Drafts, catalogs: Catalogs): Drafts {
   const out: Drafts = {};
   for (const [locale, keys] of Object.entries(drafts)) {

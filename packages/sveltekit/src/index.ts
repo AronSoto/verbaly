@@ -25,8 +25,7 @@ export interface VerbalyHandleOptions {
   cookie?: string | false;
 }
 
-// server hook: cookie → Accept-Language → fallback, per request.
-// Sets event.locals.verbalyLocale and fills %verbaly.lang% / %verbaly.dir% in app.html.
+// server hook: sets event.locals.verbalyLocale and fills %verbaly.lang% / %verbaly.dir%
 export function verbalyHandle(options: VerbalyHandleOptions) {
   const { locales, cookie = LOCALE_COOKIE } = options;
   if (!Array.isArray(locales) || locales.length === 0) {

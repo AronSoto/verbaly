@@ -137,8 +137,7 @@ declare module 'virtual:verbaly/locale/*' {
 `;
 }
 
-// skip unchanged writes: a rewritten verbaly.d.ts churns the consumer's TS server.
-// file defaults to the project root: the one spot TS includes with zero tsconfig;
+// unchanged writes are skipped: a rewritten verbaly.d.ts churns the consumer's TS server
 export function writeDts(cfg: ResolvedConfig, catalog: Catalog, file?: string): void {
   file ??= join(cfg.root, 'verbaly.d.ts');
   const content = generateDts(catalog);

@@ -35,7 +35,6 @@ describe('check', () => {
   });
 
   it('checks a nested catalog leaf by leaf, not by its top-level groups', () => {
-    // hand-written catalogs nest; the runtime flattens them before t() sees a key, so
     // comparing group names called a locale complete while its leaves were untranslated
     const catalogs = {
       en: { nav: { home: 'Home', docs: 'Docs' } },
@@ -139,8 +138,7 @@ describe('check: broken translations', () => {
   });
 
   it('validates a hand-written nested catalog leaf by leaf', () => {
-    // the runtime flattens, so a nested catalog is as real as a generated flat one:
-    // walking it as if every value were a string used to crash the whole gate
+    // a nested catalog is as real as a generated flat one: walking it as strings crashed the gate
     const catalogs = {
       en: { hero: { title: 'Hello {name}', lead: '<em>Ship</em> it' } },
       es: { hero: { title: 'Hola', lead: 'Publicalo' } },

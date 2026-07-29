@@ -2,8 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // the preact run is a second project of @verbaly/react, not a second package: naming it
-    // here is what makes CI (pnpm coverage) cover it, since react's own config excludes it
+    // the preact run is a project of the root config: that is what makes pnpm coverage cover it
     projects: ['packages/*', 'packages/react/vitest.preact.config.ts'],
     coverage: {
       provider: 'v8',

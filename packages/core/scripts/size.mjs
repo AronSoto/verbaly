@@ -1,7 +1,4 @@
-// Pillar 2 gate: bundles the built runtime (esbuild, min+gzip) and fails when a
-// surface grows past its budget. Budgets carry ~8% headroom over the sealed sizes
-// so esbuild harness variance (±0.05 KB observed) never trips the gate; a real
-// regression does. Raising a budget is a conscious, changelog-worthy decision.
+// pillar 2 gate: budgets keep ~8% headroom so harness variance never trips a real regression
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';

@@ -46,9 +46,7 @@ export function check(
 ): CheckResult {
   const extracted = registry.messages();
 
-  // one flat view of every catalog, because that is the shape t() sees: a hand-written
-  // nested tree is flattened by the runtime, so comparing its top-level namespaces
-  // reported a locale as complete while its leaves were untranslated
+  // one flat view per locale: the shape t() sees, so nested catalogs compare leaf by leaf
   const flat: Record<string, Catalog> = {};
   for (const locale of cfg.locales) {
     flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);

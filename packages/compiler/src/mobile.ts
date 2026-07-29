@@ -3,7 +3,7 @@ export interface MobileEntry {
   text: string;
 }
 
-// Android resource qualifier: source = default values/, two-letter region = -r suffix, else BCP-47 b+ syntax
+// Android qualifier: source = values/, two-letter region = -r, anything else BCP-47 b+
 export function androidValuesDir(locale: string, sourceLocale: string): string {
   if (locale === sourceLocale) return 'values';
   const parts = locale.split('-');
@@ -41,13 +41,13 @@ export function toIosStrings(entries: MobileEntry[]): string {
   return [...lines, ''].join('\n');
 }
 
-// resource names must be identifiers: every other char collapses to _ (collisions rejected in toAndroidXml)
+// resource names must be identifiers: other chars collapse to _ (collisions rejected later)
 function androidName(key: string): string {
   const name = key.replace(/[^A-Za-z0-9_]/g, '_');
   return /^[0-9]/.test(name) ? `_${name}` : name;
 }
 
-// aapt unescapes XML first, then Android's own backslash escapes; leading @/? would read as a resource reference
+// aapt unescapes XML then backslashes; a leading @ or ? would read as a resource reference
 function androidText(text: string): string {
   const escaped = text
     .replace(/\\/g, '\\\\')

@@ -41,8 +41,7 @@ export interface VerbalyAstroIntegration {
 
 export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstroIntegration {
   const { render, ...rest } = options;
-  // one shared, mutable options object: config:done fills `dts` after the plugin
-  // was created in config:setup, and the plugin reads it lazily at write time
+  // one shared mutable options object: config:done fills dts, the plugin reads it lazily
   const vite: ViteVerbalyOptions = typeof render === 'object' ? { ...rest, render } : rest;
   let root = '';
   let buildOutput: 'static' | 'server' | undefined;
@@ -51,14 +50,13 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
     name: '@verbaly/astro',
     hooks: {
       'astro:config:setup'({ config, updateConfig }) {
-        // root pinned to the project dir: Astro's Vite root can differ and config/catalog discovery would find nothing
+        // root pinned to the project dir: Astro's Vite root can differ and discovery finds nothing
         root = vite.root ??= fileURLToPath(config.root);
         updateConfig({ vite: { plugins: [verbalyVite(vite)] } });
       },
       async 'astro:config:done'(options) {
         buildOutput = options.buildOutput;
-        // the generated types live in Astro's own slot (.astro/), no file in the project;
-        // the vite plugin keeps that same file fresh as messages change in dev
+        // types go to Astro's own slot (.astro/), no file in the project
         const cfg = await loadConfig(root, vite);
         const url = options.injectTypes({
           filename: 'verbaly.d.ts',
@@ -68,8 +66,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
       },
       async 'astro:build:done'({ dir }) {
         const cfg = await loadConfig(root, vite);
-        // mirror mode is opt-in: a `render` section in the config (or render: true) turns it on;
-        // path-based i18n routing sites must never get their pages mirrored on top
+        // mirror is opt-in: a path-based i18n routing site must never get its pages mirrored on top
         const wanted = render === undefined ? Object.keys(cfg.render).length > 0 : Boolean(render);
         if (!wanted) return;
         if (buildOutput === 'server') {

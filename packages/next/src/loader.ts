@@ -1,5 +1,4 @@
-// webpack/turbopack loader: rewrites t`…` / <Trans> to compiled keys.
-// Async because @verbaly/compiler is ESM-only: loaded via dynamic import.
+// webpack/turbopack loader: async because @verbaly/compiler is ESM-only (dynamic import)
 
 export interface LoaderContext {
   resourcePath: string;
@@ -20,8 +19,7 @@ export default function verbalyLoader(this: LoaderContext, source: string): void
       }
       const result = transformCode(source, file);
       if (result) {
-        // MagicString maps carry an empty source: Turbopack resolves '' to the
-        // module's directory and panics trying to read it as a file
+        // MagicString maps carry an empty source and Turbopack panics resolving it to a directory
         result.map.sources = [file];
         callback(null, result.code, result.map);
       } else {

@@ -1,5 +1,4 @@
-// structural shims for typecheck only: both specifiers resolve in the consumer's Nuxt build
-// (never shipped: module.d.ts doesn't reference them and the runtime plugin emits no dts)
+// typecheck-only shims: both specifiers resolve in the consumer build, never shipped
 
 declare module '#imports' {
   import type { Ref } from 'vue';

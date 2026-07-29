@@ -28,8 +28,7 @@ export function status(
 ): StatusResult {
   const extracted = registry.messages();
 
-  // one flat view, like check: it is the shape t() sees, and counting a nested catalog by
-  // its top-level namespaces reported 100% while its leaves were still untranslated
+  // one flat view per locale, like check: the shape t() sees, counted leaf by leaf
   const flat: Record<string, Catalog> = {};
   for (const locale of cfg.locales) {
     flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);

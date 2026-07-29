@@ -49,8 +49,7 @@ export interface VerbalyProviderProps {
   messages?: Record<string, string>;
 }
 
-// serializable props for <VerbalyProvider>: messages omitted when locale is the
-// source locale (it ships inline in the client bundle already)
+// messages omitted for the source locale: it already ships inline in the client bundle
 export async function getVerbalyProps(): Promise<VerbalyProviderProps> {
   const { locale } = await getRequestState();
   if (locale === sourceLocale) return { locale };

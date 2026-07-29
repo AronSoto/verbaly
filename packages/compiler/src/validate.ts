@@ -54,9 +54,7 @@ function collect(nodes: MessageNode[], out: Set<string>): void {
 
 const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
 
-// a name is markup only where the message closes it (</x>) or self-closes it (<x/>).
-// a lone <Enter> is prose: rich rendering drops the wrapper and plain text prints it
-// verbatim, so demanding it back from the translator failed correct translations
+// markup is only what the message closes (</x>) or self-closes (<x/>): a lone <Enter> is prose
 function markupNames(message: string): Set<string> {
   const out = new Set<string>();
   for (const match of message.matchAll(TAG)) {
@@ -163,8 +161,7 @@ export function validatePair(source: string, translated: string): StructureIssue
       });
       continue;
     }
-    // 'other' is the catch-all: losing it is an empty render, whatever the block selects on.
-    // a plural block that lost it is validateMessage's report, so it is not repeated here
+    // 'other' is the catch-all: losing it renders empty (the plural case is validateMessage's)
     if (shape.selectors.includes('other') && !other.selectors.includes('other') && !other.plural) {
       issues.push({
         severity: 'error',
@@ -203,8 +200,7 @@ const reachable = new Map<string, string[]>();
 
 function reachableCategories(locale: string, ordinal: boolean): string[] {
   const type = ordinal ? 'ordinal' : 'cardinal';
-  // the escape, never the raw character: a literal NUL makes git treat the file as
-  // binary, so this one shipped with zero reviewable diffs
+  // the escape, never the raw character: a literal NUL makes git treat the file as binary
   const cacheKey = `${locale}\u0000${type}`;
   const hit = reachable.get(cacheKey);
   if (hit) return hit;

@@ -50,7 +50,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Backlog note:** the three problems the 0.31.0 QA pass found against the published tarballs are all closed here. What stays open and blocks 1.0 is the public surface of `@verbaly/compiler`: 132 exported symbols against the core's 41, and measured this version, **only 35 of them are imported by any first-party package**. That audit is breaking and needs a version of its own.
 - Competitive seal 0.32.0 (2026-07-29, re-check pending at release time): nothing moved in the landscape. What this version strengthens is not a new differentiator but the credibility of the existing one: a toolchain that validates translation structure has to be a toolchain that never stays quiet about a broken render, in the build **and** at runtime. i18next has no build step, Lingui checks its own extraction, Paraglide validates the inlang format, and none of the three reports a plural block that renders empty.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > Nothing conceptual moves and no page gains a section. Four pages gain one sentence each, because the tooling now says something it did not say before.
 

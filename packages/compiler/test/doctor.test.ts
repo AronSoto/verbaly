@@ -240,4 +240,33 @@ describe('doctor', () => {
     expect(entry(result.entries, 'types')).toBeUndefined();
     expect(result.ok).toBe(true);
   });
+
+  it('errors on t imported from a verbaly package, which only the bundler used to catch', async () => {
+    const cfg = makeProject({ code: "import { t } from 'verbaly';\n", dts: false });
+    const result = await doctor(cfg);
+    const e = entry(result.entries, 'imports');
+    expect(e?.level).toBe('error');
+    expect(e?.message).toContain('src/app.ts');
+    expect(e?.fix).toContain('useT()');
+    expect(result.ok).toBe(false);
+  });
+
+  it('warns when an extracted message keeps a block as literal text', async () => {
+    const cfg = makeProject({
+      code: 'const s = t`You have {count | one: 1 item | other: # items}`;\n',
+      catalogs: { es: {} },
+      dts: false,
+    });
+    const result = await doctor(cfg);
+    const e = entry(result.entries, 'messages');
+    expect(e?.level).toBe('warn');
+    expect(e?.message).toContain('{{count | one: 1 item | other: # items}}');
+    expect(e?.fix).toContain('t(key, params)');
+  });
+
+  it('says nothing about imports or messages when the code is clean', async () => {
+    const result = await doctor(makeProject());
+    expect(entry(result.entries, 'imports')).toBeUndefined();
+    expect(entry(result.entries, 'messages')).toBeUndefined();
+  });
 });

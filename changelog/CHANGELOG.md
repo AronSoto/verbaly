@@ -8,6 +8,60 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.32.0] · 2026-07-29
+
+**Nothing breaks in silence.** 0.30.0 gave the build gate teeth and 0.31.0 made the commands agree with each other, and this version closes the same story from the other end: every remaining path where Verbaly did the safe thing without telling you now says so, at the moment you can act on it. A plural block that renders an empty string, a currency placeholder with no currency, a message that was written with a plural block in a place that cannot have one, and `t` imported from a package that does not export it: four ways to ship the wrong text with every command green. Plus the one thing everybody saw and nobody could miss: every single CLI error printed its prefix twice. No breaking changes, no new configuration, no new runtime API.
+
+### Highlights
+
+- **A plural block with no catch-all case now warns in the browser, not just in the build.** 0.30.0 made the gate refuse it, but a catalog that arrives from a lazy loader, from `addMessages` or from a CMS never passes through the gate, so the empty string could still reach a real page. Now it names the message and tells you to add an `other` case.
+- **A placeholder missing its argument stops rendering as a bare number.** `{price:currency}` with no currency code, `{n:unit}` with no unit, `{n:relative}` with no time unit: each one printed the plain value and said nothing. Each one now says what it needs and shows the shape of the fix.
+- **Writing a plural block inside a `t` template no longer ships as literal braces.** In a `t` template the values come from `${…}`, so a plural or format block written there becomes text your users see with the braces still in it. `verbaly extract` and `verbaly doctor` now point at the file and the exact text.
+- **`import { t } from 'verbaly'` finally gets an answer that mentions Verbaly.** `t` comes from your instance or from the generated module, never from the package, and until now only the bundler complained, in a message that gave no hint about where `t` should come from. `verbaly doctor` names the file and the fix.
+- **Every CLI error prints its prefix once.** Every failure of the binary read `[verbaly] [verbaly] …`.
+
+### Added
+
+- **Warnings for every remaining silent degradation in the runtime** (`verbaly` core, `format.ts`): a variant block where nothing matched and there is no `other` (it renders an empty string), a format missing a required argument (`currency`, `unit`, `relative`), a `list` given a value that is not an array, and a `relative` given something that is neither a number nor a `Date`. Each one names the message, like the missing-param warning has since 0.31.0, and each one keeps the same output it produced before: this version adds the report, never changes the rendering. The audit that produced the list started from the invariant 0.30.0 wrote down (degrading is fine, degrading quietly is not) and read every `return` in the file against it.
+- **`escapedSyntax(message)`** (`@verbaly/compiler`, `validate.ts`, not exported from the package index on purpose): returns the slice of an extracted message where a plural or format block survived as literal text. `verbaly extract` prints a warning per message with the file and the slice, and `verbaly doctor` reports it as a `messages` warning. It is deliberately **not** a `StructureIssue`, so it can never fail a build: a catalog that carries escaped syntax is usually a docs site showing the format on purpose (verbaly-web's own English catalog has four such messages), and the gate would have failed correct projects.
+- **`Analysis.strayImports` and `MessageRegistry.strayImports()`** (`@verbaly/compiler`): `analyze` records a named `t` imported from `verbaly` or any `@verbaly/*` package, and `verbaly doctor` reports it as an `imports` error naming the files and where `t` really comes from. Detection is by the imported name, so `useT as t` is correctly left alone: what has to exist is the package export, not the local binding. `StrayImport` is exported as a type, like every other field of `Analysis`.
+- **`formatCliError(error)`** (`@verbaly/compiler`, exported from `run.ts`): prefixes `[verbaly]` only when the message does not already open with it. It lives in `run.ts` and not in the bin wrapper because `cli.ts` has no tests, and it is the single place a new entry point should reuse.
+
+### Changed
+
+- **`applyFormat` takes the parameter node instead of three of its fields** (`verbaly` core): it needed the parameter's name to write a warning that names it, and passing the node dropped the signature from four arguments to three. A shared `degrade(problem)` closure writes every one of the new warnings, and a `where(ctx)` helper is now the single place that appends ` in "key"` (the missing-param warning was inlining it).
+- **`formatRelative` validates its input at the call site** (`verbaly` core): `applyFormat` checks the value type and the argument before delegating, so the function now takes `number | Date` and its `catch` is reached only by a real `Intl` failure. That let its warning stop blaming the time unit for what is often an invalid `Date` (`{d:relative} in "posted" cannot format "Invalid Date" as "day"`).
+- **The size budgets move to 3.75 and 6.20 KB** (`verbaly` core, `scripts/size.mjs`): the tree-shaken runtime grew from 3.34 to 3.49 KB, all of it warning strings, which left the old 3.55 budget with 60 bytes of headroom where the file's own rule is about 8%. Raising the budget is the honest bookkeeping: the number that matters is in the Notes, measured every release.
+- **`verbaly init --help` and `verbaly doctor` stopped saying "bundler"** (`@verbaly/compiler`): 0.31.0 replaced bundler detection with host detection and swept the docs site, but the CLI's own help line still read "detects your bundler" and doctor still reported "no bundler detected". Both now say framework, which is what the `HOSTS` table actually looks for.
+
+### Fixed
+
+- **Every CLI error printed `[verbaly]` twice** (`@verbaly/compiler`): each error thrown by the compiler opens with the prefix (an unparseable catalog, an unsupported exchange format, a config file that needs esbuild) and the bin wrapper added another one unconditionally. Universal, cosmetic, and exactly the kind of thing pillar 3 is about.
+- **`verbaly doctor` now exits 1 on a project that cannot build for a reason the gate cannot see** (`@verbaly/compiler`): the stray `t` import joins the missing catalog directory and the unparseable JSON in that group. The 0.31.0 rule still holds where it matters: doctor never errors on something that builds and renders, so a warning can never fail somebody's CI.
+
+### Notes
+
+- **The runtime warnings deliberately leave the offending value out of the text.** `warnOnce` dedupes on the whole string and its set is unbounded, so `no case matched for {count} = 5` would let a counter walking 0 to N add N entries to memory. The remedy does not depend on the value, so the message names the parameter and the key and stops there. A test pins it: two different counts through the same broken block warn once.
+- **Verified against the real docs site before shipping:** the new compiler run against verbaly-web's 867 messages in three locales reports zero problems and `verbaly doctor` stays healthy, which is the false-positive check that mattered most for `escapedSyntax` (that catalog contains escaped format syntax on purpose) and for the `imports` check (with `include: []` neither check runs, because no code is read).
+- Runtime sizes: **3.49 KB tree-shaken** (was 3.34) · 5.75 KB full · 1.60 KB devtools (min+gzip, size gate green with the new budgets 3.75/6.20/1.75). The 150 bytes are the warning strings. Bench re-run (ritual): lookup **31.4×**, interpolation **10.9×**, plural **5.1×**, currency **5.1×** vs i18next 26, in family with 0.31.0 (28.5×/11.4×/5.8×/5.7×).
+- **891 tests** (compiler **451** · core **235** · next 41 · nuxt 28 · react 27 · svelte 25 · vite 25 · vue 16 · sveltekit 13 · unplugin 12 · astro 10 · mcp 8), was 873: +16 compiler (stray imports including the `useT as t` case, `escapedSyntax` with its four non-cases, doctor's `imports` and `messages` entries plus a clean project staying quiet, the extract warning, and `formatCliError` both ways), +2 core (a second message with the same missing `other` still warns, and a `relative` value of the wrong type).
+- No new dependencies, in any layer. No change to the message format, the key scheme, the catalog format or any rendered output: every change in this version either adds a report or renames a word in help text.
+- **A release-blocking test flake was caught in the release prep, not in the Release workflow** (`@verbaly/compiler`): the three `config.test.ts` cases that load a `verbaly.config.ts` go through `bundle-require`, which spawns esbuild, and under `pnpm test` (all twelve packages in parallel) that cold start beat vitest's 5 second default. `pnpm coverage` passed all 891 tests while `pnpm test` failed one, which is exactly the split step 2b of the release skill exists to catch. The three now carry an explicit 30 second timeout, because a test that starts an external process should never be measured against the budget for a pure unit test.
+- **Backlog note:** the three problems the 0.31.0 QA pass found against the published tarballs are all closed here. What stays open and blocks 1.0 is the public surface of `@verbaly/compiler`: 132 exported symbols against the core's 41, and measured this version, **only 35 of them are imported by any first-party package**. That audit is breaking and needs a version of its own.
+- Competitive seal 0.32.0 (2026-07-29, re-check pending at release time): nothing moved in the landscape. What this version strengthens is not a new differentiator but the credibility of the existing one: a toolchain that validates translation structure has to be a toolchain that never stays quiet about a broken render, in the build **and** at runtime. i18next has no build step, Lingui checks its own extraction, Paraglide validates the inlang format, and none of the three reports a plural block that renders empty.
+
+### Docs impact (pending)
+
+> Nothing conceptual moves and no page gains a section. Four pages gain one sentence each, because the tooling now says something it did not say before.
+
+- **`docs/reference/api`**: the paragraph about `t()` and bad data should say that **every** degradation warns and names the message, not just the missing parameter. If the page lists the format arguments, `currency`, `unit` and `relative` can now say plainly that the argument is required and that leaving it out warns.
+- **`docs/guide/format`**: the plural section already says a plural block needs `other`. It can now add that leaving it out warns in the browser too, not only in the build. This is also the right page for the one real gotcha of the version: in a `t` template the values come from `${…}`, so a plural or format block written inside one renders with its braces visible, and `verbaly extract` says so.
+- **`docs/reference/cli`**: the `doctor` check list gains its two new rows (`imports`: `t` imported from a verbaly package, and `messages`: an extracted message that kept a block as literal text) and the `extract` row gains its warning. If the page states that doctor exits 1 exactly when `check` does, it needs the more precise version: doctor also fails on a setup fault the gate cannot see, and never on something that builds.
+- **`docs/init/start` and any framework page that shows the first import**: worth a check that no snippet reads `import { t } from 'verbaly'`, because doctor now calls that an error. The docs were audited clean in the 0.31.0 sync, so this is verification, not a rewrite.
+- **Nothing to change in the playground**: no rendered output moved. The gate terminal panes keep their text.
+
+---
+
 ## [0.31.0] · 2026-07-28
 
 **The tooling stops contradicting itself.** `verbaly doctor` called a project healthy while `verbaly check` blocked its build over the same catalogs, rejected the nested catalogs the runtime has always supported, and told an Astro or Nuxt app to install the package `verbaly init` had just told it not to. The gate read any `<word>` in prose as markup and failed correct translations over it, and every failure closed with the same "run extract" no matter what had actually failed. All of that is now one story: what a command reports is what the project is. **Breaking (pre-1.0, tooling API only):** `detectBundler` and `InitResult.bundler` are gone, and `failOnMissing: false` no longer switches off the whole gate. No runtime API change.
@@ -51,7 +105,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - No new dependencies, in any layer. No change to the message format, the key scheme or the catalog format.
 - Competitive seal 0.31.0 (2026-07-28, re-check pending at release time): nothing moved in the landscape this version. What it strengthens is the same differentiator 0.30.0 opened: a build gate that validates translation structure, now with a diagnosis path (`doctor`) that agrees with it and false positives removed. i18next has no build step, Lingui checks its own extraction, Paraglide validates the inlang format.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > The version is about the CLI telling the truth, so the pages that describe commands are the ones that move. No page gains a concept, three of them lose an inaccuracy.
 

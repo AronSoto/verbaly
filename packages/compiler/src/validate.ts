@@ -89,6 +89,14 @@ function list(items: string[]): string {
     : items[0]!;
 }
 
+// a tagged template escapes its own braces, so a block written inside one ships as literal text
+const ESCAPED_SYNTAX = /(?<!\{)\{\{\s*[\w.]+\s*[|:][^{}]*\}\}/;
+
+// the escaped slice of an extracted message, when the author meant a plural or format block
+export function escapedSyntax(message: string): string | undefined {
+  return ESCAPED_SYNTAX.exec(message)?.[0];
+}
+
 // one message on its own: defects that need no source to be visible
 export function validateMessage(message: string, locale?: string): StructureIssue[] {
   const issues: StructureIssue[] = [];

@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/compiler",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "Message extraction and type-safe codegen for Verbaly.",
   "keywords": [
     "i18n",

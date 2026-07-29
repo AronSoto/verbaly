@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLURAL_CATEGORIES, validateMessage, validatePair } from '../src/validate';
+import { escapedSyntax, PLURAL_CATEGORIES, validateMessage, validatePair } from '../src/validate';
 
 const errors = (issues: { severity: string; message: string }[]): string[] =>
   issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message);
@@ -197,5 +197,31 @@ describe('validatePair', () => {
         '{count, plural, one {un elemento} other {# elementos}}',
       ),
     ).toEqual([]);
+  });
+});
+
+describe('escapedSyntax', () => {
+  it('finds a plural block a tagged template escaped', () => {
+    expect(escapedSyntax('You have {{count | one: 1 item | other: # items}}')).toBe(
+      '{{count | one: 1 item | other: # items}}',
+    );
+  });
+
+  it('finds an escaped format block', () => {
+    expect(escapedSyntax('Total: {{amount:currency/USD}}')).toBe('{{amount:currency/USD}}');
+  });
+
+  it('ignores a literal brace pair with no syntax inside', () => {
+    expect(escapedSyntax('Use {{key}} literally')).toBeUndefined();
+    expect(escapedSyntax('Config lives in verbaly.config.{{js,mjs,ts}}')).toBeUndefined();
+  });
+
+  it('ignores a real param block, which is what should be there', () => {
+    expect(escapedSyntax('You have {count | one: 1 item | other: # items}')).toBeUndefined();
+  });
+
+  it('ignores braces the author escaped on purpose in the source', () => {
+    // t`{{count | one: x}}` extracts as {{{{…}}}}: a deliberate escape is not the mistake
+    expect(escapedSyntax('{{{{count | one: x}}}}')).toBeUndefined();
   });
 });

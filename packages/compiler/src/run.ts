@@ -1,3 +1,4 @@
+import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
 import {
@@ -8,7 +9,7 @@ import {
   githubCheckAnnotations,
 } from './check';
 import { writeDts } from './codegen';
-import { loadConfig } from './config';
+import { loadConfig, type ResolvedConfig } from './config';
 import { doctor } from './doctor';
 import { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
@@ -16,15 +17,17 @@ import { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './e
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { renderSite } from './render';
+import type { MessageRegistry } from './registry';
 import { formatStatusResult, status } from './status';
 import { resolveProvider, translateCatalogs } from './translate';
+import { escapedSyntax } from './validate';
 import { watchProject } from './watch';
 import { wrapProject } from './wrap';
 
 const HELP = `verbaly · i18n compiler
 
 Usage:
-  verbaly init       scaffold config + locale catalogs (detects your bundler)
+  verbaly init       scaffold config + locale catalogs (detects your framework)
   verbaly doctor     diagnose the setup (config, catalogs, plugin, types, keys)
   verbaly wrap       find hardcoded JSX text and wrap it in t\`…\` (report; --write applies)
   verbaly extract    scan sources, update catalogs and types
@@ -186,6 +189,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const [locale, keys] of Object.entries(added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
       }
+      reportEscapedSyntax(cfg, registry);
     }
 
     await runExtract();
@@ -471,6 +475,23 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   console.error(`[verbaly] unknown command "${command}"\n${HELP}`);
   process.exitCode = 1;
+}
+
+// every compiler error already opens with [verbaly]: prefix only what does not
+export function formatCliError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.startsWith('[verbaly]') ? message : `[verbaly] ${message}`;
+}
+
+// a block inside a tagged template ships as literal braces, and nothing else in the cycle sees it
+function reportEscapedSyntax(cfg: ResolvedConfig, registry: MessageRegistry): void {
+  for (const msg of registry.messages().values()) {
+    const slice = escapedSyntax(msg.message);
+    if (!slice) continue;
+    const file = relative(cfg.root, msg.file).replaceAll('\\', '/');
+    console.warn(`  ${file}: ${slice} renders as literal text, a tagged template has no params`);
+    console.warn('    use t(key, params) for a plural or format block, or pass a ${…} value');
+  }
 }
 
 // flags shared by every command (config overrides)

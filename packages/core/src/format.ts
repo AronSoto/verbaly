@@ -20,19 +20,28 @@ export function formatNodes(nodes: MessageNode[], ctx: FormatContext): string {
   return out;
 }
 
+// every warn names its message: keying on the param alone silenced the second message with the gap
+function where(ctx: FormatContext): string {
+  return ctx.key ? ` in "${ctx.key}"` : '';
+}
+
 function formatParam(node: ParamNode, ctx: FormatContext): string {
   const value = ctx.params?.[node.name];
   if (value === undefined) {
-    warnOnce(`missing param "${node.name}"${ctx.key ? ` in "${ctx.key}"` : ''}`);
+    warnOnce(`missing param "${node.name}"${where(ctx)}`);
     return `{${node.name}}`;
   }
 
   if (node.variants) {
     const chosen = pickVariant(node.variants, value, ctx.locale, node.ordinal);
-    if (!chosen) return '';
+    // the value is left out of the warn on purpose: a counter walking 0..N must not grow the dedupe
+    if (!chosen) {
+      warnOnce(`no case matched for {${node.name}}${where(ctx)}, add an "other" case`);
+      return '';
+    }
     return formatNodes(chosen, { ...ctx, hashValue: value });
   }
-  if (node.format) return applyFormat(value, node.format, node.arg, ctx);
+  if (node.format) return applyFormat(value, node, ctx);
   return autoFormat(value, ctx.locale);
 }
 
@@ -54,16 +63,19 @@ function pickVariant(
   return undefined;
 }
 
-function applyFormat(
-  value: unknown,
-  format: string,
-  arg: string | undefined,
-  ctx: FormatContext,
-): string {
+function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): string {
+  const { name, arg } = node;
+  const format = node.format!;
   const custom = ctx.formatters[format];
   if (custom) return custom(value, ctx.locale, arg);
 
   const { locale } = ctx;
+  // a format missing its argument degrades like an invalid one: with a warn, never in silence
+  const degrade = (problem: string): string => {
+    warnOnce(`{${name}:${format}}${where(ctx)} ${problem}`);
+    return String(value);
+  };
+
   switch (format) {
     case 'number':
       return numberFormat(locale).format(Number(value));
@@ -72,7 +84,7 @@ function applyFormat(
     case 'percent':
       return numberFormat(locale, { style: 'percent' }).format(Number(value));
     case 'currency':
-      if (!arg) return String(value);
+      if (!arg) return degrade('needs an argument like /USD');
       try {
         return numberFormat(locale, { style: 'currency', currency: arg }).format(Number(value));
       } catch {
@@ -99,14 +111,17 @@ function applyFormat(
         return String(value);
       }
     case 'relative':
-      return formatRelative(value, arg, locale);
+      if (typeof value === 'number' && !arg) return degrade('needs an argument like /day');
+      if (typeof value !== 'number' && !(value instanceof Date))
+        return degrade('needs a number or a Date');
+      return formatRelative(value, node, ctx);
     case 'list': {
-      if (!Array.isArray(value)) return String(value);
+      if (!Array.isArray(value)) return degrade('needs an array');
       const type = arg === 'or' ? 'disjunction' : arg === 'unit' ? 'unit' : 'conjunction';
       return listFormat(locale, type).format(value.map((item) => autoFormat(item, locale)));
     }
     case 'unit':
-      if (!arg) return String(value);
+      if (!arg) return degrade('needs an argument like /kilometer');
       try {
         return numberFormat(locale, { style: 'unit', unit: arg }).format(Number(value));
       } catch {
@@ -130,28 +145,24 @@ const REL_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['second', 1],
 ];
 
-function formatRelative(value: unknown, arg: string | undefined, locale: string): string {
+function formatRelative(value: number | Date, node: ParamNode, ctx: FormatContext): string {
+  const { arg } = node;
   try {
-    if (typeof value === 'number' && arg) {
-      return relativeTimeFormat(locale).format(value, arg as Intl.RelativeTimeFormatUnit);
+    const fmt = relativeTimeFormat(ctx.locale);
+    if (typeof value === 'number') return fmt.format(value, arg as Intl.RelativeTimeFormatUnit);
+    const diffSec = (value.getTime() - Date.now()) / 1000;
+    if (arg) {
+      const per = REL_UNITS.find(([unit]) => unit === arg)?.[1];
+      if (!per) throw new RangeError(arg);
+      return fmt.format(Math.round(diffSec / per), arg as Intl.RelativeTimeFormatUnit);
     }
-    if (value instanceof Date) {
-      const diffSec = (value.getTime() - Date.now()) / 1000;
-      if (arg) {
-        const per = REL_UNITS.find(([unit]) => unit === arg)?.[1];
-        if (!per) throw new RangeError(arg);
-        return relativeTimeFormat(locale).format(
-          Math.round(diffSec / per),
-          arg as Intl.RelativeTimeFormatUnit,
-        );
-      }
-      const [unit, per] = REL_UNITS.find(([, s]) => Math.abs(diffSec) >= s) ?? ['second', 1];
-      return relativeTimeFormat(locale).format(Math.round(diffSec / per), unit);
-    }
+    const [unit, per] = REL_UNITS.find(([, s]) => Math.abs(diffSec) >= s) ?? ['second', 1];
+    return fmt.format(Math.round(diffSec / per), unit);
   } catch {
-    warnOnce(`invalid relative unit "${arg}"`);
+    // an invalid Date lands here too, so the warn names both suspects instead of blaming the unit
+    warnOnce(`{${node.name}:relative}${where(ctx)} cannot format "${value}" as "${arg}"`);
+    return String(value);
   }
-  return String(value);
 }
 
 const warned = new Set<string>();

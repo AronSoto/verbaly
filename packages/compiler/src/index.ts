@@ -56,6 +56,7 @@ export { resolveProvider, structureMatches, translateCatalogs } from './translat
 export type {
   Analysis,
   AnalyzeOptions,
+  StrayImport,
   TaggedMessage,
   TaggedParam,
   TransComponent,

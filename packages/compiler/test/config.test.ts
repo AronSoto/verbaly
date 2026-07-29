@@ -13,6 +13,9 @@ function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-cfg-'));
 }
 
+// a ts config goes through bundle-require, which spawns esbuild: 5s is not that job under pnpm test
+const ESBUILD_TIMEOUT = 30_000;
+
 describe('loadConfig', () => {
   it('reads verbaly.config.json', async () => {
     const root = makeRoot();
@@ -42,16 +45,20 @@ describe('loadConfig', () => {
     expect(cfg.locales).toEqual(['en']);
   });
 
-  it('reads verbaly.config.ts', async () => {
-    const root = makeRoot();
-    writeFileSync(
-      join(root, 'verbaly.config.ts'),
-      "const locales: string[] = ['en', 'pt'];\nexport default { sourceLocale: 'pt', locales };\n",
-    );
-    const cfg = await loadConfig(root);
-    expect(cfg.sourceLocale).toBe('pt');
-    expect(cfg.locales).toContain('en');
-  });
+  it(
+    'reads verbaly.config.ts',
+    async () => {
+      const root = makeRoot();
+      writeFileSync(
+        join(root, 'verbaly.config.ts'),
+        "const locales: string[] = ['en', 'pt'];\nexport default { sourceLocale: 'pt', locales };\n",
+      );
+      const cfg = await loadConfig(root);
+      expect(cfg.sourceLocale).toBe('pt');
+      expect(cfg.locales).toContain('en');
+    },
+    ESBUILD_TIMEOUT,
+  );
 
   it('prefers mjs over ts when both exist', async () => {
     const root = makeRoot();
@@ -68,18 +75,26 @@ describe('loadConfig', () => {
     expect(cfg.sourceLocale).toBe('en');
   });
 
-  it('falls back to defaults when a ts config has no default export', async () => {
-    const root = makeRoot();
-    writeFileSync(join(root, 'verbaly.config.ts'), 'export const foo: number = 1;\n');
-    const cfg = await loadConfig(root);
-    expect(cfg.sourceLocale).toBe('en');
-  });
+  it(
+    'falls back to defaults when a ts config has no default export',
+    async () => {
+      const root = makeRoot();
+      writeFileSync(join(root, 'verbaly.config.ts'), 'export const foo: number = 1;\n');
+      const cfg = await loadConfig(root);
+      expect(cfg.sourceLocale).toBe('en');
+    },
+    ESBUILD_TIMEOUT,
+  );
 
-  it('rethrows a ts config that fails to bundle for a non-esbuild reason', async () => {
-    const root = makeRoot();
-    writeFileSync(join(root, 'verbaly.config.ts'), 'export default {   // unterminated\n');
-    await expect(loadConfig(root)).rejects.toThrow();
-  });
+  it(
+    'rethrows a ts config that fails to bundle for a non-esbuild reason',
+    async () => {
+      const root = makeRoot();
+      writeFileSync(join(root, 'verbaly.config.ts'), 'export default {   // unterminated\n');
+      await expect(loadConfig(root)).rejects.toThrow();
+    },
+    ESBUILD_TIMEOUT,
+  );
 });
 
 describe('resolveConfig defaults', () => {

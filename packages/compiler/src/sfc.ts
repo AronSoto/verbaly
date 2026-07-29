@@ -1,4 +1,10 @@
-import { analyze, type Analysis, type TaggedParam, type UsedKey } from './analyze';
+import {
+  analyze,
+  type Analysis,
+  type StrayImport,
+  type TaggedParam,
+  type UsedKey,
+} from './analyze';
 
 export const SFC_FILE_RE = /\.(?:svelte|vue|astro)$/;
 
@@ -27,6 +33,7 @@ export function analyzeSfc(code: string, file: string): Analysis {
 
   const tagged: Analysis['tagged'] = [];
   const usedKeys: UsedKey[] = [];
+  const strayImports: StrayImport[] = [];
 
   const frontmatter = file.endsWith('.astro') ? FRONTMATTER_RE.exec(code) : null;
   if (frontmatter?.[2]) {
@@ -60,7 +67,7 @@ export function analyzeSfc(code: string, file: string): Analysis {
     consumedTo = end;
   }
 
-  return { tagged, usedKeys };
+  return { tagged, usedKeys, strayImports };
 
   function merge(analysis: Analysis | undefined, offset: number, markupSegment: boolean): void {
     if (!analysis) return;
@@ -80,6 +87,7 @@ export function analyzeSfc(code: string, file: string): Analysis {
       });
     }
     usedKeys.push(...analysis.usedKeys);
+    strayImports.push(...analysis.strayImports);
   }
 }
 

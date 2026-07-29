@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateDts } from '../src/codegen';
 import { stableKey } from '../src/key';
-import { runCli } from '../src/run';
+import { formatCliError, runCli } from '../src/run';
 import { watchProject } from '../src/watch';
 
 // the CLI never exposes the watcher's dispose, a real one would leak across tests
@@ -280,6 +280,39 @@ describe('runCli: extract', () => {
       string
     >;
     expect(es).not.toHaveProperty('orphan');
+  });
+
+  it('warns when a tagged template escaped a block instead of formatting it', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      'export const x = t`You have {count | one: 1 item | other: # items}`;\n',
+    );
+    await runCli(['extract', '--root', root]);
+    expect(process.exitCode).toBeUndefined(); // it is a warn: the extraction itself is correct
+    expect(output(warn)).toContain('renders as literal text');
+    expect(output(warn)).toContain('src/app.ts');
+    expect(output(warn)).toContain('use t(key, params)');
+  });
+
+  it('stays quiet about a message with a real param block', async () => {
+    const root = makeProject({ en: {}, es: {} }, 'export const x = t`Hello ${name}`;\n');
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).not.toContain('renders as literal text');
+  });
+});
+
+describe('formatCliError', () => {
+  it('does not repeat a prefix the error already carries', () => {
+    expect(formatCliError(new Error('[verbaly] locales/es.json is not valid JSON'))).toBe(
+      '[verbaly] locales/es.json is not valid JSON',
+    );
+  });
+
+  it('prefixes an error that comes from somewhere else', () => {
+    expect(formatCliError(new Error('EACCES: permission denied'))).toBe(
+      '[verbaly] EACCES: permission denied',
+    );
+    expect(formatCliError('plain string')).toBe('[verbaly] plain string');
   });
 });
 

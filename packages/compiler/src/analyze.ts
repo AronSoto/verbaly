@@ -30,9 +30,17 @@ export interface UsedKey {
   file: string;
 }
 
+// a named import the verbaly packages do not export: t comes from an instance, never from a package
+export interface StrayImport {
+  name: string;
+  source: string;
+  file: string;
+}
+
 export interface Analysis {
   tagged: TaggedMessage[];
   usedKeys: UsedKey[];
+  strayImports: StrayImport[];
 }
 
 // exported for wrap.ts (module-internal reuse, not part of the package surface)
@@ -62,9 +70,12 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
 
   const tagged: TaggedMessage[] = [];
   const usedKeys: UsedKey[] = [];
+  const strayImports: StrayImport[] = [];
 
   walk(ast.program as unknown as AstNode, (node) => {
-    if (node.type === 'TaggedTemplateExpression') {
+    if (node.type === 'ImportDeclaration') {
+      collectStrayImports(node, file, strayImports);
+    } else if (node.type === 'TaggedTemplateExpression') {
       const tag = node.tag as AstNode;
       const explicit = explicitId(tag, names);
       if (!explicit && !isTReference(tag, names)) return;
@@ -94,7 +105,22 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
     }
   });
 
-  return { tagged, usedKeys };
+  return { tagged, usedKeys, strayImports };
+}
+
+const VERBALY_PACKAGE = /^(?:verbaly|@verbaly\/[\w-]+)$/;
+
+// the most plausible onboarding error: only the bundler used to complain, and never about verbaly
+function collectStrayImports(node: AstNode, file: string, out: StrayImport[]): void {
+  const source = node.source as { value?: unknown };
+  if (typeof source.value !== 'string' || !VERBALY_PACKAGE.test(source.value)) return;
+  for (const spec of node.specifiers as AstNode[]) {
+    if (spec.type !== 'ImportSpecifier') continue;
+    const imported = spec.imported as AstNode;
+    if (imported.type === 'Identifier' && imported.name === 't') {
+      out.push({ name: 't', source: source.value, file });
+    }
+  }
 }
 
 function handleTrans(

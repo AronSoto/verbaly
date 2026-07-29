@@ -323,3 +323,25 @@ describe('analyze <Trans>', () => {
     expect(tagged[0]?.message).toBe('{n}hello');
   });
 });
+
+describe('stray imports', () => {
+  it('records t imported from the core package', () => {
+    const { strayImports } = analyze("import { t } from 'verbaly';", 'app.ts');
+    expect(strayImports).toEqual([{ name: 't', source: 'verbaly', file: 'app.ts' }]);
+  });
+
+  it('records t imported from a scoped verbaly package', () => {
+    const { strayImports } = analyze("import { useT, t } from '@verbaly/react';", 'App.tsx');
+    expect(strayImports.map((entry) => entry.source)).toEqual(['@verbaly/react']);
+  });
+
+  it('ignores a renamed binding that is not t, and other packages', () => {
+    const code = "import { useT as t } from '@verbaly/react';\nimport { t } from './local';";
+    expect(analyze(code, 'App.tsx').strayImports).toEqual([]);
+  });
+
+  it('ignores the exports the packages really have', () => {
+    const code = "import { createVerbaly, bindDom } from 'verbaly';";
+    expect(analyze(code, 'app.ts').strayImports).toEqual([]);
+  });
+});

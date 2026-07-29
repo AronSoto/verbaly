@@ -31,6 +31,7 @@ const v = createVerbaly({
       badUnit: '{n:unit/blorp}',
       weird: '{n:frobnicate}',
       noOther: '{n | one: uno}',
+      noOther2: '{n | one: single}',
       curNoArg: '{amount:currency}',
       unitNoArg: '{n:unit}',
       clock: '{d:time}',
@@ -164,10 +165,22 @@ describe('relative time', () => {
     v.setLocale('es');
   });
 
-  it('number without unit falls back to String', () => {
+  it('number without unit warns naming the message and falls back to String', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     v.setLocale('en');
     expect(v.t('ago', { d: 5 })).toBe('5');
+    expect(spy.mock.calls[0]![0]).toContain('{d:relative} in "ago" needs an argument like /day');
     v.setLocale('es');
+    spy.mockRestore();
+  });
+
+  it('a value that is neither number nor Date warns and renders plain', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    v.setLocale('en');
+    expect(v.t('agoDays', { n: 'yesterday' as unknown as number })).toBe('yesterday');
+    expect(spy.mock.calls[0]![0]).toContain('needs a number or a Date');
+    v.setLocale('es');
+    spy.mockRestore();
   });
 });
 
@@ -187,10 +200,13 @@ describe('lists', () => {
     v.setLocale('es');
   });
 
-  it('non-array falls back to String', () => {
+  it('non-array warns and falls back to String', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     v.setLocale('en');
-    expect(v.t('items', { xs: 'solo' })).toBe('solo');
+    expect(v.t('items', { xs: 'solo' as unknown as string[] })).toBe('solo');
+    expect(spy.mock.calls[0]![0]).toContain('{xs:list} in "items" needs an array');
     v.setLocale('es');
+    spy.mockRestore();
   });
 });
 
@@ -266,17 +282,37 @@ describe('unknown format', () => {
 });
 
 describe('format fallbacks', () => {
-  it('renders nothing when no variant matches and other is absent', () => {
+  it('warns naming the message when no variant matches and other is absent', () => {
+    // the gate catches this at build time, but a catalog from a loader or a CMS never crosses it
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     v.setLocale('en');
     expect(v.t('noOther', { n: 5 })).toBe('');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toContain('no case matched for {n} in "noOther"');
+    expect(v.t('noOther', { n: 7 })).toBe('');
+    expect(spy).toHaveBeenCalledTimes(1); // the count stays out of the warn: bounded dedupe
     v.setLocale('es');
+    spy.mockRestore();
   });
 
-  it('currency and unit without an argument fall back to String', () => {
+  it('warns again for another message with the same missing other', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    v.setLocale('en');
+    expect(v.t('noOther2', { n: 5 })).toBe('');
+    expect(spy.mock.calls[0]![0]).toContain('in "noOther2"');
+    v.setLocale('es');
+    spy.mockRestore();
+  });
+
+  it('currency and unit without an argument warn and fall back to String', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     v.setLocale('en');
     expect(v.t('curNoArg', { amount: 5 })).toBe('5');
     expect(v.t('unitNoArg', { n: 5 })).toBe('5');
+    expect(spy.mock.calls[0]![0]).toContain('{amount:currency} in "curNoArg" needs an argument');
+    expect(spy.mock.calls[1]![0]).toContain('{n:unit} in "unitNoArg" needs an argument');
     v.setLocale('es');
+    spy.mockRestore();
   });
 
   it('formats time with default and explicit styles', () => {
@@ -313,7 +349,10 @@ describe('relative time with explicit unit', () => {
     v.setLocale('en');
     const d = new Date();
     expect(v.t('agoBad', { d })).toBe(String(d));
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('invalid relative unit'));
+    // the warn names both suspects: an invalid Date lands in the same catch as an invalid unit
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('{d:relative} in "agoBad" cannot format'),
+    );
     v.setLocale('es');
     spy.mockRestore();
   });

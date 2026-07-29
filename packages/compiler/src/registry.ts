@@ -1,4 +1,4 @@
-import type { Analysis, TaggedMessage } from './analyze';
+import type { Analysis, StrayImport, TaggedMessage } from './analyze';
 
 export class MessageRegistry {
   private files = new Map<string, Analysis>();
@@ -41,6 +41,10 @@ export class MessageRegistry {
       }
     }
     return out;
+  }
+
+  strayImports(): StrayImport[] {
+    return [...this.files.values()].flatMap((analysis) => analysis.strayImports);
   }
 
   // key → every source file that writes or uses it (translator context)

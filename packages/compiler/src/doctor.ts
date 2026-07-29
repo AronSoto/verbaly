@@ -7,6 +7,7 @@ import { generateDts } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
 import { detectHost, readDependencies, WIRING_PACKAGES } from './init';
+import { escapedSyntax } from './validate';
 
 export interface DoctorEntry {
   level: 'ok' | 'warn' | 'error';
@@ -100,7 +101,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   const host = detectHost(cfg.root);
   const installed = WIRING_PACKAGES.find((pkg) => deps[pkg]);
   if (!host) {
-    ok('plugin', 'no bundler detected, the CLI flow (extract/check) applies');
+    ok('plugin', 'no framework or bundler detected, the CLI flow (extract/check) applies');
   } else if (installed) {
     ok('plugin', `${installed} installed for ${host.name}`);
   } else {
@@ -129,6 +130,27 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   }
 
   const registry = await extractProject(cfg);
+  if (scanning) {
+    const stray = registry.strayImports();
+    if (stray.length > 0) {
+      const files = [...new Set(stray.map((entry) => rel(entry.file)))];
+      error(
+        'imports',
+        `${files.length} ${files.length === 1 ? 'file imports' : 'files import'} t from a verbaly package, which never exports it (${preview(files)})`,
+        't comes from your instance (React: const t = useT()) or from virtual:verbaly',
+      );
+    }
+    const escaped = [...registry.messages().values()]
+      .map((msg) => ({ file: rel(msg.file), slice: escapedSyntax(msg.message) }))
+      .filter((entry) => entry.slice !== undefined);
+    if (escaped.length > 0) {
+      warn(
+        'messages',
+        `${escaped.length} extracted ${escaped.length === 1 ? 'message keeps' : 'messages keep'} a block as literal text (${escaped[0]!.file}: ${escaped[0]!.slice})`,
+        'a tagged template takes its values from ${…}: use t(key, params) for a plural or format block',
+      );
+    }
+  }
   if (source && scanning) {
     const extracted = registry.messages();
     const used = registry.usedKeys();

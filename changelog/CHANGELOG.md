@@ -44,7 +44,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **1.0 status:** this was the last known breaking change in the queue, so criterion 2 is closed again, this time with the surface reviewed rather than assumed. What remains is criterion 3, one feedback cycle with real external users.
 - Competitive seal 0.33.0 (2026-07-29, re-check pending at release time): nothing moved in the landscape. This version buys no new differentiator; it buys the right to promise the ones we have. A compiler whose public API is 132 undocumented names cannot credibly offer a stable 1.0, and none of i18next, Lingui, typesafe-i18n or Paraglide publishes a reviewed and test-pinned surface for its build-time package.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > Small on the site and large in the package README, which is the right split: the site serves people translating an app, the README serves the few people building an integration. The README part shipped with this version.
 

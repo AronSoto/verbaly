@@ -19,7 +19,10 @@ function run(source: string, resourcePath: string): Promise<LoaderResult> {
   });
 }
 
-describe('@verbaly/next loader', () => {
+const COMPILER_TIMEOUT = 30_000;
+
+// the loader imports the real ESM compiler on first call: not a 5s job under pnpm test
+describe('@verbaly/next loader', { timeout: COMPILER_TIMEOUT }, () => {
   it('rewrites tagged templates to compiled keys', async () => {
     const { code, map } = await run('const x = t`Hello`;', 'C:/app/src/page.tsx');
     expect(code).toMatch(/t\("[A-Za-z0-9_-]{8}"\)/);

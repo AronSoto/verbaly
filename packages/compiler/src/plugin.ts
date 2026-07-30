@@ -1,7 +1,6 @@
 import { relative } from 'node:path';
 import picomatch from 'picomatch';
-import type { Analysis } from './analyze';
-import { loadCatalogs, type Catalogs } from './catalog';
+import { loadCatalogs, type Catalog, type Catalogs } from './catalog';
 import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
@@ -52,10 +51,13 @@ export function transformSource(
   code: string,
   id: string,
   registry: MessageRegistry,
-): { analysis: Analysis; result: TransformResult | null } {
+): { messages: Catalog; result: TransformResult | null } {
   const analysis = analyzeFile(code, id);
   registry.update(id, analysis);
-  return { analysis, result: transformCode(code, id, analysis) ?? null };
+  // key → text for live extraction; first wins, mirroring the registry's collision rule
+  const messages: Catalog = {};
+  for (const msg of analysis.tagged) messages[msg.key] ??= msg.message;
+  return { messages, result: transformCode(code, id, analysis) ?? null };
 }
 
 // the one build-blocking error message, kept in one place (undefined = gate on)

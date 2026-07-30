@@ -27,7 +27,10 @@ function makeProject({ source, catalogs = { en: {}, es: {} } }: ProjectOptions =
 
 const inline = { sourceLocale: 'en', locales: ['en', 'es'] };
 
-describe('withVerbaly', () => {
+const COMPILER_TIMEOUT = 30_000;
+
+// every test here loads the real ESM compiler through withVerbaly: not a 5s job under pnpm test
+describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
   it('composes turbopack alias + rules and the webpack fallback', async () => {
     const root = makeProject();
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);

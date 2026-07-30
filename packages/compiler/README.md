@@ -20,7 +20,7 @@ Extraction covers `.js`/`.ts`/`.jsx`/`.tsx` **and `.svelte`, `.vue` and `.astro`
 ## 🧰 CLI
 
 ```bash
-npx verbaly init           # scaffold config + locale catalogs (detects your bundler)
+npx verbaly init           # scaffold config + locale catalogs (detects your framework)
 npx verbaly doctor         # diagnose the setup (config, catalogs, wiring, types, translations)
 npx verbaly wrap           # onboarding codemod: report plain JSX text, --write wraps it in t``
 npx verbaly extract        # sync catalogs + types
@@ -69,12 +69,17 @@ Hand-edited catalogs get the same treatment as imported files: the gate does not
 
 **Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-drafts.json` (commit it, never edit it by hand). `verbaly review` lists the drafts, `--approve` accepts them, and importing a translator's file clears the flag because a human already reviewed it. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing.
 
-Plug your own provider in `verbaly.config.ts`:
+Plug your own provider in `verbaly.config.ts`. In TypeScript, `TranslateProvider` types it for you:
 
 ```ts
-translate: {
-  provider: async ({ sourceLocale, targetLocale, messages }) => ({ ...translated });
-}
+import type { TranslateProvider } from '@verbaly/compiler';
+
+const provider: TranslateProvider = async ({ sourceLocale, targetLocale, messages, origins }) => {
+  // origins maps a key to the source files it appears in, so you can translate with context
+  return { ...translated };
+};
+
+export default { sourceLocale: 'en', locales: ['en', 'es'], translate: { provider } };
 ```
 
 ## 🌍 Human translators & TMS
@@ -123,6 +128,52 @@ Per-element `data-verbaly-links='{"repo":"https://…"}'` merges over the config
 📖 Docs: **https://verbaly-web.vercel.app/docs/reference/cli**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
+
+## 🧩 Programmatic API
+
+Almost nobody needs this: the CLI and the framework plugins cover the whole cycle. It exists for the one case they do not, building your own integration for a bundler or a tool we do not ship.
+
+The package exports two layers, and **nothing else is public**. Anything you can see in the source but not in this list is internal and can change in any release.
+
+**Your project's own types**, for a typed config file or a custom provider:
+
+`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `TranslateConfig` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions`
+
+**Building an integration.** This is exactly what `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/next`, `@verbaly/astro`, `@verbaly/nuxt` and `@verbaly/mcp` consume, so a third one has everything they have:
+
+| Area              | Exports                                                                                                                                                                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config & catalogs | `loadConfig` `resolveConfig` `loadCatalogs` `writeCatalog` · types `Catalog` `Catalogs`                                                                                                                                                  |
+| Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` · type `SyncResult`                                                                                                                       |
+| Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · type `RuntimeModuleOptions`                                                                                                                                    |
+| Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |
+| The gate          | `check` `formatCheckResult` `formatCheckWarnings` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `IssueSeverity`                                                                                                      |
+| Coverage          | `status` `formatStatusResult` · types `StatusResult` `LocaleStatus`                                                                                                                                                                      |
+| Draft review      | `loadDrafts` `saveDrafts` `markDrafts` `effectiveDrafts` · type `Drafts`                                                                                                                                                                 |
+| Translation       | `translateCatalogs` `resolveProvider`                                                                                                                                                                                                    |
+| Static rendering  | `renderSite` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                                                                              |
+
+A minimal plugin is `loadConfig` + `loadCatalogs` once, then `transformSource` per file and `runBuildGate` at the end:
+
+```ts
+import {
+  MessageRegistry,
+  loadCatalogs,
+  loadConfig,
+  runBuildGate,
+  transformSource,
+} from '@verbaly/compiler';
+
+const cfg = await loadConfig(process.cwd());
+const catalogs = loadCatalogs(cfg);
+const registry = new MessageRegistry();
+
+// per file: rewrites t`…` to a keyed call and hands you the messages it found
+const { messages, result } = transformSource(code, id, registry);
+
+// at the end of the build: throws with the reason and the remedy
+runBuildGate(cfg, registry);
+```
 
 ## License
 

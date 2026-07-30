@@ -15,7 +15,9 @@ function makeConfig(locales = ['en', 'es']) {
   });
 }
 
-describe('writeGeneratedModules', () => {
+const COMPILER_TIMEOUT = 30_000;
+
+describe('writeGeneratedModules', { timeout: COMPILER_TIMEOUT }, () => {
   it('writes the runtime module with relative locale imports', () => {
     const cfg = makeConfig();
     writeGeneratedModules(cfg, { en: { a: 'A' }, es: { a: 'Á' } });

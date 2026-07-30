@@ -21,7 +21,9 @@ function makeProject() {
   return compiler.resolveConfig({ root, sourceLocale: 'en', locales: ['en'] });
 }
 
-describe('startWatcher', () => {
+const COMPILER_TIMEOUT = 30_000;
+
+describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
   it('re-extracts on a source change and regenerates the runtime modules', async () => {
     const cfg = makeProject();
     startWatcher(compiler, cfg, {});

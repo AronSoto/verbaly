@@ -129,14 +129,15 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
     transform(code, id) {
       if (!isTransformTarget(id) || !included(id)) return undefined;
-      const { analysis, result } = transformSource(code, id, registry);
+      const { messages, result } = transformSource(code, id, registry);
 
-      if (!isBuild && analysis.tagged.length > 0) {
+      const found = Object.entries(messages);
+      if (!isBuild && found.length > 0) {
         const source = (catalogs[cfg.sourceLocale] ??= {});
         let changed = false;
-        for (const msg of analysis.tagged) {
-          if (source[msg.key] !== msg.message) {
-            source[msg.key] = msg.message;
+        for (const [key, message] of found) {
+          if (source[key] !== message) {
+            source[key] = message;
             changed = true;
           }
         }

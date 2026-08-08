@@ -1,6 +1,7 @@
 import { dateTimeFormat, listFormat, numberFormat, pluralRules, relativeTimeFormat } from './intl';
 import type { MessageNode, ParamNode } from './parse';
 import type { Formatter, Params } from './types';
+import { warnOnce } from './warn';
 
 interface FormatContext {
   locale: string;
@@ -14,7 +15,7 @@ export function formatNodes(nodes: MessageNode[], ctx: FormatContext): string {
   let out = '';
   for (const node of nodes) {
     if (node.kind === 'text') out += node.value;
-    else if (node.kind === 'hash') out += autoFormat(ctx.hashValue, ctx.locale);
+    else if (node.kind === 'hash') out += autoFormat(ctx.hashValue, ctx.locale, ctx);
     else out += formatParam(node, ctx);
   }
   return out;
@@ -42,7 +43,17 @@ function formatParam(node: ParamNode, ctx: FormatContext): string {
     return formatNodes(chosen, { ...ctx, hashValue: value });
   }
   if (node.format) return applyFormat(value, node, ctx);
-  return autoFormat(value, ctx.locale);
+  return autoFormat(value, ctx.locale, ctx);
+}
+
+// the type of the offending value, never the value: the dedupe set must stay bounded
+function describe(value: unknown): string {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 'an invalid Date' : 'a Date';
+  if (Array.isArray(value)) return 'an array';
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  const type = typeof value;
+  return type === 'object' ? 'an object' : `a ${type}`;
 }
 
 function pickVariant(
@@ -88,8 +99,7 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
       try {
         return numberFormat(locale, { style: 'currency', currency: arg }).format(Number(value));
       } catch {
-        warnOnce(`invalid currency "${arg}"`);
-        return String(value);
+        return degrade(`does not know the currency "${arg}"`);
       }
     case 'date':
       try {
@@ -98,8 +108,7 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
           arg ? { dateStyle: arg as Intl.DateTimeFormatOptions['dateStyle'] } : undefined,
         ).format(toDate(value));
       } catch {
-        warnOnce(`invalid date "${arg ?? value}"`);
-        return String(value);
+        return degrade(`cannot format ${describe(value)}${arg ? ` with style "${arg}"` : ''}`);
       }
     case 'time':
       try {
@@ -107,8 +116,7 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
           timeStyle: (arg ?? 'short') as Intl.DateTimeFormatOptions['timeStyle'],
         }).format(toDate(value));
       } catch {
-        warnOnce(`invalid time "${arg ?? value}"`);
-        return String(value);
+        return degrade(`cannot format ${describe(value)} with style "${arg ?? 'short'}"`);
       }
     case 'relative':
       if (typeof value === 'number' && !arg) return degrade('needs an argument like /day');
@@ -118,19 +126,17 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
     case 'list': {
       if (!Array.isArray(value)) return degrade('needs an array');
       const type = arg === 'or' ? 'disjunction' : arg === 'unit' ? 'unit' : 'conjunction';
-      return listFormat(locale, type).format(value.map((item) => autoFormat(item, locale)));
+      return listFormat(locale, type).format(value.map((item) => autoFormat(item, locale, ctx)));
     }
     case 'unit':
       if (!arg) return degrade('needs an argument like /kilometer');
       try {
         return numberFormat(locale, { style: 'unit', unit: arg }).format(Number(value));
       } catch {
-        warnOnce(`invalid unit "${arg}"`);
-        return String(value);
+        return degrade(`does not know the unit "${arg}"`);
       }
     default:
-      warnOnce(`unknown format "${format}"`);
-      return String(value);
+      return degrade('is not a format verbaly knows');
   }
 }
 
@@ -160,25 +166,18 @@ function formatRelative(value: number | Date, node: ParamNode, ctx: FormatContex
     return fmt.format(Math.round(diffSec / per), unit);
   } catch {
     // an invalid Date lands here too, so the warn names both suspects instead of blaming the unit
-    warnOnce(`{${node.name}:relative}${where(ctx)} cannot format "${value}" as "${arg}"`);
+    warnOnce(`{${node.name}:relative}${where(ctx)} cannot format ${describe(value)} as "${arg}"`);
     return String(value);
   }
 }
 
-const warned = new Set<string>();
-function warnOnce(msg: string): void {
-  if (warned.has(msg)) return;
-  warned.add(msg);
-  console.warn(`[verbaly] ${msg}`);
-}
-
-export function autoFormat(value: unknown, locale: string): string {
+export function autoFormat(value: unknown, locale: string, ctx?: FormatContext): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'number') return numberFormat(locale).format(value);
   if (value instanceof Date) {
     // an invalid Date makes Intl throw: degrade like every other bad format input
     if (Number.isNaN(value.getTime())) {
-      warnOnce('invalid date value');
+      warnOnce(`an invalid Date${ctx ? where(ctx) : ''} renders as plain text`);
       return String(value);
     }
     return dateTimeFormat(locale).format(value);

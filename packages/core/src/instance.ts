@@ -2,6 +2,7 @@ import { flatten } from './flatten';
 import { autoFormat, formatNodes } from './format';
 import { narrowLocales } from './locale';
 import { parse } from './parse';
+import { warnOnce } from './warn';
 import type {
   DictionaryInput,
   MessageTree,
@@ -20,7 +21,6 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   const loaders = options.loaders ?? {};
   const loaded = new Set<string>();
   const inFlight = new Map<string, Promise<void>>();
-  const warned = new Set<string>();
   const fallbacks = options.fallback
     ? Array.isArray(options.fallback)
       ? options.fallback
@@ -59,9 +59,8 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     if (hit === undefined) {
       const replacement = options.onMissing?.(key, locale);
       const value = typeof replacement === 'string' ? replacement : key;
-      if (typeof replacement !== 'string' && !options.onMissing && !warned.has(key)) {
-        warned.add(key);
-        console.warn(`[verbaly] missing key "${key}" (${locale})`);
+      if (typeof replacement !== 'string' && !options.onMissing) {
+        warnOnce(`missing key "${key}" (${locale})`);
       }
       options.onResolve?.({ key, locale, value, status: 'miss' });
       return value;
@@ -148,10 +147,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     setLocale(next: string) {
       // auto-load pending catalog; UI re-renders when it lands
       void loadLocale(next).catch(() => {
-        if (!warned.has(`load:${next}`)) {
-          warned.add(`load:${next}`);
-          console.warn(`[verbaly] failed to load catalog for "${next}"`);
-        }
+        warnOnce(`failed to load catalog for "${next}"`);
       });
       if (next === locale) return;
       locale = next;

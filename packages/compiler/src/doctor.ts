@@ -131,6 +131,17 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
 
   const registry = await extractProject(cfg);
   if (scanning) {
+    // a warn, not an error: decorators or a dialect babel does not read still build in the project
+    const unreadable = registry.parseErrors();
+    if (unreadable.length > 0) {
+      const first = unreadable[0]!;
+      const one = unreadable.length === 1;
+      warn(
+        'sources',
+        `${unreadable.length} ${one ? 'file' : 'files'} could not be parsed, so ${one ? 'its' : 'their'} messages are not extracted (${rel(first.file)}: ${first.message})`,
+        'fix the syntax error, or exclude the file in your config if it is not source',
+      );
+    }
     const stray = registry.strayImports();
     if (stray.length > 0) {
       const files = [...new Set(stray.map((entry) => rel(entry.file)))];

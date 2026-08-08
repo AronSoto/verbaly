@@ -1,6 +1,7 @@
 import MagicString from 'magic-string';
 import type { Analysis } from './analyze';
 import { analyzeFile } from './sfc';
+import { warnParseError } from './warn';
 
 export interface TransformResult {
   code: string;
@@ -17,7 +18,9 @@ export function transformCode(
   file: string,
   analysis?: Analysis,
 ): TransformResult | null {
-  const { tagged } = analysis ?? analyzeFile(code, file);
+  const own = analysis ?? analyzeFile(code, file);
+  if (!analysis && own.parseError) warnParseError(file, own.parseError);
+  const { tagged } = own;
   if (tagged.length === 0) return null;
 
   const s = new MagicString(code);

@@ -12,6 +12,7 @@ import {
   normalizeLink,
   parseTags,
   RICH_TAGS,
+  VOID_TAGS,
   type DictionaryInput,
   type Params,
   type RichLink,
@@ -98,8 +99,7 @@ export function Trans(props: TransProps): ReactElement {
   );
 }
 
-// react rejects children on void elements
-const VOID_TAGS = new Set(['br', 'wbr']);
+const VOID = new Set(VOID_TAGS);
 
 function toNodes(
   nodes: TagNode[],
@@ -117,7 +117,7 @@ function toNodes(
       return createElement('a', { key: i, ...normalizeLink(link) }, ...children);
     }
     if (richTags.has(node.name)) {
-      if (VOID_TAGS.has(node.name)) return createElement(node.name, { key: i });
+      if (VOID.has(node.name)) return createElement(node.name, { key: i });
       return createElement(node.name, { key: i }, ...children);
     }
     return createElement(Fragment, { key: i }, ...children);

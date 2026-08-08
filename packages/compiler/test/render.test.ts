@@ -52,6 +52,23 @@ describe('renderHtml', () => {
     expect(html).toContain('El <em>gate</em> del build');
   });
 
+  it('closes no void tag: </br> would parse as a second <br> and hydration would drop it', () => {
+    const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
+      locale: 'es',
+      catalogs: { es: { m: 'una línea<br/>otra' } },
+    });
+    expect(html).toContain('una línea<br>otra');
+    expect(html).not.toContain('</br>');
+  });
+
+  it('drops what a message nests inside a void tag, exactly like bindDom', () => {
+    const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
+      locale: 'es',
+      catalogs: { es: { m: 'una<br>colgada</br>otra' } },
+    });
+    expect(html).toContain('una<br>otra');
+  });
+
   it('handles nested same-name elements', () => {
     const input =
       '<div data-verbaly="home.intro" data-verbaly-args=\'{"name":"A"}\'><div>old</div></div><div>after</div>';

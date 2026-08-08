@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import loader, { type LoaderContext } from '../src/loader';
 
 interface LoaderResult {
@@ -41,8 +41,12 @@ describe('@verbaly/next loader', { timeout: COMPILER_TIMEOUT }, () => {
     expect(code).toBe(source);
   });
 
-  it('reports a transform error through the async callback', async () => {
-    // unterminated template in a transform target: Babel throws, loader forwards it
-    await expect(run('const x = t`Hello', 'C:/app/src/broken.tsx')).rejects.toThrow();
+  it('hands an unparseable file back untouched instead of failing the build', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const source = 'const x = t`Hello';
+    const { code } = await run(source, 'C:/app/src/broken.tsx');
+    expect(code).toBe(source);
+    expect(warn.mock.calls[0]![0]).toContain('broken.tsx: could not be parsed');
+    warn.mockRestore();
   });
 });

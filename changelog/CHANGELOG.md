@@ -1,10 +1,73 @@
 # Changelog
 
-Version history of **Verbaly** — one file, full detail per version, newest first. The twelve packages share one version number (aligned releases).
+Version history of **Verbaly**: one file, full detail per version, newest first. The twelve packages share one version number (aligned releases).
 
-Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note — the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section — the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes; the full detail lives here.
+Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note, the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section: the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes, and the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
+
+---
+
+## [0.34.0] · 2026-08-08
+
+**What the gate cannot see.** The build gate got teeth in 0.30.0, the commands stopped contradicting each other in 0.31.0 and every silent degradation started reporting itself in 0.32.0. All three work on what verbaly reads at build time, and this version goes after the other half: a catalog that arrives from a CMS after the build, a source file the parser cannot read, and a `<br/>` inside a rich message that the static HTML and the browser disagree about. Four real bugs, each one a way to ship something wrong with every command green, all of them found by reading the code against the invariants the project had already written down. No breaking changes, no new configuration, no new runtime API.
+
+### Highlights
+
+- **A line break inside a rich message no longer doubles in the pre-rendered page.** `verbaly render` wrote `<br></br>`, which every browser reads as two line breaks, and hydration then replaced them with one. A visible jump on exactly the pages the feature exists to keep still.
+- **A catalog with a null value no longer takes the app down at boot.** A translation that arrives as `null` (a CMS field nobody filled, a TMS export) used to crash the instance before the first render. Now the key is skipped, the app runs, and the console says which one it was.
+- **`verbaly extract`, `check` and `doctor` survive a file they cannot read.** One file with a syntax error used to end the whole run with a position and no file name. Now the file is named, its messages are skipped and every other file is still processed.
+- **JSX written in a `.js` file is extracted like any other source.** A React app with components in `.js` could not run `verbaly extract` at all: the first tag ended it. This was the most likely first five minutes for a whole class of project.
+- **A warning never repeats itself because a number changed.** Three warnings still printed the offending value, so a counter walking 0 to N could grow the deduplication set forever. They now name the type instead, and every degradation says which message it came from.
+
+### Added
+
+- **`VOID_TAGS` in `verbaly` core**: the HTML void element list, the one place the rule lives. `bindDom`, `@verbaly/react`, `@verbaly/vue` and the compiler's `renderHtml` all read it, so a void tag is a contract of the whole surface instead of a detail one adapter remembered. `@verbaly/react` and `renderHtml` each dropped a private copy.
+- **`test/conformance.test.ts` in `@verbaly/compiler`**: eleven rich messages rendered twice, once by `renderHtml` and once by `bindDom` in a DOM, compared as **shipped markup** rather than as a re-parse. That distinction is the whole test: happy-dom forgives `</br>` and a real browser does not, which is why the old suite could not see this bug. Verified to fail on three cases with the fix reverted before being trusted.
+- **`Analysis.parseError` and `MessageRegistry.parseErrors()`** (`@verbaly/compiler`): the file the parser could not read, reported instead of thrown. `verbaly extract` prints one line per file, `verbaly doctor` gains a `sources` warn naming the file and the position, and the bundler plugins warn once per file through `transformSource`/`transformCode`.
+- **`warnOnce` as one module in `verbaly` core** (`warn.ts`): `format.ts` had a private one, `instance.ts` kept a second set inside every instance, and `dom.ts` called `console.warn` raw. One set now, which also makes the "never put a runtime value in a warning" rule checkable in one place instead of three.
+
+### Changed
+
+- **`verbaly render` writes a void element with no closing tag and no children** (`@verbaly/compiler`): `<br/>` in a rich message becomes `<br>`, and anything a message nests inside a void tag is dropped, which is what `bindDom` and React already did. The invariant this restores is the one the feature is built on: what render pre-fills is exactly what the runtime shows after hydration.
+- **`flatten` treats a catalog as untrusted input** (`verbaly` core): a leaf that is neither text nor a group is skipped with a warning naming its dotted path, and an array is a bad leaf rather than a set of index keys, which is the rule `doctor` already applied at build time. A `null` leaf used to throw out of `createVerbaly`, and a number leaf used to disappear without a word.
+- **Every degradation in `format.ts` names its message and none carries a value** (`verbaly` core): `currency`, `unit`, `date`, `time` and an unknown format went through their own `warnOnce` call and said nothing about which message they came from, so the ` in "key"` suffix 0.31.0 introduced only ever appeared on the newest warnings. They all go through `degrade` now. Where the old text interpolated the value (`invalid date "…"`, `cannot format "…" as "day"`), it names the type instead (`cannot format a string`, `cannot format an invalid Date`): the remedy never depended on the value, and the deduplication set is unbounded by design.
+- **Babel parses `.js`, `.cjs` and `.mjs` with the JSX plugin** (`@verbaly/compiler`): it was only on for `.jsx` and `.tsx`, which made JSX in a `.js` file a fatal parse error even though the default `include` scans those files. `.ts`, `.mts` and `.cts` keep it off, where `<T>x` is a type assertion, and SFC blocks are unchanged.
+- **The `@verbaly/next` loader hands an unparseable file back untouched** instead of failing the build with it. The bundler reports the syntax error itself, with its own position, and verbaly says what it could not read. Its test now pins that contract.
+- **CLI counts read like text** (`@verbaly/compiler`): `1 messages`, `1 pages`, `1 checks`, `1 keys not pre-filled` and `wrapped 1 texts in 1 files` are singular when they are one. A tool that translates apps should not print that.
+- **The root vitest config globs its projects** (`packages/*/vitest.*.config.ts`): the preact run was listed by hand, and a config nobody lists is silently never run, which is how 0.30.0 shipped a suite that CI never executed. A new second config is now picked up because it exists.
+- **CI runs `pnpm test` as well as `pnpm coverage`**: they are the same 935 tests, but `pnpm test` runs the twelve packages in parallel, which is what the Release does and what made 0.32.0 and 0.33.0 each fail on a timeout flake that only the manual ritual caught. Both were caught by a person twice in a row; now the machine looks.
+- **Size budgets move to 3.95 and 6.45 KB** (`verbaly` core, `scripts/size.mjs`): the tree-shaken runtime went from 3.49 to 3.67 KB, all of it warning strings and the `flatten` guard, which left the old budget with 80 bytes where the file's own rule is about 8%.
+
+### Fixed
+
+- **`verbaly render` and the runtime disagreed about void tags** (`@verbaly/compiler`, shipped since the feature existed): a rich message containing `<br/>` was written as `<br></br>`, which the HTML parser turns into two `<br>` elements, so the static page showed two line breaks and hydration then showed one. The suite could not catch it because happy-dom parses `<br></br>` as a single `<br>`.
+- **A `null` value in a catalog crashed `createVerbaly`** (`verbaly` core): `flatten` recursed into it and `Object.entries(null)` threw, so the app died at boot instead of missing one string. The catalog shapes that reach the runtime without crossing the gate are exactly the ones nobody controls.
+- **One unreadable file ended `extract`, `check` and `doctor`** (`@verbaly/compiler`): the SFC path had caught parse errors since 0.20.0 and the plain JS/TS path never did, so a syntax error mid-edit, a decorator or JSX in a `.js` file produced `[verbaly] Unexpected token (2:14)` and nothing else. `doctor`, the command whose job is to explain a broken setup, was the first to die.
+- **Three runtime warnings grew the deduplication set on every distinct value** (`verbaly` core): `{n:relative}` with a bad unit warned once per count, and `{d:date}` once per unparseable value. 0.32.0 wrote the rule down and rewrote one of these warnings without applying it.
+- **`verbaly review --locale` was implemented, accepted and undocumented** (`@verbaly/compiler`): the flag list, the help text and the command body are three separate places in `run.ts`, and this is the first drift between them (the PLAN backlog names that drift as the condition for unifying them). The help line now covers it and a test pins the behavior.
+
+### Notes
+
+- **Every fix here came from reading code against an invariant the project had already written, not from a bug report.** The void tag divergence contradicts "render == runtime is an invariant", the `flatten` crash contradicts "`t()` never throws on bad catalog data", the parse failure contradicts "every error is actionable", and the three warnings contradict a rule 0.32.0 wrote in its own Notes section. That is the argument for the audit being periodic: the invariants were right and nothing was checking them.
+- **The reproduction of each one is in the changelog because each was verified against the built CLI, not only in a test**: a project with `src/App.js` (JSX) and `src/broken.ts` (syntax error) ran `extract`, `doctor` and `check` end to end, and `render` was run over a real `dist/` before and after.
+- **What this version deliberately does not do**: the bundler plugins warn about a file they cannot read but do not fail the build over it, because the bundler already fails on a file that is genuinely broken, and the remaining cases (a dialect Babel does not read) build fine in the user's project. Same reasoning as `doctor`'s rule: never error on something that builds.
+- Runtime sizes: **3.67 KB tree-shaken** (was 3.49) · **5.99 KB full** (was 5.75) · 1.60 KB devtools (min+gzip, size gate green with the new budgets 3.95/6.45/1.75). Bench re-run (ritual): lookup **30.9×**, interpolation **11.0×**, plural **5.5×**, currency **4.8×** vs i18next 26, in family with 0.33.0 (33.6×/11.6×/4.6×/5.7×).
+- **935 tests** (compiler **481** · core **248** · next 41 · nuxt 28 · react 27 · svelte 25 · vite 25 · vue 17 · sveltekit 13 · unplugin 12 · astro 10 · mcp 8), was 901: +22 compiler (the eleven conformance cases, four for the parser dispatch, three for the CLI, and one each for doctor, the plugin warn and the two render cases), +11 core (six for `flatten` with hostile data, three for the warning rules, two for void tags in `bindDom`), +1 vue.
+- **One new devDependency**: `happy-dom` in `@verbaly/compiler`, so the conformance test can compare `renderHtml` against a real `bindDom` run. Test-only, no runtime dependency in any layer.
+- **`VOID_TAGS` is the only public surface change**: core goes from 17 exported values to 18, and its pin test lists it. The compiler's 60 names are untouched.
+- No change to the message format, the key scheme, the catalog format or any key. The only rendered output that changes is the one that was wrong: a void tag in a rich message.
+- Competitive seal 0.34.0 (2026-08-08, re-check pending at release time): nothing moved in the landscape. What this version defends is the claim that costs the most to make: a compiler that pre-renders translated HTML and hydrates it has to produce the same DOM twice, and the only way to promise that is to test both surfaces against each other. i18next has no pre-render step, Lingui and Paraglide leave the HTML to the framework, and none of them ships a static mirror to be wrong about.
+
+### Docs impact (pending)
+
+> Nothing conceptual moves and no page is added. Three pages gain a sentence, because the tool now behaves differently in a situation the docs describe.
+
+- **`docs/reference/api`**: the paragraph about `t()` and bad data can now say that a catalog value that is not text is skipped with a warning naming its path, instead of only covering bad params and formats. If the page says every degradation names its message, that is now true without exceptions, which it was not when the sentence was written.
+- **`docs/reference/cli`**: the `doctor` check list gains its `sources` row (a file that could not be parsed, warn level, never fails CI), the `extract` row gains the same warning, and the `review` row can mention `--locale` now that the help does.
+- **`docs/guide/richtext`** (or wherever the whitelist is documented): worth stating that `<br/>` and `<wbr/>` take no children, since a message that nests text inside one now has that text dropped on every surface. Cosmetic, but it is a rule someone writing messages can hit.
+- **Nothing to change in the playground**, unless a demo message contains `<br/>`: if one does, its pre-rendered output changes from two line breaks to one, which is the fix.
+- **The site's own pages do not change**: its three catalogs were checked for `<br/>` and `<wbr/>` and carry none, so the void tag fix moves nothing there. The `pnpm build` after the bump is still the consumer test (the site is built with `@verbaly/astro` and mirrored with `render`), it just should produce an identical mirror.
 
 ---
 

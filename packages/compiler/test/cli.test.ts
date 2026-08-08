@@ -151,7 +151,7 @@ describe('runCli: wrap', () => {
     writeFileSync(file, 'export const x = <h1>Welcome back</h1>;\n');
 
     await runCli(['wrap', '--root', root]);
-    expect(output(log)).toContain('would wrap 1 texts in 1 files');
+    expect(output(log)).toContain('would wrap 1 text in 1 file');
     expect(output(log)).toContain('src/App.tsx:1  "Welcome back"');
     expect(readFileSync(file, 'utf8')).toContain('<h1>Welcome back</h1>');
     expect(process.exitCode).toBeUndefined();
@@ -183,6 +183,34 @@ describe('runCli: wrap', () => {
     await runCli(['status', '--root', root, '--write']);
     expect(output(error)).toContain('--write is not a "status" flag');
     expect(process.exitCode).toBe(1);
+  });
+});
+
+describe('runCli: extract with a file the parser cannot read', () => {
+  it('extracts everything else, names the file and never dies on it', async () => {
+    const root = makeProject({ en: {} }, 'export const x = t`Hi there`;\n');
+    writeFileSync(join(root, 'src', 'broken.ts'), 'const a = ;;;function(');
+    await runCli(['extract', '--root', root]);
+    expect(output(log)).toContain('[verbaly] 1 message');
+    expect(output(warn)).toContain('src/broken.ts: could not be parsed');
+    expect(process.exitCode).toBeUndefined();
+    const catalog = JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')) as Record<
+      string,
+      string
+    >;
+    expect(catalog[stableKey('Hi there')]).toBe('Hi there');
+  });
+
+  it('extracts from jsx written in a .js file', async () => {
+    const root = makeProject({ en: {} }, '');
+    writeFileSync(join(root, 'src', 'App.js'), 'export const A = () => <p>{t`Hi there`}</p>;\n');
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).not.toContain('could not be parsed');
+    const catalog = JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')) as Record<
+      string,
+      string
+    >;
+    expect(catalog[stableKey('Hi there')]).toBe('Hi there');
   });
 });
 
@@ -534,6 +562,16 @@ describe('runCli: translate + review drafts', () => {
     );
   });
 
+  it('review --locale narrows to one locale, the flag the help now documents', async () => {
+    const root = makeProject({ en: { hi: 'Hi' }, es: { hi: '' }, pt: { hi: '' } });
+    withProvider(root);
+    await runCli(['translate', '--root', root]);
+    log.mockClear();
+    await runCli(['review', '--root', root, '--locale', 'pt']);
+    expect(output(log)).toContain('pt: hi');
+    expect(output(log)).not.toContain('es: hi');
+  });
+
   it('review says so when nothing is awaiting review', async () => {
     const root = makeProject({ en: { hi: 'Hi' }, es: { hi: 'Hola' } });
     await runCli(['review', '--root', root]);
@@ -664,8 +702,8 @@ describe('runCli: render', () => {
       '<html><body><h1 data-verbaly="greet">Hello</h1><p data-verbaly="ghost">?</p></body></html>',
     );
     await runCli(['render', '--root', root]);
-    expect(output(log)).toContain('1 pages × 2 locales (en, es)');
-    expect(output(warn)).toContain('es: 1 keys not pre-filled: ghost');
+    expect(output(log)).toContain('1 page × 2 locales (en, es)');
+    expect(output(warn)).toContain('es: 1 key not pre-filled: ghost');
     expect(readFileSync(join(root, 'dist', 'es', 'index.html'), 'utf8')).toContain('Hola');
   });
 });
@@ -674,7 +712,7 @@ describe('runCli: pseudo', () => {
   it('writes the pseudo catalog, honoring --locale', async () => {
     const root = makeProject({ en: { a: 'Hello' } });
     await runCli(['pseudo', '--root', root]);
-    expect(output(log)).toContain('1 messages pseudo-localized → en-XA');
+    expect(output(log)).toContain('1 message pseudo-localized → en-XA');
     expect(existsSync(join(root, 'locales', 'en-XA.json'))).toBe(true);
     await runCli(['pseudo', '--root', root, '--locale', 'en-XB']);
     expect(existsSync(join(root, 'locales', 'en-XB.json'))).toBe(true);

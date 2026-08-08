@@ -217,6 +217,8 @@ function setupRich() {
         evil: 'hola <script>alert(1)</script> mundo',
         custom: 'texto <q>citado</q>',
         braces: 'usa <code>&#123;fecha:relative&#125;</code> con {n} valores',
+        broke: 'una línea<br/>otra línea',
+        voidChildren: 'una línea<br>colgada</br>otra',
       },
       en: {
         gate: 'The build <em>gate</em>',
@@ -241,6 +243,22 @@ describe('bindDom rich', () => {
     unbind = bindDom(v);
     expect(el.innerHTML).toBe('El <em>gate</em> del build');
     expect(el.querySelector('em')?.textContent).toBe('gate');
+  });
+
+  it('gives a void tag no children: the html renderer has to match this exactly', () => {
+    const v = setupRich();
+    const el = richEl('broke');
+    unbind = bindDom(v);
+    expect(el.querySelectorAll('br')).toHaveLength(1);
+    expect(el.innerHTML).toBe('una línea<br>otra línea');
+  });
+
+  it('drops what a message nests inside a void tag instead of hiding it in the dom', () => {
+    const v = setupRich();
+    const el = richEl('voidChildren');
+    unbind = bindDom(v);
+    expect(el.querySelector('br')?.childNodes).toHaveLength(0);
+    expect(el.textContent).toBe('una líneaotra');
   });
 
   it('renders nested tags', () => {

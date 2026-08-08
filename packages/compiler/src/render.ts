@@ -9,6 +9,7 @@ import {
   parseTags,
   RICH_TAGS,
   safeAttribute,
+  VOID_TAGS,
   type MessageTree,
   type Params,
   type RichLink,
@@ -43,22 +44,7 @@ export interface RenderHtmlResult {
 const HREFLANG_OPEN = '<!--verbaly:hreflang-->';
 const HREFLANG_CLOSE = '<!--/verbaly:hreflang-->';
 
-const VOID_TAGS = new Set([
-  'area',
-  'base',
-  'br',
-  'col',
-  'embed',
-  'hr',
-  'img',
-  'input',
-  'link',
-  'meta',
-  'param',
-  'source',
-  'track',
-  'wbr',
-]);
+const VOID = new Set(VOID_TAGS);
 
 const START_TAG = /<([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*"|'[^']*'|[^"'>])*)>/g;
 const ATTR = /([^\s=/"'<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
@@ -145,7 +131,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     if (key) {
       if (!v.has(key)) {
         missing.add(key);
-      } else if (!VOID_TAGS.has(tagName) && !attrChunk.trimEnd().endsWith('/')) {
+      } else if (!VOID.has(tagName) && !attrChunk.trimEnd().endsWith('/')) {
         const close = findClose(html, tagName, openEnd, inSkip);
         if (close) {
           const text = t(key, args);
@@ -425,7 +411,9 @@ function richToHtml(
       if (rel) attrs += ` rel="${escapeAttr(rel)}"`;
       out += `<a${attrs}>${richToHtml(node.children, allowed, links)}</a>`;
     } else if (allowed.has(node.name)) {
-      out += `<${node.name}>${richToHtml(node.children, allowed, links)}</${node.name}>`;
+      out += VOID.has(node.name)
+        ? `<${node.name}>`
+        : `<${node.name}>${richToHtml(node.children, allowed, links)}</${node.name}>`;
     } else {
       out += richToHtml(node.children, allowed, links); // unknown tag → unwrap
     }

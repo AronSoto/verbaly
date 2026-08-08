@@ -10,9 +10,9 @@ const SURFACES = [
   {
     name: 'tree-shaken createVerbaly',
     code: "export { createVerbaly } from './dist/index.js';",
-    budget: 3.75,
+    budget: 3.95,
   },
-  { name: 'full core surface', code: "export * from './dist/index.js';", budget: 6.2 },
+  { name: 'full core surface', code: "export * from './dist/index.js';", budget: 6.45 },
   { name: 'devtools', code: "export * from './dist/devtools.js';", budget: 1.75 },
 ];
 

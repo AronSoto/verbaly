@@ -41,6 +41,12 @@ export interface Analysis {
   tagged: TaggedMessage[];
   usedKeys: UsedKey[];
   strayImports: StrayImport[];
+  parseError?: string;
+}
+
+// babel's message carries the position but never the path: every caller adds the file itself
+export function parseErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 // exported for wrap.ts (module-internal reuse, not part of the package surface)
@@ -58,14 +64,14 @@ export interface AnalyzeOptions {
 }
 
 const DEFAULT_T_NAMES: readonly string[] = ['t'];
+const JSX_FILE_RE = /\.(?:[cm]?jsx?|tsx)$/;
 
 export function analyze(code: string, file: string, options: AnalyzeOptions = {}): Analysis {
   const names = new Set(options.tNames ?? DEFAULT_T_NAMES);
-  const jsx = /\.[jt]sx$/.test(file);
   const ast = parse(code, {
     sourceType: 'module',
     errorRecovery: true,
-    plugins: jsx ? ['typescript', 'jsx'] : ['typescript'],
+    plugins: JSX_FILE_RE.test(file) ? ['typescript', 'jsx'] : ['typescript'],
   });
 
   const tagged: TaggedMessage[] = [];

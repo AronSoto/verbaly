@@ -162,6 +162,19 @@ describe('@verbaly/vue <Trans>', () => {
     expect(el.querySelector('b')!.textContent).toBe('bold');
   });
 
+  it('renders a void tag with no children, like the other three surfaces', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: { m: 'line<br>hung</br>break' } } });
+    const comp = defineComponent({
+      setup() {
+        return () => h(Trans, { id: 'm' });
+      },
+    });
+    const { el } = mount(comp, verbalyPlugin(v));
+    expect(el.querySelectorAll('br')).toHaveLength(1);
+    expect(el.querySelector('br')!.childNodes).toHaveLength(0);
+    expect(el.textContent).toBe('linebreak');
+  });
+
   it('degrades unknown tags to inner text', () => {
     const v = createVerbaly({ locale: 'es', messages: { es: { m: 'a <banana>b</banana> c' } } });
     const comp = defineComponent({

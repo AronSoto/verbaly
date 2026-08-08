@@ -380,6 +380,44 @@ describe('more format paths', () => {
   });
 });
 
+describe('a warn never carries a runtime value', () => {
+  it('dedupes a bad relative unit across every count the ui walks through', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({ locale: 'en', messages: { en: { n: '{n:relative/xx}' } } });
+    for (let i = 0; i < 20; i++) bad.t('n', { n: i });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toContain('cannot format a number as "xx"');
+    spy.mockRestore();
+  });
+
+  it('dedupes an unformattable date across every value a cms sends', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({ locale: 'en', messages: { en: { d: '{d:date}' } } });
+    for (const value of ['zz', 'zzz', 'zzzz']) bad.t('d', { d: value });
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toContain('{d:date} in "d" cannot format a string');
+    spy.mockRestore();
+  });
+
+  it('names the message on every degradation, not only on the ones added last', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bad = createVerbaly({
+      locale: 'en',
+      messages: {
+        en: { price: '{p:currency/XYZW}', dist: '{n:unit/parsec}', odd: '{n:wat}' },
+      },
+    });
+    bad.t('price', { p: 5 });
+    bad.t('dist', { n: 3 });
+    bad.t('odd', { n: 1 });
+    const said = spy.mock.calls.map((call) => String(call[0]));
+    expect(said[0]).toContain('{p:currency} in "price"');
+    expect(said[1]).toContain('{n:unit} in "dist"');
+    expect(said[2]).toContain('{n:wat} in "odd"');
+    spy.mockRestore();
+  });
+});
+
 describe('intl cache cap', () => {
   it('reuses cached formatters', () => {
     expect(numberFormat('en')).toBe(numberFormat('en'));

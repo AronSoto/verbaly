@@ -58,7 +58,7 @@ Options:
   --out <path>       export directory (export, default: verbaly-export)
   --missing          export only untranslated entries (export)
   --overwrite        replace existing translations on import (import)
-  --locale <id>      pseudo-locale id (pseudo) / target-locale override (import)
+  --locale <id>      pseudo-locale id (pseudo) / one locale only (review, import)
   --site <path>      built site directory (render, default: dist)
   --attribute <name> base data attribute (render, default: data-verbaly)
   --base-url <url>   site origin, enables hreflang alternates (render)
@@ -135,7 +135,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'doctor') {
     const result = await doctor(cfg);
     const icon = { ok: '✓', warn: '⚠', error: '✗' } as const;
-    console.log(`[verbaly] doctor: ${result.entries.length} checks`);
+    console.log(`[verbaly] doctor: ${plural(result.entries.length, 'check')}`);
     for (const entry of result.entries) {
       const line = `  ${icon[entry.level]} ${entry.check}: ${entry.message}`;
       if (entry.level === 'error') console.error(line);
@@ -184,11 +184,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       }
       const total = registry.messages().size;
       console.log(
-        `[verbaly] ${total} messages · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
+        `[verbaly] ${plural(total, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
       );
       for (const [locale, keys] of Object.entries(added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
       }
+      reportParseErrors(cfg, registry);
       reportEscapedSyntax(cfg, registry);
     }
 
@@ -203,13 +204,13 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'wrap') {
     const result = await wrapProject(cfg, { write: values.write });
     if (result.wrapped.length === 0 && result.skipped.length === 0) {
-      console.log(`[verbaly] nothing to wrap (${result.files} files scanned) ✓`);
+      console.log(`[verbaly] nothing to wrap (${plural(result.files, 'file')} scanned) ✓`);
       return;
     }
     const verb = values.write ? 'wrapped' : 'would wrap';
     const note = values.write ? '' : ' (report only, use --write to apply)';
     console.log(
-      `[verbaly] ${verb} ${result.wrapped.length} texts in ${result.changed.length} files${note}`,
+      `[verbaly] ${verb} ${plural(result.wrapped.length, 'text')} in ${plural(result.changed.length, 'file')}${note}`,
     );
     for (const entry of result.wrapped) {
       const attr = entry.kind === 'attribute' ? `${entry.attribute} → ` : '';
@@ -456,10 +457,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       clean: values.clean,
     });
     console.log(
-      `[verbaly] ${result.files} pages × ${result.locales.length} locales (${result.locales.join(', ')})`,
+      `[verbaly] ${plural(result.files, 'page')} × ${plural(result.locales.length, 'locale')} (${result.locales.join(', ')})`,
     );
     for (const [locale, keys] of Object.entries(result.missing)) {
-      console.warn(`  ${locale}: ${keys.length} keys not pre-filled: ${keys.join(', ')}`);
+      console.warn(`  ${locale}: ${plural(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`);
     }
     return;
   }
@@ -469,7 +470,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const locale = values.locale ?? PSEUDO_LOCALE;
     const keys = pseudoCatalogs(cfg, catalogs, locale);
     writeCatalog(cfg, locale, catalogs[locale] ?? {});
-    console.log(`[verbaly] ${keys.length} messages pseudo-localized → ${locale}`);
+    console.log(`[verbaly] ${plural(keys.length, 'message')} pseudo-localized → ${locale}`);
     return;
   }
 
@@ -481,6 +482,19 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 export function formatCliError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.startsWith('[verbaly]') ? message : `[verbaly] ${message}`;
+}
+
+// counts read like text, so the tool that translates apps never prints "1 messages"
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+// the file is named because babel's message never is: a bare position is unactionable
+function reportParseErrors(cfg: ResolvedConfig, registry: MessageRegistry): void {
+  for (const { file, message } of registry.parseErrors()) {
+    const rel = relative(cfg.root, file).replaceAll('\\', '/');
+    console.warn(`  ${rel}: could not be parsed (${message}), its messages were not extracted`);
+  }
 }
 
 // a block inside a tagged template ships as literal braces, and nothing else in the cycle sees it

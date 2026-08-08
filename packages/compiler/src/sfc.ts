@@ -1,5 +1,6 @@
 import {
   analyze,
+  parseErrorMessage,
   type Analysis,
   type StrayImport,
   type TaggedParam,
@@ -10,7 +11,13 @@ export const SFC_FILE_RE = /\.(?:svelte|vue|astro)$/;
 
 // single dispatch point: SFCs get the block/markup analyzer, everything else plain analyze
 export function analyzeFile(code: string, file: string): Analysis {
-  return SFC_FILE_RE.test(file) ? analyzeSfc(code, file) : analyze(code, file);
+  if (SFC_FILE_RE.test(file)) return analyzeSfc(code, file);
+  try {
+    return analyze(code, file);
+  } catch (error) {
+    // one file the parser cannot read must never take down a whole extract, check or doctor
+    return { tagged: [], usedKeys: [], strayImports: [], parseError: parseErrorMessage(error) };
+  }
 }
 
 const SCRIPT_RE = /(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)/gi;
@@ -34,16 +41,23 @@ export function analyzeSfc(code: string, file: string): Analysis {
   const tagged: Analysis['tagged'] = [];
   const usedKeys: UsedKey[] = [];
   const strayImports: StrayImport[] = [];
+  let parseError: string | undefined;
+
+  // a script block is structural: if it does not parse, the file is reported, unlike a markup slice
+  const block = (segment: SegmentResult, offset: number): void => {
+    parseError ??= segment.error;
+    merge(segment.analysis, offset, false);
+  };
 
   const frontmatter = file.endsWith('.astro') ? FRONTMATTER_RE.exec(code) : null;
   if (frontmatter?.[2]) {
-    merge(analyzeSegment(frontmatter[2], file, options), frontmatter[1]!.length, false);
+    block(analyzeSegment(frontmatter[2], file, options), frontmatter[1]!.length);
   }
 
   for (const match of code.matchAll(SCRIPT_RE)) {
     const content = match[2]!;
     if (!content) continue;
-    merge(analyzeSegment(content, file, options), match.index + match[1]!.length, false);
+    block(analyzeSegment(content, file, options), match.index + match[1]!.length);
   }
 
   // markup = everything left once frontmatter, scripts, styles and comments are blanked out
@@ -63,11 +77,11 @@ export function analyzeSfc(code: string, file: string): Analysis {
     if (range >= ranges.length || start < ranges[range]![0]) continue;
     const end = expressionExtent(markup, start);
     if (end === undefined) continue;
-    merge(analyzeSegment(code.slice(start, end), file, options), start, true);
+    merge(analyzeSegment(code.slice(start, end), file, options).analysis, start, true);
     consumedTo = end;
   }
 
-  return { tagged, usedKeys, strayImports };
+  return { tagged, usedKeys, strayImports, ...(parseError && { parseError }) };
 
   function merge(analysis: Analysis | undefined, offset: number, markupSegment: boolean): void {
     if (!analysis) return;
@@ -91,15 +105,16 @@ export function analyzeSfc(code: string, file: string): Analysis {
   }
 }
 
-function analyzeSegment(
-  code: string,
-  file: string,
-  options?: { tNames: string[] },
-): Analysis | undefined {
+interface SegmentResult {
+  analysis?: Analysis;
+  error?: string;
+}
+
+function analyzeSegment(code: string, file: string, options?: { tNames: string[] }): SegmentResult {
   try {
-    return analyze(code, file, options);
-  } catch {
-    return undefined; // malformed segment: skip it, never fail the whole file
+    return { analysis: analyze(code, file, options) };
+  } catch (error) {
+    return { error: parseErrorMessage(error) }; // never fail the whole file over one segment
   }
 }
 

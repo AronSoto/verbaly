@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { stableKey } from '../src/key';
 import { transformSource } from '../src/plugin';
 import { MessageRegistry } from '../src/registry';
@@ -34,5 +34,19 @@ describe('transformSource', () => {
     const { messages, result } = transformSource('export const n = 1;', 'src/app.ts', registry);
     expect(messages).toEqual({});
     expect(result).toBeNull();
+  });
+
+  it('hands an unparseable file back untouched and says so once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const registry = new MessageRegistry();
+    const code = 'const a = ;;;function(';
+    const { messages, result } = transformSource(code, 'src/unreadable.ts', registry);
+    expect(messages).toEqual({});
+    expect(result).toBeNull();
+    transformSource(code, 'src/unreadable.ts', registry);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('src/unreadable.ts: could not be parsed');
+    expect(registry.parseErrors()).toHaveLength(1);
+    warn.mockRestore();
   });
 });

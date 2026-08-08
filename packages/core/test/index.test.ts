@@ -6,6 +6,7 @@ import { bindDom, createVerbaly, flatten, parse } from '../src/index';
 const VALUES = [
   'LOCALE_STORAGE_KEY',
   'RICH_TAGS',
+  'VOID_TAGS',
   'bindDom',
   'createVerbaly',
   'flatten',

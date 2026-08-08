@@ -268,5 +268,18 @@ describe('doctor', () => {
     const result = await doctor(makeProject());
     expect(entry(result.entries, 'imports')).toBeUndefined();
     expect(entry(result.entries, 'messages')).toBeUndefined();
+    expect(entry(result.entries, 'sources')).toBeUndefined();
+  });
+
+  it('names the file it could not parse and still finishes every other check', async () => {
+    const cfg = makeProject();
+    writeFileSync(join(cfg.root, 'src', 'broken.ts'), 'const a = ;;;function(');
+    const result = await doctor(cfg);
+    const e = entry(result.entries, 'sources');
+    expect(e?.level).toBe('warn');
+    expect(e?.message).toContain('src/broken.ts');
+    // a dialect babel cannot read still builds in the project, so this can never fail a ci
+    expect(result.ok).toBe(true);
+    expect(entry(result.entries, 'translations')?.message).toBe('all translations complete');
   });
 });

@@ -7,6 +7,7 @@ import type { ResolvedConfig, VerbalyConfig } from './config';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
 import { transformCode, type TransformResult } from './transform';
+import { warnParseError } from './warn';
 
 export interface PluginOptions extends VerbalyConfig {
   failOnMissing?: boolean;
@@ -54,6 +55,7 @@ export function transformSource(
 ): { messages: Catalog; result: TransformResult | null } {
   const analysis = analyzeFile(code, id);
   registry.update(id, analysis);
+  if (analysis.parseError) warnParseError(id, analysis.parseError);
   // key → text for live extraction; first wins, mirroring the registry's collision rule
   const messages: Catalog = {};
   for (const msg of analysis.tagged) messages[msg.key] ??= msg.message;

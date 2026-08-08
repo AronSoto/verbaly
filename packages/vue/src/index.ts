@@ -17,6 +17,7 @@ import {
   normalizeLink,
   parseTags,
   RICH_TAGS,
+  VOID_TAGS,
   type DictionaryInput,
   type Params,
   type RichLink,
@@ -81,6 +82,8 @@ function trackVersion<D extends DictionaryInput>(instance: Verbaly<D>): ShallowR
   return version;
 }
 
+const VOID = new Set(VOID_TAGS);
+
 export type TransComponents = Record<string, (children: VNodeChild[]) => VNodeChild>;
 
 // translated message + element interpolation
@@ -132,7 +135,7 @@ function toNodes(
       return h('a', normalizeLink(link), children);
     }
     if (richTags.has(node.name)) {
-      return h(node.name, null, children);
+      return h(node.name, null, VOID.has(node.name) ? undefined : children);
     }
     return children;
   });

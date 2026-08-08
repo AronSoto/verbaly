@@ -9,6 +9,32 @@ describe('analyzeFile', () => {
     expect(tagged[0]?.message).toBe('Hola {name}');
     expect(tagged[0]?.singleQuote).toBeUndefined();
   });
+
+  it('reads jsx in a .js file: a react app used to die on its first tag', () => {
+    const code = 'export const App = () => <p>{t`Hola ${name}`}</p>;';
+    const { tagged, parseError } = analyzeFile(code, 'App.js');
+    expect(parseError).toBeUndefined();
+    expect(tagged[0]?.message).toBe('Hola {name}');
+  });
+
+  it('keeps <T>x a type assertion in .ts, where jsx would steal it', () => {
+    const { parseError } = analyzeFile('const a = <string>b;', 'app.ts');
+    expect(parseError).toBeUndefined();
+  });
+
+  it('reports a file it cannot parse instead of throwing out of the whole run', () => {
+    const { tagged, parseError } = analyzeFile('const a = ;;;function(', 'broken.ts');
+    expect(tagged).toHaveLength(0);
+    expect(parseError).toContain('(1:10)');
+  });
+
+  it('reports a script block an sfc cannot parse, and stays silent on markup guesses', () => {
+    const broken = analyzeFile('<script>const a = ;;;function(</script>', 'App.svelte');
+    expect(broken.parseError).toBeDefined();
+    const guess = analyzeFile("<p>{t`Hola`}</p><p>won't (x)</p>", 'App.svelte');
+    expect(guess.parseError).toBeUndefined();
+    expect(guess.tagged).toHaveLength(1);
+  });
 });
 
 describe('analyzeSfc svelte', () => {

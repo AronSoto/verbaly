@@ -1,5 +1,6 @@
 import { parseTags, type TagNode } from './tags';
 import type { DictionaryInput, Params, Verbaly } from './types';
+import { warnOnce } from './warn';
 
 // hrefs come from the caller, never from messages
 export type RichLink = string | { href: string; target?: string; rel?: string };
@@ -17,7 +18,7 @@ const BLOCKED_ATTR = /^(style|srcdoc)$/;
 
 export function safeHref(href: string): string | undefined {
   if (UNSAFE_HREF.test(href)) {
-    console.warn(`[verbaly] blocked unsafe href: ${href}`);
+    warnOnce(`blocked unsafe href: ${href}`);
     return undefined;
   }
   return href;
@@ -36,6 +37,24 @@ export function safeAttribute(name: string, value: string): string | undefined {
   if (URL_ATTR.test(lower)) return safeHref(value);
   return value;
 }
+
+// children never reach a void element: a browser parses <br></br> as two <br>, hydration as one
+export const VOID_TAGS = [
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+];
 
 // phrasing-only, attribute-less → XSS-safe
 export const RICH_TAGS = [
@@ -128,7 +147,7 @@ export function bindDom<D extends DictionaryInput>(
         el.append(a);
       } else if (richTags.has(node.name)) {
         const child = el.ownerDocument.createElement(node.name);
-        renderRich(child, node.children, links);
+        if (!VOID_TAGS.includes(node.name)) renderRich(child, node.children, links);
         el.append(child);
       } else {
         renderRich(el, node.children, links); // unknown tag → unwrap
@@ -200,7 +219,7 @@ function parseArgs(raw: string | null): Params | undefined {
   try {
     return JSON.parse(raw) as Params;
   } catch {
-    console.warn(`[verbaly] invalid args JSON: ${raw}`);
+    warnOnce(`invalid args JSON: ${raw}`);
     return undefined;
   }
 }

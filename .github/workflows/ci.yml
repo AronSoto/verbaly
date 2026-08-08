@@ -28,6 +28,10 @@ jobs:
 
       - run: pnpm lint
 
+      # the same command (and parallelism) the Release runs: twice a release was blocked by a
+      # timeout flake that only shows here, and only the manual ritual caught it
+      - run: pnpm test
+
       - run: pnpm coverage # full test suite + lcov report
 
       - uses: codecov/codecov-action@v7

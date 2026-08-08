@@ -47,6 +47,15 @@ export class MessageRegistry {
     return [...this.files.values()].flatMap((analysis) => analysis.strayImports);
   }
 
+  // files the parser could not read: they contributed no messages and nothing else can tell
+  parseErrors(): { file: string; message: string }[] {
+    const out: { file: string; message: string }[] = [];
+    for (const [file, analysis] of this.files) {
+      if (analysis.parseError) out.push({ file, message: analysis.parseError });
+    }
+    return out;
+  }
+
   // key → every source file that writes or uses it (translator context)
   origins(): Map<string, string[]> {
     const out = this.usedKeys();

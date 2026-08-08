@@ -39,6 +39,10 @@ function prerendered(key: string): string {
 }
 
 describe('render == runtime', () => {
+  it('runs in a real DOM, so a misrouted config fails here and not eleven times below', () => {
+    expect(typeof document).not.toBe('undefined');
+  });
+
   for (const key of Object.keys(MESSAGES)) {
     it(`agrees on "${key}"`, () => {
       expect(prerendered(key)).toBe(hydrated(key));

@@ -70,7 +70,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests && vitest run --config vitest.dom.config.ts",
     "typecheck": "tsc --noEmit"
   }
 }

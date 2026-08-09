@@ -11,6 +11,7 @@ const VALUES = [
   'createVerbaly',
   'flatten',
   'localeDirection',
+  'localeFromPath',
   'localeName',
   'localePath',
   'negotiateLocale',

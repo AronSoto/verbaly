@@ -11,13 +11,20 @@ export interface TranslateConfig {
   batchSize?: number;
 }
 
+export interface RedirectConfig {
+  on?: 'root' | 'all';
+  storageKey?: string | false;
+}
+
 export interface RenderConfig {
   links?: Record<string, RichLink>;
   site?: string;
   attribute?: string;
+  base?: string;
   baseUrl?: string;
   hreflang?: boolean;
   sitemap?: boolean | string;
+  redirect?: boolean | RedirectConfig;
   clean?: boolean;
 }
 

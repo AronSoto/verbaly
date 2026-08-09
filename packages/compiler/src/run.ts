@@ -61,8 +61,10 @@ Options:
   --locale <id>      pseudo-locale id (pseudo) / one locale only (review, import)
   --site <path>      built site directory (render, default: dist)
   --attribute <name> base data attribute (render, default: data-verbaly)
+  --base <path>      subpath the site is served under, e.g. /app (render)
   --base-url <url>   site origin, enables hreflang alternates (render)
   --sitemap          emit sitemap-i18n.xml with per-locale alternates (render)
+  --redirect         send a visitor on the root to their mirror, pre-paint (render)
   --clean            remove existing locale dirs before mirroring (render)
 
 Config file: verbaly.config.{js,mjs,ts,mts,json} at root (flags win).
@@ -89,7 +91,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       locale: { type: 'string' },
       site: { type: 'string' },
       attribute: { type: 'string' },
+      base: { type: 'string' },
       'base-url': { type: 'string' },
+      redirect: { type: 'boolean' },
       sitemap: { type: 'boolean' },
       clean: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
@@ -452,8 +456,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       site: values.site,
       locales: values.locales?.split(','),
       attribute: values.attribute,
+      base: values.base,
       baseUrl: values['base-url'],
       sitemap: values.sitemap,
+      redirect: values.redirect,
       clean: values.clean,
     });
     console.log(
@@ -522,7 +528,7 @@ const COMMAND_FLAGS: Record<string, string[]> = {
   export: ['format', 'out', 'missing'],
   import: ['locale', 'overwrite', 'dry-run'],
   pseudo: ['locale'],
-  render: ['site', 'attribute', 'base-url', 'sitemap', 'clean'],
+  render: ['site', 'attribute', 'base', 'base-url', 'sitemap', 'redirect', 'clean'],
 };
 
 // a flag another command owns must fail loudly, never be silently ignored

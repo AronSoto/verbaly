@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { displayNames } from '../src/intl';
 import {
   localeDirection,
+  localeFromPath,
   localeName,
   localePath,
   negotiateLocale,
@@ -51,6 +52,11 @@ describe('localePath', () => {
     expect(localePath('es', { ...opts, path: '/escape/room' })).toBe('/es/escape/room');
   });
 
+  it('never eats a page slug that merely starts like a locale', () => {
+    expect(localePath('es', { ...opts, path: '/pt-and-friends' })).toBe('/es/pt-and-friends');
+    expect(localePath('en', { ...opts, path: '/es/en-route-to-mars' })).toBe('/en-route-to-mars');
+  });
+
   it('is its own inverse across a round trip', () => {
     const there = localePath('pt', { ...opts, path: '/es/docs/guide' });
     expect(localePath('es', { ...opts, path: there })).toBe('/es/docs/guide');
@@ -58,6 +64,87 @@ describe('localePath', () => {
 
   it('with no sourceLocale every locale gets a prefix', () => {
     expect(localePath('en', { supported: SUPPORTED, path: '/es/docs' })).toBe('/en/docs');
+  });
+});
+
+describe('localeFromPath', () => {
+  it('reads the prefix render wrote, narrowing a regional one', () => {
+    expect(localeFromPath({ supported: SUPPORTED, path: '/es/docs/start' })).toBe('es');
+    expect(localeFromPath({ supported: SUPPORTED, path: '/pt-BR/' })).toBe('pt');
+  });
+
+  it('answers undefined on the source tree instead of guessing a preference', () => {
+    localStorage.setItem('verbaly-locale', 'pt');
+    stubNavigator(['pt-BR']);
+    expect(localeFromPath({ supported: SUPPORTED, path: '/docs/start' })).toBeUndefined();
+    expect(localeFromPath({ supported: SUPPORTED, path: '/' })).toBeUndefined();
+  });
+
+  it('never mistakes a page slug that merely starts like a locale', () => {
+    expect(localeFromPath({ supported: SUPPORTED, path: '/escape/room' })).toBeUndefined();
+    expect(localeFromPath({ supported: SUPPORTED, path: '/pt-and-friends' })).toBeUndefined();
+    expect(localeFromPath({ supported: SUPPORTED, path: '/en-route-to-mars' })).toBeUndefined();
+  });
+
+  it('still narrows a segment that is really shaped like a tag', () => {
+    expect(localeFromPath({ supported: SUPPORTED, path: '/pt-BR/' })).toBe('pt');
+    expect(localeFromPath({ supported: SUPPORTED, path: '/es-419/' })).toBe('es');
+    expect(localeFromPath({ supported: ['en', 'zh'], path: '/zh-Hant-TW/' })).toBe('zh');
+  });
+
+  it('an exact supported code always matches, whatever its shape', () => {
+    expect(localeFromPath({ supported: ['en', 'en-GB-oxendict'], path: '/en-GB-oxendict/x' })).toBe(
+      'en-GB-oxendict',
+    );
+  });
+
+  it('reads the real location when no path is given', () => {
+    expect(localeFromPath({ supported: SUPPORTED })).toBeUndefined();
+  });
+
+  it('is the fact the docs pair with the source locale to get a total answer', () => {
+    const localeOf = (path: string): string =>
+      localeFromPath({ supported: SUPPORTED, path }) ?? 'en';
+    expect(localeOf('/es/docs')).toBe('es');
+    expect(localeOf('/docs')).toBe('en');
+  });
+});
+
+describe('a site served under a base path', () => {
+  const opts = { supported: SUPPORTED, sourceLocale: 'en', base: '/app' };
+
+  it('finds the prefix that sits after the base', () => {
+    expect(localeFromPath({ supported: SUPPORTED, path: '/app/es/docs', base: '/app' })).toBe('es');
+    expect(
+      localeFromPath({ supported: SUPPORTED, path: '/app/docs', base: '/app' }),
+    ).toBeUndefined();
+  });
+
+  it('keeps the base in front of the locale it writes', () => {
+    expect(localePath('es', { ...opts, path: '/app/docs' })).toBe('/app/es/docs');
+    expect(localePath('pt', { ...opts, path: '/app/es/docs/' })).toBe('/app/pt/docs/');
+    expect(localePath('en', { ...opts, path: '/app/es/docs' })).toBe('/app/docs');
+    expect(localePath('es', { ...opts, path: '/app/' })).toBe('/app/es/');
+  });
+
+  it('reads app, /app and /app/ as the same base', () => {
+    for (const base of ['app', '/app', '/app/']) {
+      expect(localeFromPath({ supported: SUPPORTED, path: '/app/es/', base })).toBe('es');
+      expect(localePath('es', { ...opts, base, path: '/app/docs' })).toBe('/app/es/docs');
+    }
+  });
+
+  it('does not let base /app swallow a sibling path like /application', () => {
+    expect(localeFromPath({ supported: SUPPORTED, path: '/application/es', base: '/app' })).toBe(
+      undefined,
+    );
+    expect(localePath('es', { ...opts, path: '/application' })).toBe('/app/es/application');
+  });
+
+  it('reaches resolveLocale too', () => {
+    localStorage.setItem('verbaly-locale', 'pt');
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: SUPPORTED, path: '/app/es/docs', base: '/app' })).toBe('es');
   });
 });
 
@@ -76,6 +163,11 @@ describe('resolveLocale from the url', () => {
   it('ignores a first segment that is not a locale', () => {
     stubNavigator(['pt']);
     expect(resolveLocale({ supported: SUPPORTED, path: '/escape/room' })).toBe('pt');
+  });
+
+  it('does not read a page slug as a mirror prefix', () => {
+    stubNavigator(['pt']);
+    expect(resolveLocale({ supported: SUPPORTED, path: '/es-la-guia' })).toBe('pt');
   });
 
   it('falls through on the source-locale root, where there is no prefix', () => {

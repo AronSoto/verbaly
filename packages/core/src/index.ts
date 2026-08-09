@@ -3,6 +3,7 @@ export { bindDom, normalizeLink, RICH_TAGS, safeAttribute, safeHref, VOID_TAGS }
 export {
   LOCALE_STORAGE_KEY,
   localeDirection,
+  localeFromPath,
   localeName,
   localePath,
   negotiateLocale,
@@ -17,6 +18,7 @@ export { parseTags } from './tags';
 
 export type { BindDomOptions, RichLink } from './dom';
 export type {
+  LocaleFromPathOptions,
   LocalePathOptions,
   RequestLocaleOptions,
   ResolveLocaleOptions,

@@ -5,6 +5,7 @@ import { glob } from 'tinyglobby';
 import {
   createVerbaly,
   localeDirection,
+  LOCALE_STORAGE_KEY,
   normalizeLink,
   parseTags,
   RICH_TAGS,
@@ -17,7 +18,7 @@ import {
 } from 'verbaly';
 import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
-import type { ResolvedConfig } from './config';
+import type { RedirectConfig, ResolvedConfig } from './config';
 
 export interface Alternate {
   hreflang: string;
@@ -27,7 +28,16 @@ export interface Alternate {
 // links that point at a page this mirror also holds get its prefix, so the visitor stays inside
 export interface MirrorLinks {
   prefix: string;
+  base?: string;
   pages: ReadonlySet<string>;
+}
+
+// the pre-paint script: the locale set it chooses from, and where a saved choice lives
+export interface RedirectScript {
+  locales: string[];
+  sourceLocale: string;
+  base?: string;
+  storageKey?: string | false;
 }
 
 export interface RenderHtmlOptions {
@@ -41,6 +51,7 @@ export interface RenderHtmlOptions {
   setLang?: boolean;
   alternates?: Alternate[];
   mirror?: MirrorLinks;
+  redirect?: RedirectScript;
 }
 
 export interface RenderHtmlResult {
@@ -50,6 +61,8 @@ export interface RenderHtmlResult {
 
 const HREFLANG_OPEN = '<!--verbaly:hreflang-->';
 const HREFLANG_CLOSE = '<!--/verbaly:hreflang-->';
+const REDIRECT_OPEN = '<!--verbaly:redirect-->';
+const REDIRECT_CLOSE = '<!--/verbaly:redirect-->';
 
 const VOID = new Set(VOID_TAGS);
 
@@ -195,6 +208,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   }
 
   if (options.alternates?.length) injectAlternates(ms, html, options.alternates);
+  if (options.redirect) injectRedirect(ms, html, options.redirect);
 
   return { html: ms.toString(), missing: [...missing] };
 }
@@ -210,10 +224,72 @@ function mirroredHref(raw: string | undefined, mirror: MirrorLinks): string | un
   if (raw === undefined) return undefined;
   const href = decodeEntities(raw);
   if (!href.startsWith('/') || href.startsWith('//')) return undefined;
-  const cut = href.search(/[?#]/);
-  const path = cut < 0 ? href : href.slice(0, cut);
+  const base = mirror.base ?? '';
+  // hrefs carry the base the site is served under, the page set never does: compare like with like
+  const inside = base ? stripBase(href, base) : href;
+  if (base && inside === href) return undefined;
+  const cut = inside.search(/[?#]/);
+  const path = cut < 0 ? inside : inside.slice(0, cut);
   if (!mirror.pages.has(publicPath(path.replace(/^\//, '')))) return undefined;
-  return `${mirror.prefix}${href}`;
+  return `${base}${mirror.prefix}${inside}`;
+}
+
+// the boundary check is what keeps base /app from swallowing /application
+function stripBase(path: string, base: string): string {
+  if (!path.startsWith(base)) return path;
+  const rest = path.slice(base.length);
+  if (rest === '') return '/';
+  return rest.startsWith('/') ? rest : path;
+}
+
+// 'app', '/app' and '/app/' all read as '/app'; nothing means the site sits at the root
+function normalizeBase(base: string | undefined): string {
+  const trimmed = base?.replace(/^\/+/, '').replace(/\/+$/, '');
+  return trimmed ? `/${trimmed}` : '';
+}
+
+// the narrowing of matchPathSegment, inlined: render == runtime has to hold here too
+const REDIRECT_BODY =
+  '(function(){var T=/^[a-z]{2,3}(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?$/i;' +
+  'function M(t,g){t=String(t||"");if(S.indexOf(t)>=0)return t;if(g&&!T.test(t))return;' +
+  'while(t){var i=t.lastIndexOf("-");if(i<0)return;t=t.slice(0,i);if(S.indexOf(t)>=0)return t}}' +
+  'var p=location.pathname;' +
+  'if(B){if(p.indexOf(B)!==0)return;p=p.slice(B.length)||"/";if(p.charAt(0)!=="/")return}' +
+  'if(M(p.split("/")[1],1))return;' +
+  'var w;if(K)try{w=M(localStorage.getItem(K))}catch(e){}' +
+  'if(!w){var l=navigator.languages||[navigator.language];for(var i=0;i<l.length&&!w;i++)w=M(l[i])}' +
+  'if(!w||w===D)return;location.replace(B+"/"+w+p+location.search+location.hash)})()';
+
+// </script> can never appear in a locale code, but a catalog is untrusted and this costs nothing
+function jsLiteral(value: unknown): string {
+  return JSON.stringify(value ?? null).replace(/</g, '\\u003c');
+}
+
+// pre-paint, in the source tree only: the mirror page a visitor lands on is already the answer
+function redirectScript(options: RedirectScript): string {
+  const vars = [
+    `S=${jsLiteral(options.locales)}`,
+    `D=${jsLiteral(options.sourceLocale)}`,
+    `B=${jsLiteral(normalizeBase(options.base))}`,
+    `K=${options.storageKey === false ? 'null' : jsLiteral(options.storageKey ?? LOCALE_STORAGE_KEY)}`,
+  ].join(',');
+  return `<script>var ${vars};${REDIRECT_BODY};</script>`;
+}
+
+// goes first in <head> so it runs before a stylesheet can paint, idempotent via markers
+function injectRedirect(ms: MagicString, html: string, options: RedirectScript): void {
+  const block = `${REDIRECT_OPEN}${redirectScript(options)}${REDIRECT_CLOSE}`;
+  const from = html.indexOf(REDIRECT_OPEN);
+  if (from !== -1) {
+    const to = html.indexOf(REDIRECT_CLOSE, from);
+    if (to !== -1) {
+      const end = to + REDIRECT_CLOSE.length;
+      if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
+      return;
+    }
+  }
+  const head = /<head\b(?:"[^"]*"|'[^']*'|[^"'>])*>/i.exec(html);
+  if (head) ms.appendRight(head.index + head[0].length, block);
 }
 
 // injects <link rel="alternate" hreflang> into <head>, idempotent via markers
@@ -244,9 +320,11 @@ export interface RenderSiteOptions {
   attribute?: string;
   richTags?: string[];
   richLinks?: Record<string, RichLink>;
+  base?: string;
   baseUrl?: string;
   hreflang?: boolean;
   sitemap?: boolean | string;
+  redirect?: boolean | RedirectConfig;
   clean?: boolean;
 }
 
@@ -264,11 +342,20 @@ export async function renderSite(
   const site = join(cfg.root, options.site ?? cfg.render.site ?? 'dist');
   const locales = options.locales ?? cfg.locales;
   const attribute = options.attribute ?? cfg.render.attribute;
+  const base = normalizeBase(options.base ?? cfg.render.base);
   const baseUrl = (options.baseUrl ?? cfg.render.baseUrl)?.replace(/\/+$/, '');
   const wantHreflang = (options.hreflang ?? cfg.render.hreflang ?? true) && baseUrl !== undefined;
   const sitemap = options.sitemap ?? cfg.render.sitemap ?? false;
   const wantSitemap = sitemap !== false && baseUrl !== undefined;
   const clean = options.clean ?? cfg.render.clean ?? false;
+  const wanted = options.redirect ?? cfg.render.redirect ?? false;
+  const redirect = wanted === false ? undefined : wanted === true ? {} : wanted;
+  const script: RedirectScript | undefined = redirect && {
+    locales,
+    sourceLocale: cfg.sourceLocale,
+    base,
+    storageKey: redirect.storageKey,
+  };
   const catalogs = loadCatalogs(cfg);
 
   if (clean) {
@@ -293,6 +380,8 @@ export async function renderSite(
     const rel = relative(site, file).replace(/\\/g, '/');
     const alternates = wantHreflang ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale) : [];
     if (wantHreflang) urls.push({ rel, alternates });
+    // only the source tree carries it: the mirror page a visitor reaches is already the answer
+    const routed = script && (redirect!.on === 'all' || rel === 'index.html');
     for (const locale of locales) {
       const result = renderHtml(html, {
         locale,
@@ -302,7 +391,8 @@ export async function renderSite(
         richTags: options.richTags,
         richLinks: options.richLinks ?? cfg.render.links,
         alternates,
-        mirror: locale === cfg.sourceLocale ? undefined : { prefix: `/${locale}`, pages },
+        mirror: locale === cfg.sourceLocale ? undefined : { prefix: `/${locale}`, base, pages },
+        redirect: routed && locale === cfg.sourceLocale ? script : undefined,
       });
       for (const key of result.missing) {
         const list = (missing[locale] ??= []);

@@ -8,6 +8,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.36.0] · 2026-08-09
+
+**The locale can live in the URL, and now Verbaly knows it.** 0.35.0 made `render` hand over a mirror the visitor could stand in, and within a day the docs site had written two more helpers by hand: one to ask which tree a page belongs to, one to send a visitor to their tree at all. Both are the same missing idea, that a site can put the locale in the first path segment, and Verbaly had no way to hold it. This version gives it one, closes the subpath limit that came with the link rewrite, and fixes a way the path check could read a page slug as a language. No API is removed and nothing changes for a project that keeps one URL per page.
+
+### Highlights
+
+- **Asking which language a page is in no longer needs a helper of your own.** `localeFromPath` answers with the language in the URL, or with nothing when the URL does not carry one. That is a different question from what a visitor prefers, and mixing the two is what let a saved preference paint the wrong language over a page.
+- **Verbaly can send a visitor to their language now.** Turn on `render.redirect` and someone landing on your home page goes to their copy before anything is drawn. Only the home page, so a search engine still reaches every page of your site directly.
+- **A site served from a subfolder works.** With `render.base` set to the folder, links in the copies point where they should instead of quietly pointing nowhere.
+- **A page called `/es-la-guia` is a page, not Spanish.** Verbaly read the first part of a URL a little too eagerly, so a page whose name started like a language code could be translated into it. Now only a real language code counts.
+- **Switching language is still a navigation on a mirrored site, and still a text swap in a single-URL app.** Both are supported and the docs now say which one you are in, instead of leaving you to work it out.
+
+### Added
+
+- **`localeFromPath(options)`** (`verbaly` core): the locale in the URL, or `undefined`. `{ supported, path?, base? }`, pure, no DOM needed when `path` is given. **It exists because it is a different question from `resolveLocale`**, which answers "what does this visitor prefer" as a cascade that storage or the browser can win. On a site with a tree per locale the question is "which tree is this page in", and that has no fallback: either the URL carries a prefix or the page is in the source tree. Every project using mirrors was writing the two-line version of this, the docs site twice. `resolveLocale` now reads its prefix through it, so the rule lives in one place.
+- **`base` on `localeFromPath`, `localePath` and `resolveLocale`** (`verbaly` core): the subpath the site is served under. `app`, `/app` and `/app/` all read the same, and the boundary is checked, so a base of `/app` never swallows `/application`.
+- **`render.base`** (`@verbaly/compiler`, CLI `--base`): closes the one known limit of 0.35.0's link rewrite. With the site under `/app/`, hrefs read `/app/docs` while the page set reads `/docs`, so nothing matched and the mirror stayed an island. The base is now stripped before the lookup and put back in front of the locale, which is the only way the two can be compared.
+- **`render.redirect`** (`@verbaly/compiler`, CLI `--redirect`, type `RedirectConfig`): an inline script in the `<head>` of the source tree that sends a visitor to their mirror before the page paints. **Opt-in, and `on: 'root'` by default**, with `on: 'all'` for every source page. Root-only is the shape @nuxtjs/i18n defaults to and the reason it gives is the one that matters here: a crawler asking for a deep page must get that page, not a redirect. Google says the same about blanket language redirection, which is why this is a switch and not a behavior. `storageKey` picks where a saved choice is read from (`false` turns storage off), defaulting to the key `persistLocale` writes.
+
+### Changed
+
+- **`resolveLocale` keeps the order it shipped with** (path, storage, browser, fallback), unchanged on purpose. That order is correct for the question it asks and matches next-intl's precedence; the gap was never the order, it was that the other question had no function. Flipping the same function twice in two versions would have cost consumers more than it bought.
+- **The redirect script inlines core's narrowing rather than importing it**, because nothing can be imported before paint. It is the same rule, and a test runs the shipped script with the globals shadowed to prove it behaves.
+
+### Fixed
+
+- **A page slug that begins like a locale was read as that locale** (`verbaly` core): `/es-la-guia` narrowed to `es`, so `resolveLocale` translated an English page into Spanish and `localePath` deleted the segment entirely (`/es-la-guia` became `/es/`, a page that does not exist). BCP-47 narrowing is right for a browser tag and wrong for a URL segment, which is author-controlled text. A segment is now narrowed only when it is shaped like a language tag (language, optional script, optional region); an exact member of `supported` always matches whatever its shape. Present since 0.35.0 in all three functions, and found by a test written for the new one.
+
+### Notes
+
+- **What this version deliberately does not do, and what would change that.** Links inside rich messages still leave the mirror (12 of 1439 on the docs site, unchanged from 0.35.0). The blocker is no longer a missing concept: it is that `bindDom` would have to know the locale set to rebuild them with a prefix, which is new options on a path that carries the XSS guards. That is a design, and it waits for the first consumer who says the twelve matter.
+- **`@verbaly/astro` needed zero changes**, which is the thinness rule validating a fourth time: it passes its `render` object into the config it loads, so `base` and `redirect` reach `renderSite` with no new code. Its cosmetic "1 pages" line is untouched and still waits for those lines to change for another reason.
+- **Measured against the real docs site before calling it done**, the method 0.34.0 and 0.35.0 both established. Rendering its actual `dist` with the new code gives **1427 links that stay inside `/es/` and 12 that leave**, identical to 0.35.0, so neither the slug fix nor the base handling moved a single link on a site that uses neither. The redirect landed on the root page only, first inside `<head>`, absent from every deep source page and from every mirror page, at 672 bytes.
+- **The slug fix was proven to fail before being trusted**: reverting it fails three tests, one per affected function, which is the rule 0.33.0 set for any test whose job is to catch a regression.
+- **1007 tests** (compiler **517** · core **284** · next 41 · nuxt 28 · react 27 · svelte 25 · vite 25 · vue 17 · sveltekit 13 · unplugin 12 · astro 10 · mcp 8), was 972: **+14 core** (seven for `localeFromPath` including the two the slug fix needed, five for a site under a base, one each pinning the slug fix in `localePath` and `resolveLocale`) and **+21 compiler** (four for the base-aware link rewrite, eight for where the redirect lands and how it is written, and **nine that run the shipped script itself** with `location`, `localStorage` and `navigator` shadowed as parameters: no loop, the saved choice wins including the choice to stay, query and hash ride along, blocked storage falls through, and the base boundary holds).
+- Runtime sizes: **3.67 KB tree-shaken, unchanged** (the README number: none of this lands in a project that only calls `t()`) · **6.57 KB full** (was 6.38), still inside the **6.90** budget, which is not raised: extracting the prefix read out of `resolveLocale` instead of duplicating it paid for most of the addition. 1.60 KB devtools. Bench re-run (ritual): lookup **36.2×**, interpolation **12.6×**, plural **4.7×**, currency **5.7×** vs i18next 26, in family with 0.35.0.
+- No new dependencies. No change to the message format, the key scheme or the catalog format.
+
+### Docs impact (synced)
+
+> Two reference pages gained the new surface, and the CLI page replaced its paragraph of "this part is your host's problem" with a flag. The docs site is also the first consumer of all three additions, and that swap is the proof they work. Done in the same iteration against a local build of this version, so the only step left on the site is `pnpm install` once this is on npm.
+
+- **`docs/reference/api`**: add `localeFromPath(options)` and, next to it, one short paragraph on **which of the two functions answers which question**: `localeFromPath` for "what language is this page", `resolveLocale` for "what language does this visitor want". That distinction is the whole version and it is the thing a reader will get wrong without it. Also add `base` to `localeFromPath`, `localePath` and `resolveLocale`.
+- **`docs/reference/cli`, the `render` section**: add `--base` and `--redirect` plus the `render.base` / `render.redirect` config keys. **The paragraph saying that routing a visitor to their mirror is a rule in your host config should now lead with the flag**, and keep the host rule as the alternative for people who want it at the edge. Say plainly that the default sends only someone landing on the home page, and why (a crawler must reach a deep page directly).
+- **The docs site was the first consumer, and doing it was the verification.** `src/scripts/i18n.ts` dropped its hand-written `localeOfPage()` for `localeFromPath(...) ?? SOURCE_LOCALE`, and `src/layouts/Base.astro` dropped its 15-line pre-paint script for `render: { redirect: { storageKey: 'v-locale' } }` in `verbaly.config.mjs`. Verified against a real `astro build` of the site: the script lands on the root page only, first inside `<head>`, reading the site's own key, absent from every deep source page and from all three mirrors, with 1427 links staying inside `/es/` and `/pt/`. Its `retargetLinks()` stays: a nav kept alive by `transition:persist` is a consumer-side interaction with a persisted DOM, and the package deliberately does not guess which root-relative href is a page.
+
+---
+
 ## [0.35.0] · 2026-08-08
 
 **`render` finally hands over the page it built.** Verbaly writes a pre-translated copy of a static site under `/es/` and `/pt/`, and this version is about what happened to a visitor who reached one: the runtime repainted that Spanish page in English before its catalog arrived, `resolveLocale` never looked at the prefix `render` itself had written, and every internal link pointed back out of the mirror. The artifact was right and nothing between it and the visitor was. Found by measuring the docs site, which had worked around the first defect in its own code, which is how we knew it belonged here. No API is removed; two behavior changes are deliberate and described below.

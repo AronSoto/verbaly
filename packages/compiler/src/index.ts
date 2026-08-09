@@ -1,5 +1,11 @@
 // Layer 1: what a project using verbaly touches, its config file and a custom translate provider.
-export type { RenderConfig, ResolvedConfig, TranslateConfig, VerbalyConfig } from './config';
+export type {
+  RedirectConfig,
+  RenderConfig,
+  ResolvedConfig,
+  TranslateConfig,
+  VerbalyConfig,
+} from './config';
 export type {
   TranslateOptions,
   TranslateProvider,

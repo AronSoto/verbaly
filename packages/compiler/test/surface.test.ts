@@ -53,6 +53,7 @@ const TYPES = [
   'LocaleStatus',
   'MissingEntry',
   'PluginOptions',
+  'RedirectConfig',
   'RenderConfig',
   'RenderSiteOptions',
   'RenderSiteResult',

@@ -4,6 +4,7 @@ import { bindDom } from '../src/dom';
 import { attachDevtools } from '../src/devtools';
 import { createVerbaly } from '../src/instance';
 import {
+  localeFromPath,
   localePath,
   negotiateLocale,
   persistLocale,
@@ -49,6 +50,8 @@ describe('server-side (Node)', () => {
     expect(localePath('es', { supported: ['en', 'es'], sourceLocale: 'en', path: '/x' })).toBe(
       '/es/x',
     );
+    expect(localeFromPath({ supported: ['en', 'es'], path: '/es/x' })).toBe('es');
+    expect(localeFromPath({ supported: ['en', 'es'] })).toBeUndefined();
     expect(() => localePath('es', { supported: ['en', 'es'] })).not.toThrow();
   });
 

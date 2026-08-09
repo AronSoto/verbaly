@@ -6,6 +6,13 @@ export interface ResolveLocaleOptions {
   fallback?: string;
   storageKey?: string | false;
   path?: string | false;
+  base?: string;
+}
+
+export interface LocaleFromPathOptions {
+  supported: string[];
+  path?: string;
+  base?: string;
 }
 
 // shared identity: localStorage key (browser) + cookie name (SSR integrations)
@@ -58,31 +65,39 @@ export interface LocalePathOptions {
   supported: string[];
   sourceLocale?: string;
   path?: string;
+  base?: string;
 }
 
 // the inverse of what render writes: /es/docs → /pt/docs, and the source locale keeps no prefix
 export function localePath(locale: string, options: LocalePathOptions): string {
   const { supported, sourceLocale } = options;
+  const base = normalizeBase(options.base);
   const full = options.path ?? currentPath() ?? '/';
   const cut = full.search(/[?#]/);
-  const path = cut < 0 ? full : full.slice(0, cut);
+  const path = stripBase(cut < 0 ? full : full.slice(0, cut), base);
   const rest = cut < 0 ? '' : full.slice(cut);
 
   const segments = path.split('/').filter(Boolean);
-  if (segments[0] && matchSupported(segments[0], supported)) segments.shift();
+  if (segments[0] && matchPathSegment(segments[0], supported)) segments.shift();
   if (locale !== sourceLocale) segments.unshift(locale);
   const trailing = segments.length && path.endsWith('/') ? '/' : '';
-  return `/${segments.join('/')}${trailing}${rest}`;
+  return `${base}/${segments.join('/')}${trailing}${rest}`;
+}
+
+// which tree this page belongs to: a fact of the url, so it answers undefined instead of guessing
+export function localeFromPath(options: LocaleFromPathOptions): string | undefined {
+  const path = options.path ?? currentPath();
+  if (path === undefined) return undefined;
+  const segment = stripBase(path, normalizeBase(options.base)).split('/').find(Boolean);
+  return segment ? matchPathSegment(segment, options.supported) : undefined;
 }
 
 export function resolveLocale(options: ResolveLocaleOptions): string {
   const { supported, fallback = supported[0] ?? 'en', storageKey = LOCALE_STORAGE_KEY } = options;
 
   // the document you are looking at wins: render put the page under that prefix already translated
-  const path = options.path ?? currentPath();
-  if (path) {
-    const segment = path.split('/').find(Boolean);
-    const match = segment && matchSupported(segment, supported);
+  if (options.path !== false) {
+    const match = localeFromPath({ supported, path: options.path, base: options.base });
     if (match) return match;
   }
 
@@ -98,6 +113,29 @@ export function resolveLocale(options: ResolveLocaleOptions): string {
   }
 
   return fallback;
+}
+
+// 'app', '/app' and '/app/' all read as '/app'; nothing means the site sits at the root
+function normalizeBase(base: string | undefined): string {
+  const trimmed = base?.replace(/^\/+/, '').replace(/\/+$/, '');
+  return trimmed ? `/${trimmed}` : '';
+}
+
+// the boundary check is what keeps base /app from swallowing /application
+function stripBase(path: string, base: string): string {
+  if (!base || !path.startsWith(base)) return path;
+  const rest = path.slice(base.length);
+  if (rest === '') return '/';
+  return rest.startsWith('/') ? rest : path;
+}
+
+// language, optional script, optional region: what render writes, never a slug like pt-and-friends
+const LOCALE_SEGMENT = /^[a-z]{2,3}(-[a-z]{4})?(-([a-z]{2}|\d{3}))?$/i;
+
+// a segment is narrowed only when it is shaped like a tag: a slug must never become a locale
+function matchPathSegment(segment: string, supported: string[]): string | undefined {
+  if (supported.includes(segment)) return segment;
+  return LOCALE_SEGMENT.test(segment) ? matchSupported(segment, supported) : undefined;
 }
 
 // exact, then progressive BCP-47 narrowing (zh-Hant-TW → zh-Hant → zh)

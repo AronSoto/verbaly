@@ -414,6 +414,237 @@ describe('renderHtml', () => {
   });
 });
 
+describe('a site served under a base path', () => {
+  const pages = new Set(['/docs', '/']);
+
+  it('rewrites a link that carries the base, keeping the base in front', () => {
+    const mirror = { prefix: '/es', base: '/app', pages };
+    const html = '<a href="/app/docs">d</a>';
+    expect(renderHtml(html, { locale: 'es', catalogs: CATALOGS, mirror }).html).toBe(
+      '<a href="/app/es/docs">d</a>',
+    );
+  });
+
+  it('leaves a link that does not live under the base alone', () => {
+    const mirror = { prefix: '/es', base: '/app', pages };
+    const html = '<a href="/docs">d</a><a href="/application/docs">o</a>';
+    expect(renderHtml(html, { locale: 'es', catalogs: CATALOGS, mirror }).html).toBe(html);
+  });
+
+  it('does not double up a link that already points inside the mirror', () => {
+    const mirror = { prefix: '/es', base: '/app', pages };
+    const html = '<a href="/app/es/docs">d</a>';
+    expect(renderHtml(html, { locale: 'es', catalogs: CATALOGS, mirror }).html).toBe(html);
+  });
+
+  it('reaches renderSite through render.base', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<html><body><a href="/app/docs">d</a></body></html>');
+    writeFileSync(join(dist, 'docs', 'index.html'), '<html><body>docs</body></html>');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'en', render: { base: '/app' } });
+    await renderSite(cfg);
+
+    expect(readFileSync(join(dist, 'es', 'index.html'), 'utf8')).toContain('href="/app/es/docs"');
+  });
+});
+
+describe('render.redirect', () => {
+  function root(page: string): string {
+    const dir = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    mkdirSync(join(dir, 'locales'), { recursive: true });
+    mkdirSync(join(dir, 'dist', 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(dir, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dir, 'dist', 'index.html'), page);
+    writeFileSync(join(dir, 'dist', 'docs', 'index.html'), page);
+    return dir;
+  }
+
+  const PAGE = '<html><head><title>x</title></head><body>y</body></html>';
+
+  it('is off unless asked for', async () => {
+    const dir = root(PAGE);
+    await renderSite(resolveConfig({ root: dir, sourceLocale: 'en' }));
+    expect(readFileSync(join(dir, 'dist', 'index.html'), 'utf8')).not.toContain('verbaly:redirect');
+  });
+
+  it('lands on the root of the source tree only, and never inside a mirror', async () => {
+    const dir = root(PAGE);
+    await renderSite(resolveConfig({ root: dir, sourceLocale: 'en', render: { redirect: true } }));
+    const read = (...parts: string[]): string => readFileSync(join(dir, 'dist', ...parts), 'utf8');
+
+    expect(read('index.html')).toContain('verbaly:redirect');
+    // a mirror page is the destination: routing away from it is the loop
+    expect(read('es', 'index.html')).not.toContain('verbaly:redirect');
+    // a crawler must reach a deep page without being sent elsewhere
+    expect(read('docs', 'index.html')).not.toContain('verbaly:redirect');
+  });
+
+  it('on: all covers every page of the source tree', async () => {
+    const dir = root(PAGE);
+    const render = { redirect: { on: 'all' as const } };
+    await renderSite(resolveConfig({ root: dir, sourceLocale: 'en', render }));
+    expect(readFileSync(join(dir, 'dist', 'docs', 'index.html'), 'utf8')).toContain(
+      'verbaly:redirect',
+    );
+  });
+
+  it('runs before anything can paint: first thing inside <head>', async () => {
+    const dir = root(PAGE);
+    await renderSite(resolveConfig({ root: dir, sourceLocale: 'en', render: { redirect: true } }));
+    expect(readFileSync(join(dir, 'dist', 'index.html'), 'utf8')).toContain(
+      '<head><!--verbaly:redirect-->',
+    );
+  });
+
+  it('carries the locales, the source and the storage key it will read', async () => {
+    const dir = root(PAGE);
+    const render = { redirect: { storageKey: 'v-locale' } };
+    await renderSite(resolveConfig({ root: dir, sourceLocale: 'en', render }));
+    const html = readFileSync(join(dir, 'dist', 'index.html'), 'utf8');
+    expect(html).toContain('S=["en","es"]');
+    expect(html).toContain('D="en"');
+    expect(html).toContain('K="v-locale"');
+  });
+
+  it('defaults the storage key to the one persistLocale writes, and false turns storage off', async () => {
+    const withDefault = root(PAGE);
+    await renderSite(
+      resolveConfig({ root: withDefault, sourceLocale: 'en', render: { redirect: true } }),
+    );
+    expect(readFileSync(join(withDefault, 'dist', 'index.html'), 'utf8')).toContain(
+      'K="verbaly-locale"',
+    );
+
+    const off = root(PAGE);
+    const render = { redirect: { storageKey: false as const } };
+    await renderSite(resolveConfig({ root: off, sourceLocale: 'en', render }));
+    expect(readFileSync(join(off, 'dist', 'index.html'), 'utf8')).toContain('K=null');
+  });
+
+  it('stays idempotent: a second run writes the same script once', async () => {
+    const dir = root(PAGE);
+    const cfg = resolveConfig({ root: dir, sourceLocale: 'en', render: { redirect: true } });
+    await renderSite(cfg);
+    const once = readFileSync(join(dir, 'dist', 'index.html'), 'utf8');
+    await renderSite(cfg);
+    expect(readFileSync(join(dir, 'dist', 'index.html'), 'utf8')).toBe(once);
+    expect(once.match(/verbaly:redirect-->/g)).toHaveLength(2);
+  });
+
+  it('a page with no head is left alone instead of guessing where to put it', async () => {
+    const dir = root('<body>y</body>');
+    await renderSite(resolveConfig({ root: dir, sourceLocale: 'en', render: { redirect: true } }));
+    expect(readFileSync(join(dir, 'dist', 'index.html'), 'utf8')).not.toContain('verbaly:redirect');
+  });
+});
+
+describe('what the redirect script does when it runs', () => {
+  const OPEN = '<!--verbaly:redirect--><script>';
+
+  function scriptFor(options: Partial<Parameters<typeof renderHtml>[1]['redirect']> = {}): string {
+    const { html } = renderHtml('<html><head></head><body></body></html>', {
+      locale: 'en',
+      catalogs: CATALOGS,
+      redirect: { locales: ['en', 'es', 'pt'], sourceLocale: 'en', ...options },
+    });
+    return html.slice(html.indexOf(OPEN) + OPEN.length, html.indexOf('</script>'));
+  }
+
+  interface Visit {
+    path: string;
+    search?: string;
+    hash?: string;
+    stored?: string | null;
+    languages?: string[];
+    blockStorage?: boolean;
+  }
+
+  // globals are shadowed as parameters, so the script runs exactly as shipped with no DOM at all
+  function visit(script: string, page: Visit): string | undefined {
+    let target: string | undefined;
+    const location = {
+      pathname: page.path,
+      search: page.search ?? '',
+      hash: page.hash ?? '',
+      replace: (url: string) => {
+        target = url;
+      },
+    };
+    const localStorage = {
+      getItem: (): string | null => {
+        if (page.blockStorage) throw new Error('blocked');
+        return page.stored ?? null;
+      },
+    };
+    const languages = page.languages ?? ['en'];
+    const navigator = { languages, language: languages[0] };
+    new Function('location', 'localStorage', 'navigator', script)(
+      location,
+      localStorage,
+      navigator,
+    );
+    return target;
+  }
+
+  const script = scriptFor();
+
+  it('sends a visitor whose browser asks for a mirror', () => {
+    expect(visit(script, { path: '/', languages: ['es-PE', 'en'] })).toBe('/es/');
+    expect(visit(script, { path: '/docs', languages: ['pt-BR'] })).toBe('/pt/docs');
+  });
+
+  it('leaves a visitor whose language is the source tree they already have', () => {
+    expect(visit(script, { path: '/', languages: ['en-US'] })).toBeUndefined();
+    expect(visit(script, { path: '/', languages: ['de', 'fr'] })).toBeUndefined();
+  });
+
+  it('never fires inside a mirror, which is what makes a loop impossible', () => {
+    expect(visit(script, { path: '/es/', languages: ['pt'] })).toBeUndefined();
+    expect(visit(script, { path: '/pt/docs', languages: ['es'] })).toBeUndefined();
+  });
+
+  it('a saved choice beats the browser, including the choice to stay in the source', () => {
+    expect(visit(script, { path: '/', stored: 'pt', languages: ['es'] })).toBe('/pt/');
+    expect(visit(script, { path: '/', stored: 'en', languages: ['es'] })).toBeUndefined();
+    expect(visit(script, { path: '/', stored: 'fr', languages: ['es'] })).toBe('/es/');
+  });
+
+  it('carries the query and the hash to the mirror', () => {
+    expect(visit(script, { path: '/docs', search: '?q=1', hash: '#top', languages: ['es'] })).toBe(
+      '/es/docs?q=1#top',
+    );
+  });
+
+  it('reads a page slug as a page, not as the mirror it is standing in', () => {
+    expect(visit(script, { path: '/es-la-guia', languages: ['es'] })).toBe('/es/es-la-guia');
+  });
+
+  it('survives blocked storage and falls through to the browser', () => {
+    expect(visit(script, { path: '/', blockStorage: true, languages: ['pt'] })).toBe('/pt/');
+  });
+
+  it('with storage off it never reads a saved choice', () => {
+    const noStorage = scriptFor({ storageKey: false });
+    expect(visit(noStorage, { path: '/', stored: 'pt', languages: ['es'] })).toBe('/es/');
+  });
+
+  it('under a base path it stays inside the base, and outside it does nothing', () => {
+    const based = scriptFor({ base: '/app' });
+    expect(visit(based, { path: '/app/', languages: ['es'] })).toBe('/app/es/');
+    expect(visit(based, { path: '/app', languages: ['es'] })).toBe('/app/es/');
+    expect(visit(based, { path: '/app/es/', languages: ['pt'] })).toBeUndefined();
+    expect(visit(based, { path: '/application', languages: ['es'] })).toBeUndefined();
+    expect(visit(based, { path: '/elsewhere', languages: ['es'] })).toBeUndefined();
+  });
+});
+
 describe('renderSite', () => {
   it('mirrors pages per locale and fills source in place', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));

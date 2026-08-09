@@ -137,7 +137,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 
 **Your project's own types**, for a typed config file or a custom provider:
 
-`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `TranslateConfig` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions`
+`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `RedirectConfig` · `TranslateConfig` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions`
 
 **Building an integration.** This is exactly what `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/next`, `@verbaly/astro`, `@verbaly/nuxt` and `@verbaly/mcp` consume, so a third one has everything they have:
 

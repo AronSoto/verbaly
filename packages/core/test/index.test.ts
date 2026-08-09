@@ -12,6 +12,7 @@ const VALUES = [
   'flatten',
   'localeDirection',
   'localeName',
+  'localePath',
   'negotiateLocale',
   'normalizeLink',
   'parse',

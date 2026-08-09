@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/sveltekit",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "description": "SvelteKit SSR integration for Verbaly: per-request locale negotiation and flash-free hydration.",
   "keywords": [
     "i18n",

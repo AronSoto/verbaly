@@ -1,3 +1,4 @@
+import { narrowLocales } from './locale';
 import { parseTags, type TagNode } from './tags';
 import type { DictionaryInput, Params, Verbaly } from './types';
 import { warnOnce } from './warn';
@@ -155,10 +156,18 @@ export function bindDom<D extends DictionaryInput>(
     }
   }
 
+  // pre-rendered html wins until this locale resolves: repainting it is the flash render kills
+  let trustServerHtml = true;
+
+  function holdBack(key: string, current: string | null): boolean {
+    if (!trustServerHtml || !current?.trim()) return false;
+    return instance.inspect(key)?.from !== instance.locale;
+  }
+
   function render(el: Element): void {
     const args = cachedArgs(el);
     const key = el.getAttribute(attr);
-    if (key) {
+    if (key && !holdBack(key, el.textContent)) {
       const text = t(key, args);
       if (el.hasAttribute(richAttr)) {
         el.textContent = '';
@@ -173,6 +182,7 @@ export function bindDom<D extends DictionaryInput>(
     if (attrMap) {
       for (const [name, attrKey] of Object.entries(attrMap)) {
         if (typeof attrKey !== 'string') continue;
+        if (holdBack(attrKey, el.getAttribute(name))) continue;
         const value = safeAttribute(name, t(attrKey, args));
         if (value !== undefined) el.setAttribute(name, value);
       }
@@ -186,7 +196,10 @@ export function bindDom<D extends DictionaryInput>(
     for (const el of scope.querySelectorAll(selector)) render(el);
   }
 
+  warnOnLangMismatch(instance.locale);
   renderAll(root);
+  // from here the dom is ours: a stale value from a previous locale must not survive a switch
+  trustServerHtml = false;
   const unsubscribe = instance.subscribe(() => renderAll(root));
 
   const observer = new MutationObserver((records) => {
@@ -212,6 +225,16 @@ export function bindDom<D extends DictionaryInput>(
     unsubscribe();
     observer.disconnect();
   };
+}
+
+// render writes <html lang>, so a disagreement here means the page is about to be translated away
+function warnOnLangMismatch(locale: string): void {
+  const lang = document.documentElement.lang;
+  if (!lang || narrowLocales(lang).includes(locale) || narrowLocales(locale).includes(lang)) return;
+  warnOnce(
+    `the page is <html lang="${lang}"> and this instance is in "${locale}", so bindDom is about to ` +
+      `translate it away: resolve the locale from the url (resolveLocale reads it) before binding`,
+  );
 }
 
 function parseArgs(raw: string | null): Params | undefined {

@@ -4,6 +4,7 @@ import { displayNames } from '../src/intl';
 import {
   localeDirection,
   localeName,
+  localePath,
   negotiateLocale,
   persistLocale,
   resolveLocale,
@@ -21,6 +22,77 @@ afterEach(() => {
   localStorage.clear();
   document.documentElement.removeAttribute('lang');
   document.documentElement.removeAttribute('dir');
+});
+
+describe('localePath', () => {
+  const opts = { supported: SUPPORTED, sourceLocale: 'en' };
+
+  it('swaps one mirror prefix for another', () => {
+    expect(localePath('pt', { ...opts, path: '/es/docs/start' })).toBe('/pt/docs/start');
+  });
+
+  it('enters the mirror from the source locale and leaves it again', () => {
+    expect(localePath('es', { ...opts, path: '/docs' })).toBe('/es/docs');
+    expect(localePath('en', { ...opts, path: '/es/docs' })).toBe('/docs');
+  });
+
+  it('keeps the trailing slash the page had, both ways', () => {
+    expect(localePath('pt', { ...opts, path: '/es/' })).toBe('/pt/');
+    expect(localePath('en', { ...opts, path: '/es/' })).toBe('/');
+    expect(localePath('es', { ...opts, path: '/' })).toBe('/es/');
+    expect(localePath('pt', { ...opts, path: '/es' })).toBe('/pt');
+  });
+
+  it('carries the query and the hash along', () => {
+    expect(localePath('pt', { ...opts, path: '/es/docs?q=1#top' })).toBe('/pt/docs?q=1#top');
+  });
+
+  it('leaves a first segment that is not a locale where it is', () => {
+    expect(localePath('es', { ...opts, path: '/escape/room' })).toBe('/es/escape/room');
+  });
+
+  it('is its own inverse across a round trip', () => {
+    const there = localePath('pt', { ...opts, path: '/es/docs/guide' });
+    expect(localePath('es', { ...opts, path: there })).toBe('/es/docs/guide');
+  });
+
+  it('with no sourceLocale every locale gets a prefix', () => {
+    expect(localePath('en', { supported: SUPPORTED, path: '/es/docs' })).toBe('/en/docs');
+  });
+});
+
+describe('resolveLocale from the url', () => {
+  it('takes the mirror prefix over storage and the browser: that page is already translated', () => {
+    localStorage.setItem('verbaly-locale', 'pt');
+    stubNavigator(['en-US']);
+    expect(resolveLocale({ supported: SUPPORTED, path: '/es/docs/start' })).toBe('es');
+  });
+
+  it('narrows a regional prefix to the supported locale', () => {
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: SUPPORTED, path: '/pt-BR/' })).toBe('pt');
+  });
+
+  it('ignores a first segment that is not a locale', () => {
+    stubNavigator(['pt']);
+    expect(resolveLocale({ supported: SUPPORTED, path: '/escape/room' })).toBe('pt');
+  });
+
+  it('falls through on the source-locale root, where there is no prefix', () => {
+    localStorage.setItem('verbaly-locale', 'es');
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: SUPPORTED, path: '/' })).toBe('es');
+  });
+
+  it('can be switched off for a site whose routes are not mirrors', () => {
+    stubNavigator(['pt']);
+    expect(resolveLocale({ supported: SUPPORTED, path: false })).toBe('pt');
+  });
+
+  it('reads the real location when no path is given', () => {
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: SUPPORTED })).toBe('en');
+  });
 });
 
 describe('resolveLocale', () => {

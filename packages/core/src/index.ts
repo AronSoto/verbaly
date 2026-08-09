@@ -4,6 +4,7 @@ export {
   LOCALE_STORAGE_KEY,
   localeDirection,
   localeName,
+  localePath,
   negotiateLocale,
   persistLocale,
   resolveLocale,
@@ -15,7 +16,12 @@ export { flatten } from './flatten';
 export { parseTags } from './tags';
 
 export type { BindDomOptions, RichLink } from './dom';
-export type { RequestLocaleOptions, ResolveLocaleOptions, SwitchLocaleOptions } from './locale';
+export type {
+  LocalePathOptions,
+  RequestLocaleOptions,
+  ResolveLocaleOptions,
+  SwitchLocaleOptions,
+} from './locale';
 export type { MessageNode, ParamNode } from './parse';
 export type { TagNode } from './tags';
 export type {

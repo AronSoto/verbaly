@@ -69,6 +69,52 @@ describe('renderHtml', () => {
     expect(html).toContain('una<br>otra');
   });
 
+  it('keeps a link inside the mirror when it points at a page the mirror holds', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs', '/']) };
+    const { html } = renderHtml(
+      '<a href="/docs">d</a><a href="/docs/">s</a><a href="/docs?q=1#s">q</a>',
+      { locale: 'es', catalogs: CATALOGS, mirror },
+    );
+    expect(html).toBe(
+      '<a href="/es/docs">d</a><a href="/es/docs/">s</a><a href="/es/docs?q=1#s">q</a>',
+    );
+  });
+
+  it('leaves alone anything that is not a page of this mirror', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs']) };
+    const input =
+      '<a href="/assets/app.js">a</a><a href="https://x.dev/docs">e</a><a href="//x.dev/docs">p</a>' +
+      '<a href="#top">h</a><a href="mailto:a@b.c">m</a><a href="/llms.txt">t</a><a href="docs">r</a>';
+    expect(renderHtml(input, { locale: 'es', catalogs: CATALOGS, mirror }).html).toBe(input);
+  });
+
+  it('sends a mirrored redirect page to the mirrored target', () => {
+    const mirror = { prefix: '/pt', pages: new Set(['/docs/start']) };
+    const { html } = renderHtml('<meta http-equiv="refresh" content="0;url=/docs/start">', {
+      locale: 'pt',
+      catalogs: CATALOGS,
+      mirror,
+    });
+    expect(html).toContain('content="0;url=/pt/docs/start"');
+  });
+
+  it('never edits inside content it just replaced, even when the message brings its own link', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs']) };
+    const catalogs = { es: { m: 'lee la <docs>guía</docs>' } };
+    // caught on the real docs site: the scanner met the <a> the message had just written
+    const { html } = renderHtml(
+      '<p data-verbaly="m" data-verbaly-rich><a href="/docs">old</a></p><a href="/docs">nav</a>',
+      { locale: 'es', catalogs, richLinks: { docs: '/docs' }, mirror },
+    );
+    expect(html).toContain('<p data-verbaly="m" data-verbaly-rich>lee la <a href="/docs">guía</a>');
+    expect(html).toContain('<a href="/es/docs">nav</a>');
+  });
+
+  it('rewrites nothing without a mirror: the source locale keeps its own links', () => {
+    const input = '<a href="/docs">d</a>';
+    expect(renderHtml(input, { locale: 'es', catalogs: CATALOGS }).html).toBe(input);
+  });
+
   it('handles nested same-name elements', () => {
     const input =
       '<div data-verbaly="home.intro" data-verbaly-args=\'{"name":"A"}\'><div>old</div></div><div>after</div>';
@@ -391,6 +437,26 @@ describe('renderSite', () => {
     const es = readFileSync(join(dist, 'es', 'docs', 'index.html'), 'utf8');
     expect(es).toContain('lang="es"');
     expect(es).toContain('>Busca y encuentra<');
+  });
+
+  it('keeps the mirror navigable: its links point at its own pages', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify(CATALOGS.en));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify(CATALOGS.es));
+    const home = '<html><body><a href="/docs">d</a><a href="/style.css">s</a></body></html>';
+    writeFileSync(join(dist, 'index.html'), home);
+    writeFileSync(join(dist, 'docs', 'index.html'), '<html><body>docs</body></html>');
+
+    await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+
+    const es = readFileSync(join(dist, 'es', 'index.html'), 'utf8');
+    expect(es).toContain('href="/es/docs"');
+    expect(es).toContain('href="/style.css"');
+    // the source locale is the site itself, it was never a mirror
+    expect(readFileSync(join(dist, 'index.html'), 'utf8')).toContain('href="/docs"');
   });
 
   it('is idempotent: re-running does not nest locale dirs', async () => {

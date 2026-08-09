@@ -5,6 +5,7 @@ export interface ResolveLocaleOptions {
   supported: string[];
   fallback?: string;
   storageKey?: string | false;
+  path?: string | false;
 }
 
 // shared identity: localStorage key (browser) + cookie name (SSR integrations)
@@ -53,8 +54,37 @@ export function localeName(locale: string, displayIn: string = locale): string {
   }
 }
 
+export interface LocalePathOptions {
+  supported: string[];
+  sourceLocale?: string;
+  path?: string;
+}
+
+// the inverse of what render writes: /es/docs → /pt/docs, and the source locale keeps no prefix
+export function localePath(locale: string, options: LocalePathOptions): string {
+  const { supported, sourceLocale } = options;
+  const full = options.path ?? currentPath() ?? '/';
+  const cut = full.search(/[?#]/);
+  const path = cut < 0 ? full : full.slice(0, cut);
+  const rest = cut < 0 ? '' : full.slice(cut);
+
+  const segments = path.split('/').filter(Boolean);
+  if (segments[0] && matchSupported(segments[0], supported)) segments.shift();
+  if (locale !== sourceLocale) segments.unshift(locale);
+  const trailing = segments.length && path.endsWith('/') ? '/' : '';
+  return `/${segments.join('/')}${trailing}${rest}`;
+}
+
 export function resolveLocale(options: ResolveLocaleOptions): string {
   const { supported, fallback = supported[0] ?? 'en', storageKey = LOCALE_STORAGE_KEY } = options;
+
+  // the document you are looking at wins: render put the page under that prefix already translated
+  const path = options.path ?? currentPath();
+  if (path) {
+    const segment = path.split('/').find(Boolean);
+    const match = segment && matchSupported(segment, supported);
+    if (match) return match;
+  }
 
   if (storageKey) {
     const stored = getStorage()?.getItem(storageKey);
@@ -171,6 +201,13 @@ export function persistLocale(
     document.documentElement.lang = locale;
     document.documentElement.dir = localeDirection(locale);
   }
+}
+
+function currentPath(): string | undefined {
+  // require document like every other browser check: a server has no page to read a prefix from
+  return typeof document !== 'undefined' && typeof location !== 'undefined'
+    ? location.pathname
+    : undefined;
 }
 
 function preferredLanguages(): readonly string[] {

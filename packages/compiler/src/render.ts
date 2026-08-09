@@ -24,6 +24,12 @@ export interface Alternate {
   href: string;
 }
 
+// links that point at a page this mirror also holds get its prefix, so the visitor stays inside
+export interface MirrorLinks {
+  prefix: string;
+  pages: ReadonlySet<string>;
+}
+
 export interface RenderHtmlOptions {
   locale: string;
   // nested trees welcome: the runtime flattens them (verbaly-web's shape)
@@ -34,6 +40,7 @@ export interface RenderHtmlOptions {
   richLinks?: Record<string, RichLink>;
   setLang?: boolean;
   alternates?: Alternate[];
+  mirror?: MirrorLinks;
 }
 
 export interface RenderHtmlResult {
@@ -73,6 +80,11 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const skip = protectedRanges(html);
   const inSkip = (index: number): boolean => skip.some(([from, to]) => index >= from && index < to);
 
+  // a message can carry markup of its own, and MagicString refuses to edit inside what it replaced
+  const filled: Array<[number, number]> = [];
+  const inFilled = (index: number): boolean =>
+    filled.some(([from, to]) => index >= from && index < to);
+
   // per-locale canonical/og:url: a cross-locale canonical would void the hreflang set
   const selfUrl = options.alternates?.find((a) => a.hreflang === options.locale)?.href;
   const sourceUrl = options.alternates?.find((a) => a.hreflang === 'x-default')?.href;
@@ -81,7 +93,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   START_TAG.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = START_TAG.exec(html)) !== null) {
-    if (inSkip(m.index)) continue;
+    if (inSkip(m.index) || inFilled(m.index)) continue;
     const [full, rawName, attrChunk] = m as unknown as [string, string, string];
     const tagName = rawName.toLowerCase();
     const openEnd = m.index + full.length;
@@ -122,6 +134,22 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'content', selfUrl!);
     }
 
+    const mirror = options.mirror;
+    if (mirror) {
+      if (tagName === 'a' || tagName === 'area') {
+        const inside = mirroredHref(attrs.get('href'), mirror);
+        if (inside) setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'href', inside);
+      } else if (tagName === 'meta' && attrs.get('http-equiv')?.toLowerCase() === 'refresh') {
+        // a redirect page ships inside the mirror too, and its target must not leave it
+        const content = attrs.get('content') ?? '';
+        const url = /^([^;]*;\s*url\s*=\s*)(.*)$/i.exec(decodeEntities(content));
+        const inside = url && mirroredHref(url[2], mirror);
+        if (inside) {
+          setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'content', `${url![1]}${inside}`);
+        }
+      }
+    }
+
     const key = attrs.get(attr);
     const attrMapRaw = attrs.get(attrsAttr);
     if (key === undefined && attrMapRaw === undefined) continue;
@@ -144,6 +172,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
             if (openEnd === close.contentEnd) ms.appendLeft(openEnd, content);
             else ms.overwrite(openEnd, close.contentEnd, content);
           }
+          filled.push([openEnd, close.contentEnd]);
         }
       }
     }
@@ -168,6 +197,23 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   if (options.alternates?.length) injectAlternates(ms, html, options.alternates);
 
   return { html: ms.toString(), missing: [...missing] };
+}
+
+// the public path of a built page, the shape both the page set and an author's href reduce to
+export function publicPath(rel: string): string {
+  const path = `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
+
+// only a root-relative link to a page the mirror contains: assets, externals and anchors stay
+function mirroredHref(raw: string | undefined, mirror: MirrorLinks): string | undefined {
+  if (raw === undefined) return undefined;
+  const href = decodeEntities(raw);
+  if (!href.startsWith('/') || href.startsWith('//')) return undefined;
+  const cut = href.search(/[?#]/);
+  const path = cut < 0 ? href : href.slice(0, cut);
+  if (!mirror.pages.has(publicPath(path.replace(/^\//, '')))) return undefined;
+  return `${mirror.prefix}${href}`;
 }
 
 // injects <link rel="alternate" hreflang> into <head>, idempotent via markers
@@ -237,6 +283,9 @@ export async function renderSite(
     ignore: locales.map((locale) => `${locale}/**`),
   });
 
+  // every page the mirror will hold, so a link into one of them can keep the visitor inside
+  const pages = new Set(files.map((file) => publicPath(relative(site, file).replace(/\\/g, '/'))));
+
   const missing: Record<string, string[]> = {};
   const urls: Array<{ rel: string; alternates: Alternate[] }> = [];
   for (const file of files) {
@@ -253,6 +302,7 @@ export async function renderSite(
         richTags: options.richTags,
         richLinks: options.richLinks ?? cfg.render.links,
         alternates,
+        mirror: locale === cfg.sourceLocale ? undefined : { prefix: `/${locale}`, pages },
       });
       for (const key of result.missing) {
         const list = (missing[locale] ??= []);

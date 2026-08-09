@@ -236,6 +236,104 @@ function richEl(key: string, args?: string): HTMLElement {
   return el;
 }
 
+// what verbaly render ships: html already in the target locale, waiting for its catalog
+function mirrorPage(lang = 'es'): { land: () => void; instance: ReturnType<typeof createVerbaly> } {
+  document.documentElement.lang = lang;
+  document.body.innerHTML = '<h1 data-verbaly="title" title="Hola">Hola mundo</h1>';
+  let land = (): void => {};
+  const instance = createVerbaly({
+    locale: 'es',
+    fallback: 'en',
+    messages: { en: { title: 'Hello world' } },
+    loaders: {
+      es: () =>
+        new Promise((resolve) => {
+          land = () => resolve({ title: 'Hola mundo' });
+        }),
+    },
+  });
+  return { land, instance: instance as never };
+}
+
+describe('bindDom over a pre-rendered page', () => {
+  afterEach(() => {
+    document.documentElement.lang = '';
+  });
+
+  it('does not repaint server html with a fallback while the catalog is still loading', () => {
+    const page = mirrorPage();
+    unbind = bindDom(page.instance);
+    expect(document.querySelector('h1')!.textContent).toBe('Hola mundo');
+  });
+
+  it('paints an empty element anyway: there is nothing to protect there', () => {
+    const page = mirrorPage();
+    document.body.innerHTML = '<h1 data-verbaly="title"></h1>';
+    unbind = bindDom(page.instance);
+    expect(document.querySelector('h1')!.textContent).toBe('Hello world');
+  });
+
+  it('leaves a pre-rendered attribute alone too', () => {
+    const page = mirrorPage();
+    document.body.innerHTML =
+      '<h1 data-verbaly-attr=\'{"title":"title"}\' title="Hola mundo"></h1>';
+    unbind = bindDom(page.instance);
+    expect(document.querySelector('h1')!.getAttribute('title')).toBe('Hola mundo');
+  });
+
+  it('repaints once the catalog lands', async () => {
+    const page = mirrorPage();
+    unbind = bindDom(page.instance);
+    void page.instance.loadLocale('es');
+    page.land();
+    await tick();
+    expect(document.querySelector('h1')!.textContent).toBe('Hola mundo');
+  });
+
+  it('stops trusting the dom after the first pass: a stale value loses to a real fallback', () => {
+    document.documentElement.lang = 'es';
+    document.body.innerHTML = '<h1 data-verbaly="title">Hola mundo</h1>';
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { title: 'Hello world' }, es: { title: 'Hola mundo' } },
+    });
+    unbind = bindDom(v);
+    expect(document.querySelector('h1')!.textContent).toBe('Hola mundo');
+    v.setLocale('fr'); // no fr catalog: the en fallback must win over the stale spanish
+    expect(document.querySelector('h1')!.textContent).toBe('Hello world');
+  });
+
+  it('re-arms on every bind, so a view transition swapping in new server html is protected too', () => {
+    const page = mirrorPage();
+    unbind = bindDom(page.instance);
+    unbind();
+    document.body.innerHTML = '<h1 data-verbaly="title">Otra página</h1>';
+    unbind = bindDom(page.instance);
+    expect(document.querySelector('h1')!.textContent).toBe('Otra página');
+  });
+
+  it('warns when the page language and the instance disagree, naming both', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.documentElement.lang = 'es';
+    document.body.innerHTML = '<h1 data-verbaly="title">Hola mundo</h1>';
+    const v = createVerbaly({ locale: 'en', messages: { en: { title: 'Hello world' } } });
+    unbind = bindDom(v);
+    expect(warn.mock.calls[0]![0]).toContain('<html lang="es"> and this instance is in "en"');
+    warn.mockRestore();
+  });
+
+  it('stays quiet when the page language only differs by region', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.documentElement.lang = 'es-419';
+    document.body.innerHTML = '<h1 data-verbaly="title">Hola</h1>';
+    const v = createVerbaly({ locale: 'es', messages: { es: { title: 'Hola' } } });
+    unbind = bindDom(v);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
 describe('bindDom rich', () => {
   it('builds whitelisted elements', () => {
     const v = setupRich();

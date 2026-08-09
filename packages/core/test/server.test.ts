@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { bindDom } from '../src/dom';
 import { attachDevtools } from '../src/devtools';
 import { createVerbaly } from '../src/instance';
-import { negotiateLocale, persistLocale, resolveLocale, switchLocale } from '../src/locale';
+import {
+  localePath,
+  negotiateLocale,
+  persistLocale,
+  resolveLocale,
+  switchLocale,
+} from '../src/locale';
 import type { DictionaryInput } from '../src/types';
 
 describe('server-side (Node)', () => {
@@ -35,6 +41,15 @@ describe('server-side (Node)', () => {
 
   it('resolveLocale falls back without navigator/storage', () => {
     expect(resolveLocale({ supported: ['en', 'es'], fallback: 'en' })).toBe('en');
+  });
+
+  it('reads no url on a server, and still maps a path it is handed', () => {
+    // there is no page here to take a prefix from, but the mapping itself is pure
+    expect(resolveLocale({ supported: ['en', 'es'], fallback: 'en', path: '/es/x' })).toBe('es');
+    expect(localePath('es', { supported: ['en', 'es'], sourceLocale: 'en', path: '/x' })).toBe(
+      '/es/x',
+    );
+    expect(() => localePath('es', { supported: ['en', 'es'] })).not.toThrow();
   });
 
   it('persistLocale is a no-op (no throw) without document', () => {

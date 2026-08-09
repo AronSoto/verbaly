@@ -50,7 +50,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Runtime sizes: **3.67 KB tree-shaken, unchanged** (the number in the README: none of this lands in a project that only calls `t()`) · **6.38 KB full** (was 5.99: the path check, the two guards and `localePath`), which moves the full-surface budget to **6.90** by the file own rule of about 8% headroom · 1.60 KB devtools. Bench re-run (ritual): lookup **36.2×**, interpolation **11.2×**, plural **5.4×**, currency **4.5×** vs i18next 26, in family with 0.34.0.
 - No new dependencies. No change to the message format, the key scheme or the catalog format.
 
-### Docs impact (synced, ahead of the publish)
+### Docs impact (synced)
 
 > Two pages gain a paragraph and one gains the piece that was missing all along: how a visitor reaches their mirror. Done in the same iteration against a local build of this version, so the only step left on the site is `pnpm install` once this is on npm.
 

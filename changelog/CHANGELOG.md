@@ -60,7 +60,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - No change to the message format, the key scheme, the catalog format or any key. The only rendered output that changes is the one that was wrong: a void tag in a rich message.
 - Competitive seal 0.34.0 (2026-08-08, re-check pending at release time): nothing moved in the landscape. What this version defends is the claim that costs the most to make: a compiler that pre-renders translated HTML and hydrates it has to produce the same DOM twice, and the only way to promise that is to test both surfaces against each other. i18next has no pre-render step, Lingui and Paraglide leave the HTML to the framework, and none of them ships a static mirror to be wrong about.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > Nothing conceptual moves and no page is added. Three pages gain a sentence, because the tool now behaves differently in a situation the docs describe.
 

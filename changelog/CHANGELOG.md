@@ -8,6 +8,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.37.0] · 2026-08-10
+
+**The mode nobody had tested.** 0.36.0 named the two ways a site can carry its language, and writing the page that explains them turned up the reason one of them had never really worked: an instance born in a locale whose catalog is lazy never asked for that catalog. The locale was right, `t()` returned the fallback, and nothing said a word. It is one line, and the documented "Locale bootstrap" snippet had been showing it since the helpers existed. No API is added or removed.
+
+### Highlights
+
+- **A saved language now survives a refresh on a single-address site.** If your app keeps one address per page and loads languages on demand, a returning visitor got the source language back every time. Verbaly knew which language they wanted and simply never fetched it.
+- **Nothing changes for a site with the language in the address**, which is the setup the last two versions were about. This was only ever broken where the language comes from storage or the browser.
+- **A warning that used to give impossible advice now gives the right one.** When your page says one language and Verbaly is in another, it told you to read the language from the address. On a site that keeps one address there is nothing to read, so it now names both cures.
+- **React, Vue and Svelte were each checked** against a language that arrives after the page is already on screen, which used to be a rare path and is now the normal one.
+
+### Fixed
+
+- **An instance born in a locale never loaded that locale's catalog** (`verbaly` core). `createVerbaly({ locale: 'es', loaders: { es } })` reported `locale === 'es'`, resolved every key through the fallback and fetched nothing, with no warning: **a silent degradation, which this project has a written rule against.** `setLocale` had always auto-loaded, so being handed a locale and being born in one behaved differently for no reason. Both now go through one `autoLoad` helper, so `createVerbaly({ locale: 'es' })` and `createVerbaly({ locale: 'en' }) + setLocale('es')` end in the same state. A failing loader reports through `warnOnce` instead of leaving a rejected promise, which the bare `loadLocale` call in most bootstrap code did not do.
+  **Where it hid:** every path the docs push hardest calls `setLocale` (the docs site does it on each page load) or awaits `createRequestInstance`, and the source locale never gets a loader, so the generated singleton could not hit it. Only the plain single-address bootstrap did, which is exactly the mode that had no page of its own until 0.36.0.
+
+### Changed
+
+- **The `<html lang>` mismatch warning names both URL strategies** (`verbaly` core, `bindDom`). It said "resolve the locale from the url (resolveLocale reads it)", advice that cannot be followed on a site whose addresses do not carry a locale, where the warning fires on every single load. It now points at `localeFromPath` when the url carries the locale and at `persistLocale` when it does not, and both are real remedies with a test.
+
+### Notes
+
+- **How it was found, because the method is again the point.** Writing the new "URL strategy" docs page meant filling a matrix cell by cell, and the three cells nobody had exercised got a probe each: a SPA with no prefix (16 checks), a server reading a cookie (17 checks) and a static site with no mirror. The first two passed clean. The third failed on its own sample code, and the sample was copied from the published docs.
+- **Verified in the three framework bridges, because they update differently.** Until now a lazy initial catalog never landed, so no adapter had a test for "the catalog arrives after the component is mounted". React (`useSyncExternalStore`), Vue (reactive `version`) and Svelte (store re-emit) each got one, and all three re-render. The SSR integrations need no change: `createRequestInstance` awaits the catalog and the `inFlight` map makes the construction-time load the same promise, so there is still exactly one fetch per request.
+- **Two of the five new core tests fail with the fix reverted** (the load itself and the failing-loader warn); the other three exist to guard the risk the fix introduces, a double fetch, and pass either way. Proven by reverting, as the rule requires.
+- **The bench was A/B'd rather than trusted.** The absolute multipliers moved between runs on a busy machine, so the same suite ran with and without the change back to back: without **32.8× / 14.1× / 3.7× / 5.3×**, with **31.6× / 14.5× / 5.9× / 6.9×** (lookup, interpolation, plural, currency vs i18next 26). Higher on three of four, which is noise in both directions and the expected result: `autoLoad` runs once at construction and never touches `t()`.
+- **1017 tests** (compiler **518** · core **290** · next 41 · nuxt 28 · react 28 · svelte 26 · vite 25 · vue 18 · sveltekit 13 · unplugin 12 · astro 10 · mcp 8), was 1007: +6 core (five for the load, one for silencing the warning the documented way), +1 compiler (the source locale never gets a loader, which is what keeps the browser singleton from fetching at boot), +1 each in react, vue and svelte.
+- Runtime sizes: **3.68 KB tree-shaken** (was 3.67) · **6.59 KB full** (was 6.57) · 1.60 KB devtools, all inside their budgets. No new dependencies, no change to the message format, the key scheme or the catalog format.
+- **A trap for whoever adds the next core test:** `warnOnce` keys on the full string and its set is module-level, so a new test that triggers an existing warning text silences the older test that asserted it. Two tests here use different locales for exactly that reason.
+
+### Docs impact (synced)
+
+> One new page, and one snippet that has been teaching the bug.
+
+- **`docs/frameworks/dom`, the "Locale bootstrap" snippet**: it shows `createVerbaly` with `resolveLocale` plus `loaders` and then only calls `loadLocale` in the switch handler. That is the shape this version fixes, so the snippet is now correct as written and the comment next to `setLocale` should say the initial locale loads on its own too.
+- **`docs/guide/urls`** (new in this sync): the page that produced the bug. The matrix of SPA, server and static against both URL strategies, what each costs in SEO, and the honest empty cell.
+- **`docs/reference/api`**: `createVerbaly` gains one sentence, that a lazy catalog for the starting locale is fetched for you and the UI updates when it lands. Worth putting next to `loadLocale`, which is the call people reach for.
+
+---
+
 ## [0.36.0] · 2026-08-09
 
 **The locale can live in the URL, and now Verbaly knows it.** 0.35.0 made `render` hand over a mirror the visitor could stand in, and within a day the docs site had written two more helpers by hand: one to ask which tree a page belongs to, one to send a visitor to their tree at all. Both are the same missing idea, that a site can put the locale in the first path segment, and Verbaly had no way to hold it. This version gives it one, closes the subpath limit that came with the link rewrite, and fixes a way the path check could read a page slug as a language. No API is removed and nothing changes for a project that keeps one URL per page.

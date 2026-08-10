@@ -268,6 +268,62 @@ describe('lazy loaders', () => {
     expect(listener).toHaveBeenCalledTimes(2); // locale change + catalog arrival
   });
 
+  it('being born in a locale loads it, the same way setLocale does', async () => {
+    let resolve!: (tree: Record<string, string>) => void;
+    const loader = vi.fn(() => new Promise<Record<string, string>>((r) => (resolve = r)));
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A' } },
+      loaders: { es: loader },
+    });
+    const listener = vi.fn();
+    v.subscribe(listener);
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(v.t('a')).toBe('A'); // fallback while it flies
+    resolve({ a: 'La A' });
+    await Promise.resolve();
+    expect(v.t('a')).toBe('La A');
+    expect(listener).toHaveBeenCalledTimes(1); // the catalog arriving, no locale change
+  });
+
+  it('an awaited loadLocale on the same locale rides the load construction started', async () => {
+    const loader = vi.fn(() => Promise.resolve({ a: 'La A' }));
+    const v = createVerbaly({ locale: 'es', messages: { en: {} }, loaders: { es: loader } });
+    await v.loadLocale('es'); // what createRequestInstance does
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(v.t('a')).toBe('La A');
+  });
+
+  it('setLocale right after construction does not load twice', async () => {
+    const loader = vi.fn(() => Promise.resolve({ a: 'La A' }));
+    const v = createVerbaly({ locale: 'es', messages: { en: {} }, loaders: { es: loader } });
+    v.setLocale('es');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  it('a locale with no loader asks for nothing, which is the source locale case', () => {
+    const loader = vi.fn(() => Promise.resolve({}));
+    createVerbaly({ locale: 'en', messages: { en: { a: 'A' } }, loaders: { es: loader } });
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  // pt, not es: warnOnce dedupes on the text, and the retry test below owns the es one
+  it('a loader that fails at construction warns instead of rejecting into nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({
+      locale: 'pt',
+      fallback: 'en',
+      messages: { en: { a: 'A' } },
+      loaders: { pt: () => Promise.reject(new Error('net')) },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(v.t('a')).toBe('A');
+    warn.mockRestore();
+  });
+
   it('lists loader locales before loading', () => {
     const v = createVerbaly({
       locale: 'en',

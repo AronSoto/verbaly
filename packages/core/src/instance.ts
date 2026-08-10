@@ -89,6 +89,8 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     for (const fn of listeners) fn();
   }
 
+  autoLoad(locale);
+
   const t = ((first: unknown, ...rest: unknown[]): string => {
     if (isTemplateStrings(first)) return tagged(first, rest);
     return translate(first as string, rest[0] as Params | undefined);
@@ -98,6 +100,13 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     () =>
     (strings: TemplateStringsArray, ...values: unknown[]) =>
       tagged(strings, values);
+
+  // fire and forget: the UI re-renders when it lands, and a failure reports instead of rejecting
+  function autoLoad(target: string): void {
+    void loadLocale(target).catch(() => {
+      warnOnce(`failed to load catalog for "${target}"`);
+    });
+  }
 
   function pendingLoader(target: string): string | undefined {
     for (const candidate of narrowLocales(target)) {
@@ -145,10 +154,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     },
     t,
     setLocale(next: string) {
-      // auto-load pending catalog; UI re-renders when it lands
-      void loadLocale(next).catch(() => {
-        warnOnce(`failed to load catalog for "${next}"`);
-      });
+      autoLoad(next);
       if (next === locale) return;
       locale = next;
       chainCache = null;

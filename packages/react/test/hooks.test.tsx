@@ -65,6 +65,30 @@ describe('@verbaly/react', () => {
     expect(container.textContent).toBe('Hola Aron');
   });
 
+  // a lazy initial catalog landing after mount is the normal path since 0.37.0, not a rare one
+  it('re-renders when the catalog of the initial locale lands after mount', async () => {
+    let resolve!: (tree: Record<string, string>) => void;
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { hello: 'Hello {name}' } },
+      loaders: { es: () => new Promise((r) => (resolve = r)) },
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Hello />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Hello Aron');
+    await act(async () => {
+      resolve({ hello: 'Hola {name}' });
+      await Promise.resolve();
+    });
+    expect(container.textContent).toBe('Hola Aron');
+  });
+
   it('useT keeps the full t surface: t.id works', () => {
     function IdUser() {
       const t = useT();

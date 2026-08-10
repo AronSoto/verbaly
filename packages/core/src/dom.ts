@@ -233,7 +233,8 @@ function warnOnLangMismatch(locale: string): void {
   if (!lang || narrowLocales(lang).includes(locale) || narrowLocales(locale).includes(lang)) return;
   warnOnce(
     `the page is <html lang="${lang}"> and this instance is in "${locale}", so bindDom is about to ` +
-      `translate it away: resolve the locale from the url (resolveLocale reads it) before binding`,
+      `translate it away: read the url with localeFromPath when it carries the locale, and call ` +
+      `persistLocale first when it does not`,
   );
 }
 

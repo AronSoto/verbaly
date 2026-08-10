@@ -50,6 +50,18 @@ describe('generateRuntimeModule', () => {
     expect(code).toContain('await v.loadLocale(locale)');
   });
 
+  it('the source locale never gets a loader, which keeps the singleton free of a boot fetch', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es', 'pt'],
+    });
+    const loaders = /const localeLoaders = \{([\s\S]*?)\n\};/.exec(generateRuntimeModule(cfg))![1]!;
+    expect(loaders).toContain('"es"');
+    expect(loaders).toContain('"pt"');
+    expect(loaders).not.toContain('"en"');
+  });
+
   it('exposes raw catalogs via loadMessages', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),

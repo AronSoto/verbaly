@@ -85,6 +85,23 @@ describe('@verbaly/vue', () => {
     expect(el.textContent).toBe('Olá Aron');
   });
 
+  // a lazy initial catalog landing after mount is the normal path since 0.37.0, not a rare one
+  it('re-renders when the catalog of the initial locale lands after mount', async () => {
+    let resolve!: (tree: Record<string, string>) => void;
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { hello: 'Hello {name}' } },
+      loaders: { es: () => new Promise((r) => (resolve = r)) },
+    });
+    const { el } = mount(Hello, verbalyPlugin(v));
+    expect(el.textContent).toBe('Hello Aron');
+    resolve({ hello: 'Hola {name}' });
+    await new Promise((r) => setTimeout(r, 0));
+    await nextTick();
+    expect(el.textContent).toBe('Hola Aron');
+  });
+
   it('useLocale reads and sets', async () => {
     const v = makeInstance();
     const { el } = mount(Switcher, verbalyPlugin(v));

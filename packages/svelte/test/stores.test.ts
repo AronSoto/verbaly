@@ -42,6 +42,24 @@ describe('tStore', () => {
     expect(run.mock.calls[1]?.[0]('bye')).toBe('Chau');
   });
 
+  // a lazy initial catalog landing after subscribe is the normal path since 0.37.0, not a rare one
+  it('re-emits when the catalog of the initial locale lands', async () => {
+    let resolve!: (tree: Record<string, string>) => void;
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { hello: 'Hello' } },
+      loaders: { es: () => new Promise((r) => (resolve = r)) },
+    });
+    const run = vi.fn();
+    tStore(v).subscribe(run);
+    expect(run.mock.calls[0]?.[0]('hello')).toBe('Hello');
+    resolve({ hello: 'Hola' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[1]?.[0]('hello')).toBe('Hola');
+  });
+
   it('formats params through the store value', () => {
     const v = setup();
     let t: ((key: string, params?: object) => string) | undefined;

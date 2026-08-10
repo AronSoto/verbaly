@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bindDom, normalizeLink, safeAttribute, safeHref } from '../src/dom';
 import { createVerbaly } from '../src/instance';
+import { persistLocale } from '../src/locale';
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -320,6 +321,20 @@ describe('bindDom over a pre-rendered page', () => {
     const v = createVerbaly({ locale: 'en', messages: { en: { title: 'Hello world' } } });
     unbind = bindDom(v);
     expect(warn.mock.calls[0]![0]).toContain('<html lang="es"> and this instance is in "en"');
+    // both url strategies get a remedy: the old text only knew about the one with a prefix
+    expect(warn.mock.calls[0]![0]).toContain('localeFromPath');
+    expect(warn.mock.calls[0]![0]).toContain('persistLocale');
+    warn.mockRestore();
+  });
+
+  it('a site with no locale in the url can silence it by syncing lang first', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<h1 data-verbaly="title">Hello</h1>';
+    const v = createVerbaly({ locale: 'pt', messages: { pt: { title: 'Ola' } } });
+    persistLocale('pt', false); // the remedy the warning now names
+    unbind = bindDom(v);
+    expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 

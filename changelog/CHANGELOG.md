@@ -18,8 +18,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **`verbaly extract --prune` no longer deletes translations it did not recognize.** On a grouped catalog it used to drop whole groups, which took every translation in them with it.
 - **Your translator files stop containing `[object Object]`**, and `verbaly translate` no longer says there is nothing to do while `verbaly status` says half the app is untranslated.
 - **A new language file now matches the shape of the others**, so a project never ends up with half its catalogs grouped and half flat.
-- **The tool counts in real English.** It used to announce "1 messages", "1 locales" and "1 pages" in seven places.
-- **Repeated warnings say themselves once.** A key collision was announced three times in a single `verbaly extract`, once of them after the summary had already printed.
+- **The tool counts in real English.** It used to announce "1 messages", "1 locales" and "1 pages" in nine places.
+- **Repeated warnings say themselves once.** A key collision was announced three times in a single `verbaly extract`, one of them after the summary had already printed.
 
 ### Fixed
 
@@ -51,7 +51,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Every dependency was updated to its latest stable and validated green** (rule 4), 18 in all: `vite` 8.2.1 · `astro` 7.2.2 · `next` 16.3.1 · `magic-string` 1.2.0 · `@anthropic-ai/sdk` 0.117.1 · `esbuild` 0.28.2 · `typescript-eslint` 8.67.0 · `eslint` 10.8.1 and the framework devDeps. `pnpm outdated -r` is empty.
 - **The competitive seal was re-measured with `npm view` instead of inherited** (overdue since 0.31.0, five versions): Paraglide **2.24.1** (was 2.23.0) · next-intl **4.13.6** · @nuxtjs/i18n **10.6.0** · i18next 26.3.6 · Lingui 6.6.0 · typesafe-i18n 5.27.1 · svelte-i18n 4.0.1 · vue-i18n 11.4.8. TypeScript is still **7.0.2**, so the side-by-side stays.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > One new page for the agent channel, and one behavior the reference pages should state.
 

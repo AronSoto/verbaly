@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "description": "Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",
@@ -67,9 +67,9 @@
     "access": "public"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "fast-check": "^4.9.0",
-    "happy-dom": "^20.11.1",
+    "happy-dom": "^20.11.2",
     "i18next": "^26.3.6"
   },
   "scripts": {

@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -62,6 +62,76 @@ describe('catalogs', () => {
     expect(() => readCatalog(cfg, 'es')).toThrow(/not valid JSON/);
   });
 
+  it('a value that is not text fails loudly, naming its path', () => {
+    // the runtime skips it with a warn; a build tool that skipped it would write the skip back
+    const cfg = makeProject({ es: {} });
+    writeFileSync(join(cfg.dir, 'es.json'), JSON.stringify({ hero: { title: 'Hola', n: 42 } }));
+    expect(() => readCatalog(cfg, 'es')).toThrow(/non-string value at "hero\.n"/);
+  });
+
+  it('an unreadable catalog is never rewritten, so nothing is lost to a bad value', () => {
+    const cfg = makeProject({ es: {} });
+    const raw = JSON.stringify({ hero: { title: 'Hola', tags: ['a'] } });
+    writeFileSync(join(cfg.dir, 'es.json'), raw);
+    expect(() => loadCatalogs(cfg)).toThrow(/non-string value/);
+    expect(readFileSync(catalogPath(cfg, 'es'), 'utf8')).toBe(raw);
+  });
+
+  it('reads a nested catalog as the flat view t() sees', () => {
+    const cfg = makeProject({ es: {} });
+    writeFileSync(
+      join(cfg.dir, 'es.json'),
+      JSON.stringify({ hero: { title: 'Hola', sub: 'Que tal' }, plain: 'Suelto' }),
+    );
+    expect(readCatalog(cfg, 'es')).toEqual({
+      'hero.title': 'Hola',
+      'hero.sub': 'Que tal',
+      plain: 'Suelto',
+    });
+  });
+
+  it('gives a nested catalog back nested, never flattened behind the author', () => {
+    const cfg = makeProject({ es: {} });
+    writeFileSync(join(cfg.dir, 'es.json'), JSON.stringify({ hero: { title: 'Hola' } }, null, 2));
+    writeCatalog(cfg, 'es', { 'hero.title': 'Hola', 'hero.sub': 'Que tal' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'es'), 'utf8'))).toEqual({
+      hero: { sub: 'Que tal', title: 'Hola' },
+    });
+  });
+
+  it('a locale that does not exist yet inherits the source catalog shape', () => {
+    const cfg = makeProject({ es: { hero: { title: 'Hola' } } as never });
+    writeCatalog(cfg, 'pt', { 'hero.title': '' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'pt'), 'utf8'))).toEqual({
+      hero: { title: '' },
+    });
+  });
+
+  it('a flat catalog stays flat, so a dotted key is never turned into a group', () => {
+    const cfg = makeProject({ es: { 'hero.title': 'Hola' } });
+    writeCatalog(cfg, 'es', { 'hero.title': 'Hola', 'hero.sub': 'Que tal' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'es'), 'utf8'))).toEqual({
+      'hero.title': 'Hola',
+      'hero.sub': 'Que tal',
+    });
+  });
+
+  it('a key whose path is already text stays flat instead of overwriting the group', () => {
+    // hero is a message and hero.title wants hero to be a group: both survive, nothing is lost
+    expect(JSON.parse(serializeCatalog({ hero: 'Hola', 'hero.title': 'Titulo' }, true))).toEqual({
+      hero: 'Hola',
+      'hero.title': 'Titulo',
+    });
+  });
+
+  it('that clash resolves the same way whichever key was written first', () => {
+    // insertion order decided it before: the group won and the message it replaced was gone
+    expect(JSON.parse(serializeCatalog({ 'hero.title': 'Titulo', hero: 'Hola' }, true))).toEqual({
+      hero: 'Hola',
+      'hero.title': 'Titulo',
+    });
+  });
+
   it('skips identical writes so catalog watchers never retrigger', async () => {
     const cfg = makeProject({ es: {} });
     writeCatalog(cfg, 'es', { hola: 'Hola' });
@@ -111,7 +181,7 @@ describe('status', () => {
     const text = formatStatusResult(
       status(cfg, loadCatalogs(cfg), registryFor('t`Hola ${name}`;')),
     );
-    expect(text).toContain('1 messages · source: es');
+    expect(text).toContain('1 message · source: es');
     expect(text).toContain('en: 0/1 translated (0%)');
     expect(text).toContain('pt: 1/1 translated (100%) ✓');
   });

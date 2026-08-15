@@ -45,8 +45,8 @@ describe('parse edge cases', () => {
 describe('AST cache cap', () => {
   it('keeps working past the cap and returns identical ASTs for repeats', () => {
     const first = parse('cap {n}');
-    // overflow the 2000-entry cap: the cache clears, parse must stay correct
-    for (let i = 0; i < 2100; i++) parse(`filler ${i} {n}`);
+    // overflow the cap: entries are evicted, parse must stay correct
+    for (let i = 0; i < 5100; i++) parse(`filler ${i} {n}`);
     const again = parse('cap {n}');
     expect(again).toEqual(first);
     expect(parse('filler 0 {n}')).toEqual([

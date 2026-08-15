@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/react",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "description": "React bindings for Verbaly: hooks over the reactive core.",
   "keywords": [
     "i18n",
@@ -51,10 +51,10 @@
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "happy-dom": "^20.11.1",
-    "preact": "^10.29.7",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "happy-dom": "^20.11.2",
+    "preact": "^10.29.8",
     "preact-render-to-string": "^6.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

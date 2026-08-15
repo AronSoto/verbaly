@@ -54,7 +54,7 @@ describe('createVerbalyMcp', () => {
     const client = await connect(root);
     const result = await client.callTool({ name: 'verbaly_extract', arguments: {} });
 
-    expect(resultText(result)).toContain('1 messages');
+    expect(resultText(result)).toContain('1 message');
     const en = JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')) as Record<
       string,
       string
@@ -105,7 +105,7 @@ describe('createVerbalyMcp', () => {
     const root = makeProject();
     const client = await connect('/nowhere/that/exists');
     const result = await client.callTool({ name: 'verbaly_extract', arguments: { root } });
-    expect(resultText(result)).toContain('1 messages');
+    expect(resultText(result)).toContain('1 message');
     expect(existsSync(join(root, 'locales', 'en.json'))).toBe(true);
   });
 

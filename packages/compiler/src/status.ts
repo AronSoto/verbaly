@@ -3,6 +3,7 @@ import type { ResolvedConfig } from './config';
 import { effectiveDrafts, type Drafts } from './drafts';
 import { flatten, type MessageTree } from 'verbaly';
 import type { MessageRegistry } from './registry';
+import { counted } from './text';
 import { validateMessage, validatePair } from './validate';
 
 export interface LocaleStatus {
@@ -64,7 +65,7 @@ export function status(
 }
 
 export function formatStatusResult(result: StatusResult): string {
-  const lines = [`[verbaly] ${result.messages} messages · source: ${result.source}`];
+  const lines = [`[verbaly] ${counted(result.messages, 'message')} · source: ${result.source}`];
   if (result.locales.length === 0) {
     lines.push('  no target locales (add locales to your config)');
     return lines.join('\n');

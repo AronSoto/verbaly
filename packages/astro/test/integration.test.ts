@@ -140,7 +140,7 @@ describe('verbaly astro integration', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await runBuild(root, dist, { render: true });
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('keys not pre-filled: ghost'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('1 key not pre-filled: ghost'));
     log.mockRestore();
     warn.mockRestore();
   });

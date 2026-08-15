@@ -278,6 +278,32 @@ describe('runCli: extract', () => {
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(true);
   });
 
+  it('a nested catalog survives extract instead of gaining a flat twin', async () => {
+    const root = makeProject(
+      { en: { hero: { title: 'Welcome' } }, es: { hero: { title: 'Bienvenido' } } } as never,
+      'export const x = t.id("hero.title")`Welcome`;\n',
+    );
+    await runCli(['extract', '--root', root]);
+    expect(JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8'))).toEqual({
+      hero: { title: 'Welcome' },
+    });
+  });
+
+  it('--prune on a nested catalog drops the unreferenced leaf, never the whole group', async () => {
+    // it used to read the groups as keys and delete every translation the project had
+    const root = makeProject(
+      {
+        en: { hero: { title: 'Welcome', sub: 'Hi' }, footer: { copy: 'All rights' } },
+        es: { hero: { title: 'Bienvenido', sub: 'Hola' }, footer: { copy: 'Derechos' } },
+      } as never,
+      'export const x = t.id("hero.title")`Welcome`;\n',
+    );
+    await runCli(['extract', '--root', root, '--prune']);
+    expect(JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'))).toEqual({
+      hero: { title: 'Bienvenido' },
+    });
+  });
+
   it('--prune --dry-run reports removals but writes nothing', async () => {
     const root = makeProject(
       { en: { orphan: 'Old' }, es: { orphan: 'Viejo' } },
@@ -549,13 +575,13 @@ describe('runCli: translate + review drafts', () => {
 
     log.mockClear();
     await runCli(['review', '--root', root]);
-    expect(output(log)).toContain('1 machine translations awaiting review');
+    expect(output(log)).toContain('1 machine translation awaiting review');
     expect(output(log)).toContain('es: hi');
 
     log.mockClear();
     await runCli(['review', '--root', root, '--approve']);
     expect(output(log)).toContain('es: 1 approved');
-    expect(output(log)).toContain('1 translations marked reviewed');
+    expect(output(log)).toContain('1 translation marked reviewed');
     expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(true);
     expect(JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'))).toEqual(
       {},
@@ -629,8 +655,8 @@ describe('runCli: export and import', () => {
     await runCli(['extract', '--root', root]);
     log.mockClear();
     await runCli(['export', '--root', root]);
-    expect(output(log)).toContain('exported 1 locales (xliff)');
-    expect(output(log)).toContain('es: 1 messages (1 untranslated)');
+    expect(output(log)).toContain('exported 1 locale (xliff)');
+    expect(output(log)).toContain('es: 1 message (1 untranslated)');
     const xlf = readFileSync(join(root, 'verbaly-export', 'es.xlf'), 'utf8');
     expect(xlf).toContain('<note category="location">src/app.ts</note>');
   });
@@ -659,7 +685,7 @@ describe('runCli: export and import', () => {
     expect(output(log)).toContain('es: +1 imported');
     expect(output(log)).toContain('es: 1 already translated, kept');
     expect(output(warn)).toContain('es: 1 rejected (params/tags not preserved): extra');
-    expect(output(warn)).toContain('es: 1 unknown keys ignored');
+    expect(output(warn)).toContain('es: 1 unknown key ignored');
     const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as Record<
       string,
       string
@@ -716,5 +742,28 @@ describe('runCli: pseudo', () => {
     expect(existsSync(join(root, 'locales', 'en-XA.json'))).toBe(true);
     await runCli(['pseudo', '--root', root, '--locale', 'en-XB']);
     expect(existsSync(join(root, 'locales', 'en-XB.json'))).toBe(true);
+  });
+
+  it('pseudo-localizes the leaves of a nested catalog, not its groups', async () => {
+    const root = makeProject({ en: { hero: { title: 'Hello' } } } as never);
+    await runCli(['pseudo', '--root', root]);
+    expect(output(log)).toContain('1 message pseudo-localized');
+    const pseudo = JSON.parse(readFileSync(join(root, 'locales', 'en-XA.json'), 'utf8')) as Record<
+      string,
+      Record<string, string>
+    >;
+    expect(pseudo.hero!.title).toMatch(/Ĥéĺĺó/);
+  });
+});
+
+describe('runCli: counts read like text', () => {
+  it('never prints "1 messages"', async () => {
+    const root = makeProject({ en: { a: 'Hello' }, es: { a: 'Hola' } });
+    await runCli(['status', '--root', root]);
+    await runCli(['export', '--root', root, '--format', 'csv']);
+    const printed = output(log);
+    expect(printed).toContain('1 message ·');
+    expect(printed).toContain('exported 1 locale (csv)');
+    expect(printed).not.toMatch(/\b1 (messages|locales|keys|pages|translations)\b/);
   });
 });

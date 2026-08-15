@@ -37,6 +37,35 @@ describe('MessageRegistry', () => {
     spy.mockRestore();
   });
 
+  it('announces a collision once however many times the map is rebuilt', () => {
+    // one command rebuilds it three times (extract: sync, count, escaped-syntax scan)
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze("t.id('twice')`Hola`;", 'a.ts'));
+    registry.update('b.ts', analyze("t.id('twice')`Chau`;", 'b.ts'));
+
+    registry.messages();
+    registry.messages();
+    registry.messages();
+    const collisions = spy.mock.calls.filter((call) => String(call[0]).includes('"twice"'));
+    expect(collisions).toHaveLength(1);
+    spy.mockRestore();
+  });
+
+  it('keeps announcing it once while the colliding text is being edited', () => {
+    // a dev server re-runs this per keystroke: keying the dedupe on the texts would warn per letter
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze("t.id('typing')`Hola`;", 'a.ts'));
+    for (const text of ['C', 'Ch', 'Cha', 'Chau']) {
+      registry.update('b.ts', analyze(`t.id('typing')\`${text}\`;`, 'b.ts'));
+      registry.messages();
+    }
+    const collisions = spy.mock.calls.filter((call) => String(call[0]).includes('"typing"'));
+    expect(collisions).toHaveLength(1);
+    spy.mockRestore();
+  });
+
   it('does not warn when both files carry the same message', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const registry = new MessageRegistry();

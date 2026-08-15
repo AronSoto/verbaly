@@ -15,6 +15,7 @@ import {
   type Params,
   type RichLink,
   type TagNode,
+  type Verbaly,
 } from 'verbaly';
 import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
@@ -40,10 +41,8 @@ export interface RedirectScript {
   storageKey?: string | false;
 }
 
-export interface RenderHtmlOptions {
+interface RenderHtmlBase {
   locale: string;
-  // nested trees welcome: the runtime flattens them (verbaly-web's shape)
-  catalogs: Catalogs | Record<string, MessageTree>;
   sourceLocale?: string;
   attribute?: string;
   richTags?: string[];
@@ -52,6 +51,22 @@ export interface RenderHtmlOptions {
   alternates?: Alternate[];
   mirror?: MirrorLinks;
   redirect?: RedirectScript;
+}
+
+// one of the two, never both: an instance already carries the catalogs it was built from
+export type RenderHtmlOptions = RenderHtmlBase &
+  (
+    | { catalogs: Catalogs | Record<string, MessageTree>; instance?: never }
+    | { catalogs?: never; instance: Verbaly }
+  );
+
+// nested trees welcome: the runtime flattens them (verbaly-web's shape)
+export function localeInstance(
+  catalogs: Catalogs | Record<string, MessageTree>,
+  locale: string,
+  sourceLocale: string,
+): Verbaly {
+  return createVerbaly({ locale, fallback: sourceLocale, messages: catalogs });
 }
 
 export interface RenderHtmlResult {
@@ -80,12 +95,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
   const globalLinks = options.richLinks;
   const sourceLocale = options.sourceLocale ?? 'en';
 
-  // '' = untranslated: the runtime lookup falls back on its own (nested or flat)
-  const v = createVerbaly({
-    locale: options.locale,
-    fallback: sourceLocale,
-    messages: options.catalogs,
-  });
+  const v = options.instance ?? localeInstance(options.catalogs, options.locale, sourceLocale);
   const t = v.t as unknown as (key: string, params?: Params) => string;
 
   const ms = new MagicString(html);
@@ -357,6 +367,10 @@ export async function renderSite(
     storageKey: redirect.storageKey,
   };
   const catalogs = loadCatalogs(cfg);
+  // one runtime per locale for the whole run: rebuilding it per page reflattened every catalog
+  const instances = new Map(
+    locales.map((locale) => [locale, localeInstance(catalogs, locale, cfg.sourceLocale)]),
+  );
 
   if (clean) {
     for (const locale of locales) {
@@ -385,7 +399,7 @@ export async function renderSite(
     for (const locale of locales) {
       const result = renderHtml(html, {
         locale,
-        catalogs,
+        instance: instances.get(locale)!,
         sourceLocale: cfg.sourceLocale,
         attribute,
         richTags: options.richTags,

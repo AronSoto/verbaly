@@ -3,6 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   check,
   collectOrigins,
+  counted,
   effectiveDrafts,
   extractProject,
   formatCheckResult,
@@ -148,7 +149,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         if (cfg.dts !== false) writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
       }
       lines.unshift(
-        `${registry.messages().size} messages · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
+        `${counted(registry.messages().size, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
       );
       for (const [locale, keys] of Object.entries(added)) {
         lines.push(`${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length} added`}`);

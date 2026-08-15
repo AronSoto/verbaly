@@ -1,4 +1,5 @@
 import {
+  counted,
   generateDts,
   loadCatalogs,
   loadConfig,
@@ -78,10 +79,12 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         const site = relative(cfg.root, fileURLToPath(dir)) || '.';
         const result = await renderSite(cfg, { site });
         console.log(
-          `[verbaly] render: ${result.files} pages × ${result.locales.length} locales (${result.locales.join(', ')})`,
+          `[verbaly] render: ${counted(result.files, 'page')} × ${counted(result.locales.length, 'locale')} (${result.locales.join(', ')})`,
         );
         for (const [locale, keys] of Object.entries(result.missing)) {
-          console.warn(`  ${locale}: ${keys.length} keys not pre-filled: ${keys.join(', ')}`);
+          console.warn(
+            `  ${locale}: ${counted(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`,
+          );
         }
       },
     },

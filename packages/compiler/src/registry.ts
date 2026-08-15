@@ -1,4 +1,5 @@
 import type { Analysis, StrayImport, TaggedMessage } from './analyze';
+import { warnOnce } from './warn';
 
 export class MessageRegistry {
   private files = new Map<string, Analysis>();
@@ -18,9 +19,10 @@ export class MessageRegistry {
         const existing = out.get(msg.key);
         if (existing) {
           if (existing.message !== msg.message) {
-            console.warn(
-              `[verbaly] key collision "${msg.key}": ` +
-                `${JSON.stringify(existing.message)} vs ${JSON.stringify(msg.message)}, second dropped.`,
+            warnOnce(
+              `key collision "${msg.key}": ` +
+                `${JSON.stringify(existing.message)} vs ${JSON.stringify(msg.message)}, second dropped`,
+              `collision:${msg.key}`,
             );
           }
           continue;

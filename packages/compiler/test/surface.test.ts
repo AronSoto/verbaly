@@ -11,6 +11,7 @@ const VALUES = [
   'SOURCE_FILE_RE',
   'check',
   'collectOrigins',
+  'counted',
   'createSourceFilter',
   'effectiveDrafts',
   'extractProject',

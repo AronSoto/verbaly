@@ -49,6 +49,8 @@ export type { IssueSeverity } from './validate';
 export { formatStatusResult, status } from './status';
 export type { LocaleStatus, StatusResult } from './status';
 
+export { counted } from './text';
+
 export { effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 export type { Drafts } from './drafts';
 

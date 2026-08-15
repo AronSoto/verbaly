@@ -19,6 +19,7 @@ import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { renderSite } from './render';
 import type { MessageRegistry } from './registry';
 import { formatStatusResult, status } from './status';
+import { counted } from './text';
 import { resolveProvider, translateCatalogs } from './translate';
 import { escapedSyntax } from './validate';
 import { watchProject } from './watch';
@@ -139,7 +140,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'doctor') {
     const result = await doctor(cfg);
     const icon = { ok: '✓', warn: '⚠', error: '✗' } as const;
-    console.log(`[verbaly] doctor: ${plural(result.entries.length, 'check')}`);
+    console.log(`[verbaly] doctor: ${counted(result.entries.length, 'check')}`);
     for (const entry of result.entries) {
       const line = `  ${icon[entry.level]} ${entry.check}: ${entry.message}`;
       if (entry.level === 'error') console.error(line);
@@ -188,7 +189,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       }
       const total = registry.messages().size;
       console.log(
-        `[verbaly] ${plural(total, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
+        `[verbaly] ${counted(total, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
       );
       for (const [locale, keys] of Object.entries(added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
@@ -208,13 +209,13 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'wrap') {
     const result = await wrapProject(cfg, { write: values.write });
     if (result.wrapped.length === 0 && result.skipped.length === 0) {
-      console.log(`[verbaly] nothing to wrap (${plural(result.files, 'file')} scanned) ✓`);
+      console.log(`[verbaly] nothing to wrap (${counted(result.files, 'file')} scanned) ✓`);
       return;
     }
     const verb = values.write ? 'wrapped' : 'would wrap';
     const note = values.write ? '' : ' (report only, use --write to apply)';
     console.log(
-      `[verbaly] ${verb} ${plural(result.wrapped.length, 'text')} in ${plural(result.changed.length, 'file')}${note}`,
+      `[verbaly] ${verb} ${counted(result.wrapped.length, 'text')} in ${counted(result.changed.length, 'file')}${note}`,
     );
     for (const entry of result.wrapped) {
       const attr = entry.kind === 'attribute' ? `${entry.attribute} → ` : '';
@@ -350,12 +351,14 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         console.log(`  ${locale}: ${keys.length} approved`);
       }
       saveDrafts(cfg, drafts);
-      console.log(`[verbaly] ${count} translations marked reviewed ✓`);
+      console.log(`[verbaly] ${counted(count, 'translation')} marked reviewed ✓`);
       return;
     }
 
     const total = entries.reduce((sum, [, keys]) => sum + keys.length, 0);
-    console.log(`[verbaly] ${total} machine translations awaiting review (--approve to accept)`);
+    console.log(
+      `[verbaly] ${counted(total, 'machine translation')} awaiting review (--approve to accept)`,
+    );
     for (const [locale, keys] of entries) {
       console.log(`  ${locale}: ${keys.join(', ')}`);
     }
@@ -392,11 +395,11 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     }
     const note = isMobileFormat(result.format) ? 'untranslated skipped' : 'untranslated';
     console.log(
-      `[verbaly] exported ${result.files.length} locales (${result.format}) → ${result.dir}`,
+      `[verbaly] exported ${counted(result.files.length, 'locale')} (${result.format}) → ${result.dir}`,
     );
     for (const file of result.files) {
       console.log(
-        `  ${file.locale}: ${file.total} messages (${file.untranslated} ${note}) → ${file.path}`,
+        `  ${file.locale}: ${counted(file.total, 'message')} (${file.untranslated} ${note}) → ${file.path}`,
       );
     }
     return;
@@ -442,7 +445,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     }
     for (const [locale, keys] of Object.entries(result.unknown)) {
       console.warn(
-        `  ${locale}: ${keys.length} unknown keys ignored (not in the source catalog): ${keys.join(', ')}`,
+        `  ${locale}: ${counted(keys.length, 'unknown key')} ignored (not in the source catalog): ${keys.join(', ')}`,
       );
     }
     if (Object.keys(result.imported).length === 0) {
@@ -463,10 +466,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       clean: values.clean,
     });
     console.log(
-      `[verbaly] ${plural(result.files, 'page')} × ${plural(result.locales.length, 'locale')} (${result.locales.join(', ')})`,
+      `[verbaly] ${counted(result.files, 'page')} × ${counted(result.locales.length, 'locale')} (${result.locales.join(', ')})`,
     );
     for (const [locale, keys] of Object.entries(result.missing)) {
-      console.warn(`  ${locale}: ${plural(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`);
+      console.warn(
+        `  ${locale}: ${counted(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`,
+      );
     }
     return;
   }
@@ -476,7 +481,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const locale = values.locale ?? PSEUDO_LOCALE;
     const keys = pseudoCatalogs(cfg, catalogs, locale);
     writeCatalog(cfg, locale, catalogs[locale] ?? {});
-    console.log(`[verbaly] ${plural(keys.length, 'message')} pseudo-localized → ${locale}`);
+    console.log(`[verbaly] ${counted(keys.length, 'message')} pseudo-localized → ${locale}`);
     return;
   }
 
@@ -488,11 +493,6 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 export function formatCliError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.startsWith('[verbaly]') ? message : `[verbaly] ${message}`;
-}
-
-// counts read like text, so the tool that translates apps never prints "1 messages"
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 // the file is named because babel's message never is: a bare position is unactionable

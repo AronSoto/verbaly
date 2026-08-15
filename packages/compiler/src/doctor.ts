@@ -1,12 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
-import type { Catalogs } from './catalog';
+import { badLeaf, type Catalogs } from './catalog';
 import { check } from './check';
 import { generateDts } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
 import { detectHost, readDependencies, WIRING_PACKAGES } from './init';
+import { counted } from './text';
 import { escapedSyntax } from './validate';
 
 export interface DoctorEntry {
@@ -83,7 +84,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     if (catalogsHealthy) {
       ok(
         'catalogs',
-        `${cfg.locales.length} locales (${cfg.locales.join(', ')}) in ${rel(cfg.dir)}/`,
+        `${counted(cfg.locales.length, 'locale')} (${cfg.locales.join(', ')}) in ${rel(cfg.dir)}/`,
       );
     }
   }
@@ -221,16 +222,4 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
 function preview(keys: string[]): string {
   const head = keys.slice(0, PREVIEW).join(', ');
   return keys.length > PREVIEW ? `${head}, …` : head;
-}
-
-// dotted path of the first value that is neither text nor a group of text
-function badLeaf(tree: MessageTree, prefix = ''): string | undefined {
-  for (const [key, value] of Object.entries(tree)) {
-    const path = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string') continue;
-    if (value === null || typeof value !== 'object' || Array.isArray(value)) return path;
-    const bad = badLeaf(value as MessageTree, path);
-    if (bad) return bad;
-  }
-  return undefined;
 }

@@ -51,7 +51,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Bench vs i18next: **38.9× / 14.7× / 5.5× / 4.3×** (lookup, interpolation, plural, currency). `t()` was not touched.
 - No new dependencies, no change to the message format, the key scheme or the catalog format.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > The URL page loses a decision the reader no longer has to make, and gains the switcher.
 

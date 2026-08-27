@@ -50,7 +50,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **No new dependencies.** `outputSchema` and `structuredContent` are already in the `@modelcontextprotocol/sdk` 1.30 the package has been shipping, verified in the installed types before any code was written. `pnpm outdated -r` shows only patch and minor bumps, all taken and validated green.
 - TypeScript is still **7.0.2**, so the side-by-side stays (PLAN, deuda técnica vigilada).
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > The agents page grew by two tools and a promise; the CLI reference gained a config section it has been missing since 0.27.0.
 

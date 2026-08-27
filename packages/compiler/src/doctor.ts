@@ -24,6 +24,15 @@ export interface DoctorResult {
 
 const PREVIEW = 5; // keys shown before "…"
 
+// a mode nobody wrote down was inferred, and doctor says which of the two it is reading
+function readRoutingChoice(root: string, configFile: string): boolean {
+  try {
+    return /\brouting["']?\s*[:=]/.test(readFileSync(join(root, configFile), 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
 const ROUTING_SAYS: Record<ResolvedConfig['routing'], string> = {
   'prefix-except-source': 'the source locale has no prefix, every other locale does',
   'prefix-all': 'every locale has a prefix, the source included',
@@ -123,7 +132,9 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       'drop the render section, or set routing to "prefix-except-source" so the helpers agree with the urls',
     );
   } else {
-    ok('routing', `${cfg.routing}: ${ROUTING_SAYS[cfg.routing]}`);
+    const named = configFile ? readRoutingChoice(cfg.root, configFile) : false;
+    const how = named ? '' : ' (from your setup, no routing set)';
+    ok('routing', `${cfg.routing}${how}: ${ROUTING_SAYS[cfg.routing]}`);
   }
 
   const deps = readDependencies(cfg.root);

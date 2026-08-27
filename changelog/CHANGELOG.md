@@ -8,6 +8,61 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.41.0] · 2026-08-27
+
+**The library shipped halves and expected you to assemble them.** 0.40.0 named where the language lives in your URLs and then picked the wrong default for it, telling a plain single-page app it had one URL tree per language when it had none. Fixing that exposed the bigger half: Verbaly has always shipped a complete language switcher for one mode and a spare part for the other, so every project wrote the second one by hand, ours included. Rewriting our own site on the library's own helper found a bug that has been there since the switcher moved into core: **a visitor who chose a language was sent back to their browser's language on the next page load.** No API is removed.
+
+### Highlights
+
+- **Switching language is one line now, and it is the same line whichever way your URLs work.** `switchLocale` navigates when the language is in the address and swaps the text where it stands when it is not, and you no longer have to know which.
+- **Your choice of language survives the next page load.** Picking English on a Spanish page could send you straight back to Spanish, because the switch remembered your choice in one place and the page that greets you read another.
+- **Verbaly stops guessing that you want the language in your addresses.** It reads your setup: if you build a version of your site per language you get addresses per language, and if you do not, one address serves all of them. You only write it down to disagree.
+- **`verbaly doctor` tells you whether it read your choice or worked it out**, so a mode nobody wrote down never looks like a decision somebody made.
+- **The size gate now measures what a real app actually ships**, not just the smallest possible import and the largest impossible one.
+
+### Added
+
+- **`SwitchLocaleOptions` gains `routing`, `supported`, `sourceLocale`, `base` and `navigate`** (`verbaly`), which turns `switchLocale` from the unprefixed-only switcher into the whole thing. Under a prefix mode it persists and navigates; under `no-prefix` it loads the catalog and swaps in place as it always did. **It deliberately does not fetch this page's catalog before navigating**: the destination page is already rendered in the target language, so that work would be thrown away.
+- **`switchLocale` in `virtual:verbaly`** (`@verbaly/compiler`), bound to the project's locales, source and mode, so the switcher a consumer writes is `await switchLocale('es')` and nothing else. `navigate` is the one thing left to pass, and it is how a framework keeps its app alive across the switch.
+- **`storageKey` on `SwitchLocaleOptions`** (`verbaly`), defaulting to whatever `cookie` names, because they identify the same choice.
+
+### Changed
+
+- **`routing` follows the surface instead of defaulting flat** (`@verbaly/compiler`). A config with a `render` section builds one URL tree per locale, so it infers `prefix-except-source`; a config without one infers `no-prefix`. An explicit `routing` always wins. **This is a behavior change for a project that has no `render` section and calls `localePath`**: it used to receive a prefixed path for a URL tree that does not exist, and now receives the path it is on.
+- **`verbaly doctor` says whether the mode was read or inferred** (`@verbaly/compiler`), because a mode nobody wrote down should not read like a decision somebody made.
+- **`useSwitchLocale` passes the app router and stops double-rendering** (`@verbaly/next`). It supplies `router.push` as the navigation so a prefix-mode switch keeps the React tree, and skips its `router.refresh()` when a navigation already re-rendered.
+- **The size gate measures four surfaces and separates a budget from a canary** (`verbaly`). Measuring a realistic import list put a real app at **6.33 KB**, nowhere near the 3.68 the old headline suggested and close to the 6.84 "everything at once" number that was being treated as unreachable. A real app now has its own budget, and the all-exports number is labelled what it is.
+
+### Fixed
+
+- **A visitor who switched language was sent back by their browser on the next load** (`verbaly`, the headline). `switchLocale` wrote a cookie; `render`'s pre-paint redirect script reads `localStorage`. Two channels, nothing reconciling them, true since the switcher moved into core. **Reproduced in a browser on our own docs**: from `/es/`, click English, the cookie said `en`, storage was empty, and the redirect read the browser's Spanish and returned the visitor to `/es/`. The switch now persists to both.
+- **The first version of that fix wrote the right value under the wrong key**, which is why `storageKey` defaults to `cookie`. A site that names its choice once was being asked to name it twice, and forgetting the second was silent. That is the same shape as everything else in this release, caught one layer down.
+- **A project with no locale URLs was told it had them** (`@verbaly/compiler`). `doctor` reported `prefix-except-source` on a single-page app, which is a false statement about that project, and it contradicted our own documentation's rule that the strategy follows the surface rather than taste.
+
+### Notes
+
+- **This release came from four questions Aron asked about the last one**, and three of the four turned into fixes rather than defences. The default was wrong, the switcher was half a switcher, and the size gate was measuring the wrong number as its headline. The fourth (the weight) is measured below and deliberately left for the next release.
+- **`verbaly-web` now runs on the library instead of beside it.** It deleted its hand-written `messages.ts`, which restated the locales, the source, the bundled catalog and the lazy loaders that `virtual:verbaly` already generates, and its hand-assembled switcher. That deletion is what surfaced the persistence bug: the old code called `persistLocale` directly and happened to be right, so the library's own gap was invisible from inside it.
+- **Known and not fixed, with a number on it: the ICU parser is not opt-in in weight.** `parse.ts` imports it unconditionally, so **every consumer ships 0.58 KB gzip for it, 16% of the tree-shaken runtime**, measured by stubbing the module (3.68 to 3.10). Our own site has zero ICU messages and ships it anyway. The compiler reads every catalog and could wire it only when one needs it; that is the next release, because a catalog arriving later through a lazy loader or a CMS must still degrade with a warning rather than quietly render literal text.
+- **Two project rules were rewritten because they could not fire** (PLAN rules 7 and 8, new). Three of the five declined items reopened only on "demand from users", over a base the PLAN itself records as zero, and the same was true of the third criterion for 1.0: those are locks, not caution. Conditions are now written so we can check them ourselves, and the release ritual gained an **interior audit**: what each export weighs, what the hot path drags in, which option has two names, which helper the library leaves half-finished. Nothing in the old process asked that, which is why the ICU weight sat unnoticed for its whole life.
+- **1078 tests** (compiler **541** · core **301** · next **42** · nuxt 28 · react 28 · svelte 26 · vite 25 · vue 18 · mcp 14 · sveltekit 13 · unplugin 12 · astro 10), was 1067: +7 core (the two switch modes, the source-locale return, the explicit unprefixed case, both persistence channels and the shared key), +3 compiler (the inference, the named-mode override and the bound switcher) and +1 next.
+- **The pins were run against the reverted code**: without the fix the two prefix-mode switch tests fail, and the persistence test fails on its own when the storage write is removed. The inference proved itself the same way, by breaking the two tests that had pinned the old default.
+- Sizes: **3.68 KB** tree-shaken · **6.33 KB** a real app · 1.60 KB devtools · 6.84 KB every export. All four inside budget with 7 to 9% room, which the previous shape no longer had: the all-exports surface was at 6.84 against 6.90, under 1%, so the gate had stopped being able to tell a regression from noise.
+- Bench vs i18next: **38.9× / 14.7× / 5.5× / 4.3×** (lookup, interpolation, plural, currency). `t()` was not touched.
+- No new dependencies, no change to the message format, the key scheme or the catalog format.
+
+### Docs impact (pending)
+
+> The URL page loses a decision the reader no longer has to make, and gains the switcher.
+
+- **`docs/guide/urls`**: the "Give the mode a name" section should lead with **you usually write nothing**, since the mode now follows the setup, and keep the three values for the case where you disagree. The bound-helper snippet becomes `switchLocale` rather than `localePath` plus a manual navigation, because that is now the whole answer.
+- **`docs/reference/api`**: `switchLocale` changed shape. It should show the two modes, the `navigate` option for a framework router, and the fact that it writes both the cookie and the storage under one name.
+- **`docs/reference/cli`**: the `routing` row should say it is inferred from whether the config has a `render` section.
+- **`docs/frameworks/react`** (the `#next` section): `useSwitchLocale` now pushes the route under a prefix mode.
+- Nothing to change in the message format, the agents page, the translators page or devtools.
+
+---
+
 ## [0.40.0] · 2026-08-27
 
 **The language was in the URL and the page still said it in English.** Verbaly has had two ways to carry a language since it could render at all, and has never named either of them, so which one you got was decided by whether you remembered to pass an optional field. Naming them turned up the thing that made the naming matter: a mirrored page translated everything a visitor looks at and left the `<title>` and the `<meta description>` in the source language, which is most of what a search engine shows and most of the reason to give a language its own address in the first place. Our own docs site shipped 27 of 27 pages that way. **Breaking:** one call signature changes, and it is the call that was silently wrong.

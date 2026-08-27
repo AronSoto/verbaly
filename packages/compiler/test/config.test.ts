@@ -163,12 +163,16 @@ describe('pruneCatalogs', () => {
 });
 
 describe('routing', () => {
-  it('defaults to what render has always written', () => {
-    expect(resolveConfig({}).routing).toBe('prefix-except-source');
+  it('follows the surface: render is what builds a url tree per locale', () => {
+    // no render section means no locale urls exist, so claiming a prefix mode would be a lie
+    expect(resolveConfig({}).routing).toBe('no-prefix');
+    expect(resolveConfig({ render: {} }).routing).toBe('prefix-except-source');
+    expect(resolveConfig({ render: { sitemap: true } }).routing).toBe('prefix-except-source');
   });
 
-  it('takes the mode the project names', () => {
-    expect(resolveConfig({ routing: 'no-prefix' }).routing).toBe('no-prefix');
+  it('a named mode always wins over the inference', () => {
+    expect(resolveConfig({ routing: 'no-prefix', render: {} }).routing).toBe('no-prefix');
     expect(resolveConfig({ routing: 'prefix-all' }).routing).toBe('prefix-all');
+    expect(resolveConfig({ routing: 'prefix-except-source' }).routing).toBe('prefix-except-source');
   });
 });

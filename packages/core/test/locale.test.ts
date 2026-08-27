@@ -10,6 +10,7 @@ import {
   persistLocale,
   resolveLocale,
   resolveRequestLocale,
+  switchLocale,
 } from '../src/locale';
 
 const SUPPORTED = ['en', 'es', 'pt'];
@@ -510,5 +511,110 @@ describe('persistLocale', () => {
     persistLocale('es', false);
     expect(localStorage.getItem('verbaly-locale')).toBeNull();
     expect(document.documentElement.lang).toBe('es');
+  });
+});
+
+describe('switchLocale: one call, both modes', () => {
+  function fake() {
+    const calls: string[] = [];
+    return {
+      calls,
+      instance: {
+        loadLocale: (l: string) => {
+          calls.push('load:' + l);
+          return Promise.resolve();
+        },
+        setLocale: (l: string) => calls.push('set:' + l),
+      },
+    };
+  }
+
+  it('with no routing it does what every caller before it got: catalog, locale, persistence', async () => {
+    const { calls, instance } = fake();
+    const went: string[] = [];
+    await switchLocale(instance, 'es', { navigate: (p) => void went.push(p) });
+    expect(calls).toEqual(['load:es', 'set:es']);
+    expect(went).toEqual([]);
+    expect(document.documentElement.lang).toBe('es');
+    expect(document.documentElement.dir).toBe('ltr');
+  });
+
+  it('under a prefix mode it navigates instead of swapping the catalog', async () => {
+    const { calls, instance } = fake();
+    const went: string[] = [];
+    await switchLocale(instance, 'pt', {
+      routing: 'prefix-except-source',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      navigate: (p) => void went.push(p),
+    });
+    // the destination page is already in pt, so loading this page's catalog would be wasted work
+    expect(calls).toEqual([]);
+    expect(went).toHaveLength(1);
+    expect(went[0]).toContain('/pt');
+  });
+
+  it('going back to the source locale drops the prefix', async () => {
+    const { instance } = fake();
+    const went: string[] = [];
+    history.replaceState({}, '', '/es/docs/start');
+    await switchLocale(instance, 'en', {
+      routing: 'prefix-except-source',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      navigate: (p) => void went.push(p),
+    });
+    expect(went).toEqual(['/docs/start']);
+  });
+
+  it('an explicit no-prefix mode still swaps in place', async () => {
+    const { calls, instance } = fake();
+    const went: string[] = [];
+    await switchLocale(instance, 'es', {
+      routing: 'no-prefix',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      navigate: (p) => void went.push(p),
+    });
+    expect(calls).toEqual(['load:es', 'set:es']);
+    expect(went).toEqual([]);
+  });
+
+  it('writes both channels, because the server and the pre-paint redirect read different ones', async () => {
+    const { instance } = fake();
+    localStorage.removeItem('verbaly-locale');
+    document.cookie = 'verbaly-locale=; max-age=0; path=/';
+
+    await switchLocale(instance, 'pt', {
+      routing: 'prefix-except-source',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      navigate: () => {},
+    });
+
+    // render's redirect script reads storage: a cookie alone sends the visitor back on the next load
+    expect(localStorage.getItem('verbaly-locale')).toBe('pt');
+    expect(document.cookie).toContain('verbaly-locale=pt');
+  });
+
+  it('naming the cookie names the storage: one choice cannot have two names', async () => {
+    const { instance } = fake();
+    localStorage.removeItem('v-locale');
+    await switchLocale(instance, 'es', { cookie: 'v-locale' });
+    expect(localStorage.getItem('v-locale')).toBe('es');
+    expect(document.cookie).toContain('v-locale=es');
+  });
+
+  it('persists the choice in both modes, because a reload has to agree', async () => {
+    const { instance } = fake();
+    document.cookie = 'verbaly-locale=; max-age=0; path=/';
+    await switchLocale(instance, 'pt', {
+      routing: 'prefix-except-source',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      navigate: () => {},
+    });
+    expect(document.cookie).toContain('verbaly-locale=pt');
+    expect(document.documentElement.lang).toBe('pt');
   });
 });

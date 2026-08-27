@@ -288,11 +288,20 @@ describe('doctor: the url mode has a name now', () => {
   const routingOf = async (cfg: ReturnType<typeof makeProject>) =>
     (await doctor(cfg)).entries.find((entry) => entry.check === 'routing');
 
-  it('says which mode the project is in', async () => {
+  it('says which mode the project is in, and that nobody wrote it down', async () => {
     const entry = await routingOf(makeProject());
     expect(entry?.level).toBe('ok');
-    expect(entry?.message).toContain('prefix-except-source');
-    expect(entry?.message).toContain('the source locale has no prefix');
+    expect(entry?.message).toContain('no-prefix');
+    expect(entry?.message).toContain('from your setup, no routing set');
+    expect(entry?.message).toContain('one address serves every locale');
+  });
+
+  it('reads a mode the config names as a choice, not an inference', async () => {
+    const root = makeProject();
+    writeFileSync(join(root.root, 'verbaly.config.json'), '{"routing":"prefix-all"}');
+    const entry = await routingOf({ ...root, routing: 'prefix-all' });
+    expect(entry?.message).toContain('prefix-all');
+    expect(entry?.message).not.toContain('from your setup');
   });
 
   it('names the contradiction between no-prefix and a render section', async () => {

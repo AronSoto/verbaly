@@ -228,26 +228,56 @@ export function resolveRequestLocale(options: RequestLocaleOptions): string {
 
 export interface SwitchLocaleOptions {
   cookie?: string | false;
+  storageKey?: string | false;
   maxAge?: number;
+  routing?: Routing;
+  supported?: string[];
+  sourceLocale?: string;
+  base?: string;
+  navigate?: (path: string) => void | Promise<void>;
 }
 
 const YEAR = 31536000;
 
-// shared by the SSR integrations: catalog first (no flash), then locale, then persistence
+// the whole switch, both modes: the url decides which half runs, never the caller
 export async function switchLocale(
   instance: Pick<Verbaly, 'loadLocale' | 'setLocale'>,
   locale: string,
   options: SwitchLocaleOptions = {},
 ): Promise<void> {
   const { cookie = LOCALE_STORAGE_KEY, maxAge = YEAR } = options;
-  await instance.loadLocale(locale);
-  instance.setLocale(locale);
+  // one name for one choice: naming the cookie names the storage too, or the two drift in silence
+  const storageKey = options.storageKey ?? (cookie === false ? LOCALE_STORAGE_KEY : cookie);
+  // absent means the caller never asked for url behavior, which is what every caller before this did
+  const routed = options.routing !== undefined && options.routing !== 'no-prefix';
+
+  // the destination document is already in the target language, so its catalog is not this page's
+  if (!routed) {
+    await instance.loadLocale(locale);
+    instance.setLocale(locale);
+  }
+
   if (typeof document === 'undefined') return; // SSR-safe no-op
+  // both channels: a server reads the cookie per request, and render's pre-paint redirect reads
+  // storage, so a switch that writes one is forgotten by whichever side reads the other
   if (cookie) {
     document.cookie = `${cookie}=${encodeURIComponent(locale)}; path=/; max-age=${maxAge}; samesite=lax`;
   }
-  document.documentElement.lang = locale;
-  document.documentElement.dir = localeDirection(locale);
+  persistLocale(locale, storageKey);
+
+  if (!routed) return;
+  const target = localePath(locale, {
+    supported: options.supported ?? [locale],
+    sourceLocale: options.sourceLocale,
+    base: options.base,
+    routing: options.routing,
+  } as LocalePathOptions);
+  await (options.navigate ?? assign)(target);
+}
+
+// a full load is the floor, not the goal: a framework passes its own router and keeps the app alive
+function assign(path: string): void {
+  if (typeof location !== 'undefined') location.assign(path);
 }
 
 export function persistLocale(

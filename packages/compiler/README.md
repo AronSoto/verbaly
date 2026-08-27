@@ -104,11 +104,13 @@ export default { sourceLocale: 'en', locales: ['en', 'es'], translate: { provide
 
 One setting, because every other URL answer follows from it:
 
+**You usually write nothing.** The mode follows your setup: a project with a `render` section builds one URL tree per language, so it is `prefix-except-source`; a project without one has a single address, so it is `no-prefix`. Say it out loud only to disagree:
+
 ```ts
 export default {
   sourceLocale: 'en',
   locales: ['en', 'es', 'pt'],
-  routing: 'prefix-except-source', // the default: /docs and /es/docs
+  routing: 'prefix-all', // /en/docs and /es/docs, when no language is the house language
 };
 ```
 
@@ -120,12 +122,18 @@ export default {
 
 Pick by surface, not by taste: [Google recommends a different URL per language](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites) rather than cookies or browser settings, so anything people reach through search wants the language in the address. An app behind a login loses nothing with `no-prefix`.
 
-`virtual:verbaly` exports `routing` plus `localePath` and `localeFromPath` **already bound** to your locales, source and mode, so a locale switcher has nothing left to pass wrong:
+`virtual:verbaly` exports `routing`, `localePath`, `localeFromPath` and **`switchLocale`, already bound** to your locales, source and mode. The switcher is one line and it is the same line in every mode:
 
 ```ts
-import { localePath, routing } from 'virtual:verbaly';
+import { switchLocale } from 'virtual:verbaly';
 
-location.assign(localePath('es')); // /es/docs, or the same url under no-prefix
+await switchLocale('es');
+```
+
+Under a prefix mode that goes to `/es/…`, which is already rendered in Spanish, so there is no catalog to fetch and no flash. Under `no-prefix` it swaps the text where it stands and the address never changes. Either way it remembers the choice, in the cookie a server reads **and** in the storage the pre-paint redirect reads, and it sets `<html lang>` and `<html dir>`. Pass your framework's router so the app survives the switch:
+
+```ts
+await switchLocale('es', { navigate: (path) => router.push(path) });
 ```
 
 `npx verbaly doctor` names the mode you are in, and says so when `no-prefix` sits next to a `render` section that writes one URL tree per locale.

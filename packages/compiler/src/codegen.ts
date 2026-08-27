@@ -22,7 +22,12 @@ export function generateRuntimeModule(
     .map((locale) => `  ${JSON.stringify(locale)}: () => import('${importPath(locale)}'),`)
     .join('\n');
 
-  return `import { createVerbaly, localeFromPath as readPath, localePath as writePath } from 'verbaly';
+  return `import {
+  createVerbaly,
+  localeFromPath as readPath,
+  localePath as writePath,
+  switchLocale as runSwitch,
+} from 'verbaly';
 import source from '${importPath(cfg.sourceLocale)}';
 
 export const sourceLocale = ${src};
@@ -36,6 +41,11 @@ export function localePath(locale, options) {
 
 export function localeFromPath(options) {
   return readPath({ ...options, supported: locales });
+}
+
+// the whole switch a language control needs, in either mode: catalog or navigation, then persistence
+export function switchLocale(locale, options) {
+  return runSwitch(v, locale, { supported: locales, sourceLocale, routing, ...options });
 }
 
 const localeLoaders = {
@@ -145,6 +155,13 @@ ${lines.join('\n')}
   }
 
   export function setLocale(locale: string): Promise<void>;
+  export function switchLocale(
+    locale: string,
+    options?: Omit<
+      import('verbaly').SwitchLocaleOptions,
+      'routing' | 'supported' | 'sourceLocale'
+    >,
+  ): Promise<void>;
   export function getLocale(): string;
   export function subscribe(listener: () => void): () => void;
 }

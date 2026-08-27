@@ -106,6 +106,7 @@ import { localeDirection, localeName } from 'verbaly';
 localeName('es'); // 'español' (endonym, via Intl.DisplayNames)
 localeName('de', 'en'); // 'German'
 localeDirection('ar'); // 'rtl': switchLocale/persistLocale already apply it to <html dir>
+// switchLocale is the whole switch: navigation or in-place swap, then both persistence channels
 ```
 
 ```ts

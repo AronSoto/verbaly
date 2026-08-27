@@ -4,8 +4,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const refresh = vi.fn();
+const push = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh }),
+  useRouter: () => ({ refresh, push }),
 }));
 
 import { useSwitchLocale, useT, VerbalyProvider } from '../src/client';
@@ -23,6 +24,23 @@ function Greeting() {
 function Switcher() {
   const switchLocale = useSwitchLocale();
   return <button onClick={() => void switchLocale('es')}>switch</button>;
+}
+
+function RoutedSwitcher() {
+  const switchLocale = useSwitchLocale();
+  return (
+    <button
+      onClick={() =>
+        void switchLocale('es', {
+          routing: 'prefix-except-source',
+          supported: ['en', 'es'],
+          sourceLocale: 'en',
+        })
+      }
+    >
+      switch
+    </button>
+  );
 }
 
 let container: HTMLElement;
@@ -105,5 +123,27 @@ describe('@verbaly/next/client', () => {
       await Promise.resolve();
     });
     expect(container.textContent).toBe('Hola');
+  });
+});
+
+describe('useSwitchLocale: the mode decides what the router does', () => {
+  it('pushes the route and does not refresh on top of it', async () => {
+    act(() => {
+      root.render(
+        <VerbalyProvider locale="en">
+          <RoutedSwitcher />
+        </VerbalyProvider>,
+      );
+    });
+
+    await act(async () => {
+      container.querySelector('button')!.click();
+      await Promise.resolve();
+    });
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(String(push.mock.calls[0]![0])).toContain('/es');
+    // the navigation already re-renders the tree: refreshing on top of it is a second render
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

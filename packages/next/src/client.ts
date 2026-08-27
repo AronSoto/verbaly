@@ -44,7 +44,7 @@ export function VerbalyProvider(props: VerbalyProviderProps): ReactElement {
   return createElement(ReactVerbalyProvider, { instance }, props.children);
 }
 
-// core switchLocale (catalog → locale → cookie + <html lang>) + RSC re-render
+// core switchLocale in whichever mode the app is in, with the app router as the navigation
 export function useSwitchLocale(): (
   locale: string,
   options?: SwitchLocaleOptions,
@@ -53,8 +53,15 @@ export function useSwitchLocale(): (
   const router = useRouter();
   return useCallback(
     async (locale, options) => {
-      await switchLocale(instance, locale, { cookie: requestOptions?.cookie, ...options });
-      router.refresh();
+      const routed = options?.routing !== undefined && options.routing !== 'no-prefix';
+      await switchLocale(instance, locale, {
+        cookie: requestOptions?.cookie,
+        // a full load would throw away the react tree the app router exists to keep
+        navigate: (path) => router.push(path),
+        ...options,
+      });
+      // the navigation already re-rendered the tree, so refreshing on top of it is a second render
+      if (!routed) router.refresh();
     },
     [instance, router],
   );

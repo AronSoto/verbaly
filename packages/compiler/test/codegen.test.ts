@@ -169,3 +169,18 @@ describe('routing reaches the virtual module', () => {
     expect(dts).toContain('export function localeFromPath(');
   });
 });
+
+describe('the bound switcher', () => {
+  it('hands the mode, the locales and the source to core, leaving only the router', () => {
+    const cfg = resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'], render: {} });
+    const mod = generateRuntimeModule(cfg);
+    expect(mod).toContain('export function switchLocale(locale, options)');
+    expect(mod).toContain('supported: locales, sourceLocale, routing, ...options');
+  });
+
+  it('declares it without the three the project already answered', () => {
+    const dts = generateDts({ a: 'Hi' });
+    expect(dts).toContain('export function switchLocale(');
+    expect(dts).toContain("'routing' | 'supported' | 'sourceLocale'");
+  });
+});

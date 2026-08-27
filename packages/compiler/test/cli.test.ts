@@ -495,7 +495,9 @@ describe('runCli: doctor', () => {
     await runCli(['doctor', '--root', root]);
     expect(output(warn)).toContain('⚠');
     expect(output(error)).toContain('✗');
-    expect(output(log)).toContain('fix:');
+    // the fix rides on its own entry's channel: a log that keeps only stderr still gets the remedy
+    expect(output(warn)).toContain('fix:');
+    expect(output(error)).toContain('fix:');
     expect(output(error)).toContain('doctor found problems');
     expect(process.exitCode).toBe(1);
   });
@@ -533,6 +535,31 @@ describe('runCli: translate', () => {
     >;
     expect(es['hi']).toBe('[es] Hi');
     expect(es['bad']).toBe('');
+  });
+
+  it('writes what answered, names what did not, and exits 1', async () => {
+    const root = makeProject({ en: { hi: 'Hi', bye: 'Bye' }, es: { hi: '', bye: '' } });
+    writeFileSync(
+      join(root, 'verbaly.config.mjs'),
+      `export default { translate: { batchSize: 1, concurrency: 1, retries: 0,
+        provider: async ({ messages }) => {
+          if (Object.keys(messages)[0] === 'bye') throw new Error('529 overloaded');
+          return Object.fromEntries(Object.entries(messages).map(([k, v]) => [k, '[es] ' + v]));
+        } } };\n`,
+    );
+    await runCli(['translate', '--root', root]);
+
+    // the batch that answered is on disk, which is the whole point of the isolation
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as Record<
+      string,
+      string
+    >;
+    expect(es['hi']).toBe('[es] Hi');
+    expect(es['bye']).toBe('');
+    expect(output(log)).toContain('es 1/2');
+    expect(output(warn)).toContain('failed (529 overloaded), continuing');
+    expect(output(error)).toContain('es: 1 message not translated (529 overloaded): bye');
+    expect(process.exitCode).toBe(1);
   });
 
   it('--dry-run lists the missing keys without writing', async () => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { claudeProvider, loadSdk } from '../src/providers/claude';
+import { buildPrompt, claudeProvider, loadSdk, systemPrompt } from '../src/providers/claude';
 import type { TranslateRequest } from '../src/translate';
 
 const request: TranslateRequest = {
@@ -59,6 +59,55 @@ describe('claudeProvider', () => {
     mockSdk();
     create.mockResolvedValue({ content: [{ type: 'thinking', thinking: '…' }] });
     await expect(claudeProvider()(request)).resolves.toEqual({});
+  });
+});
+
+describe('claudeProvider: an answer that is not one', () => {
+  it('names the batch size when the model runs out of output room', async () => {
+    mockSdk();
+    create.mockResolvedValue({
+      stop_reason: 'max_tokens',
+      content: [{ type: 'text', text: '{"greet": "Hola' }],
+    });
+    await expect(claudeProvider()(request)).rejects.toThrow(/lower translate.batchSize/);
+  });
+
+  it('says the answer was not the json it asked for instead of throwing a parse error', async () => {
+    mockSdk();
+    create.mockResolvedValue({
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Sure, here you go:' }],
+    });
+    await expect(claudeProvider()(request)).rejects.toThrow(/did not answer with the JSON object/);
+  });
+
+  it('builds the transport once and reuses it across batches', async () => {
+    mockSdk();
+    create.mockResolvedValue({ content: [{ type: 'text', text: '{}' }] });
+    const provider = claudeProvider();
+    await provider(request);
+    await provider(request);
+    expect(ctor).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('claude prompt: instructions and glossary', () => {
+  it('appends the project instructions to the system prompt', () => {
+    expect(systemPrompt()).not.toContain('Project instructions');
+    const withNotes = systemPrompt('Address the reader as tu.');
+    expect(withNotes).toContain('Verbaly i18n library');
+    expect(withNotes).toContain('Project instructions:');
+    expect(withNotes).toContain('Address the reader as tu.');
+  });
+
+  it('states the glossary as a requirement and leaves it out when empty', () => {
+    const bare = buildPrompt(request);
+    expect(bare).not.toContain('Glossary');
+    const glossed = buildPrompt({ ...request, glossary: { Verbaly: 'Verbaly', cart: 'carrito' } });
+    expect(glossed).toContain('these renderings are required');
+    expect(glossed).toContain('Verbaly -> Verbaly');
+    expect(glossed).toContain('cart -> carrito');
   });
 });
 

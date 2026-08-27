@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.38.0",
+  "version": "0.39.0",
   "description": "Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",

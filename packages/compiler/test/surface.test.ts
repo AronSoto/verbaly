@@ -13,11 +13,14 @@ const VALUES = [
   'collectOrigins',
   'counted',
   'createSourceFilter',
+  'doctor',
   'effectiveDrafts',
   'extractProject',
   'formatCheckResult',
   'formatCheckWarnings',
+  'formatDoctorEntry',
   'formatStatusResult',
+  'formatTranslateFailures',
   'generateDts',
   'generateLocaleModule',
   'generateRuntimeModule',
@@ -40,6 +43,7 @@ const VALUES = [
   'transformCode',
   'transformSource',
   'translateCatalogs',
+  'wrapProject',
   'writeCatalog',
   'writeDts',
 ];
@@ -49,7 +53,10 @@ const TYPES = [
   'Catalog',
   'Catalogs',
   'CheckResult',
+  'DoctorEntry',
+  'DoctorResult',
   'Drafts',
+  'GlossaryEntry',
   'IssueSeverity',
   'LocaleStatus',
   'MissingEntry',
@@ -64,12 +71,18 @@ const TYPES = [
   'SyncResult',
   'TransformResult',
   'TranslateConfig',
+  'TranslateFailure',
   'TranslateOptions',
+  'TranslateProgress',
   'TranslateProvider',
   'TranslateRequest',
   'TranslateResult',
   'UnknownEntry',
   'VerbalyConfig',
+  'WrapEntry',
+  'WrapOptions',
+  'WrapResult',
+  'WrapSkip',
 ];
 
 function declared(): { values: string[]; types: string[] } {
@@ -104,7 +117,7 @@ describe('public surface', () => {
 
   it('keeps the extraction internals out of the surface', () => {
     // the audit's whole point: a bundler plugin gets messages, never the AST types behind them
-    const internals = ['analyze', 'analyzeFile', 'analyzeSfc', 'doctor', 'init', 'wrapProject'];
+    const internals = ['analyze', 'analyzeFile', 'analyzeSfc', 'init'];
     for (const name of internals) expect(compiler).not.toHaveProperty(name);
   });
 });

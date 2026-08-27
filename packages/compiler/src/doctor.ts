@@ -24,6 +24,17 @@ export interface DoctorResult {
 
 const PREVIEW = 5; // keys shown before "…"
 
+const ICON = { ok: '✓', warn: '⚠', error: '✗' } as const;
+
+// one definition of a doctor line: the cli routes it by level, the mcp tool joins the block
+export function formatDoctorEntry(entry: DoctorEntry): string {
+  const head = `  ${ICON[entry.level]} ${entry.check}: ${entry.message}`;
+  return entry.fix
+    ? `${head}
+      fix: ${entry.fix}`
+    : head;
+}
+
 export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   const entries: DoctorEntry[] = [];
   const ok = (name: string, message: string) => entries.push({ level: 'ok', check: name, message });
@@ -136,10 +147,9 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     const unreadable = registry.parseErrors();
     if (unreadable.length > 0) {
       const first = unreadable[0]!;
-      const one = unreadable.length === 1;
       warn(
         'sources',
-        `${unreadable.length} ${one ? 'file' : 'files'} could not be parsed, so ${one ? 'its' : 'their'} messages are not extracted (${rel(first.file)}: ${first.message})`,
+        `could not parse ${counted(unreadable.length, 'file')}, so the messages inside are not extracted (${rel(first.file)}: ${first.message})`,
         'fix the syntax error, or exclude the file in your config if it is not source',
       );
     }
@@ -148,7 +158,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       const files = [...new Set(stray.map((entry) => rel(entry.file)))];
       error(
         'imports',
-        `${files.length} ${files.length === 1 ? 'file imports' : 'files import'} t from a verbaly package, which never exports it (${preview(files)})`,
+        `t is imported from a verbaly package, which never exports it, in ${counted(files.length, 'file')} (${preview(files)})`,
         't comes from your instance (React: const t = useT()) or from virtual:verbaly',
       );
     }
@@ -158,7 +168,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     if (escaped.length > 0) {
       warn(
         'messages',
-        `${escaped.length} extracted ${escaped.length === 1 ? 'message keeps' : 'messages keep'} a block as literal text (${escaped[0]!.file}: ${escaped[0]!.slice})`,
+        `a block ships as literal text in ${counted(escaped.length, 'extracted message')} (${escaped[0]!.file}: ${escaped[0]!.slice})`,
         'a tagged template takes its values from ${…}: use t(key, params) for a plural or format block',
       );
     }
@@ -170,7 +180,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     if (orphans.length > 0) {
       warn(
         'orphans',
-        `${orphans.length} catalog ${orphans.length === 1 ? 'key is' : 'keys are'} no longer referenced (${preview(orphans)})`,
+        `${counted(orphans.length, 'catalog key')} no longer referenced in code (${preview(orphans)})`,
         'run `npx verbaly extract --prune` to drop them',
       );
     } else {
@@ -183,7 +193,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     if (result.unknown.length > 0) {
       error(
         'keys',
-        `${result.unknown.length} unknown ${result.unknown.length === 1 ? 'key' : 'keys'} used in code (${preview(result.unknown.map((u) => u.key))})`,
+        `${counted(result.unknown.length, 'unknown key')} used in code (${preview(result.unknown.map((u) => u.key))})`,
         'fix the key or add it to the catalogs (`npx verbaly check` for details)',
       );
     }
@@ -191,7 +201,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       const locales = [...new Set(result.missing.map((m) => m.locale))];
       warn(
         'translations',
-        `${result.missing.length} missing ${result.missing.length === 1 ? 'translation' : 'translations'} (${locales.join(', ')})`,
+        `${counted(result.missing.length, 'missing translation')} (${locales.join(', ')})`,
         'run `npx verbaly translate` or fill the catalogs (`npx verbaly check` for details)',
       );
     }
@@ -201,7 +211,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       const locales = [...new Set(broken.map((b) => b.locale))];
       error(
         'translations',
-        `${broken.length} broken ${broken.length === 1 ? 'translation' : 'translations'} (${locales.join(', ')}): present but not rendering what the source renders`,
+        `${counted(broken.length, 'broken translation')} (${locales.join(', ')}): present but not rendering what the source renders`,
         'run `npx verbaly check` to read what each one lost',
       );
     }
@@ -209,7 +219,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     if (warnings.length > 0) {
       warn(
         'translations',
-        `${warnings.length} structural ${warnings.length === 1 ? 'warning' : 'warnings'} (plural forms a language asks for)`,
+        `${counted(warnings.length, 'structural warning')} (plural forms a language asks for)`,
         'run `npx verbaly check` to read them, they never fail the build',
       );
     }

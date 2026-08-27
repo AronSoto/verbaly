@@ -1,5 +1,6 @@
 // Layer 1: what a project using verbaly touches, its config file and a custom translate provider.
 export type {
+  GlossaryEntry,
   RedirectConfig,
   RenderConfig,
   ResolvedConfig,
@@ -7,7 +8,9 @@ export type {
   VerbalyConfig,
 } from './config';
 export type {
+  TranslateFailure,
   TranslateOptions,
+  TranslateProgress,
   TranslateProvider,
   TranslateRequest,
   TranslateResult,
@@ -54,7 +57,13 @@ export { counted } from './text';
 export { effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 export type { Drafts } from './drafts';
 
-export { resolveProvider, translateCatalogs } from './translate';
+export { formatTranslateFailures, resolveProvider, translateCatalogs } from './translate';
+
+export { doctor, formatDoctorEntry } from './doctor';
+export type { DoctorEntry, DoctorResult } from './doctor';
+
+export { wrapProject } from './wrap';
+export type { WrapEntry, WrapOptions, WrapResult, WrapSkip } from './wrap';
 
 export { renderSite } from './render';
 export type { RenderSiteOptions, RenderSiteResult } from './render';

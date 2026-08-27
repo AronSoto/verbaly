@@ -1,7 +1,7 @@
 {
   "name": "@verbaly/mcp",
-  "version": "0.38.0",
-  "description": "MCP server for Verbaly: translation status, missing keys, extraction and machine translation as tools for coding agents.",
+  "version": "0.39.0",
+  "description": "MCP server for Verbaly: diagnosis, onboarding, extraction, coverage and machine translation as tools for coding agents.",
   "keywords": [
     "i18n",
     "mcp",
@@ -16,7 +16,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/mcp"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/reference/cli",
+  "homepage": "https://verbaly-web.vercel.app/docs/guide/agents",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

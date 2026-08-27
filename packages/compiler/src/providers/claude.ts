@@ -16,38 +16,67 @@ Rules:
 - Preserve verbatim: placeholders like {name}, format specs like {price:currency/EUR}, variant blocks like {count | one: ... | other: # ...} (translate only the text inside each variant, keep keys and # as-is), ICU syntax, named tags like <em>...</em> and escapes {{ }} || ##.
 - Keys are opaque identifiers: return exactly the same keys, never translate or rename them.`;
 
+export function systemPrompt(instructions?: string): string {
+  return instructions ? `${SYSTEM}\n\nProject instructions:\n${instructions}` : SYSTEM;
+}
+
 export function claudeProvider(options: ClaudeProviderOptions = {}): TranslateProvider {
+  // one client per provider: a batch is a request, not a reason to rebuild the transport
+  let client: Promise<InstanceType<typeof import('@anthropic-ai/sdk').default>> | undefined;
+
   return async (request: TranslateRequest) => {
-    const Anthropic = await loadSdk();
-    const client = new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {});
-    const response = await client.messages.create({
+    client ??= loadSdk().then(
+      (Anthropic) => new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {}),
+    );
+    const response = await (
+      await client
+    ).messages.create({
       model: options.model ?? DEFAULT_MODEL,
       max_tokens: options.maxTokens ?? 16000,
       thinking: { type: 'disabled' },
-      system: SYSTEM,
+      system: systemPrompt(request.instructions),
       messages: [{ role: 'user', content: buildPrompt(request) }],
       output_config: { format: batchFormat(request) },
     });
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error(
+        `[verbaly] the model ran out of output room on a batch of ${Object.keys(request.messages).length} messages: lower translate.batchSize (or raise maxTokens on the provider)`,
+      );
+    }
     const text = response.content.find((block) => block.type === 'text')?.text ?? '{}';
-    return JSON.parse(text) as Record<string, string>;
+    try {
+      return JSON.parse(text) as Record<string, string>;
+    } catch (error) {
+      throw new Error('[verbaly] the model did not answer with the JSON object it was asked for', {
+        cause: error,
+      });
+    }
   };
 }
 
 export function buildPrompt(request: TranslateRequest): string {
-  const origins = request.origins;
-  const context =
-    origins && Object.keys(origins).length
-      ? `\n\nWhere each string appears (context for tone and length, do not translate these paths):\n` +
-        Object.entries(origins)
-          .map(([key, files]) => `  ${key}: ${files.join(', ')}`)
-          .join('\n')
-      : '';
   return (
     `Translate each value from "${request.sourceLocale}" to "${request.targetLocale}". ` +
     `Return a JSON object with the same keys and translated values.\n\n` +
     JSON.stringify(request.messages, null, 2) +
-    context
+    glossarySection(request) +
+    originsSection(request)
   );
+}
+
+// the glossary is a requirement, not a hint: it exists because a brand name came back translated
+function glossarySection(request: TranslateRequest): string {
+  const glossary = request.glossary;
+  if (!glossary || Object.keys(glossary).length === 0) return '';
+  const lines = Object.entries(glossary).map(([term, rendering]) => `  ${term} -> ${rendering}`);
+  return `\n\nGlossary, these renderings are required wherever the term appears:\n${lines.join('\n')}`;
+}
+
+function originsSection(request: TranslateRequest): string {
+  const origins = request.origins;
+  if (!origins || Object.keys(origins).length === 0) return '';
+  const lines = Object.entries(origins).map(([key, files]) => `  ${key}: ${files.join(', ')}`);
+  return `\n\nWhere each string appears (context for tone and length, do not translate these paths):\n${lines.join('\n')}`;
 }
 
 export function batchFormat(request: TranslateRequest) {

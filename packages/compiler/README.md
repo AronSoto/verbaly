@@ -67,6 +67,23 @@ Hand-edited catalogs get the same treatment as imported files: the gate does not
 
 `verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK; install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Placeholders, variants and tags are validated after translation: anything not preserved verbatim stays `""` so `check` keeps failing.
 
+Long runs survive the network. Batches go out in parallel (`translate.concurrency`, default 4), a transient failure is retried (`translate.retries`, default 2), and a batch that still does not answer is reported with its keys while every batch that did answer is written: re-running asks only for what is left.
+
+Two config options steer the wording. `translate.instructions` is free text appended to the system prompt (tone, address form, product voice), and `translate.glossary` states how a term has to come out, for all locales or per locale, so a brand name never comes back translated:
+
+```ts
+export default {
+  sourceLocale: 'en',
+  locales: ['en', 'es', 'pt'],
+  translate: {
+    instructions: 'Address the reader informally. Keep UI labels short.',
+    glossary: { Verbaly: 'Verbaly', checkout: { es: 'pago', pt: 'pagamento' } },
+  },
+};
+```
+
+Only the terms a batch actually contains are sent, so a glossary of hundreds never becomes the prompt.
+
 **Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-drafts.json` (commit it, never edit it by hand). `verbaly review` lists the drafts, `--approve` accepts them, and importing a translator's file clears the flag because a human already reviewed it. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing.
 
 Plug your own provider in `verbaly.config.ts`. In TypeScript, `TranslateProvider` types it for you:
@@ -74,8 +91,9 @@ Plug your own provider in `verbaly.config.ts`. In TypeScript, `TranslateProvider
 ```ts
 import type { TranslateProvider } from '@verbaly/compiler';
 
-const provider: TranslateProvider = async ({ sourceLocale, targetLocale, messages, origins }) => {
+const provider: TranslateProvider = async ({ targetLocale, messages, origins, glossary }) => {
   // origins maps a key to the source files it appears in, so you can translate with context
+  // glossary and instructions ride along too: a custom provider gets the same steering
   return { ...translated };
 };
 
@@ -137,7 +155,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 
 **Your project's own types**, for a typed config file or a custom provider:
 
-`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `RedirectConfig` · `TranslateConfig` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions`
+`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `RedirectConfig` · `TranslateConfig` · `GlossaryEntry` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions` · `TranslateProgress` · `TranslateFailure`
 
 **Building an integration.** This is exactly what `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/next`, `@verbaly/astro`, `@verbaly/nuxt` and `@verbaly/mcp` consume, so a third one has everything they have:
 
@@ -150,7 +168,9 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | The gate          | `check` `formatCheckResult` `formatCheckWarnings` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `IssueSeverity`                                                                                                      |
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                            |
 | Draft review      | `loadDrafts` `saveDrafts` `markDrafts` `effectiveDrafts` · type `Drafts`                                                                                                                                                                 |
-| Translation       | `translateCatalogs` `resolveProvider`                                                                                                                                                                                                    |
+| Translation       | `translateCatalogs` `resolveProvider` `formatTranslateFailures`                                                                                                                                                                          |
+| Diagnosis         | `doctor` `formatDoctorEntry` · types `DoctorResult` `DoctorEntry`                                                                                                                                                                        |
+| Onboarding        | `wrapProject` · types `WrapResult` `WrapEntry` `WrapSkip` `WrapOptions`                                                                                                                                                                  |
 | Static rendering  | `renderSite` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                                                                              |
 
 A minimal plugin is `loadConfig` + `loadCatalogs` once, then `transformSource` per file and `runBuildGate` at the end:

@@ -5,10 +5,17 @@ import type { RichLink } from 'verbaly';
 import { PSEUDO_LOCALE } from './pseudo';
 import type { TranslateProvider } from './translate';
 
+// a term maps to how it must come out: one rendering for every locale, or one per locale
+export type GlossaryEntry = string | Record<string, string>;
+
 export interface TranslateConfig {
   provider?: 'claude' | TranslateProvider;
   model?: string;
   batchSize?: number;
+  concurrency?: number;
+  retries?: number;
+  instructions?: string;
+  glossary?: Record<string, GlossaryEntry>;
 }
 
 export interface RedirectConfig {

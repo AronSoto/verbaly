@@ -10,7 +10,7 @@ import {
 } from './check';
 import { writeDts } from './codegen';
 import { loadConfig, type ResolvedConfig } from './config';
-import { doctor } from './doctor';
+import { doctor, formatDoctorEntry } from './doctor';
 import { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
 import { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
@@ -20,7 +20,12 @@ import { renderSite } from './render';
 import type { MessageRegistry } from './registry';
 import { formatStatusResult, status } from './status';
 import { counted } from './text';
-import { resolveProvider, translateCatalogs } from './translate';
+import {
+  formatTranslateFailures,
+  resolveProvider,
+  translateCatalogs,
+  type TranslateProgress,
+} from './translate';
 import { escapedSyntax } from './validate';
 import { watchProject } from './watch';
 import { wrapProject } from './wrap';
@@ -139,14 +144,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'doctor') {
     const result = await doctor(cfg);
-    const icon = { ok: '✓', warn: '⚠', error: '✗' } as const;
     console.log(`[verbaly] doctor: ${counted(result.entries.length, 'check')}`);
     for (const entry of result.entries) {
-      const line = `  ${icon[entry.level]} ${entry.check}: ${entry.message}`;
+      const line = formatDoctorEntry(entry);
       if (entry.level === 'error') console.error(line);
       else if (entry.level === 'warn') console.warn(line);
       else console.log(line);
-      if (entry.fix) console.log(`      fix: ${entry.fix}`);
     }
     if (result.ok) {
       console.log('[verbaly] setup looks healthy ✓');
@@ -295,9 +298,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const result = await translateCatalogs(cfg, catalogs, provider, {
       locales: values.locales?.split(','),
       batchSize: cfg.translate.batchSize,
+      concurrency: cfg.translate.concurrency,
+      retries: cfg.translate.retries,
       dryRun: values['dry-run'],
       // dry-run never calls the provider: skip the full extract origins need
       origins: values['dry-run'] ? undefined : await collectOrigins(cfg),
+      onProgress: values['dry-run'] ? undefined : reportProgress,
     });
 
     if (values['dry-run']) {
@@ -325,7 +331,13 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         `  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,
       );
     }
-    if (Object.keys(result.translated).length === 0 && Object.keys(result.invalid).length === 0) {
+    for (const line of formatTranslateFailures(result.failed)) console.error(line);
+    if (result.failed.length > 0) process.exitCode = 1;
+    if (
+      Object.keys(result.translated).length === 0 &&
+      Object.keys(result.invalid).length === 0 &&
+      result.failed.length === 0
+    ) {
       console.log('[verbaly] nothing to translate ✓');
     }
     return;
@@ -487,6 +499,13 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   console.error(`[verbaly] unknown command "${command}"\n${HELP}`);
   process.exitCode = 1;
+}
+
+// a translate run is minutes of network: say what landed as it lands, never only at the end
+function reportProgress(progress: TranslateProgress): void {
+  const head = `  ${progress.locale} ${progress.batch}/${progress.batches}`;
+  if (progress.error) console.warn(`${head}: failed (${progress.error}), continuing`);
+  else console.log(`${head}: ${counted(progress.keys, 'message')}`);
 }
 
 // every compiler error already opens with [verbaly]: prefix only what does not

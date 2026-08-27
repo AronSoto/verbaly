@@ -51,7 +51,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Bench vs i18next: **26.5× / 11.8× / 4.7× / 4.7×** (lookup, interpolation, plural, currency), against 23.1/12.4/4.5/3.7 in 0.39.0. `t()` was not touched, so the spread is the machine.
 - **No new dependencies, and every existing one taken to its latest stable and validated green** (rule 4, and the debt the 0.39.0 entry left behind): `magic-string` 1.2.3 · `picomatch` 4.0.7 · `vite` 8.2.2 · `astro` 7.2.7 · `next` 16.3.3 · `svelte` 5.56.10 · `@sveltejs/kit` 2.70.3 · `vitest` and `@vitest/coverage-v8` 4.1.11 · `happy-dom` 20.11.6 · `@types/node` 26.3.0 · `@types/react-dom` 19.2.5. `pnpm outdated -r` is empty. No change to the message format, the key scheme or the catalog format.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > One page gains the naming and the head, and one word changes in the config reference.
 

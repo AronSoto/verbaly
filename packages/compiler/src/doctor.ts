@@ -24,6 +24,12 @@ export interface DoctorResult {
 
 const PREVIEW = 5; // keys shown before "…"
 
+const ROUTING_SAYS: Record<ResolvedConfig['routing'], string> = {
+  'prefix-except-source': 'the source locale has no prefix, every other locale does',
+  'prefix-all': 'every locale has a prefix, the source included',
+  'no-prefix': 'the language is not in the url, one address serves every locale',
+};
+
 const ICON = { ok: '✓', warn: '⚠', error: '✗' } as const;
 
 // one definition of a doctor line: the cli routes it by level, the mcp tool joins the block
@@ -107,6 +113,17 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       `source catalog ${cfg.sourceLocale}.json is empty`,
       'write your first t`…` message and run `npx verbaly extract`',
     );
+  }
+
+  const mirrors = cfg.render.site !== undefined || Object.keys(cfg.render).length > 0;
+  if (cfg.routing === 'no-prefix' && mirrors) {
+    warn(
+      'routing',
+      'routing is "no-prefix" but a render section is configured, and render writes one url tree per locale',
+      'drop the render section, or set routing to "prefix-except-source" so the helpers agree with the urls',
+    );
+  } else {
+    ok('routing', `${cfg.routing}: ${ROUTING_SAYS[cfg.routing]}`);
   }
 
   const deps = readDependencies(cfg.root);

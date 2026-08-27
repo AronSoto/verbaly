@@ -20,6 +20,7 @@ import {
 import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
 import type { RedirectConfig, ResolvedConfig } from './config';
+import { counted } from './text';
 
 export interface Alternate {
   hreflang: string;
@@ -342,6 +343,19 @@ export interface RenderSiteResult {
   files: number;
   locales: string[];
   missing: Record<string, string[]>;
+  untranslatedHead: string[];
+}
+
+const TITLE_TAG = /<title\b([^>]*)>/i;
+const REFRESH_META = /<meta\b[^>]*http-equiv\s*=\s*["']?refresh/i;
+
+// a page whose <title> carries no key ships the source language to every locale, and the title is
+// most of what a search result shows: putting the locale in the url buys nothing without it
+function headIsBound(html: string, attr: string): boolean {
+  // a page that only redirects is never a search result, so its title is nobody's to translate
+  if (REFRESH_META.test(html)) return true;
+  const title = TITLE_TAG.exec(html);
+  return title ? title[1]!.includes(attr) : true;
 }
 
 // mirrors the built site per locale: dist/index.html → dist/<locale>/index.html
@@ -388,10 +402,15 @@ export async function renderSite(
   const pages = new Set(files.map((file) => publicPath(relative(site, file).replace(/\\/g, '/'))));
 
   const missing: Record<string, string[]> = {};
+  const untranslatedHead: string[] = [];
   const urls: Array<{ rel: string; alternates: Alternate[] }> = [];
   for (const file of files) {
     const html = readFileSync(file, 'utf8');
     const rel = relative(site, file).replace(/\\/g, '/');
+    // one locale is not a mirror, so there is no second title for this one to disagree with
+    if (locales.length > 1 && !headIsBound(html, attribute ?? 'data-verbaly')) {
+      untranslatedHead.push(rel);
+    }
     const alternates = wantHreflang ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale) : [];
     if (wantHreflang) urls.push({ rel, alternates });
     // only the source tree carries it: the mirror page a visitor reaches is already the answer
@@ -423,7 +442,22 @@ export async function renderSite(
     writeFileSync(join(site, name), buildSitemap(urls));
   }
 
-  return { files: files.length, locales: [...locales], missing };
+  return { files: files.length, locales: [...locales], missing, untranslatedHead };
+}
+
+// the cli and @verbaly/astro both run the mirror, so what it warns about is written once
+export function formatRenderWarnings(result: RenderSiteResult, sourceLocale: string): string[] {
+  const lines: string[] = [];
+  for (const [locale, keys] of Object.entries(result.missing)) {
+    lines.push(`  ${locale}: ${counted(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`);
+  }
+  if (result.untranslatedHead.length > 0) {
+    lines.push(
+      `  ${counted(result.untranslatedHead.length, 'page')} of ${result.files} ship the same <title> in every locale (${result.untranslatedHead[0]}), so search results read in ${sourceLocale}`,
+      `    fix: bind the head too, <title data-verbaly="key"> and a meta through data-verbaly-attr`,
+    );
+  }
+  return lines;
 }
 
 // public URL of a built page path (index.html → directory URL)

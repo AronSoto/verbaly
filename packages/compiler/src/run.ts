@@ -16,7 +16,7 @@ import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } fro
 import { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
-import { renderSite } from './render';
+import { formatRenderWarnings, renderSite } from './render';
 import type { MessageRegistry } from './registry';
 import { formatStatusResult, status } from './status';
 import { counted } from './text';
@@ -480,11 +480,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     console.log(
       `[verbaly] ${counted(result.files, 'page')} × ${counted(result.locales.length, 'locale')} (${result.locales.join(', ')})`,
     );
-    for (const [locale, keys] of Object.entries(result.missing)) {
-      console.warn(
-        `  ${locale}: ${counted(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`,
-      );
-    }
+    for (const line of formatRenderWarnings(result, cfg.sourceLocale)) console.warn(line);
     return;
   }
 

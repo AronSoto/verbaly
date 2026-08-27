@@ -90,6 +90,7 @@ const v = createVerbaly({
   locale: resolveLocale({ supported: ['en', 'es', 'pt'] }), // storage → navigator → fallback
   /* … */
 });
+// { root: document } so the <title> and the meta description translate with the page
 bindDom(v, {
   richLinks: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } }, // named links
 }); // renders + re-renders on locale change

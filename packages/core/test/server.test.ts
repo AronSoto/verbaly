@@ -52,7 +52,9 @@ describe('server-side (Node)', () => {
     );
     expect(localeFromPath({ supported: ['en', 'es'], path: '/es/x' })).toBe('es');
     expect(localeFromPath({ supported: ['en', 'es'] })).toBeUndefined();
-    expect(() => localePath('es', { supported: ['en', 'es'] })).not.toThrow();
+    expect(() =>
+      localePath('es', { supported: ['en', 'es'], routing: 'prefix-all' }),
+    ).not.toThrow();
   });
 
   it('persistLocale is a no-op (no throw) without document', () => {

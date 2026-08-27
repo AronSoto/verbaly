@@ -529,3 +529,34 @@ describe('bindDom rich links', () => {
     expect(el.textContent).toBe('Lee la guía completa');
   });
 });
+
+describe('bindDom and the head', () => {
+  it('names the head it cannot reach instead of leaving the title in the source language', () => {
+    document.head.innerHTML = '<title data-verbaly="greet">Hello</title>';
+    document.body.innerHTML = '<p data-verbaly="greet">Hello</p>';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({ locale: 'es', messages: { es: { greet: 'Hola' } } });
+
+    const stop = bindDom(v);
+
+    expect(document.body.textContent).toBe('Hola');
+    expect(document.title).toBe('Hello');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('{ root: document }'));
+    stop();
+    warn.mockRestore();
+    document.head.innerHTML = '';
+  });
+
+  it('reaches the title when the root says so', () => {
+    document.head.innerHTML = '<title data-verbaly="bye">Bye</title>';
+    document.body.innerHTML = '<p data-verbaly="bye">Bye</p>';
+    const v = createVerbaly({ locale: 'es', messages: { es: { bye: 'Chau' } } });
+
+    const stop = bindDom(v, { root: document });
+
+    expect(document.title).toBe('Chau');
+    expect(document.body.textContent).toBe('Chau');
+    stop();
+    document.head.innerHTML = '';
+  });
+});

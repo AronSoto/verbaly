@@ -645,6 +645,68 @@ describe('what the redirect script does when it runs', () => {
   });
 });
 
+describe('renderSite: the head is half the page a search result shows', () => {
+  function site(page: string): string {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-head-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(root, 'dist'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify(CATALOGS.en));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify(CATALOGS.es));
+    writeFileSync(join(root, 'dist', 'index.html'), page);
+    return root;
+  }
+
+  it('names the pages whose title never varies', async () => {
+    const root = site(
+      '<html><head><title>Search and find</title></head>' +
+        '<body><h1 data-verbaly="home.hint">x</h1></body></html>',
+    );
+    const result = await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+    expect(result.untranslatedHead).toEqual(['index.html']);
+  });
+
+  it('says nothing when the title carries a key, and fills it', async () => {
+    const root = site(
+      '<html><head><title data-verbaly="home.hint">Search and find</title></head>' +
+        '<body><h1 data-verbaly="home.hint">x</h1></body></html>',
+    );
+    const result = await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+    expect(result.untranslatedHead).toEqual([]);
+    const es = readFileSync(join(root, 'dist', 'es', 'index.html'), 'utf8');
+    expect(es).toContain('<title data-verbaly="home.hint">Busca y encuentra</title>');
+  });
+
+  it('fills a meta description through the attribute path, guards included', async () => {
+    const root = site(
+      '<html><head><title data-verbaly="home.hint">x</title>' +
+        `<meta name="description" content="x" data-verbaly-attr='{"content":"home.hint"}'>` +
+        '</head><body></body></html>',
+    );
+    await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+    const es = readFileSync(join(root, 'dist', 'es', 'index.html'), 'utf8');
+    expect(es).toContain('content="Busca y encuentra"');
+  });
+
+  it('never flags a redirect stub: it is no search result', async () => {
+    const root = site(
+      '<html><head><meta http-equiv="refresh" content="0;url=/docs/init/what-is">' +
+        '<title>Redirecting</title></head><body></body></html>',
+    );
+    const result = await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+    expect(result.untranslatedHead).toEqual([]);
+  });
+
+  it('stays quiet with one locale: there is no second title to disagree with', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-head-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(root, 'dist'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify(CATALOGS.en));
+    writeFileSync(join(root, 'dist', 'index.html'), '<html><head><title>x</title></head></html>');
+    const result = await renderSite(resolveConfig({ root, sourceLocale: 'en', locales: ['en'] }));
+    expect(result.untranslatedHead).toEqual([]);
+  });
+});
+
 describe('renderSite', () => {
   it('mirrors pages per locale and fills source in place', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));

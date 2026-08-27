@@ -100,6 +100,36 @@ const provider: TranslateProvider = async ({ targetLocale, messages, origins, gl
 export default { sourceLocale: 'en', locales: ['en', 'es'], translate: { provider } };
 ```
 
+## 🔗 Where the language lives in the URL
+
+One setting, because every other URL answer follows from it:
+
+```ts
+export default {
+  sourceLocale: 'en',
+  locales: ['en', 'es', 'pt'],
+  routing: 'prefix-except-source', // the default: /docs and /es/docs
+};
+```
+
+| `routing`              | The address               | Switching language is         |
+| ---------------------- | ------------------------- | ----------------------------- |
+| `prefix-except-source` | `/docs` and `/es/docs`    | a navigation                  |
+| `prefix-all`           | `/en/docs` and `/es/docs` | a navigation                  |
+| `no-prefix`            | `/docs` in every language | the text changing where it is |
+
+Pick by surface, not by taste: [Google recommends a different URL per language](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites) rather than cookies or browser settings, so anything people reach through search wants the language in the address. An app behind a login loses nothing with `no-prefix`.
+
+`virtual:verbaly` exports `routing` plus `localePath` and `localeFromPath` **already bound** to your locales, source and mode, so a locale switcher has nothing left to pass wrong:
+
+```ts
+import { localePath, routing } from 'virtual:verbaly';
+
+location.assign(localePath('es')); // /es/docs, or the same url under no-prefix
+```
+
+`npx verbaly doctor` names the mode you are in, and says so when `no-prefix` sits next to a `render` section that writes one URL tree per locale.
+
 ## 🌍 Human translators & TMS
 
 Catalogs are **flat JSON**: most TMS platforms (Crowdin, Lokalise, Phrase, …) ingest them natively; point the platform at `locales/` and you're done. For everything else there's a built-in round-trip:
@@ -137,6 +167,16 @@ render: { links: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } } 
 
 Per-element `data-verbaly-links='{"repo":"https://…"}'` merges over the config map.
 
+**The head is half of what a search result shows.** A mirrored page whose `<title>` and `<meta name="description">` are not bound ships the source language to every locale, which is most of the reason to give a locale its own URL in the first place. Bind them like anything else, and `render` fills them:
+
+```html
+<title data-verbaly="page.title">URL strategy</title>
+<meta name="description" content="…" data-verbaly-attr='{"content":"page.desc"}' />
+<meta property="og:title" content="…" data-verbaly-attr='{"content":"page.title"}' />
+```
+
+`verbaly render` counts the pages whose title never varies and says so, once, with the fix. It is a warning and never fails a build: a site can have a name that does not translate.
+
 **Multi-locale SEO**: set `render.baseUrl` (or `--base-url`) and every page gets reciprocal `<link rel="alternate" hreflang>` (plus `x-default`) for the whole locale set; `--sitemap` writes a locale-aware `sitemap-i18n.xml`. `--clean` drops stale `dist/<locale>/` pages before mirroring. Injection is idempotent.
 
 ## 🔍 Pseudo-localization
@@ -171,7 +211,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | Translation       | `translateCatalogs` `resolveProvider` `formatTranslateFailures`                                                                                                                                                                          |
 | Diagnosis         | `doctor` `formatDoctorEntry` · types `DoctorResult` `DoctorEntry`                                                                                                                                                                        |
 | Onboarding        | `wrapProject` · types `WrapResult` `WrapEntry` `WrapSkip` `WrapOptions`                                                                                                                                                                  |
-| Static rendering  | `renderSite` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                                                                              |
+| Static rendering  | `renderSite` `formatRenderWarnings` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                                                       |
 
 A minimal plugin is `loadConfig` + `loadCatalogs` once, then `transformSource` per file and `runBuildGate` at the end:
 

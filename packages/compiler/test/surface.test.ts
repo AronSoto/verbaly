@@ -19,6 +19,7 @@ const VALUES = [
   'formatCheckResult',
   'formatCheckWarnings',
   'formatDoctorEntry',
+  'formatRenderWarnings',
   'formatStatusResult',
   'formatTranslateFailures',
   'generateDts',

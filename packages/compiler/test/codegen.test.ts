@@ -150,3 +150,22 @@ describe('generateDts', () => {
     );
   });
 });
+
+describe('routing reaches the virtual module', () => {
+  it('exports the mode and helpers already bound to it', () => {
+    const cfg = resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'], routing: 'prefix-all' });
+    const mod = generateRuntimeModule(cfg);
+    expect(mod).toContain('export const routing = "prefix-all"');
+    // bound means the caller has nothing left to pass wrong: that was the whole footgun
+    expect(mod).toContain('supported: locales, sourceLocale, routing');
+    expect(mod).toContain('export function localePath(locale, options)');
+    expect(mod).toContain('export function localeFromPath(options)');
+  });
+
+  it('declares them in the generated types', () => {
+    const dts = generateDts({ a: 'Hi' });
+    expect(dts).toContain("export const routing: import('verbaly').Routing;");
+    expect(dts).toContain('export function localePath(');
+    expect(dts).toContain('export function localeFromPath(');
+  });
+});

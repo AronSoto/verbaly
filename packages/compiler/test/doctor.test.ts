@@ -283,3 +283,31 @@ describe('doctor', () => {
     expect(entry(result.entries, 'translations')?.message).toBe('all translations complete');
   });
 });
+
+describe('doctor: the url mode has a name now', () => {
+  const routingOf = async (cfg: ReturnType<typeof makeProject>) =>
+    (await doctor(cfg)).entries.find((entry) => entry.check === 'routing');
+
+  it('says which mode the project is in', async () => {
+    const entry = await routingOf(makeProject());
+    expect(entry?.level).toBe('ok');
+    expect(entry?.message).toContain('prefix-except-source');
+    expect(entry?.message).toContain('the source locale has no prefix');
+  });
+
+  it('names the contradiction between no-prefix and a render section', async () => {
+    const base = makeProject();
+    const entry = await routingOf({ ...base, routing: 'no-prefix', render: { sitemap: true } });
+    // a warn and not an error: it builds and it renders, it just disagrees with itself
+    expect(entry?.level).toBe('warn');
+    expect(entry?.message).toContain('render writes one url tree per locale');
+    expect(entry?.fix).toContain('prefix-except-source');
+  });
+
+  it('a no-prefix project without render is simply in that mode', async () => {
+    const base = makeProject();
+    const entry = await routingOf({ ...base, routing: 'no-prefix' });
+    expect(entry?.level).toBe('ok');
+    expect(entry?.message).toContain('one address serves every locale');
+  });
+});

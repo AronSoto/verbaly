@@ -3,6 +3,7 @@ import {
   generateDts,
   loadCatalogs,
   loadConfig,
+  formatRenderWarnings,
   renderSite,
   type RenderConfig,
 } from '@verbaly/compiler';
@@ -81,11 +82,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         console.log(
           `[verbaly] render: ${counted(result.files, 'page')} × ${counted(result.locales.length, 'locale')} (${result.locales.join(', ')})`,
         );
-        for (const [locale, keys] of Object.entries(result.missing)) {
-          console.warn(
-            `  ${locale}: ${counted(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`,
-          );
-        }
+        for (const line of formatRenderWarnings(result, cfg.sourceLocale)) console.warn(line);
       },
     },
   };

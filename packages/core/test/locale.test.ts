@@ -62,8 +62,32 @@ describe('localePath', () => {
     expect(localePath('es', { ...opts, path: there })).toBe('/es/docs/guide');
   });
 
-  it('with no sourceLocale every locale gets a prefix', () => {
-    expect(localePath('en', { supported: SUPPORTED, path: '/es/docs' })).toBe('/en/docs');
+  it('prefix-all keeps the source locale in the address too', () => {
+    const all = { supported: SUPPORTED, routing: 'prefix-all' } as const;
+    expect(localePath('en', { ...all, path: '/es/docs' })).toBe('/en/docs');
+    expect(localePath('es', { ...all, path: '/docs' })).toBe('/es/docs');
+    // it ignores sourceLocale on purpose: the mode is the decision, not the locale
+    expect(localePath('en', { ...all, sourceLocale: 'en', path: '/docs' })).toBe('/en/docs');
+  });
+
+  it('no-prefix is the identity, so one switcher works in both modes', () => {
+    const none = { supported: SUPPORTED, routing: 'no-prefix' } as const;
+    expect(localePath('es', { ...none, path: '/docs/start' })).toBe('/docs/start');
+    expect(localePath('pt', { ...none, path: '/docs?q=1#top' })).toBe('/docs?q=1#top');
+    expect(localePath('en', { ...none, base: '/app', path: '/app/docs' })).toBe('/app/docs');
+  });
+
+  it('names the mode when prefix-except-source is missing its source locale', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // the shape TypeScript now refuses: reachable only from JavaScript, so it warns instead
+    const options = { supported: SUPPORTED, path: '/es/docs' } as unknown as Parameters<
+      typeof localePath
+    >[1];
+    expect(localePath('en', options)).toBe('/en/docs');
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('prefix-except-source" prefixed every locale'),
+    );
+    warn.mockRestore();
   });
 });
 

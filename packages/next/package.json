@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/next",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "Next.js integration for Verbaly: App Router/RSC with per-request locale negotiation, Turbopack and webpack support, flash-free hydration.",
   "keywords": [
     "i18n",
@@ -74,10 +74,10 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
+    "@types/react-dom": "^19.2.5",
     "@verbaly/react": "workspace:^",
-    "happy-dom": "^20.11.2",
-    "next": "^16.3.1",
+    "happy-dom": "^20.11.6",
+    "next": "^16.3.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "verbaly": "workspace:^"

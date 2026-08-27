@@ -28,6 +28,8 @@ Prefer the MCP server when available: `claude mcp add verbaly -- npx -y @verbaly
 - **`""` in a catalog means untranslated** (falls back to the source language). Intentional empty text is `' '`.
 - **Params and tags must survive translation**: `{name}` placeholders and `<em>…</em>` tags stay verbatim in every locale, or the entry is rejected.
 - **Rich text is whitelisted**: messages may carry phrasing tags (`<em>`, `<strong>`, `<code>`…); links go through named tags plus a links map, never literal `<a href>` in a message.
+- **`routing` says where the language lives in the URL**: `'prefix-except-source'` (default, `/docs` and `/es/docs`), `'prefix-all'`, or `'no-prefix'` (one address for every language). Import `localePath` and `localeFromPath` from `virtual:verbaly`, not from `verbaly`: those are already bound to the project's locales, source and mode.
+- **Bind the head, not just the body.** A translated page with an English `<title>` and `<meta name="description">` is a half translation, and those two are most of what a search result shows: `<title data-verbaly="key">` and `<meta data-verbaly-attr='{"content":"key"}'>`. At runtime `bindDom` needs `{ root: document }` to reach them; its default root is the body.
 - Config lives in `verbaly.config.{js,ts,json}` (`locales`, `include`, `dir`); `npx verbaly init` scaffolds it and detects the bundler.
 - **Terms that must not be translated go in `translate.glossary`**, never fixed by hand after the fact: `{ Verbaly: 'Verbaly', checkout: { es: 'pago' } }`. Tone and address form go in `translate.instructions`.
 

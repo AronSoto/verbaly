@@ -18,14 +18,14 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.8.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.9.1",
     "prettier": "^3.9.6",
     "prettier-plugin-astro": "^0.14.1",
     "tsdown": "^0.22.14",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "^8.67.0",
+    "typescript-eslint": "^8.68.0",
     "unrun": "^0.3.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

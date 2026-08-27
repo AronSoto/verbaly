@@ -22,11 +22,21 @@ export function generateRuntimeModule(
     .map((locale) => `  ${JSON.stringify(locale)}: () => import('${importPath(locale)}'),`)
     .join('\n');
 
-  return `import { createVerbaly } from 'verbaly';
+  return `import { createVerbaly, localeFromPath as readPath, localePath as writePath } from 'verbaly';
 import source from '${importPath(cfg.sourceLocale)}';
 
 export const sourceLocale = ${src};
 export const locales = ${JSON.stringify(cfg.locales)};
+export const routing = ${JSON.stringify(cfg.routing)};
+
+// bound to this project: the locale set, the source and the routing mode are never passed in
+export function localePath(locale, options) {
+  return writePath(locale, { ...options, supported: locales, sourceLocale, routing });
+}
+
+export function localeFromPath(options) {
+  return readPath({ ...options, supported: locales });
+}
 
 const localeLoaders = {
 ${loaders}
@@ -106,6 +116,15 @@ ${lines.join('\n')}
 
   export const sourceLocale: string;
   export const locales: string[];
+  export const routing: import('verbaly').Routing;
+  export function localePath(
+    locale: string,
+    options?: { path?: string; base?: string },
+  ): string;
+  export function localeFromPath(options?: {
+    path?: string;
+    base?: string;
+  }): string | undefined;
   export function loadMessages(locale: string): Promise<Record<string, string>>;
   export function createInstance(
     options?: import('verbaly').VerbalyOptions<VerbalyKey>,

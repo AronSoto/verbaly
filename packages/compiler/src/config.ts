@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { RichLink } from 'verbaly';
+import type { RichLink, Routing } from 'verbaly';
 import { PSEUDO_LOCALE } from './pseudo';
 import type { TranslateProvider } from './translate';
 
@@ -40,6 +40,7 @@ export interface VerbalyConfig {
   dir?: string;
   sourceLocale?: string;
   locales?: string[];
+  routing?: Routing;
   include?: string[];
   exclude?: string[];
   dts?: string | false;
@@ -52,6 +53,7 @@ export interface ResolvedConfig {
   dir: string;
   sourceLocale: string;
   locales: string[];
+  routing: Routing;
   include: string[];
   exclude: string[];
   dts: string | false | undefined;
@@ -77,6 +79,8 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     root,
     dir,
     sourceLocale,
+    // what render has always written, so a project that never says it keeps the urls it had
+    routing: config.routing ?? 'prefix-except-source',
     locales: [...locales],
     include: config.include ?? ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}'],
     exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],

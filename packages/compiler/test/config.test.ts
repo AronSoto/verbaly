@@ -161,3 +161,14 @@ describe('pruneCatalogs', () => {
     expect(removed.pt).toBeUndefined();
   });
 });
+
+describe('routing', () => {
+  it('defaults to what render has always written', () => {
+    expect(resolveConfig({}).routing).toBe('prefix-except-source');
+  });
+
+  it('takes the mode the project names', () => {
+    expect(resolveConfig({ routing: 'no-prefix' }).routing).toBe('no-prefix');
+    expect(resolveConfig({ routing: 'prefix-all' }).routing).toBe('prefix-all');
+  });
+});

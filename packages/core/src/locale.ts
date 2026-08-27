@@ -1,5 +1,6 @@
 import { displayNames } from './intl';
 import type { Verbaly } from './types';
+import { warnOnce } from './warn';
 
 export interface ResolveLocaleOptions {
   supported: string[];
@@ -61,25 +62,44 @@ export function localeName(locale: string, displayIn: string = locale): string {
   }
 }
 
-export interface LocalePathOptions {
+// how the language shows in the url, the one decision every other url answer follows from
+export type Routing = 'prefix-except-source' | 'no-prefix' | 'prefix-all';
+
+interface LocalePathBase {
   supported: string[];
-  sourceLocale?: string;
   path?: string;
   base?: string;
 }
 
-// the inverse of what render writes: /es/docs → /pt/docs, and the source locale keeps no prefix
+// sourceLocale is required exactly where it decides the answer, so the old silent default cannot
+export type LocalePathOptions = LocalePathBase &
+  (
+    | { routing?: 'prefix-except-source'; sourceLocale: string }
+    | { routing: 'no-prefix' | 'prefix-all'; sourceLocale?: string }
+  );
+
+// the inverse of what render writes: /es/docs → /pt/docs, under the routing mode you chose
 export function localePath(locale: string, options: LocalePathOptions): string {
-  const { supported, sourceLocale } = options;
-  const base = normalizeBase(options.base);
+  const { supported } = options;
+  const routing = options.routing ?? 'prefix-except-source';
   const full = options.path ?? currentPath() ?? '/';
+
+  // the identity, so one switcher works in both modes: no-prefix changes the text, never the url
+  if (routing === 'no-prefix') return full;
+
+  const sourceLocale = options.sourceLocale;
+  if (routing === 'prefix-except-source' && sourceLocale === undefined) {
+    warnOnce('localePath needs sourceLocale: "prefix-except-source" prefixed every locale');
+  }
+
+  const base = normalizeBase(options.base);
   const cut = full.search(/[?#]/);
   const path = stripBase(cut < 0 ? full : full.slice(0, cut), base);
   const rest = cut < 0 ? '' : full.slice(cut);
 
   const segments = path.split('/').filter(Boolean);
   if (segments[0] && matchPathSegment(segments[0], supported)) segments.shift();
-  if (locale !== sourceLocale) segments.unshift(locale);
+  if (routing === 'prefix-all' || locale !== sourceLocale) segments.unshift(locale);
   const trailing = segments.length && path.endsWith('/') ? '/' : '';
   return `${base}/${segments.join('/')}${trailing}${rest}`;
 }

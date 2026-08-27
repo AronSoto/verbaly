@@ -22,6 +22,7 @@ export type {
   LocalePathOptions,
   RequestLocaleOptions,
   ResolveLocaleOptions,
+  Routing,
   SwitchLocaleOptions,
 } from './locale';
 export type { MessageNode, ParamNode } from './parse';

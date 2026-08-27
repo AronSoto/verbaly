@@ -197,6 +197,7 @@ export function bindDom<D extends DictionaryInput>(
   }
 
   warnOnLangMismatch(instance.locale);
+  warnOnUnboundHead(root, selector);
   renderAll(root);
   // from here the dom is ours: a stale value from a previous locale must not survive a switch
   trustServerHtml = false;
@@ -225,6 +226,13 @@ export function bindDom<D extends DictionaryInput>(
     unsubscribe();
     observer.disconnect();
   };
+}
+
+// the head is the half a search result shows, and the default body root never reaches it
+function warnOnUnboundHead(root: ParentNode, selector: string): void {
+  if (root === document || root === document.documentElement) return;
+  if (!document.head?.querySelector(selector)) return;
+  warnOnce('the <head> has bound elements this root never reaches: pass { root: document }');
 }
 
 // render writes <html lang>, so a disagreement here means the page is about to be translated away

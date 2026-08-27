@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/svelte",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "Svelte bindings for Verbaly: stores over the reactive core.",
   "keywords": [
     "i18n",
@@ -49,8 +49,8 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
-    "happy-dom": "^20.11.2",
-    "svelte": "^5.56.9",
+    "happy-dom": "^20.11.6",
+    "svelte": "^5.56.10",
     "verbaly": "workspace:^"
   },
   "scripts": {

@@ -44,7 +44,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Deps** (rule 4): `astro` 7.2.9, `happy-dom` 20.11.13, `vue` 3.5.42, all dev. `pnpm outdated -r` empty.
 - **What this release deliberately does not do.** The automatic version, where the mirror drops what it pre-filled everywhere on its own, is not here: `renderSite` runs after the client bundle is emitted, so it cannot feed back in one pass. `bundle.exclude` is the manual, explicit first step, named so the automatic mode can sit behind it later.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **New config option**: `bundle: { exclude: [...] }` goes in the config table of `docs/reference/cli`, and deserves a paragraph next to `render` in `docs/frameworks/astro`, since a mirrored static site is exactly who it is for.
 - **`docs/frameworks/dom`**: `bindDom` now keeps pre-rendered text when a key resolves nowhere. If that page states the old behaviour for a missing key, it needs the correction.

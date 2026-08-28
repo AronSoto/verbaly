@@ -25,14 +25,6 @@
 
 ---
 
-> **Every release is signed by its build.** All twelve packages publish from CI through npm Trusted Publishing, with SLSA v1 provenance attached. You do not have to take that on trust, you can check it:
->
-> ```bash
-> npm view verbaly dist.attestations
-> ```
->
-> A Verbaly version on npm without one did not come from us.
-
 ## What is Verbaly?
 
 Most i18n tools make you **maintain key files by hand**: keys drift from the code, there's no type-safety, and setup is heavy.

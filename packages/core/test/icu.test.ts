@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { createVerbaly } from '../src/index';
+import { describe, expect, it, vi } from 'vitest';
+import { createVerbaly, parseIcu } from '../src/index';
 
-const t = (msg: string) => createVerbaly({ locale: 'en', messages: { en: { m: msg } } }).t;
+// the parser is wired by the compiler when a catalog needs it, so the tests wire it the same way
+const t = (msg: string) =>
+  createVerbaly({ locale: 'en', messages: { en: { m: msg } }, icu: parseIcu }).t;
+
+// the same instance without the parser: what an app that never needed ICU actually ships
+const bare = (msg: string) => createVerbaly({ locale: 'en', messages: { en: { m: msg } } }).t;
 
 describe('ICU escape-hatch', () => {
   it('plural with #', () => {
@@ -110,5 +115,28 @@ describe('ICU escape-hatch', () => {
 
   it('unterminated trailing argument never crashes', () => {
     expect(t('{n, number} and {x, number')('m', { n: 1, x: 2 })).toBe('1 and 2');
+  });
+});
+
+describe('ICU without its parser', () => {
+  it('shows the source and says why, instead of a plausible wrong render', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const source = '{count, plural, one {# thing} other {# things}}';
+
+    // the message comes back verbatim: nobody can mistake it for a translation that worked
+    expect(bare(source)('m', { count: 3 })).toBe(source);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no ICU parser is loaded'));
+    warn.mockRestore();
+  });
+
+  it('leaves every non-ICU message alone, so the escape hatch costs nothing to skip', () => {
+    expect(bare('Hi {name}')('m', { name: 'Aron' })).toBe('Hi Aron');
+    expect(bare('{n | one: # item | other: # items}')('m', { n: 2 })).toBe('2 items');
+  });
+
+  it('does not cache the unparsed shape, so wiring the parser later still works', () => {
+    const source = '{v, select, a {A} other {B}}';
+    expect(bare(source)('m', { v: 'a' })).toBe(source);
+    expect(t(source)('m', { v: 'a' })).toBe('A');
   });
 });

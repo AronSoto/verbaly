@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/vue",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "description": "Vue 3 bindings for Verbaly: composables over the reactive core.",
   "keywords": [
     "i18n",
@@ -51,7 +51,7 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
-    "happy-dom": "^20.11.6",
+    "happy-dom": "^20.11.8",
     "verbaly": "workspace:^",
     "vue": "^3.5.41"
   },

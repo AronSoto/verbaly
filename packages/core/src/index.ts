@@ -13,6 +13,7 @@ export {
   switchLocale,
 } from './locale';
 export { parse } from './parse';
+export { parseIcu } from './icu';
 export { flatten } from './flatten';
 export { parseTags } from './tags';
 
@@ -25,7 +26,7 @@ export type {
   Routing,
   SwitchLocaleOptions,
 } from './locale';
-export type { MessageNode, ParamNode } from './parse';
+export type { IcuParser, MessageNode, ParamNode } from './parse';
 export type { TagNode } from './tags';
 export type {
   DictionaryInput,

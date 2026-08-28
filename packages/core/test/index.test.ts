@@ -17,6 +17,7 @@ const VALUES = [
   'negotiateLocale',
   'normalizeLink',
   'parse',
+  'parseIcu',
   'parseTags',
   'persistLocale',
   'resolveLocale',

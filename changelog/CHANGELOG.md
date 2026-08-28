@@ -8,6 +8,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.42.0] · 2026-08-27
+
+**You were paying for an escape hatch you never opened.** Verbaly's own syntax covers plurals, selects and formats, and ICU message syntax is the way out for what it does not. It has always been described as opt-in, and it never was: `parse` imported the ICU parser unconditionally, so **every app shipped it whether or not a single message used it**. Our own docs site has zero ICU messages and shipped it on every page. The compiler already reads every catalog, so it can tell, and now it does. No API is removed and an app that uses ICU is unaffected.
+
+### Highlights
+
+- **The runtime got 11% smaller for anyone who does not use ICU syntax**, which is most projects. The parser only ships when one of your messages actually needs it, and nothing about that is yours to configure.
+- **A message that reaches your app after the build and uses ICU shows its own text and says why**, instead of half-rendering into something that looks almost right. If your messages come from a CMS, `icu: true` ships the parser anyway.
+- **Nothing changes if you do use ICU.** The compiler sees it in your catalogs and wires it, exactly as before.
+
+### Added
+
+- **`icu` on `createVerbaly`** (`verbaly`) and **`parseIcu` as an export**, so the parser is something an app is handed rather than something the runtime always contains. `parse(message, icu?)` takes it from there.
+- **`needsIcu(catalogs)`** (`@verbaly/compiler`), the one place that answers whether a project's messages need the parser, using the same test the runtime uses to detect the syntax.
+- **`RuntimeModuleOptions.icu`** (`@verbaly/compiler`): the generated `virtual:verbaly` names `parseIcu` in its import list only when a catalog needs it, so otherwise the bundler removes it. Both paths that generate the runtime module do this: the virtual one every bundler plugin shares, and the on-disk one `@verbaly/next` writes.
+- **`icu: true` in the config** (`@verbaly/compiler`), for the one case the catalogs cannot answer: messages that only exist after the build.
+
+### Changed
+
+- **`createVerbaly` is 3.68 KB to 3.28 KB min+gzip** (`verbaly`), and a realistic app import list is 6.33 KB to 5.92 KB. **The size budgets were pulled in to match**, from 3.95 to 3.55 and from 6.90 to 6.40, because a gate left at the old numbers would not notice 0.6 KB coming back and the win would be quietly spent.
+- **An ICU message with no parser renders its own source text and warns once** (`verbaly`), naming what to do. It is not cached, so wiring the parser later still works, which a test pins by parsing the same message bare and then wired.
+
+### Notes
+
+- **The receipt is a real bundle, not a codegen assertion.** `packages/compiler/test/icu-weight.test.ts` builds the generated runtime module against core's actual `dist` twice with esbuild and weighs both: **3.48 KB gzip without the parser, 4.01 with it, so 544 B**, and it asserts the parser's text is absent from the first and present in the second. It carries its own 30 second timeout because it runs a bundler twice.
+- **That pin caught a mistake on its first run**, which is the only reason to trust it: the marker was `selectordinal`, which also appears in `isIcu`'s regex, and `isIcu` stays in core on purpose. The marker is now `offset:`, a string only the parser contains.
+- **Measured on our own site, which is the point**: forcing the parser on and off across two real builds moved the chunk that loads on every page by **433 B brotli**. Smaller than the 544 B gzip from the isolated bundle because brotli has a hundred kilobytes of catalog next to it to compress against, and reported as measured rather than as the flattering number.
+- **`isIcu` stays in core, and that is what the remaining ~190 bytes buy.** Detecting the syntax is what lets a missing parser be named instead of silent. Dropping the detector too would have saved another 190 bytes and turned a loud failure into a quiet one, which the second pillar does not allow.
+- **This release exists because of rule 7**, added last version: audit what is already inside rather than only what is being added. Applying it found something bigger than ICU and it is deliberately not in this release. **The format cases (`date`, `time`, `currency`, `unit`, `list`, `relative`) are 712 B, 18.9% of the runtime**, against ICU's 593 B. They stay for three reasons: they are first-class Verbaly syntax rather than a documented escape hatch, their failure mode is plausible instead of visible (a missing `currency` renders `12` where `12,00 €` belongs, and that reads as correct), and `applyFormat` is on the hot path while `parse` is cached. That is a release with its own bench, not an item.
+- **1089 tests** (compiler **569** · core **304** · next 42 · nuxt 28 · react 28 · svelte 26 · vite 25 · vue 18 · mcp 14 · sveltekit 13 · unplugin 12 · astro 10), was 1078: +8 compiler (the two bundle weights, two for the conditional wiring, two for the detector and two for the config escape) and +3 core (the visible degradation, that non-ICU messages are untouched, and that the unparsed shape is not cached).
+- Sizes: **3.28 KB** tree-shaken · **5.92 KB** a real app · 1.60 KB devtools · 6.96 KB every export. The canary went up slightly, from 6.84, because `parseIcu` is now a named export and "everything at once" includes it, which is correct and is why that surface is labelled a canary.
+- Bench vs i18next: **37.9× / 10.3× / 5.5× / 7.6×** (lookup, interpolation, plural, currency). `t()` was not touched and `parse` is cached, so the spread is the machine.
+- No new dependencies, no change to the message format, the key scheme or the catalog format.
+
+### Docs impact (pending)
+
+> One new idea for the reader, and it is the absence of a decision rather than a new one.
+
+- **`docs/guide/format`**: this is where ICU is introduced as the escape hatch, and it should now say what the escape hatch costs and that the cost is only paid when it is used. The important half for the reader is that **there is nothing to configure**; the `icu: true` option is a footnote for catalogs that arrive after the build.
+- **`docs/reference/cli`**: `icu` joins the config table, described as the exception rather than a setting to consider.
+- **`docs/reference/api`**: `createVerbaly` gained an `icu` option. It is worth showing only alongside the note that the compiler normally supplies it.
+- **The comparison table on the landing**: the runtime size claim moves from ~3.7KB to ~3.3KB for a project without ICU. Re-seal it with the other tools' numbers re-measured, per pillar 5.
+- Nothing to change in the agents page, the URL page, the translators page or devtools.
+
+---
+
 ## [0.41.0] · 2026-08-27
 
 **The library shipped halves and expected you to assemble them.** 0.40.0 named where the language lives in your URLs and then picked the wrong default for it, telling a plain single-page app it had one URL tree per language when it had none. Fixing that exposed the bigger half: Verbaly has always shipped a complete language switcher for one mode and a spare part for the other, so every project wrote the second one by hand, ours included. Rewriting our own site on the library's own helper found a bug that has been there since the switcher moved into core: **a visitor who chose a language was sent back to their browser's language on the next page load.** No API is removed.

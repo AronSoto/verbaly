@@ -9,6 +9,7 @@ export const VIRTUAL_ID = 'virtual:verbaly';
 export interface RuntimeModuleOptions {
   localeImport?: (locale: string) => string;
   extraExports?: string;
+  icu?: boolean;
 }
 
 export function generateRuntimeModule(
@@ -22,11 +23,14 @@ export function generateRuntimeModule(
     .map((locale) => `  ${JSON.stringify(locale)}: () => import('${importPath(locale)}'),`)
     .join('\n');
 
+  // named in the import list only when a catalog uses ICU, so otherwise the parser tree-shakes out
+  const icu = options.icu ? ',\n  parseIcu' : '';
+
   return `import {
   createVerbaly,
   localeFromPath as readPath,
   localePath as writePath,
-  switchLocale as runSwitch,
+  switchLocale as runSwitch${icu},
 } from 'verbaly';
 import source from '${importPath(cfg.sourceLocale)}';
 
@@ -65,7 +69,7 @@ export function createInstance(options) {
     locale: ${src},
     fallback: ${src},
     messages: { [${src}]: source },
-    loaders: localeLoaders,
+    loaders: localeLoaders,${options.icu ? '\n    icu: parseIcu,' : ''}
     ...options,
   });
 }

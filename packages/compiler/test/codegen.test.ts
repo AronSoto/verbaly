@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { generateDts, generateLocaleModule, generateRuntimeModule } from '../src/codegen';
+import { needsIcu } from '../src/catalog';
 import { resolveConfig } from '../src/config';
 import { collectParams, renderParamType } from '../src/params';
 
@@ -182,5 +183,38 @@ describe('the bound switcher', () => {
     const dts = generateDts({ a: 'Hi' });
     expect(dts).toContain('export function switchLocale(');
     expect(dts).toContain("'routing' | 'supported' | 'sourceLocale'");
+  });
+});
+
+describe('the ICU parser rides only where a catalog reads it', () => {
+  const cfg = () => resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'] });
+
+  it('is absent from the module when no catalog uses ICU', () => {
+    const mod = generateRuntimeModule(cfg());
+    expect(mod).not.toContain('parseIcu');
+    expect(mod).not.toContain('icu:');
+  });
+
+  it('is imported and passed when a catalog does', () => {
+    const mod = generateRuntimeModule(cfg(), { icu: true });
+    expect(mod).toContain('parseIcu');
+    expect(mod).toContain('icu: parseIcu,');
+    // it goes to createInstance, so a per-request SSR instance gets it too
+    expect(mod.indexOf('icu: parseIcu')).toBeGreaterThan(mod.indexOf('createVerbaly({'));
+  });
+});
+
+describe('needsIcu', () => {
+  it('sees ICU in any locale, at any depth', () => {
+    expect(needsIcu({ en: { a: 'Hi {name}' } })).toBe(false);
+    expect(needsIcu({ en: { a: '{n | one: # x | other: # y}' } })).toBe(false);
+    expect(needsIcu({ en: { a: 'Hi' }, es: { a: '{c, plural, other {#}}' } })).toBe(true);
+    expect(needsIcu({ en: { g: { deep: '{v, select, a {A} other {B}}' } } as never })).toBe(true);
+  });
+
+  it('does not mistake our own syntax or a stray brace for ICU', () => {
+    expect(needsIcu({ en: { a: '{price:currency/EUR}' } })).toBe(false);
+    expect(needsIcu({ en: { a: 'Use {{ }} to escape' } })).toBe(false);
+    expect(needsIcu({ en: { a: 'a, plural, b' } })).toBe(false);
   });
 });

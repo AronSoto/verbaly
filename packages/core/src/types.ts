@@ -103,6 +103,7 @@ export interface VerbalyOptions<D extends DictionaryInput = DictionaryInput> {
   messages?: D;
   loaders?: Record<string, LocaleLoader>;
   formatters?: Record<string, Formatter>;
+  icu?: import('./parse').IcuParser;
   onMissing?: (key: string, locale: string) => string | void;
   onResolve?: (info: ResolveInfo) => void;
 }

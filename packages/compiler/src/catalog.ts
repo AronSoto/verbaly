@@ -128,3 +128,15 @@ function wantsNesting(cfg: ResolvedConfig, locale: string, existing: string | un
   if (locale === cfg.sourceLocale) return false;
   return isNested(readTree(cfg, cfg.sourceLocale));
 }
+
+// the same test the runtime uses, asked of the catalogs so the parser ships only where it is read
+const ICU_ARG = /\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
+
+export function needsIcu(catalogs: Catalogs): boolean {
+  for (const catalog of Object.values(catalogs)) {
+    for (const message of Object.values(flatten(catalog as MessageTree))) {
+      if (ICU_ARG.test(message)) return true;
+    }
+  }
+  return false;
+}

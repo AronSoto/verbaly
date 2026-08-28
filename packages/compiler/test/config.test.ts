@@ -176,3 +176,14 @@ describe('routing', () => {
     expect(resolveConfig({ routing: 'prefix-except-source' }).routing).toBe('prefix-except-source');
   });
 });
+
+describe('icu', () => {
+  it('is undefined by default, which means the catalogs decide', () => {
+    expect(resolveConfig({}).icu).toBeUndefined();
+  });
+
+  it('can be forced on for messages that only arrive at runtime', () => {
+    expect(resolveConfig({ icu: true }).icu).toBe(true);
+    expect(resolveConfig({ icu: false }).icu).toBe(false);
+  });
+});

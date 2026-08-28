@@ -58,6 +58,7 @@ export function writeGeneratedModules(
   const runtime = compiler.generateRuntimeModule(cfg, {
     localeImport: (locale) => `./locale/${locale}.js`,
     extraExports: `export const requestOptions = ${JSON.stringify(requestOptions)};\n`,
+    icu: cfg.icu ?? compiler.needsIcu(catalogs),
   });
   changed = writeIfChanged(join(dir, 'index.js'), runtime) || changed;
 

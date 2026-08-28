@@ -31,6 +31,7 @@ const VALUES = [
   'loadDrafts',
   'loadVirtualModule',
   'markDrafts',
+  'needsIcu',
   'pruneCatalogs',
   'renderSite',
   'resolveConfig',

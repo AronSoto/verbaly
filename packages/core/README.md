@@ -123,6 +123,7 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 - **Type-safe params**: `{name}`, plurals, currency and dates inferred from the message; wrong/missing params fail to compile.
 - **`Intl`-powered format**: number/currency/date/time/relative/list/unit + CLDR plurals and select/gender, tiny surface. `'Updated {when:relative}'` · `'{langs:list}'` · `'{d:unit/kilometer}'`.
 - **Plain, portable JSON catalogs**: no proprietary format, no lock-in.
+- **ICU is an escape hatch you only pay for when you use it**: the compiler sees ICU syntax in your catalogs and wires the parser, and an app whose messages never use it never ships those 544 bytes. A message that arrives after the build with ICU syntax shows its own source and says why, rather than rendering something that looks almost right.
 - **DOM interpreter** for framework-less HTML, with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
 - **Lazy catalogs**: `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
 - **RTL and locale names built in**: `localeDirection` keeps `<html dir>` right when you add Arabic or Hebrew (applied by `switchLocale`/`persistLocale` and `verbaly render`), and `localeName` gives your locale switcher real language names via `Intl.DisplayNames`.

@@ -1,4 +1,5 @@
-import { isIcu, parseIcu } from './icu';
+import { isIcu } from './icu';
+import { warnOnce } from './warn';
 
 export type MessageNode = { kind: 'text'; value: string } | { kind: 'hash' } | ParamNode;
 
@@ -14,15 +15,33 @@ export interface ParamNode {
 const astCache = new Map<string, MessageNode[]>();
 const AST_CACHE_MAX = 5000; // dynamic/CMS messages can't grow it unbounded
 
-export function parse(message: string): MessageNode[] {
+// ICU is the escape hatch, so its parser is a passenger the app opts into rather than always ships
+export type IcuParser = (message: string) => MessageNode[];
+
+export function parse(message: string, icu?: IcuParser): MessageNode[] {
   let cached = astCache.get(message);
   if (!cached) {
+    if (isIcu(message)) {
+      // an unparsed ICU message is not cached: the app is misconfigured, not settled
+      if (!icu) return unparsedIcu(message);
+      cached = icu(message);
+    } else {
+      cached = parseMessage(message, false);
+    }
     // drop the oldest, never the whole map: clearing threw away the hot set on every overflow
     if (astCache.size >= AST_CACHE_MAX) astCache.delete(astCache.keys().next().value as string);
-    cached = isIcu(message) ? parseIcu(message) : parseMessage(message, false);
     astCache.set(message, cached);
   }
   return cached;
+}
+
+// visible and named, never a plausible-looking wrong render: the source shows and the warn says why
+function unparsedIcu(message: string): MessageNode[] {
+  warnOnce(
+    'a message uses ICU syntax but no ICU parser is loaded: pass icu to createVerbaly (the ' +
+      'compiler wires it when a catalog needs it, so this means it arrived after the build)',
+  );
+  return [{ kind: 'text', value: message }];
 }
 
 function parseMessage(input: string, inVariant: boolean): MessageNode[] {

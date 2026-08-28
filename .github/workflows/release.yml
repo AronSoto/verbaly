@@ -1,3 +1,5 @@
+name: Release
+
 # Automatic release: every push to develop whose packages/core version has no
 # vX.Y.Z tag yet publishes every packages/* package to npm with provenance (OIDC) and
 # creates the GitHub Release with a short body: the entry's theme line +
@@ -5,8 +7,6 @@
 # No version bump in the push → tag already exists → the run no-ops.
 # workflow_dispatch re-runs the release for the current version (e.g. after a failure).
 # Auth: npm Trusted Publishing (configured per package on npmjs.com); no token needed.
-name: Release
-
 on:
   push:
     branches: [develop]

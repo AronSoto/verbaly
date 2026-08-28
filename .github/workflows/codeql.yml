@@ -1,10 +1,12 @@
 name: CodeQL
 
-# Real static analysis, not a SARIF upload: scorecard.yml already used codeql-action/upload-sarif
-# and that never counted as running a SAST tool, which is why the Scorecard SAST check read 0.
-# What earns it here is the code itself: the compiler parses catalogs, PO, XLIFF and HTML that
-# arrive from translators and CMSs, and the runtime builds DOM from them. Findings land in the
-# Security tab. Actions pinned by commit like the rest; Dependabot updates them.
+# The repo already scanned with CodeQL's default setup, which has no workflow file, so Scorecard's
+# SAST check could not see it and read 0. The analysis is the same either way: what this file buys
+# is a configuration pinned by commit and readable in git, plus that check.
+# The two modes are mutually exclusive and the first push proved it: leaving both on fails the
+# upload with "analyses from advanced configurations cannot be processed when the default setup is
+# enabled", so default setup has to stay off for this to work.
+# Findings land in the Security tab. Dependabot updates the pins.
 on:
   push:
     branches: [develop]

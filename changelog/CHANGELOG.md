@@ -51,7 +51,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Bench vs i18next: **30.3× / 11.8× / 5.3× / 6.2×** (lookup, interpolation, plural, currency). `t()` was not touched.
 - No new dependencies, no change to the message format, the key scheme or the catalog format.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > One number changes everywhere it is quoted, and it is the headline one.
 

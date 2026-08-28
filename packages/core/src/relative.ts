@@ -13,13 +13,10 @@ const REL_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['second', 1],
 ];
 
-// the type of the offending value, never the value: the warn dedupe set must stay bounded
+// the type and never the value (the warn set must stay bounded); only number|Date reaches here
 function describe(value: unknown): string {
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 'an invalid Date' : 'a Date';
-  if (Array.isArray(value)) return 'an array';
-  if (value === null) return 'null';
-  const type = typeof value;
-  return type === 'object' ? 'an object' : `a ${type}`;
+  if (!(value instanceof Date)) return `a ${typeof value}`;
+  return Number.isNaN(value.getTime()) ? 'an invalid Date' : 'a Date';
 }
 
 // the one format that ships only where a message asks for it: it is 318 B and most apps never do

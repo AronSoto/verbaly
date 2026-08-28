@@ -85,7 +85,7 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     sourceLocale,
     // the mode follows the surface: render is what builds a url tree per locale, so it is the tell
     routing: config.routing ?? (config.render ? 'prefix-except-source' : 'no-prefix'),
-    // the catalogs decide on their own; these only force it for messages that arrive after the build
+    // the catalogs decide on their own; these only force it for messages that land after the build
     icu: config.icu,
     relative: config.relative,
     locales: [...locales],

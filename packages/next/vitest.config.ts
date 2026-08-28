@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  test: { testTimeout: 20000 },
   resolve: {
     alias: {
       'virtual:verbaly': fileURLToPath(new URL('./test/mocks/virtual-verbaly.ts', import.meta.url)),

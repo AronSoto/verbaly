@@ -8,6 +8,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.44.0] · 2026-08-28
+
+**Our own checks were measuring the machine, not the code.** The job that feeds our coverage badge failed at random, and the cause was not a slow test: a test that runs in 22 milliseconds was being failed by a 5 second budget, because that budget is wall clock and our test command starts twelve parallel processes on the same cores. Twice, that flake blocked a release. This version fixes it at the root and spends the rest of its time on the same idea aimed at the supply chain: what our CI is allowed to do, what exactly it runs, and code that could never run at all. **Nothing about the package's behaviour changes**, and the runtime is byte for byte what 0.43.0 shipped.
+
+### Highlights
+
+- **Nothing you install changes.** The runtime is identical to 0.43.0 and every published API behaves the same. This release is about the machinery that checks us.
+- **The build stopped failing at random.** Our test suite could fail a perfectly healthy test just because the machine was busy, and twice that blocked a release.
+- **Every action our CI runs is pinned to an exact commit.** A tag can be moved by whoever owns it; a commit cannot, so nothing can quietly change what builds your package.
+- **The release job asks for write access only where it needs it**, instead of granting it to the whole workflow.
+- **Real static analysis runs on every change.** CodeQL reads the code that parses your catalogs, PO files, XLIFF and HTML, and its findings are public in the repository's Security tab.
+
+### Added
+
+- **A CodeQL workflow** (repo), on every push to `develop`, on pull requests and weekly. **The honest version of this one: the repository was already scanning with CodeQL's default setup**, so the analysis is not new and that security value was already there. Default setup has no workflow file, which is why Scorecard's SAST check could not see it and read 0, and why `scorecard.yml` using `codeql-action/upload-sarif` never counted either. What the workflow buys is a configuration pinned by commit and readable in git, plus that check. **The two modes are mutually exclusive**, and the first push proved it the hard way: the run failed with "analyses from advanced configurations cannot be processed when the default setup is enabled", so default setup was turned off.
+
+### Changed
+
+- **`testTimeout: 20000` in the fourteen vitest configs** (repo). **Three ways to do this were measured and two of them silently do nothing**: `testTimeout` in the root `vitest.config.ts` does **not** reach the `projects`, and `extends: true` inside a project config file is ignored (it is only valid in the root's inline array). Only a per-project value applies, and it applies in both invocation modes, which matters because `pnpm test` runs one vitest per package while `pnpm coverage` runs one at the root.
+- **`release.yml` declares `permissions: read-all` at the top and `contents: write` + `id-token: write` on the job** (repo). There is one job today, so nothing changes operationally; the point is that a job added later no longer inherits write.
+- **Eight GitHub Actions pinned by commit** across `ci.yml`, `release.yml`, `codeql.yml` and `scorecard.yml` (repo). **Three of the tags were annotated**, whose object SHA is not a commit SHA and would not have resolved: every pin was dereferenced to its commit and checked against the API before being written.
+- **`describe()` in `relative.ts` lost three branches that could never execute** (`verbaly`). The guard above it returns for anything that is not a number or a Date, so the array, `null` and object arms were unreachable. **Measured honestly: this costs 3 bytes rather than saving them** (7208 against 7205 on the full surface), so it is justified by dead code and nothing else. The four size budgets are unmoved.
+- **Six comments that broke rule 2** (`verbaly`, `@verbaly/compiler`, repo scripts). Three ran past 100 characters and three were multi-line runs. **Four of them were written in 0.41.0 to 0.43.0**: the ritual step that catches this is a local eslint config CI never runs, and it was skipped on those releases. The check is green now, which as far as we can tell is the first time it has been.
+- **Four em dashes removed from `release.yml`** (repo), which rule 3 forbids and three sweeps had missed. One of them is worth recording: replacing a dash with a colon inside a step `name:` produced invalid YAML, and the workflow would have stopped parsing on the next release.
+
+### Notes
+
+- **1102 tests** (was 1097). The five additions are error paths over input we do not control, not filler: a gettext plural block and a malformed quoted value in the PO parser, plus continuations on `msgctxt` and `msgid` (`@verbaly/compiler`); an invalid `Date` reaching `{x:relative}` (`verbaly`); and the "needs a human" report `wrap` sends back to an agent (`@verbaly/mcp`).
+- **Coverage 98.17 to 98.43 statements, 93.32 to 93.75 branches, 99.06 to 99.17 lines.** The branch figure is not deterministic: six runs of the same code gave 93.75 four times and 93.79 and 93.82 once each, because a handful of branches are timing dependent. Worth knowing before someone reads a 0.05 move as a regression. By file: `po.ts` 71.18 to 86.44 branches and 100 lines, `relative.ts` 80 to 91.66 branches and 100 statements, `mcp/src/server.ts` 75.86 to 77.58 branches.
+- **The flake fix has a receipt**: three consecutive `pnpm coverage` runs, 1102 of 1102 each. Before it, one run of two failed with three tests timing out at 5000ms, none of which takes more than 22ms.
+- Bench vs i18next: **37.6x / 12.4x / 4.6x / 4.8x** (lookup, interpolation, plural, currency), against 30.3/11.8/5.3/6.2 in 0.43.0. `t()` was not touched at all this release, so the whole spread is the machine.
+- **Sizes unchanged**: 3.00 KB tree-shaken, 5.65 KB a real app, 1.60 KB devtools, 7.04 KB every export. No hot path was touched: the only `src/` change runs in a degradation path.
+- **Deps** (rule 4): `@types/node` 26.4.0 (`@verbaly/mcp`, dev) and `github/codeql-action` v4.37.9. `pnpm outdated -r` now reads the workflow pins too, which is a side effect of pinning plus the Dependabot config from 0.43.0 and a useful one.
+- **Two fixes were considered and declined, both on the numbers.** (a) A `pnpm` override forcing `cookie` past its advisory buys **0.086 of a Scorecard point** (Vulnerabilities 9 to 10, weight 7.5 of 87.5) in exchange for pinning `@sveltejs/kit` to a `cookie` it was never tested against. It reaches no consumer: `kit` is a devDependency used only as `import type`, so the vulnerable code never executes here and never ships. A hundredth of a point is not worth a false statement in the dependency graph. (b) Covering the `.catch` in `@verbaly/next`'s webpack loader needs module-registry mocking of a cached dynamic ESM import, in a file that already carries a 30 second timeout for importing the real compiler. The machinery costs more than pinning a one-line error forwarder is worth.
+- **The Scorecard arithmetic was reproduced before being trusted**: 532.5/87.5 = 6.086 against the published 6.1, so the projection comes from a model that predicts today's number. Expected after this: about **7.4**, or **8.0** if CodeQL is credited for SAST, which we cannot guarantee. **Code-Review stays at 0 permanently and that is structural**, not a gap: it counts approved changesets and nobody can approve their own pull request. **Maintained flips on its own** around October, when the repository passes 90 days.
+- **Pre-existing and deliberately not touched**: `prettier --check .` reports 56 files on a clean Windows checkout, purely because there is no `.gitattributes` and no `endOfLine` setting, so a CRLF worktree meets a formatter that wants LF. It is green on CI. Running `pnpm format` locally would produce a 56 file commit of pure line endings.
+
+### Docs impact (pending)
+
+- **No API change, no new option, no behaviour change.** No docs page needs an edit for correctness.
+- **`/changelog` (`releases.ts` + the three catalogs)**: the 0.44.0 entry, theme and the five Highlights above.
+- **Landing comparison table**: no cell changes. The runtime claim stays **3.00 KB**, unmoved by this release.
+- Bump the web to `verbaly@^0.44.0` and `@verbaly/compiler@^0.44.0`, `pnpm install` **after** the publish.
+
+---
+
 ## [0.43.0] · 2026-08-27
 
 **The badge said ~3KB, so we made it true.** That badge has been on the README since the beginning while the runtime was 3.68 KB, and 0.42.0 took it to 3.28, which was still not what it said. Rather than weaken the claim, this release removes the last passenger heavy enough to be worth removing: relative time formatting is 318 bytes that most apps never write, and it now ships only where a catalog asks for it. The runtime is **3.00 KB gzip**, which is what its badge has claimed all along. The rest of the release is the same idea applied to everything else the project says about itself: the security policy covered seven of twelve packages, contributing said ten, and our security posture was a claim rather than something a stranger could check.

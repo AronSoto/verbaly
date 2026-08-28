@@ -592,7 +592,7 @@ describe('switchLocale: one call, both modes', () => {
       navigate: () => {},
     });
 
-    // render's redirect script reads storage: a cookie alone sends the visitor back on the next load
+    // render's redirect reads storage: a cookie alone sends the visitor back on next load
     expect(localStorage.getItem('verbaly-locale')).toBe('pt');
     expect(document.cookie).toContain('verbaly-locale=pt');
   });

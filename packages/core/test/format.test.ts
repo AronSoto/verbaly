@@ -359,6 +359,16 @@ describe('relative time with explicit unit', () => {
     v.setLocale('es');
     spy.mockRestore();
   });
+
+  it('an invalid Date names the Date and not the unit it was asked for', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    v.setLocale('en');
+    const invalid = new Date(NaN);
+    expect(v.t('agoDays2', { d: invalid })).toBe(String(invalid));
+    expect(spy.mock.calls[0]![0]).toContain('cannot format an invalid Date as "day"');
+    v.setLocale('es');
+    spy.mockRestore();
+  });
 });
 
 describe('more format paths', () => {

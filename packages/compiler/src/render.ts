@@ -349,8 +349,7 @@ export interface RenderSiteResult {
 const TITLE_TAG = /<title\b([^>]*)>/i;
 const REFRESH_META = /<meta\b[^>]*http-equiv\s*=\s*["']?refresh/i;
 
-// a page whose <title> carries no key ships the source language to every locale, and the title is
-// most of what a search result shows: putting the locale in the url buys nothing without it
+// a <title> with no key ships the source language everywhere, and it is most of a search result
 function headIsBound(html: string, attr: string): boolean {
   // a page that only redirects is never a search result, so its title is nobody's to translate
   if (REFRESH_META.test(html)) return true;

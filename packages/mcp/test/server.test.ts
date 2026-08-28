@@ -207,6 +207,17 @@ describe('createVerbalyMcp: the onboarding half of the cycle', () => {
     expect(after.ok).toBe(true);
   });
 
+  it('wrap names the texts it could not take, not only the ones it took', async () => {
+    const root = makeProject();
+    writeFileSync(
+      join(root, 'src', 'Mixed.jsx'),
+      'export const M = () => <p>Hello <b>there</b></p>;\n',
+    );
+    const client = await connect(root);
+    const text = resultText(await client.callTool({ name: 'verbaly_wrap', arguments: {} }));
+    expect(text).toContain('needs a human');
+    expect(text).toContain('mixed text and markup');
+  });
   it('wrap reports hardcoded jsx text and only writes when asked', async () => {
     const root = makeProject();
     writeFileSync(

@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  test: { testTimeout: 20000 },
   resolve: {
     alias: {
       '#imports': fileURLToPath(new URL('./test/mocks/imports.ts', import.meta.url)),

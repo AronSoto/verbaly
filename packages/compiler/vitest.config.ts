@@ -9,6 +9,7 @@ export default defineConfig({
   },
   // conformance runs under vitest.dom.config.ts: node here, a DOM there, never both
   test: {
+    testTimeout: 20000,
     exclude: [
       'test/conformance.test.ts',
       'test/journey.test.ts',

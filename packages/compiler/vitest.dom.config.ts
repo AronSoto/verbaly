@@ -10,6 +10,7 @@ export default defineConfig({
   },
   // the name is explicit or it collides with the base config on the derived package name
   test: {
+    testTimeout: 20000,
     name: 'compiler/dom',
     include: ['test/conformance.test.ts', 'test/journey.test.ts'],
     environment: 'happy-dom',

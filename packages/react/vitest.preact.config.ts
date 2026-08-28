@@ -14,6 +14,7 @@ export default defineConfig({
   },
   // environment lives here, not in a docblock; the name is explicit or it collides with react
   test: {
+    testTimeout: 20000,
     name: 'react/preact',
     include: ['test/preact.test.tsx'],
     environment: 'happy-dom',

@@ -506,6 +506,41 @@ describe('parseExchangeFile', () => {
     expect(parseExchangeFile(file).entries).toEqual({ greet: 'Olá' });
   });
 
+  it('po: a gettext plural block keeps the singular and discards the rest', () => {
+    const file = scratch(
+      'es.po',
+      [
+        'msgctxt "count"',
+        'msgid "one item"',
+        'msgid_plural "%d items"',
+        'msgstr[0] "un elemento"',
+        'msgstr[1] "%d "',
+        '"elementos"',
+        '',
+      ].join('\n'),
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ count: 'un elemento' });
+  });
+
+  it('po: a value that is not a quoted string drops its entry, never half-writes it', () => {
+    const file = scratch('es.po', 'msgctxt "ok"\nmsgid Hello\nmsgstr "Hola"\n');
+    expect(parseExchangeFile(file).entries).toEqual({});
+  });
+
+  it('po: msgctxt and msgid wrap across lines the way msgstr already did', () => {
+    const file = scratch(
+      'es.po',
+      [
+        'msgctxt "very"',
+        '"LongKey"',
+        'msgid "a"',
+        '"b"',
+        'msgstr "x"',
+        '',
+      ].join('\n'),
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ veryLongKey: 'x' });
+  });
   it('po: unescapes backslash sequences in values', () => {
     const file = scratch('es.po', 'msgctxt "path"\nmsgid "x"\nmsgstr "a\\tb\\n\\"c\\" \\\\end"\n');
     expect(parseExchangeFile(file).entries).toEqual({ path: 'a\tb\n"c" \\end' });

@@ -12,6 +12,7 @@ export default defineConfig({
     conditions: ['browser'], // svelte client build, not index-server
   },
   test: {
+    testTimeout: 20000,
     environment: 'happy-dom',
   },
 });

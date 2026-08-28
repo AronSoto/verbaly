@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/mcp",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "description": "MCP server for Verbaly: diagnosis, onboarding, extraction, coverage and machine translation as tools for coding agents.",
   "keywords": [
     "i18n",
@@ -48,7 +48,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^26.3.0"
+    "@types/node": "^26.4.0"
   },
   "scripts": {
     "build": "tsdown",

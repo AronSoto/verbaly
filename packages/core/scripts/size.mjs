@@ -1,6 +1,4 @@
-// pillar 2 gate. Two of these are budgets and one is a canary, and the difference matters:
-// nothing ships the whole surface (sideEffects: false means a bundler keeps what you import), so
-// its number is a trend line, while the two above it are what a real consumer actually pays.
+// pillar 2 gate: three are budgets a consumer really pays, the fourth is a canary nobody ships
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';

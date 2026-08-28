@@ -248,7 +248,7 @@ export async function switchLocale(
   const { cookie = LOCALE_STORAGE_KEY, maxAge = YEAR } = options;
   // one name for one choice: naming the cookie names the storage too, or the two drift in silence
   const storageKey = options.storageKey ?? (cookie === false ? LOCALE_STORAGE_KEY : cookie);
-  // absent means the caller never asked for url behavior, which is what every caller before this did
+  // absent means the caller never asked for url behavior, as every caller before this one did
   const routed = options.routing !== undefined && options.routing !== 'no-prefix';
 
   // the destination document is already in the target language, so its catalog is not this page's
@@ -258,8 +258,7 @@ export async function switchLocale(
   }
 
   if (typeof document === 'undefined') return; // SSR-safe no-op
-  // both channels: a server reads the cookie per request, and render's pre-paint redirect reads
-  // storage, so a switch that writes one is forgotten by whichever side reads the other
+  // both channels: a server reads the cookie, render's pre-paint script reads storage
   if (cookie) {
     document.cookie = `${cookie}=${encodeURIComponent(locale)}; path=/; max-age=${maxAge}; samesite=lax`;
   }

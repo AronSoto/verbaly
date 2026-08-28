@@ -158,10 +158,21 @@ export function bindDom<D extends DictionaryInput>(
 
   // pre-rendered html wins until this locale resolves: repainting it is the flash render kills
   let trustServerHtml = true;
+  // one sample per bind: a build-only group is a normal setup and it can hold hundreds of keys
+  let reportedKept = false;
 
   function holdBack(key: string, current: string | null): boolean {
-    if (!trustServerHtml || !current?.trim()) return false;
-    return instance.inspect(key)?.from !== instance.locale;
+    if (!current?.trim()) return false;
+    const hit = instance.inspect(key);
+    // resolves nowhere: the raw key is never an improvement on the text the node already carries
+    if (!hit) {
+      if (!reportedKept) {
+        reportedKept = true;
+        warnOnce(`kept the pre-rendered text where no catalog has the key, first: "${key}"`);
+      }
+      return true;
+    }
+    return trustServerHtml && hit.from !== instance.locale;
   }
 
   function render(el: Element): void {

@@ -8,6 +8,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.45.0] · 2026-08-28
+
+**A catalog only grows, and every page was paying for all of it.** Text that lives on one page, a changelog, a blog archive, a long FAQ, was downloaded by every visitor on every page. This version lets you name those groups and keep them in the build: the pages that use them still publish translated, because the pre-rendered HTML already carries the text, and the browser stops fetching it. Finding that also uncovered a real defect underneath it, fixed here and relevant to anyone using `render`: after its first pass, `bindDom` would paint a raw key over correct pre-rendered text whenever a key was missing. Not breaking.
+
+### Highlights
+
+- **Text that only one page needs stops travelling to all of them.** Name the group in your config and the browser no longer downloads it. The pages that use it still come out translated, because that text is already in the HTML.
+- **Pre-rendered text is never destroyed any more.** If a message is missing, Verbaly now keeps the text that is already on the page instead of replacing it with the message's internal name. Before, that could happen a moment after a page loaded.
+- **Measured on our own docs site:** the file every page loads went from 46.3 KB to 33.5 KB compressed, and the Spanish and Portuguese trees dropped about 14 KB each. Nothing was lost on screen.
+- **Nothing changes if you do not switch it on.** It is a new option. A project that does not write it behaves exactly as before.
+- **The build tells you when it looks wrong**, naming a group that matches nothing in your catalog, or one your code reads directly.
+
+### Added
+
+- **`bundle: { exclude: [...] }` in the config** (`@verbaly/compiler`). Key prefixes that stay out of the module the browser loads, while `render` and the build gate keep reading the full catalogs from disk. Matching is by whole segment, so `nav` never takes `navbar_x`, and a nested prefix (`changelog.v1`) excludes one branch and leaves its siblings. It reaches `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/astro`, `@verbaly/nuxt` and `@verbaly/sveltekit` through `VerbalyConfig` with no code of their own.
+- **`clientCatalogs(cfg, catalogs)` on the public surface** (`@verbaly/compiler`, 45 values now). It is public for one reason: **`@verbaly/next` emits the client module without the Vite plugin**, so a filter living only in `loadVirtualModule` would have left Next consumers with an option that silently did nothing. It returns the same object when nothing is excluded.
+- **A `bundle` entry in `doctor`** naming what is kept out, plus the two warnings above (`@verbaly/compiler`).
+
+### Fixed
+
+- **`bindDom` no longer paints a raw key over pre-rendered text** (`verbaly`). Since 0.35.0 the first pass has protected content it did not write, but `trustServerHtml` is switched off right after it, and every repaint from then on wrote `t(key)` unconditionally. On a mirrored page that repaint is guaranteed and automatic: the lazy catalog for the page's locale lands milliseconds after the bind and notifies, so **a key present in the mirror but absent from the runtime catalog turned correct translated prose into its own key, in front of the visitor**. `holdBack` now resolves the key first and keeps the existing text when it resolves nowhere, in text content and in attributes alike. A stale value still loses to a real fallback, which was the 0.35.0 reason for switching the flag off, because that case has a hit and is untouched.
+
+### Notes
+
+- **This is the defect that made the feature safe to build, and it was found by testing the feature instead of the claim.** The proposal this release came from measured `bindDom` against a missing key and recorded "leaves the node intact", which is true of a single bind and false of every one after it. Reproduced against the built `dist`, the real catalogs and the real `/es/index.html`: the node went from `Nuestros propios chequeos medían la máquina` to `changelog_rel.v0_44_0.title`. **40 of the 54 pages in our own `es` and `pt` trees would have shown that**, because the nav sheet binds the newest release on every page. The lesson is narrow and worth keeping: a DOM assertion taken after one bind says nothing about what a subscriber does later.
+- **The warn is one per bind, not one per key, and that came out of the end to end run** (`verbaly`). The first version warned per key and printed **282 lines** on our `/es/changelog`, where a build-only group of 280 keys is the correct setup rather than a fault. It now reports the first key it kept and stays quiet, so a typo is still visible and an intentional exclusion costs one line.
+- **The emission points were counted rather than assumed, and there are exactly two**, both through `generateLocaleModule`: the Vite path (`loadVirtualModule`) and Next's real-file path (`writeGeneratedModules`). `generateRuntimeModule` inlines nothing, it imports the source locale module, so the bundler is what puts the catalog in the eager chunk. The filter runs **before** `needsIcu`/`needsRelative`, so excluding the only group that used ICU also drops the parser instead of paying 544 bytes for messages that no longer ship.
+- **The gate needed no exemption.** `runBuildGate` calls `loadCatalogs(cfg)` itself, so excluded keys are still on disk and were never going to be reported missing. What was missing is the opposite warning, for a prefix that matches nothing and for an excluded key that `t()` reads in source, and both are warnings that never fail a build.
+- **1126 tests** (was 1102). The 24 additions are the behaviour, not filler: emission per locale, segment matching, nested prefixes, byte for byte output with no `bundle` section, the ICU detector reading the filtered set, `renderSite` still pre-filling excluded keys (**the test that defines the feature**), the gate staying quiet, the audit's four cases, Next's own emission path, and five in core for the `bindDom` fix including the empty-element boundary and the one-warn-per-bind bound.
+- **The three `bindDom` pins were run against the reverted fix and fail**, per the standing rule that a pin nobody proved can fail is decoration: `expected 'changelog_rel.v0_44_0.title' to be 'Título en español'`, the same for the attribute, and no warn at all for the third.
+- **End to end receipt on verbaly-web, with the built packages before publishing**: `/es/changelog` binds 282 excluded and 640 normal nodes, and **zero changed** after the first bind, after the Spanish catalog landed, and after a second bind standing in for a view transition. `render` reported 27 pages by 3 locales with no keys left unfilled. Catalog keys went 1116 to 836 in the client, with 280 kept for the build.
+- **Sizes: 3.00 tree-shaken (unmoved), 5.71 a real app (was 5.65), 1.60 devtools, 7.10 every export (was 7.04).** The 0.06 is the fix and its warn string, spent where it belongs: `createVerbaly` alone does not move because `bindDom` shakes out. **`bundle.exclude` is compiler work and costs the runtime nothing.** Budgets stay where they are: this release spends margin rather than winning it.
+- Bench vs i18next: **32.8x / 12.8x / 5.2x / 5.7x** (lookup, interpolation, plural, currency), against 37.6/12.4/4.6/4.8 in 0.44.0. `t()` was not touched; `holdBack` now costs one extra resolution per node per repaint, roughly 40 ns against the 1.7 µs a formatted message costs, and it is not on `t()`'s path at all.
+- **Deps** (rule 4): `astro` 7.2.9, `happy-dom` 20.11.13, `vue` 3.5.42, all dev. `pnpm outdated -r` empty.
+- **What this release deliberately does not do.** The automatic version, where the mirror drops what it pre-filled everywhere on its own, is not here: `renderSite` runs after the client bundle is emitted, so it cannot feed back in one pass. `bundle.exclude` is the manual, explicit first step, named so the automatic mode can sit behind it later.
+
+### Docs impact (pending)
+
+- **New config option**: `bundle: { exclude: [...] }` goes in the config table of `docs/reference/cli`, and deserves a paragraph next to `render` in `docs/frameworks/astro`, since a mirrored static site is exactly who it is for.
+- **`docs/frameworks/dom`**: `bindDom` now keeps pre-rendered text when a key resolves nowhere. If that page states the old behaviour for a missing key, it needs the correction.
+- **`/changelog` (`releases.ts` + the three catalogs)**: the 0.45.0 entry, theme and the five Highlights above.
+- **Landing comparison table**: no cell changes. The runtime claim stays **3.00 KB**.
+- **In verbaly-web itself**: add `bundle: { exclude: ['changelog_rel'] }` to `verbaly.config.mjs`, and rewrite the PLAN's catalog weight entry, which records the old measurement as settled.
+- Bump the web to `verbaly@^0.45.0`, `@verbaly/astro@^0.45.0` and `@verbaly/compiler@^0.45.0`, `pnpm install` **after** the publish.
+
+---
+
 ## [0.44.0] · 2026-08-28
 
 **Our own checks were measuring the machine, not the code.** The job that feeds our coverage badge failed at random, and the cause was not a slow test: a test that runs in 22 milliseconds was being failed by a 5 second budget, because that budget is wall clock and our test command starts twelve parallel processes on the same cores. Twice, that flake blocked a release. This version fixes it at the root and spends the rest of its time on the same idea aimed at the supply chain: what our CI is allowed to do, what exactly it runs, and code that could never run at all. **Nothing about the package's behaviour changes**, and the runtime is byte for byte what 0.43.0 shipped.

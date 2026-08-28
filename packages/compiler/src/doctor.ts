@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
+import { auditBundle, formatBundleIssue } from './bundle';
 import { badLeaf, type Catalogs } from './catalog';
 import { check } from './check';
 import { generateDts } from './codegen';
@@ -213,6 +214,18 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       );
     } else {
       ok('orphans', 'no orphan keys');
+    }
+  }
+
+  const excluded = cfg.bundle.exclude ?? [];
+  if (excluded.length > 0 && catalogsHealthy) {
+    const issues = auditBundle(cfg, catalogs, registry);
+    for (const issue of issues) warn('bundle', formatBundleIssue(issue), issue.fix);
+    if (issues.length === 0) {
+      ok(
+        'bundle',
+        `${counted(excluded.length, 'group')} kept out of the client (${preview(excluded)})`,
+      );
     }
   }
 

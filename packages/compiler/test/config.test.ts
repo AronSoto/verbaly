@@ -103,6 +103,11 @@ describe('resolveConfig defaults', () => {
     expect(cfg.root).toBe(process.cwd());
     expect(cfg.sourceLocale).toBe('en');
   });
+
+  it('resolves an empty bundle section, so every consumer reads the same shape', () => {
+    expect(resolveConfig().bundle).toEqual({});
+    expect(resolveConfig({ bundle: { exclude: ['notes'] } }).bundle.exclude).toEqual(['notes']);
+  });
 });
 
 describe('locale discovery', () => {

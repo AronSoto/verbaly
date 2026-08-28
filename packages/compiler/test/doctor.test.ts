@@ -284,6 +284,32 @@ describe('doctor', () => {
   });
 });
 
+describe('doctor: what bundle.exclude keeps out of the client', () => {
+  const bundleOf = async (cfg: ReturnType<typeof makeProject>) =>
+    (await doctor(cfg)).entries.find((entry) => entry.check === 'bundle');
+
+  it('says nothing at all when no group is excluded', async () => {
+    expect(await bundleOf(makeProject())).toBeUndefined();
+  });
+
+  it('names the groups it keeps out when they check out', async () => {
+    const base = makeProject({ catalogs: { es: { 'notes.v1': 'La primera' } }, dts: false });
+    const entry = await bundleOf({ ...base, bundle: { exclude: ['notes'] } });
+    expect(entry?.level).toBe('ok');
+    expect(entry?.message).toContain('notes');
+  });
+
+  it('warns on a prefix that matches nothing, and never fails: the project still builds', async () => {
+    const base = makeProject({ catalogs: { es: { 'notes.v1': 'La primera' } }, dts: false });
+    const cfg = { ...base, bundle: { exclude: ['note'] } };
+    const result = await doctor(cfg);
+    const entry = result.entries.find((e) => e.check === 'bundle');
+    expect(entry?.level).toBe('warn');
+    expect(entry?.message).toContain('matches no key');
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe('doctor: the url mode has a name now', () => {
   const routingOf = async (cfg: ReturnType<typeof makeProject>) =>
     (await doctor(cfg)).entries.find((entry) => entry.check === 'routing');

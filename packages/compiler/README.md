@@ -203,6 +203,29 @@ Per-element `data-verbaly-links='{"repo":"https://…"}'` merges over the config
 
 **Multi-locale SEO**: set `render.baseUrl` (or `--base-url`) and every page gets reciprocal `<link rel="alternate" hreflang>` (plus `x-default`) for the whole locale set; `--sitemap` writes a locale-aware `sitemap-i18n.xml`. `--clean` drops stale `dist/<locale>/` pages before mirroring. Injection is idempotent.
 
+### Text that only one page needs
+
+A catalog only grows, and every page downloads all of it. A changelog, a blog archive or a long FAQ makes every visitor pay for text they are not looking at. Name those groups and they stay in the build:
+
+```ts
+export default {
+  locales: ['en', 'es'],
+  bundle: { exclude: ['changelog'] }, // still pre-filled by render, no longer downloaded
+  render: { baseUrl: 'https://example.com' },
+};
+```
+
+`render` keeps reading the full catalogs, so those pages still publish translated; the browser just stops fetching that text. Entries are key prefixes matched whole segment by whole segment, so `nav` never takes `navbar` with it, and `changelog.v1` excludes one version instead of the group. Measured on this project's own docs site: the file every page loads went from **46.3 KB to 33.5 KB brotli** with nothing lost on screen.
+
+**Use it for text `render` covers.** A key that is excluded and then asked for at runtime resolves to itself, like any absent key, and `bindDom` leaves the pre-rendered text alone rather than painting the key over it. The build says so when a prefix matches nothing, and when your code reads an excluded key through `t()`. To use an excluded group at runtime anyway, load it yourself:
+
+```ts
+import { verbaly } from 'virtual:verbaly';
+
+const extra = await import(`./i18n/changelog/${locale}.json`);
+verbaly.addMessages(locale, extra.default);
+```
+
 ## 🔍 Pseudo-localization
 
 `verbaly pseudo` fills a QA catalog (`en-XA` by default, `--locale <id>` to change) from the source: accented letters, `⟦…⟧` markers and ~33% length padding reveal hardcoded strings, clipped layouts and concatenation bugs. Params, variant blocks and tags survive verbatim, with the same structural validation as `translate`.
@@ -219,13 +242,13 @@ The package exports two layers, and **nothing else is public**. Anything you can
 
 **Your project's own types**, for a typed config file or a custom provider:
 
-`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `RedirectConfig` · `TranslateConfig` · `GlossaryEntry` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions` · `TranslateProgress` · `TranslateFailure`
+`VerbalyConfig` · `ResolvedConfig` · `RenderConfig` · `RedirectConfig` · `BundleConfig` · `TranslateConfig` · `GlossaryEntry` · `TranslateProvider` · `TranslateRequest` · `TranslateResult` · `TranslateOptions` · `TranslateProgress` · `TranslateFailure`
 
 **Building an integration.** This is exactly what `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/next`, `@verbaly/astro`, `@verbaly/nuxt` and `@verbaly/mcp` consume, so a third one has everything they have:
 
 | Area              | Exports                                                                                                                                                                                                                                  |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Config & catalogs | `loadConfig` `resolveConfig` `loadCatalogs` `writeCatalog` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                       |
+| Config & catalogs | `loadConfig` `resolveConfig` `loadCatalogs` `writeCatalog` `clientCatalogs` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                       |
 | Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` · type `SyncResult`                                                                                                                       |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · type `RuntimeModuleOptions`                                                                                                                                    |
 | Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |

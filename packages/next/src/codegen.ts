@@ -55,11 +55,13 @@ export function writeGeneratedModules(
 
   let changed = writeIfChanged(join(dir, '.gitignore'), '*\n');
 
+  // these files are the client module here, so bundle.exclude has to be applied on this path too
+  const client = compiler.clientCatalogs(cfg, catalogs);
   const runtime = compiler.generateRuntimeModule(cfg, {
     localeImport: (locale) => `./locale/${locale}.js`,
     extraExports: `export const requestOptions = ${JSON.stringify(requestOptions)};\n`,
-    icu: cfg.icu ?? compiler.needsIcu(catalogs),
-    relative: cfg.relative ?? compiler.needsRelative(catalogs),
+    icu: cfg.icu ?? compiler.needsIcu(client),
+    relative: cfg.relative ?? compiler.needsRelative(client),
   });
   changed = writeIfChanged(join(dir, 'index.js'), runtime) || changed;
 
@@ -68,7 +70,7 @@ export function writeGeneratedModules(
     changed =
       writeIfChanged(
         join(localeDir, `${locale}.js`),
-        compiler.generateLocaleModule(catalogs[locale] ?? {}),
+        compiler.generateLocaleModule(client[locale] ?? {}),
       ) || changed;
   }
   for (const file of readdirSync(localeDir)) {

@@ -1,5 +1,6 @@
 import { relative } from 'node:path';
 import picomatch from 'picomatch';
+import { auditBundle, clientCatalogs, formatBundleIssue } from './bundle';
 import { loadCatalogs, needsIcu, needsRelative, type Catalog, type Catalogs } from './catalog';
 import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
@@ -7,7 +8,7 @@ import type { ResolvedConfig, VerbalyConfig } from './config';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
 import { transformCode, type TransformResult } from './transform';
-import { warnParseError } from './warn';
+import { warnOnce, warnParseError } from './warn';
 
 export interface PluginOptions extends VerbalyConfig {
   failOnMissing?: boolean;
@@ -27,14 +28,16 @@ export function loadVirtualModule(
   cfg: ResolvedConfig,
   catalogs: Catalogs,
 ): string | undefined {
+  // filtered before the detectors run: a group that leaves the bundle takes its parsers with it
+  const client = clientCatalogs(cfg, catalogs);
   if (id === RESOLVED_VIRTUAL_ID) {
     return generateRuntimeModule(cfg, {
-      icu: cfg.icu ?? needsIcu(catalogs),
-      relative: cfg.relative ?? needsRelative(catalogs),
+      icu: cfg.icu ?? needsIcu(client),
+      relative: cfg.relative ?? needsRelative(client),
     });
   }
   if (id.startsWith(LOCALE_MODULE_PREFIX)) {
-    return generateLocaleModule(catalogs[id.slice(LOCALE_MODULE_PREFIX.length)] ?? {});
+    return generateLocaleModule(client[id.slice(LOCALE_MODULE_PREFIX.length)] ?? {});
   }
   return undefined;
 }
@@ -73,7 +76,12 @@ export function runBuildGate(
   registry: MessageRegistry,
   failOnMissing?: boolean,
 ): void {
-  const found = check(cfg, loadCatalogs(cfg), registry);
+  const catalogs = loadCatalogs(cfg);
+  // warns, never blocks: an excluded group that a page needs is a mistake the build cannot prove
+  for (const issue of auditBundle(cfg, catalogs, registry)) {
+    warnOnce(`${formatBundleIssue(issue)}\n  fix: ${issue.fix}`, `bundle:${issue.prefix}`);
+  }
+  const found = check(cfg, catalogs, registry);
   // false = build with untranslated strings, never with broken ones: those render wrong
   const result = failOnMissing === false ? { ...found, missing: [] } : found;
   if (gatePasses(result)) return;

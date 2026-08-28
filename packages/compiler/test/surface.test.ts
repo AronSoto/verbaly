@@ -10,6 +10,7 @@ const VALUES = [
   'RESOLVED_VIRTUAL_ID',
   'SOURCE_FILE_RE',
   'check',
+  'clientCatalogs',
   'collectOrigins',
   'counted',
   'createSourceFilter',
@@ -53,6 +54,7 @@ const VALUES = [
 
 const TYPES = [
   'BrokenEntry',
+  'BundleConfig',
   'Catalog',
   'Catalogs',
   'CheckResult',

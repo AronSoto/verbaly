@@ -23,6 +23,10 @@ export interface RedirectConfig {
   storageKey?: string | false;
 }
 
+export interface BundleConfig {
+  exclude?: string[];
+}
+
 export interface RenderConfig {
   links?: Record<string, RichLink>;
   site?: string;
@@ -48,6 +52,7 @@ export interface VerbalyConfig {
   dts?: string | false;
   translate?: TranslateConfig;
   render?: RenderConfig;
+  bundle?: BundleConfig;
 }
 
 export interface ResolvedConfig {
@@ -63,6 +68,7 @@ export interface ResolvedConfig {
   dts: string | false | undefined;
   translate: TranslateConfig;
   render: RenderConfig;
+  bundle: BundleConfig;
 }
 
 export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
@@ -94,6 +100,7 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     dts: typeof config.dts === 'string' ? resolve(root, config.dts) : config.dts,
     translate: config.translate ?? {},
     render: config.render ?? {},
+    bundle: config.bundle ?? {},
   };
 }
 

@@ -237,6 +237,27 @@ function richEl(key: string, args?: string): HTMLElement {
   return el;
 }
 
+// what bundle.exclude ships: the mirror pre-filled the node and no client catalog carries the key
+function buildOnlyPage(): { land: () => void; instance: ReturnType<typeof createVerbaly> } {
+  document.documentElement.lang = 'es';
+  document.body.innerHTML =
+    '<h1 data-verbaly="notes.v1.title" data-verbaly-attr=\'{"title":"notes.v1.theme"}\'' +
+    ' title="Tema">Título en español</h1>';
+  let land = (): void => {};
+  const instance = createVerbaly({
+    locale: 'es',
+    fallback: 'en',
+    messages: { en: { nav: { docs: 'Docs' } } },
+    loaders: {
+      es: () =>
+        new Promise((resolve) => {
+          land = () => resolve({ nav: { docs: 'Documentación' } });
+        }),
+    },
+  });
+  return { land, instance: instance as never };
+}
+
 // what verbaly render ships: html already in the target locale, waiting for its catalog
 function mirrorPage(lang = 'es'): { land: () => void; instance: ReturnType<typeof createVerbaly> } {
   document.documentElement.lang = lang;
@@ -312,6 +333,52 @@ describe('bindDom over a pre-rendered page', () => {
     document.body.innerHTML = '<h1 data-verbaly="title">Otra página</h1>';
     unbind = bindDom(page.instance);
     expect(document.querySelector('h1')!.textContent).toBe('Otra página');
+  });
+
+  it('keeps text no catalog can resolve, and the catalog landing does not change that', async () => {
+    const page = buildOnlyPage();
+    unbind = bindDom(page.instance);
+    expect(document.querySelector('h1')!.textContent).toBe('Título en español');
+    page.land();
+    await tick();
+    expect(document.querySelector('h1')!.textContent).toBe('Título en español');
+  });
+
+  it('keeps an attribute no catalog can resolve, through the same landing', async () => {
+    const page = buildOnlyPage();
+    unbind = bindDom(page.instance);
+    page.land();
+    await tick();
+    expect(document.querySelector('h1')!.getAttribute('title')).toBe('Tema');
+  });
+
+  it('names the key whose text it kept', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = '<h1 data-verbaly="notes.v2.title">Título</h1>';
+    const v = createVerbaly({ locale: 'es', messages: { es: { nav: { docs: 'Docs' } } } });
+    unbind = bindDom(v);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('notes.v2.title'));
+    warn.mockRestore();
+  });
+
+  it('samples that report once per bind: a build-only group is hundreds of keys, not a bug', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    document.body.innerHTML = Array.from(
+      { length: 40 },
+      (_, i) => `<p data-verbaly="notes.v4.k${i}">Texto ${i}</p>`,
+    ).join('');
+    const v = createVerbaly({ locale: 'es', messages: { es: { nav: { docs: 'Docs' } } } });
+    unbind = bindDom(v);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll('p')[39]!.textContent).toBe('Texto 39');
+    warn.mockRestore();
+  });
+
+  it('fills an empty element with the raw key anyway: there is nothing to protect there', () => {
+    document.body.innerHTML = '<h1 data-verbaly="notes.v3.title"></h1>';
+    const v = createVerbaly({ locale: 'es', messages: { es: { nav: { docs: 'Docs' } } } });
+    unbind = bindDom(v);
+    expect(document.querySelector('h1')!.textContent).toBe('notes.v3.title');
   });
 
   it('warns when the page language and the instance disagree, naming both', () => {

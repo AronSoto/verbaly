@@ -1,5 +1,6 @@
 // Layer 1: what a project using verbaly touches, its config file and a custom translate provider.
 export type {
+  BundleConfig,
   GlossaryEntry,
   RedirectConfig,
   RenderConfig,
@@ -20,6 +21,8 @@ export type {
 export { loadConfig, resolveConfig } from './config';
 export { loadCatalogs, needsIcu, needsRelative, writeCatalog } from './catalog';
 export type { Catalog, Catalogs } from './catalog';
+// clientCatalogs is public because @verbaly/next emits the client module without the vite plugin.
+export { clientCatalogs } from './bundle';
 
 export { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export type { SyncResult } from './extract';

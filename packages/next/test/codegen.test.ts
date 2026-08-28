@@ -34,6 +34,26 @@ describe('writeGeneratedModules', { timeout: COMPILER_TIMEOUT }, () => {
     expect(readFileSync(join(dir, '.gitignore'), 'utf8')).toBe('*\n');
   });
 
+  it('honors bundle.exclude: these files are the client module, there is no vite plugin here', () => {
+    const cfg = compiler.resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-next-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+      bundle: { exclude: ['notes'] },
+    });
+    writeGeneratedModules(cfg, {
+      en: { 'hero.a': 'A', 'notes.v1': 'Long' },
+      es: { 'hero.a': 'Á', 'notes.v1': 'Largo' },
+    });
+    const dir = generatedDir(cfg.root);
+    expect(readFileSync(join(dir, 'locale', 'en.js'), 'utf8')).toBe(
+      'export default {"hero.a":"A"};\n',
+    );
+    expect(readFileSync(join(dir, 'locale', 'es.js'), 'utf8')).toBe(
+      'export default {"hero.a":"Á"};\n',
+    );
+  });
+
   it('embeds the request options', () => {
     const cfg = makeConfig();
     writeGeneratedModules(cfg, {}, { cookie: 'my-locale', fallback: 'es' });

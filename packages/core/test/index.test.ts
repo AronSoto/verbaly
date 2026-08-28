@@ -20,6 +20,7 @@ const VALUES = [
   'parseIcu',
   'parseTags',
   'persistLocale',
+  'relativeFormatter',
   'resolveLocale',
   'resolveRequestLocale',
   'safeAttribute',

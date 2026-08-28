@@ -8,7 +8,13 @@ export type DictionaryInput = Record<string, MessageTree>;
 
 export type Params = Record<string, unknown>;
 
-export type Formatter = (value: unknown, locale: string, arg?: string) => string;
+// what a formatter needs to name its own failure: today a custom one can name neither
+export interface FormatInfo {
+  param: string;
+  key?: string;
+}
+
+export type Formatter = (value: unknown, locale: string, arg?: string, info?: FormatInfo) => string;
 
 // lazy catalog: tree or module namespace
 export type LocaleLoader = () => Promise<MessageTree | { default: MessageTree }>;

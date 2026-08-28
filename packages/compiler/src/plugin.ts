@@ -1,6 +1,6 @@
 import { relative } from 'node:path';
 import picomatch from 'picomatch';
-import { loadCatalogs, needsIcu, type Catalog, type Catalogs } from './catalog';
+import { loadCatalogs, needsIcu, needsRelative, type Catalog, type Catalogs } from './catalog';
 import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
@@ -28,7 +28,10 @@ export function loadVirtualModule(
   catalogs: Catalogs,
 ): string | undefined {
   if (id === RESOLVED_VIRTUAL_ID) {
-    return generateRuntimeModule(cfg, { icu: cfg.icu ?? needsIcu(catalogs) });
+    return generateRuntimeModule(cfg, {
+      icu: cfg.icu ?? needsIcu(catalogs),
+      relative: cfg.relative ?? needsRelative(catalogs),
+    });
   }
   if (id.startsWith(LOCALE_MODULE_PREFIX)) {
     return generateLocaleModule(catalogs[id.slice(LOCALE_MODULE_PREFIX.length)] ?? {});

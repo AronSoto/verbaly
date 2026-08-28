@@ -21,7 +21,10 @@ const coreDist = join(
 );
 
 // a codegen assertion proves the import is not written; only a real bundle proves it is not shipped
-async function weigh(icu: boolean): Promise<{ bytes: number; code: string }> {
+async function weigh(opts: { icu?: boolean; relative?: boolean }): Promise<{
+  bytes: number;
+  code: string;
+}> {
   const dir = mkdtempSync(join(tmpdir(), 'verbaly-icu-'));
   try {
     mkdirSync(join(dir, 'locale'), { recursive: true });
@@ -30,7 +33,7 @@ async function weigh(icu: boolean): Promise<{ bytes: number; code: string }> {
     const cfg = resolveConfig({ root: dir, sourceLocale: 'en', locales: ['en', 'es'] });
     writeFileSync(
       join(dir, 'runtime.js'),
-      generateRuntimeModule(cfg, { icu, localeImport: (l) => `./locale/${l}.js` }),
+      generateRuntimeModule(cfg, { ...opts, localeImport: (l) => `./locale/${l}.js` }),
     );
     writeFileSync(join(dir, 'app.js'), "import { t } from './runtime.js';\nconsole.log(t('a'));\n");
 
@@ -52,8 +55,8 @@ async function weigh(icu: boolean): Promise<{ bytes: number; code: string }> {
 
 describe('the ICU parser is weight an app opts into', { timeout: BUNDLE_TIMEOUT }, () => {
   it('is not in the bundle of an app whose catalogs never use it', async () => {
-    const off = await weigh(false);
-    const on = await weigh(true);
+    const off = await weigh({});
+    const on = await weigh({ icu: true });
 
     // "offset:" is only in parseIcu; selectordinal is in isIcu's regex, which stays in core
     expect(off.code).not.toContain('offset:');
@@ -62,9 +65,30 @@ describe('the ICU parser is weight an app opts into', { timeout: BUNDLE_TIMEOUT 
   });
 
   it('costs enough to be worth not shipping', async () => {
-    const off = await weigh(false);
-    const on = await weigh(true);
+    const off = await weigh({});
+    const on = await weigh({ icu: true });
     // measured at 544 B when this landed: the floor guards the claim, not the exact number
     expect(on.bytes - off.bytes).toBeGreaterThan(400);
+  });
+});
+
+describe('relative time is weight an app opts into', { timeout: BUNDLE_TIMEOUT }, () => {
+  it('is not in the bundle of an app whose catalogs never write it', async () => {
+    const off = await weigh({});
+    const on = await weigh({ relative: true });
+
+    // the minifier rewrites 2592000 as 2592e3, so the marker is what it becomes, verified both ways
+    expect(off.code).not.toContain('RelativeTimeFormat');
+    expect(off.code).not.toContain('2592e3');
+    expect(on.code).toContain('RelativeTimeFormat');
+    expect(on.code).toContain('2592e3');
+    expect(on.bytes).toBeGreaterThan(off.bytes);
+  });
+
+  it('costs enough to be worth not shipping', async () => {
+    const off = await weigh({});
+    const on = await weigh({ relative: true });
+    // measured at 318 B when this landed: the floor guards the claim, not the exact number
+    expect(on.bytes - off.bytes).toBeGreaterThan(220);
   });
 });

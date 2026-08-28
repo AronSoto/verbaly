@@ -138,17 +138,21 @@ await switchLocale('es', { navigate: (path) => router.push(path) });
 
 `npx verbaly doctor` names the mode you are in, and says so when `no-prefix` sits next to a `render` section that writes one URL tree per locale.
 
-## 🧪 ICU, and what it costs you
+## 🧪 What the runtime carries, and what it does not
 
 Verbaly's own syntax covers plurals, selects and formats, and [ICU message syntax](https://unicode-org.github.io/icu/userguide/format_parse/messages/) is the escape hatch for what it does not. **You pay for the escape hatch only if you open it.** The compiler reads your catalogs, and if any message uses ICU it wires the parser into the generated runtime; if none does, the parser is not in your bundle at all. Measured on a real app bundle: **544 bytes gzip**, which is 15% of the runtime.
+
+**Relative time works the same way.** `{when:relative}` and `{n:relative/day}` pull `Intl.RelativeTimeFormat` and a unit table, another **318 bytes**, and most apps never write one. Same deal: the compiler sees it in your catalogs and wires it, or it is not in your bundle.
 
 Nothing to configure. The one case the catalogs cannot answer is a message that arrives after the build, from a CMS or a fetched catalog:
 
 ```ts
-export default { locales: ['en', 'es'], icu: true }; // ship the parser anyway
+export default { locales: ['en', 'es'], icu: true, relative: true }; // ship them anyway
 ```
 
-Without that, such a message renders **its own source text** and warns once naming the fix, rather than half-rendering into something that looks plausible.
+Without that, such a message renders **its own source text** (ICU) or the raw value with a warning that names what is missing (relative), rather than half-rendering into something that looks plausible.
+
+The other format cases stay in the runtime always, and that is measured rather than assumed: `currency`, `date`, `time`, `unit`, `list`, `percent` and `integer` cost **24 to 38 bytes each**, so making them optional would buy less than the machinery to do it.
 
 ## 🌍 Human translators & TMS
 
@@ -221,7 +225,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 
 | Area              | Exports                                                                                                                                                                                                                                  |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Config & catalogs | `loadConfig` `resolveConfig` `loadCatalogs` `writeCatalog` `needsIcu` · types `Catalog` `Catalogs`                                                                                                                                       |
+| Config & catalogs | `loadConfig` `resolveConfig` `loadCatalogs` `writeCatalog` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                       |
 | Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` · type `SyncResult`                                                                                                                       |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · type `RuntimeModuleOptions`                                                                                                                                    |
 | Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |

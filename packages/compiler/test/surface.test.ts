@@ -32,6 +32,7 @@ const VALUES = [
   'loadVirtualModule',
   'markDrafts',
   'needsIcu',
+  'needsRelative',
   'pruneCatalogs',
   'renderSite',
   'resolveConfig',

@@ -10,6 +10,7 @@ export interface RuntimeModuleOptions {
   localeImport?: (locale: string) => string;
   extraExports?: string;
   icu?: boolean;
+  relative?: boolean;
 }
 
 export function generateRuntimeModule(
@@ -23,14 +24,15 @@ export function generateRuntimeModule(
     .map((locale) => `  ${JSON.stringify(locale)}: () => import('${importPath(locale)}'),`)
     .join('\n');
 
-  // named in the import list only when a catalog uses ICU, so otherwise the parser tree-shakes out
+  // named in the import list only when a catalog uses them, so otherwise they tree-shake out
   const icu = options.icu ? ',\n  parseIcu' : '';
+  const rel = options.relative ? ',\n  relativeFormatter' : '';
 
   return `import {
   createVerbaly,
   localeFromPath as readPath,
   localePath as writePath,
-  switchLocale as runSwitch${icu},
+  switchLocale as runSwitch${icu}${rel},
 } from 'verbaly';
 import source from '${importPath(cfg.sourceLocale)}';
 
@@ -70,7 +72,12 @@ export function createInstance(options) {
     fallback: ${src},
     messages: { [${src}]: source },
     loaders: localeLoaders,${options.icu ? '\n    icu: parseIcu,' : ''}
-    ...options,
+    ...options,${
+      options.relative
+        ? '\n    // merged, not spread over: passing your own formatters must not drop this one' +
+          '\n    formatters: { relative: relativeFormatter, ...options?.formatters },'
+        : ''
+    }
   });
 }
 

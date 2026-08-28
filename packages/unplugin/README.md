@@ -50,7 +50,7 @@ npx verbaly extract --watch   # keep extracting as you code (dev loop)
 - **Build gate**: missing translations fail the build (`failOnMissing: false` to opt out).
 - ESM-only, like the compiler. Use `webpack.config.mjs` (or `"type": "module"`).
 
-📖 Docs & live playground: **https://verbaly-web.vercel.app**
+📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVerbaly } from '../src/instance';
+import { relativeFormatter } from '../src/relative';
 import { numberFormat } from '../src/intl';
 
 const v = createVerbaly({
@@ -47,6 +48,8 @@ const v = createVerbaly({
   },
   formatters: {
     upper: (value) => String(value).toUpperCase(),
+    // the compiler wires this when a catalog message uses it, so the tests wire it the same way
+    relative: relativeFormatter,
   },
 });
 
@@ -374,7 +377,11 @@ describe('more format paths', () => {
   });
 
   it('relative Date under a second falls back to the seconds unit', () => {
-    const rel = createVerbaly({ locale: 'en', messages: { en: { now: '{d:relative}' } } });
+    const rel = createVerbaly({
+      locale: 'en',
+      messages: { en: { now: '{d:relative}' } },
+      formatters: { relative: relativeFormatter },
+    });
     // a Date essentially at "now": no unit threshold matched, seconds fallback
     expect(rel.t('now', { d: new Date() })).toMatch(/second|now/);
   });
@@ -383,7 +390,11 @@ describe('more format paths', () => {
 describe('a warn never carries a runtime value', () => {
   it('dedupes a bad relative unit across every count the ui walks through', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const bad = createVerbaly({ locale: 'en', messages: { en: { n: '{n:relative/xx}' } } });
+    const bad = createVerbaly({
+      locale: 'en',
+      messages: { en: { n: '{n:relative/xx}' } },
+      formatters: { relative: relativeFormatter },
+    });
     for (let i = 0; i < 20; i++) bad.t('n', { n: i });
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]![0]).toContain('cannot format a number as "xx"');
@@ -427,5 +438,34 @@ describe('intl cache cap', () => {
     const first = numberFormat('en-x-cap');
     for (let i = 0; i < 200; i++) numberFormat(`en-x-f${i}`);
     expect(numberFormat('en-x-cap')).not.toBe(first);
+  });
+});
+
+describe('relative without its formatter', () => {
+  it('says it is not loaded, which reads nothing like an unknown format', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bare = createVerbaly({ locale: 'en', messages: { en: { when: '{d:relative/day}' } } });
+
+    expect(bare.t('when', { d: 3 })).toBe('3');
+    expect(spy.mock.calls[0]![0]).toContain('is not loaded');
+    expect(spy.mock.calls[0]![0]).toContain('the compiler wires it');
+    spy.mockRestore();
+  });
+
+  it('a formatter now knows both the param and the message it was called for', () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const spy = createVerbaly({
+      locale: 'en',
+      messages: { en: { total: 'Total {amount:money}' } },
+      formatters: {
+        money: (value, locale, arg, info) => {
+          seen.push({ ...info, locale, arg });
+          return String(value);
+        },
+      },
+    });
+
+    spy.t('total', { amount: 5 });
+    expect(seen[0]).toEqual({ param: 'amount', key: 'total', locale: 'en', arg: undefined });
   });
 });

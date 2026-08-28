@@ -1,4 +1,4 @@
-import { dateTimeFormat, listFormat, numberFormat, pluralRules, relativeTimeFormat } from './intl';
+import { dateTimeFormat, listFormat, numberFormat, pluralRules } from './intl';
 import type { MessageNode, ParamNode } from './parse';
 import type { Formatter, Params } from './types';
 import { warnOnce } from './warn';
@@ -78,7 +78,7 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
   const { name, arg } = node;
   const format = node.format!;
   const custom = ctx.formatters[format];
-  if (custom) return custom(value, ctx.locale, arg);
+  if (custom) return custom(value, ctx.locale, arg, { param: name, key: ctx.key });
 
   const { locale } = ctx;
   // a format missing its argument degrades like an invalid one: with a warn, never in silence
@@ -118,11 +118,6 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
       } catch {
         return degrade(`cannot format ${describe(value)} with style "${arg ?? 'short'}"`);
       }
-    case 'relative':
-      if (typeof value === 'number' && !arg) return degrade('needs an argument like /day');
-      if (typeof value !== 'number' && !(value instanceof Date))
-        return degrade('needs a number or a Date');
-      return formatRelative(value, node, ctx);
     case 'list': {
       if (!Array.isArray(value)) return degrade('needs an array');
       const type = arg === 'or' ? 'disjunction' : arg === 'unit' ? 'unit' : 'conjunction';
@@ -135,39 +130,11 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
       } catch {
         return degrade(`does not know the unit "${arg}"`);
       }
+    // known but not loaded reads nothing like unknown, and the fix is not the reader's to guess
+    case 'relative':
+      return degrade('is not loaded: the compiler wires it when a catalog message uses it');
     default:
       return degrade('is not a format verbaly knows');
-  }
-}
-
-// seconds per unit, largest first (auto pick)
-const REL_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 31536000],
-  ['month', 2592000],
-  ['week', 604800],
-  ['day', 86400],
-  ['hour', 3600],
-  ['minute', 60],
-  ['second', 1],
-];
-
-function formatRelative(value: number | Date, node: ParamNode, ctx: FormatContext): string {
-  const { arg } = node;
-  try {
-    const fmt = relativeTimeFormat(ctx.locale);
-    if (typeof value === 'number') return fmt.format(value, arg as Intl.RelativeTimeFormatUnit);
-    const diffSec = (value.getTime() - Date.now()) / 1000;
-    if (arg) {
-      const per = REL_UNITS.find(([unit]) => unit === arg)?.[1];
-      if (!per) throw new RangeError(arg);
-      return fmt.format(Math.round(diffSec / per), arg as Intl.RelativeTimeFormatUnit);
-    }
-    const [unit, per] = REL_UNITS.find(([, s]) => Math.abs(diffSec) >= s) ?? ['second', 1];
-    return fmt.format(Math.round(diffSec / per), unit);
-  } catch {
-    // an invalid Date lands here too, so the warn names both suspects instead of blaming the unit
-    warnOnce(`{${node.name}:relative}${where(ctx)} cannot format ${describe(value)} as "${arg}"`);
-    return String(value);
   }
 }
 

@@ -14,6 +14,7 @@ export {
 } from './locale';
 export { parse } from './parse';
 export { parseIcu } from './icu';
+export { relativeFormatter } from './relative';
 export { flatten } from './flatten';
 export { parseTags } from './tags';
 
@@ -31,6 +32,7 @@ export type { TagNode } from './tags';
 export type {
   DictionaryInput,
   FlatKeys,
+  FormatInfo,
   Formatter,
   KeysOf,
   LocaleLoader,

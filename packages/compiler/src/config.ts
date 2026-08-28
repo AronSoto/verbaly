@@ -42,6 +42,7 @@ export interface VerbalyConfig {
   locales?: string[];
   routing?: Routing;
   icu?: boolean;
+  relative?: boolean;
   include?: string[];
   exclude?: string[];
   dts?: string | false;
@@ -56,6 +57,7 @@ export interface ResolvedConfig {
   locales: string[];
   routing: Routing;
   icu: boolean | undefined;
+  relative: boolean | undefined;
   include: string[];
   exclude: string[];
   dts: string | false | undefined;
@@ -83,8 +85,9 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     sourceLocale,
     // the mode follows the surface: render is what builds a url tree per locale, so it is the tell
     routing: config.routing ?? (config.render ? 'prefix-except-source' : 'no-prefix'),
-    // the catalogs decide on their own; this only forces it for messages that arrive after the build
+    // the catalogs decide on their own; these only force it for messages that arrive after the build
     icu: config.icu,
+    relative: config.relative,
     locales: [...locales],
     include: config.include ?? ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}'],
     exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],

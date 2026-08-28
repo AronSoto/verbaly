@@ -18,7 +18,7 @@ export type {
 
 // Layer 2: what builds an integration; the six first-party packages consume exactly this.
 export { loadConfig, resolveConfig } from './config';
-export { loadCatalogs, needsIcu, writeCatalog } from './catalog';
+export { loadCatalogs, needsIcu, needsRelative, writeCatalog } from './catalog';
 export type { Catalog, Catalogs } from './catalog';
 
 export { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';

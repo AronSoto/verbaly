@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { generateDts, generateLocaleModule, generateRuntimeModule } from '../src/codegen';
-import { needsIcu } from '../src/catalog';
+import { needsIcu, needsRelative } from '../src/catalog';
 import { resolveConfig } from '../src/config';
 import { collectParams, renderParamType } from '../src/params';
 
@@ -216,5 +216,38 @@ describe('needsIcu', () => {
     expect(needsIcu({ en: { a: '{price:currency/EUR}' } })).toBe(false);
     expect(needsIcu({ en: { a: 'Use {{ }} to escape' } })).toBe(false);
     expect(needsIcu({ en: { a: 'a, plural, b' } })).toBe(false);
+  });
+});
+
+describe('needsRelative', () => {
+  it('sees a real relative message, with or without a unit', () => {
+    expect(needsRelative({ en: { a: 'Updated {when:relative}' } })).toBe(true);
+    expect(needsRelative({ en: { a: 'in {n:relative/day}' } })).toBe(true);
+    expect(needsRelative({ en: { a: 'Hi {name}' } })).toBe(false);
+  });
+
+  it('does not fire on prose that shows the syntax escaped', () => {
+    // a docs site writes the braces as entities, and detecting that is the 0.29.0 lesson again
+    const docs = 'Relative time (<code>&#123;when:relative&#125;</code>) uses Intl';
+    expect(needsRelative({ en: { a: docs } })).toBe(false);
+    expect(
+      needsIcu({ en: { a: 'Write <code>&#123;n, plural, one &#123;#&#125;&#125;</code>' } }),
+    ).toBe(false);
+  });
+});
+
+describe('the relative formatter rides only where a catalog writes it', () => {
+  const cfg = () => resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'] });
+
+  it('is absent from the module when no catalog uses it', () => {
+    expect(generateRuntimeModule(cfg())).not.toContain('relative');
+  });
+
+  it('is merged into formatters, never spread over by the caller options', () => {
+    const mod = generateRuntimeModule(cfg(), { relative: true });
+    expect(mod).toContain('relativeFormatter');
+    // the merge order is the whole point: ...options first, then formatters rebuilt around it
+    expect(mod).toContain('formatters: { relative: relativeFormatter, ...options?.formatters }');
+    expect(mod.indexOf('...options,')).toBeLessThan(mod.indexOf('formatters: { relative'));
   });
 });

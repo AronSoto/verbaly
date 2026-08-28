@@ -8,6 +8,61 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.43.0] · 2026-08-27
+
+**The badge said ~3KB, so we made it true.** That badge has been on the README since the beginning while the runtime was 3.68 KB, and 0.42.0 took it to 3.28, which was still not what it said. Rather than weaken the claim, this release removes the last passenger heavy enough to be worth removing: relative time formatting is 318 bytes that most apps never write, and it now ships only where a catalog asks for it. The runtime is **3.00 KB gzip**, which is what its badge has claimed all along. The rest of the release is the same idea applied to everything else the project says about itself: the security policy covered seven of twelve packages, contributing said ten, and our security posture was a claim rather than something a stranger could check.
+
+### Highlights
+
+- **The runtime is 3.00 KB, exactly what the badge always claimed.** Relative time formatting joins ICU as something the compiler ships only when one of your messages actually uses it, and there is nothing for you to configure.
+- **A custom formatter now knows which message it was called for.** It receives the parameter name and the message key, so its own errors can say where they happened, which was impossible before.
+- **The security policy covers all twelve packages**, not the seven that existed when it was written.
+- **The security posture is checkable rather than claimed**: an OpenSSF Scorecard badge on the README reads a workflow that runs on every push, so nobody has to take our word for it.
+
+### Added
+
+- **`relativeFormatter`** (`verbaly`), the relative-time case as a standalone `Formatter`, and **`needsRelative(catalogs)`** plus **`RuntimeModuleOptions.relative`** (`@verbaly/compiler`) to wire it where a catalog writes `{when:relative}`. It goes through the **existing** `formatters` option, so there is no new mechanism and nothing new on the hot path: that lookup already ran before the switch.
+- **`FormatInfo`** (`verbaly`): a `Formatter` now takes an optional fourth argument, `{ param, key }`. Optional and positional, so every formatter written before this still typechecks.
+- **`relative: true` in the config** (`@verbaly/compiler`), the twin of `icu: true`, for messages that only exist after the build.
+- **Provenance is stated on the README and made checkable**, with the command that verifies it. All twelve packages have published through npm Trusted Publishing with SLSA v1 attestations for a long time, and the README never said so. It is the strongest signal the project has, it is cryptographic rather than an opinion, and npm renders its own badge for it: **the only thing missing was saying it.**
+- **An OpenSSF Scorecard workflow**, a `permissions: contents: read` block on CI, and a Dependabot config for GitHub Actions. Scorecard reads all three. **Its score is the badge on the README and its detail is in the repository's Security tab**: a solo project scores low on Code-Review and Contributors by construction, so the number reads as a floor rather than a grade, and a floor a stranger can check beats a claim nobody can. Its actions are **pinned by commit rather than by tag**, mirroring the workflow OpenSSF runs on itself: a tag can be moved, and Scorecard's own Pinned-Dependencies check is asking for exactly that.
+
+### Changed
+
+- **`createVerbaly` is 3.28 KB to 3.00 KB min+gzip** (`verbaly`); a realistic app import list is 5.92 KB to 5.65 KB. **Budgets were pulled in again**, to 3.25 and 6.10, on the standing rule that a win left unfenced gets spent.
+- **The README says 3.00 KB and names the command that measures it**, instead of a rounded number that had been wrong for the badge's whole life.
+- **`SECURITY.md` lists all twelve packages** and gained a supply-chain section (provenance, how to verify it, zero runtime dependencies). It was also the only file in the repository still using em dashes, which the project sweeps everywhere else.
+- **`CONTRIBUTING.md` says twelve packages** and its monorepo tree includes `astro/` and `mcp/`, which have been shipping for four and five releases.
+- **Nine of the twelve `package.json` homepages pointed at a page that no longer exists**, and that field is the one link npm shows on a package page. `/docs/cli`, `/docs/vite` and `/docs/sveltekit` were 404s; three more landed on the Plain HTML page instead of their own. They now match `packages.ts`, which is where the site's own links come from. **A check in `verbaly-web`'s `pnpm check` keeps them honest**, because the two live in different repositories and nothing had noticed for four releases.
+- **The issue templates stopped being accurate.** The package dropdown listed ten of twelve, the version example said `0.23.0`, and the help link promised a "live playground" that was retired. Four package READMEs promised the same playground.
+- **`CODE_OF_CONDUCT.md` names a way to actually report something.** It said "a direct report on GitHub", which is not a route; it now points at the maintainer's profile and at GitHub's own abuse form, which works even when the report concerns the maintainer.
+
+### Notes
+
+- **The release that was planned is not the release that shipped, and measuring is why.** The plan was "the 712 B of format cases", measured as one lump in 0.42.0. Broken down per case: **`relative` 318 B, `list` 77, `percent`+`integer` 38, `unit` 31, `currency` 30, `date` 27, `time` 24.** Six of the eight cost less than 40 bytes each, so a registry to make them optional would cost more machinery than it buys, on the hot path, for nothing. **Only `relative` was worth extracting**, and the rest are now documented as deliberately staying.
+- **Extracting it revealed a standing gap rather than creating one.** Moving `relative` out of the switch would have cost its warning the parameter name (`{d:relative} in "ago"` becoming `{…:relative}`), and fixing that meant giving formatters a context argument, which showed that **a custom formatter could never name the param or the message it failed on**. That is now possible for everyone's formatters, not just ours.
+- **The bundle receipt caught its second wrong marker.** `2592000`, the seconds-per-month constant, never appears in a minified bundle: esbuild rewrites it as `2592e3`. The test now asserts on that and on `RelativeTimeFormat`, present and absent both ways. **That file has caught a bad marker once for each feature it guards**, which is the only reason to believe it will catch the next one.
+- **A detector must not fire on prose that shows the syntax.** Our own docs catalogs describe `{when:relative}` and ICU with the braces written as HTML entities, and both detectors correctly ignore them, pinned against that exact shape. Verified end to end: our site has **zero** real messages of either kind and its built bundle contains neither the parser nor the formatter.
+- **1097 tests** (compiler **575** · core **306** · next 42 · nuxt 28 · react 28 · svelte 26 · vite 25 · vue 18 · mcp 14 · sveltekit 13 · unplugin 12 · astro 10), was 1089: +6 compiler (the relative bundle weight twice, the detector against real and escaped syntax, and the merge order in codegen) and +2 core (relative without its formatter, and the context a formatter now receives).
+- **The OpenSSF Best Practices badge was considered and dropped.** It is a self-certification questionnaire, and the effort a solo maintainer spends on it buys a claim rather than a measurement. **Scorecard is a different thing and stays**: it asks nothing, runs on every push, and is one of the tools recommended as Snyk Advisor shuts down in January 2026. Its score is shaped by things a one-person project cannot change, which is why it reads as a floor and not as a grade. Every signal this README shows measures something a reader can verify for themselves: coverage, Socket, Scorecard, and provenance.
+- **The staleness sweep went wider than the four files it started with, and that was the point of asking.** The count that was wrong in `SECURITY.md` was wrong in four other places, the retired playground was still promised in five, and the homepages had been broken since the docs were reorganised. **None of it was reachable by reading the code**, which is why the new guard reads the two repositories against each other instead.
+- **The architecture was audited and deliberately not changed.** The question was whether the code is over-engineered: it has **zero enums** (correct, since TypeScript enums emit runtime objects and hurt tree-shaking, and the codebase uses `as const` unions instead), **one class in twelve packages** (`MessageRegistry`, a documented opaque handle), no inheritance anywhere, a 1751-line core and adapters of 59 to 175 lines each. Adding enums would make the runtime bigger, not clearer. The only two files worth a second look are `render.ts` (627 lines) and `run.ts` (562), and the latter is already tracked in the PLAN.
+- Sizes: **3.00 KB** tree-shaken · **5.65 KB** a real app · 1.60 KB devtools · 7.04 KB every export.
+- Bench vs i18next: **30.3× / 11.8× / 5.3× / 6.2×** (lookup, interpolation, plural, currency). `t()` was not touched.
+- No new dependencies, no change to the message format, the key scheme or the catalog format.
+
+### Docs impact (pending)
+
+> One number changes everywhere it is quoted, and it is the headline one.
+
+- **The landing's comparison table**: the runtime claim moves from ~3.3 KB to **3.00 KB** for a project using neither ICU nor relative time. Re-seal the row with the other tools re-measured, per pillar 5.
+- **`docs/guide/format`**: the ICU weight note should become the two-passenger note, with relative time next to it and the same "there is nothing to configure" framing. Worth stating plainly that the other format cases stay, and why: they cost 24 to 38 bytes each.
+- **`docs/reference/cli`**: `relative` joins `icu` in the config table, as the same kind of exception.
+- **`docs/reference/api`**: a custom `Formatter` takes a fourth argument now. This is the page where someone writing one will look.
+- Nothing to change in the agents page, the URL page, the translators page or devtools.
+
+---
+
 ## [0.42.0] · 2026-08-27
 
 **You were paying for an escape hatch you never opened.** Verbaly's own syntax covers plurals, selects and formats, and ICU message syntax is the way out for what it does not. It has always been described as opt-in, and it never was: `parse` imported the ICU parser unconditionally, so **every app shipped it whether or not a single message used it**. Our own docs site has zero ICU messages and shipped it on every page. The compiler already reads every catalog, so it can tell, and now it does. No API is removed and an app that uses ICU is unaffected.

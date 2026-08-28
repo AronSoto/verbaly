@@ -140,3 +140,15 @@ export function needsIcu(catalogs: Catalogs): boolean {
   }
   return false;
 }
+
+// relative time is the one format heavy enough to be worth shipping only where it is written
+const RELATIVE_ARG = /\{[^{}]*:\s*relative\b/;
+
+export function needsRelative(catalogs: Catalogs): boolean {
+  for (const catalog of Object.values(catalogs)) {
+    for (const message of Object.values(flatten(catalog as MessageTree))) {
+      if (RELATIVE_ARG.test(message)) return true;
+    }
+  }
+  return false;
+}

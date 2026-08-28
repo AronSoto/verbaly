@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/compiler",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "description": "Message extraction and type-safe codegen for Verbaly.",
   "keywords": [
     "i18n",
@@ -15,7 +15,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/compiler"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/cli",
+  "homepage": "https://verbaly-web.vercel.app/docs/reference/cli",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

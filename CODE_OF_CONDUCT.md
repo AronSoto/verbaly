@@ -52,10 +52,14 @@ representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainer, [@AronSoto](https://github.com/AronSoto), via a
-direct report on GitHub. All complaints will be reviewed and investigated
-promptly and fairly. The maintainer is obligated to respect the privacy and
-security of the reporter of any incident.
+reported to the maintainer, [@AronSoto](https://github.com/AronSoto). Two
+routes work today: contact the maintainer through the links on that GitHub
+profile, or use GitHub's own [report abuse](https://github.com/contact/report-abuse)
+form, which reaches GitHub Support directly and does not depend on this project.
+
+All complaints will be reviewed and investigated promptly and fairly. The
+maintainer is obligated to respect the privacy and security of the reporter of
+any incident, and will recuse themselves from any report that concerns them.
 
 ## Attribution
 

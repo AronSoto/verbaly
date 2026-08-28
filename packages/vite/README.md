@@ -37,7 +37,7 @@ import { t, setLocale } from 'virtual:verbaly';
 - **Per-locale code-splitting**: `setLocale` lazy-loads only what's used.
 - **Build gate**: missing translations stop the build (same as `verbaly check`); `failOnMissing: false` opts out.
 
-📖 Docs & live playground: **https://verbaly-web.vercel.app**
+📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/vite**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

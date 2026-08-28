@@ -22,12 +22,12 @@ const SURFACES = [
   {
     name: 'tree-shaken createVerbaly',
     code: "export { createVerbaly } from './dist/index.js';",
-    budget: 3.55,
+    budget: 3.25,
   },
   {
     name: 'a real app (runtime + dom + locale)',
     code: `export { ${REAL_APP.join(', ')} } from './dist/index.js';`,
-    budget: 6.4,
+    budget: 6.1,
   },
   { name: 'devtools', code: "export * from './dist/devtools.js';", budget: 1.75 },
   {

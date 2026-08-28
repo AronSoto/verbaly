@@ -42,7 +42,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Bench vs i18next: **37.9× / 10.3× / 5.5× / 7.6×** (lookup, interpolation, plural, currency). `t()` was not touched and `parse` is cached, so the spread is the machine.
 - No new dependencies, no change to the message format, the key scheme or the catalog format.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 > One new idea for the reader, and it is the absence of a decision rather than a new one.
 

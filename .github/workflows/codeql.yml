@@ -1,0 +1,34 @@
+name: CodeQL
+
+# Real static analysis, not a SARIF upload: scorecard.yml already used codeql-action/upload-sarif
+# and that never counted as running a SAST tool, which is why the Scorecard SAST check read 0.
+# What earns it here is the code itself: the compiler parses catalogs, PO, XLIFF and HTML that
+# arrive from translators and CMSs, and the runtime builds DOM from them. Findings land in the
+# Security tab. Actions pinned by commit like the rest; Dependabot updates them.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  schedule:
+    - cron: '31 5 * * 1'
+
+permissions: read-all
+
+jobs:
+  analyze:
+    name: Analyze TypeScript
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # upload the findings to the Security tab
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # no build step: CodeQL reads TypeScript sources directly for this language
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        with:
+          languages: javascript-typescript
+
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9

@@ -5,6 +5,10 @@ on:
     branches: [develop, main]
   pull_request:
 
+# the default token is read-write on everything; CI only ever reads the code it checks out
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

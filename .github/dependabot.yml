@@ -1,0 +1,11 @@
+# Scorecard checks for an update tool, and an unmaintained action pin is a real supply chain risk.
+# Dependencies themselves stay on the release ritual (`pnpm outdated -r` must be empty), so this
+# watches the one surface that ritual does not: the actions the workflows run.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'chore(ci)'

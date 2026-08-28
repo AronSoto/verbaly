@@ -1,0 +1,40 @@
+name: Scorecard
+
+# publish_results feeds the README badge; the SARIF gives the detail in this repo's Security tab.
+# A solo project scores low on Code-Review and Contributors by construction, so the number reads
+# as a floor rather than a grade.
+# Actions are pinned by commit, not by tag: a tag can be moved, and Scorecard's own
+# Pinned-Dependencies check asks for exactly this. SHAs mirror ossf/scorecard's own
+# scorecard-analysis.yml, and Dependabot updates them.
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '31 4 * * 1'
+  push:
+    branches: [develop]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # upload the SARIF to the Security tab
+      id-token: write # OIDC, required for publish_results and therefore for the badge
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          sarif_file: results.sarif

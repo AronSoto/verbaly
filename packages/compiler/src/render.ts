@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import MagicString from 'magic-string';
+import picomatch from 'picomatch';
 import { glob } from 'tinyglobby';
 import {
   createVerbaly,
@@ -334,6 +335,7 @@ export interface RenderSiteOptions {
   base?: string;
   baseUrl?: string;
   hreflang?: boolean;
+  exclude?: string[];
   sitemap?: boolean | string;
   redirect?: boolean | RedirectConfig;
   clean?: boolean;
@@ -348,6 +350,13 @@ export interface RenderSiteResult {
 
 const TITLE_TAG = /<title\b([^>]*)>/i;
 const REFRESH_META = /<meta\b[^>]*http-equiv\s*=\s*["']?refresh/i;
+
+const NOINDEX_META = /<meta\b[^>]*name\s*=\s*["']?robots["']?[^>]*content\s*=\s*["'][^"']*noindex/i;
+
+// the mirror still publishes these, they are simply never search results
+function isIndexable(html: string): boolean {
+  return !REFRESH_META.test(html) && !NOINDEX_META.test(html);
+}
 
 // a <title> with no key ships the source language everywhere, and it is most of a search result
 function headIsBound(html: string, attr: string): boolean {
@@ -368,6 +377,9 @@ export async function renderSite(
   const base = normalizeBase(options.base ?? cfg.render.base);
   const baseUrl = (options.baseUrl ?? cfg.render.baseUrl)?.replace(/\/+$/, '');
   const wantHreflang = (options.hreflang ?? cfg.render.hreflang ?? true) && baseUrl !== undefined;
+  // the escape hatch for a page that is indexable and still not ours to list
+  const patterns = options.exclude ?? cfg.render.exclude ?? [];
+  const excluded = patterns.length > 0 ? picomatch(patterns) : () => false;
   const sitemap = options.sitemap ?? cfg.render.sitemap ?? false;
   const wantSitemap = sitemap !== false && baseUrl !== undefined;
   const clean = options.clean ?? cfg.render.clean ?? false;
@@ -411,7 +423,7 @@ export async function renderSite(
       untranslatedHead.push(rel);
     }
     const alternates = wantHreflang ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale) : [];
-    if (wantHreflang) urls.push({ rel, alternates });
+    if (wantHreflang && isIndexable(html) && !excluded(rel)) urls.push({ rel, alternates });
     // only the source tree carries it: the mirror page a visitor reaches is already the answer
     const routed = script && (redirect!.on === 'all' || rel === 'index.html');
     for (const locale of locales) {

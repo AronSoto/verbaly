@@ -107,7 +107,9 @@ export function check(
   return { ok: gatePasses({ missing, unknown, broken }), missing, unknown, broken };
 }
 
-export function formatCheckResult(result: CheckResult): string {
+// root makes the paths readable: an absolute path is noise in the one message people are stuck on
+export function formatCheckResult(result: CheckResult, root?: string): string {
+  const show = (file: string) => (root ? relative(root, file).replaceAll('\\', '/') : file);
   const lines: string[] = [];
   if (result.missing.length > 0) {
     lines.push('missing translations:');
@@ -119,7 +121,7 @@ export function formatCheckResult(result: CheckResult): string {
   if (result.unknown.length > 0) {
     lines.push('unknown keys (not in any catalog):');
     for (const entry of result.unknown) {
-      lines.push(`  ${entry.key} (used in ${entry.files.join(', ')})`);
+      lines.push(`  ${entry.key} (used in ${entry.files.map(show).join(', ')})`);
     }
   }
   const errors = result.broken.filter((entry) => entry.severity === 'error');

@@ -66,6 +66,9 @@ export interface AnalyzeOptions {
 const DEFAULT_T_NAMES: readonly string[] = ['t'];
 const JSX_FILE_RE = /\.(?:[cm]?jsx?|tsx)$/;
 
+// a key module declares what a call site would otherwise pass as a literal the scanner can read
+const DEFINE_KEYS = 'defineKeys';
+
 export function analyze(code: string, file: string, options: AnalyzeOptions = {}): Analysis {
   const names = new Set(options.tNames ?? DEFAULT_T_NAMES);
   const ast = parse(code, {
@@ -100,8 +103,12 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
       });
     } else if (node.type === 'CallExpression') {
       const callee = node.callee as AstNode;
-      if (!isTReference(callee, names)) return;
       const args = node.arguments as AstNode[];
+      if (callee.type === 'Identifier' && callee.name === DEFINE_KEYS) {
+        collectDeclaredKeys(args[0], file, usedKeys);
+        return;
+      }
+      if (!isTReference(callee, names)) return;
       const first = args[0];
       if (first?.type === 'StringLiteral') {
         usedKeys.push({ key: first.value as string, file });
@@ -114,6 +121,20 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
   return { tagged, usedKeys, strayImports };
 }
 
+// every string leaf is a key: the call is the author saying so, and '' still means untranslated
+function collectDeclaredKeys(node: AstNode | undefined, file: string, out: UsedKey[]): void {
+  if (node?.type !== 'ObjectExpression') return;
+  for (const property of node.properties as AstNode[]) {
+    if (property.type !== 'ObjectProperty') continue;
+    const value = property.value as AstNode;
+    if (value.type === 'StringLiteral') {
+      if ((value.value as string) !== '') out.push({ key: value.value as string, file });
+    } else if (value.type === 'ObjectExpression') {
+      collectDeclaredKeys(value, file, out);
+    }
+  }
+}
+
 const VERBALY_PACKAGE = /^(?:verbaly|@verbaly\/[\w-]+)$/;
 
 // the most plausible onboarding error: only the bundler used to complain, and never about verbaly
@@ -123,9 +144,10 @@ function collectStrayImports(node: AstNode, file: string, out: StrayImport[]): v
   for (const spec of node.specifiers as AstNode[]) {
     if (spec.type !== 'ImportSpecifier') continue;
     const imported = spec.imported as AstNode;
-    if (imported.type === 'Identifier' && imported.name === 't') {
-      out.push({ name: 't', source: source.value, file });
-    }
+    if (imported.type !== 'Identifier') continue;
+    const name = imported.name as string;
+    // both come from virtual:verbaly, which is the project's module and never a package export
+    if (name === 't' || name === DEFINE_KEYS) out.push({ name, source: source.value, file });
   }
 }
 

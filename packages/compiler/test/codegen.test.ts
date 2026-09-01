@@ -171,6 +171,25 @@ describe('routing reaches the virtual module', () => {
   });
 });
 
+describe('declared keys', () => {
+  it('ships an identity helper, so a key module works with or without a bundler plugin', () => {
+    const cfg = resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'] });
+    const mod = generateRuntimeModule(cfg);
+    expect(mod).toContain('export function defineKeys(keys)');
+    expect(mod).toContain('return keys;');
+  });
+
+  it('constrains every leaf to a key the catalog really has', () => {
+    // the point of the helper: a key that does not exist is an error where it is declared
+    const dts = generateDts({ a: 'Hi' });
+    expect(dts).toContain(
+      'export type VerbalyKeyTree = VerbalyKey | { readonly [name: string]: VerbalyKeyTree };',
+    );
+    // const keeps the literal types, without it every value widens to string and t(key) breaks
+    expect(dts).toContain('export function defineKeys<const T extends VerbalyKeyTree>(keys: T): T;');
+  });
+});
+
 describe('the bound switcher', () => {
   it('hands the mode, the locales and the source to core, leaving only the router', () => {
     const cfg = resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'], render: {} });

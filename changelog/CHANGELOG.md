@@ -8,6 +8,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.47.0] · 2026-09-01
+
+**Keys you write down, and a sitemap that tells the truth.** Verbaly's default is that you write text and never see a key, and that stays. This version covers the other real case: keys that are a contract with something outside your app, a mobile client or a translation memory, written once in a module and read from everywhere. Until now the compiler could not see them at all. Breaking: no.
+
+### Highlights
+
+- **You can now keep your keys in a module and Verbaly will still check them.** A file that maps names to keys is a shape a lot of projects already write. Before, Verbaly could not see those keys: cleaning unused messages deleted them, and nothing verified they existed.
+- **A key that no catalog has is an error where you declare it**, not a blank space you find in the interface later. Your editor autocompletes from your own catalog while you write the module.
+- **Your sitemap stops listing pages that ask not to be indexed.** Redirects and error pages were being published as if they were results. On this site that was 21 addresses out of 81, and now the list is only the 60 real pages. Those pages are still translated and published as before.
+- **You can leave a page out of the sitemap by name** when it is a normal page you simply do not want listed.
+- **Nothing changes if you do not use either.** Both are additions, and a project that writes neither behaves exactly as before.
+
+### Added
+
+- **`defineKeys` in `virtual:verbaly`** (`@verbaly/compiler`): wrap the object that maps names to catalog keys and the compiler registers every string leaf, nested groups included, as a used key. `--prune` keeps them, `check` validates them, `status` counts them. `''` is skipped, because an empty value means untranslated everywhere else in the tool.
+- **`VerbalyKeyTree` and a typed `defineKeys` in the generated types** (`@verbaly/compiler`): `defineKeys<const T extends VerbalyKeyTree>` constrains every leaf to a key the catalogs really have, so a wrong key fails at the declaration. The `const` keeps the literal types, which is what lets `t(text.title)` still typecheck afterwards.
+- **`render.exclude`** (`@verbaly/compiler`), a list of globs matched against the path relative to the site directory, for a page that is indexable and still not yours to list.
+
+### Changed
+
+- **The sitemap lists only pages a crawler should index** (`@verbaly/compiler`). `renderSite` skips a page carrying `<meta http-equiv="refresh">` or `<meta name="robots" ... noindex>` from the url list, and **still mirrors it to every locale**, because a visitor who reaches `/es/docs` has to get the redirect. Mirroring and listing shared one loop, and that was the whole defect: every `.html` the mirror touched was claimed as a search result.
+- **A stray `defineKeys` import is reported like a stray `t`** (`@verbaly/compiler`). Neither is a package export: both come from `virtual:verbaly`, which is your project's module.
+
+### Fixed
+
+- **An unknown key named an absolute path** (`@verbaly/compiler`). `formatCheckResult` now takes the project root and prints `src/texts.ts`, which is what the CI reporter already did. It is the message someone reads while they are stuck.
+
+### Notes
+
+- **Why a helper and not following the variable.** Resolving `t(x)` back to a string across the module graph was the other option and it has no floor: computed access, spreads, functions returning keys. One named call is a single AST shape, the same discipline `t.id` and `<Trans id>` already follow, and **it is the only one of the two that can give the types**, which is the actual gap. Registering happens at the declaration, so a key used from many places or returned by a function is covered by construction.
+- **The type constraint is the feature and it is pinned by a real type checker.** `test/declared-keys.test.ts` writes a generated d.ts plus a consumer file and runs `tsc` (its own 60 second timeout, the `icu-weight` precedent). Proved able to fail: with the constraint relaxed to `<const T>` the two negative cases stop failing. A string assertion could only ever prove the declaration is written.
+- **The runtime half is identity and stays identity.** Rewriting the call away at build time was considered and rejected: the CLI-only flow has no bundler plugin, so the function has to exist. It lives in `generateRuntimeModule`, which both emission paths use, so `@verbaly/next` gets it without code of its own.
+- **The sitemap change was measured on a real site, not a fixture.** verbaly-web goes from **81 urls to 60**, with zero non-indexable pages listed, and all six redirect stubs and three 404s still written to every locale tree with their targets rewritten to stay inside the mirror. That 60 is the same count a hand-written pruning script used to produce, which is what says the rule generalizes without a list of routes.
+- **`render` does not write into anyone else's sitemap index**, and that is decided rather than pending: `sitemap-index.xml` belongs to `@astrojs/sitemap`, and `robots.txt` naming both files is the answer. The frontier: verbaly owns what depends on the locale set (`lang`, `dir`, hreflang alternates, the per-locale canonical, the translated head), never generic SEO.
+- **1153 tests** (was 1143). `pnpm test` and `pnpm coverage` agree. `pnpm first-contact` green on pnpm and npm.
+- Bench vs i18next: **32.3x / 19.5x / 5.0x / 5.4x** (lookup, interpolation, plural, currency), against 38.2/11.9/5.2/5.1 in 0.46.0. `t()` was not touched, so the spread is the machine.
+- **Sizes unmoved: 3.00 tree-shaken, 5.71 a real app, 1.60 devtools, 7.10 every export.** Nothing here lands in core: `defineKeys` is generated per project and `render` is build-time.
+- **Dependencies to latest stable, validated green**: typescript-eslint 8.69.0.
+
+### Docs impact (pending)
+
+- **New section on keys, probably in `docs/reference/cli` next to "Readable keys"**: what a key module is, `defineKeys`, and that the types come from your own catalog. It is the counterpart of `t.id`: that one names a key where the text is written, this one declares a key whose text lives only in the catalog. Worth saying plainly that the default is still writing text.
+- **`docs/reference/cli`, config section**: `render.exclude`, a list of globs against the path relative to the site directory. One row, next to the render options.
+- **`docs/frameworks/astro`**, where the mirror is described: say that the sitemap lists only indexable pages, and that redirects and 404s are still mirrored. This is the answer to the note that repo had open about 21 urls of 81.
+- The comparison table on the landing does not move: this is not a claim about weight or speed.
+
+---
+
 ## [0.46.0] · 2026-09-01
 
 **The first ten minutes.** Every problem in this release sits on the path a new project walks once: install, `init`, `doctor`, `wrap`, `extract`, `check`. None of them sits on the path an existing project walks daily, which is why 1126 tests never saw them. Breaking: yes, one, and it is the fix for the worst of them.

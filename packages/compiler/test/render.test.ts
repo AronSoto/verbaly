@@ -832,6 +832,61 @@ describe('renderSite', () => {
     expect((xml.match(/<loc>/g) ?? []).length).toBe(2); // one <url> per locale, not x-default
   });
 
+  it('lists only pages a crawler should index, and still mirrors the rest', async () => {
+    // 21 of our own 81 urls were redirect stubs and 404s, listed as if they were results
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
+    writeFileSync(
+      join(dist, '404.html'),
+      '<html><head><meta name="robots" content="noindex, follow"></head><body></body></html>',
+    );
+    writeFileSync(
+      join(dist, 'docs', 'index.html'),
+      '<html><head><meta http-equiv="refresh" content="0;url=/docs/start"></head><body></body></html>',
+    );
+
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      render: { baseUrl: 'https://verb.dev', sitemap: true },
+    });
+    await renderSite(cfg);
+    const xml = readFileSync(join(dist, 'sitemap-i18n.xml'), 'utf8');
+    expect((xml.match(/<loc>/g) ?? []).length).toBe(2); // the home, in two locales
+    expect(xml).not.toContain('404');
+    expect(xml).not.toContain('/docs');
+    // both still travel to the mirror: a visitor reaching /es/docs must get the redirect
+    expect(existsSync(join(dist, 'es', '404.html'))).toBe(true);
+    expect(existsSync(join(dist, 'es', 'docs', 'index.html'))).toBe(true);
+  });
+
+  it('takes an explicit exclude for a page that is indexable and still not ours to list', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'internal'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
+    writeFileSync(join(dist, 'internal', 'index.html'), '<html><head></head><body></body></html>');
+
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      render: { baseUrl: 'https://verb.dev', sitemap: true, exclude: ['internal/**'] },
+    });
+    await renderSite(cfg);
+    const xml = readFileSync(join(dist, 'sitemap-i18n.xml'), 'utf8');
+    expect(xml).not.toContain('/internal');
+    expect((xml.match(/<loc>/g) ?? []).length).toBe(2);
+    expect(existsSync(join(dist, 'es', 'internal', 'index.html'))).toBe(true);
+  });
+
   it('writes the sitemap under a custom filename when sitemap is a string', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
     const dist = join(root, 'dist');

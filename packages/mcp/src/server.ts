@@ -142,7 +142,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       const unreviewed = drafts ? byLocale(effectiveDrafts(loadDrafts(cfg), catalogs)) : [];
 
       const lines: string[] = [];
-      if (!result.ok) lines.push(formatCheckResult(result));
+      if (!result.ok) lines.push(formatCheckResult(result, cfg.root));
       const warnings = formatCheckWarnings(result);
       if (warnings) lines.push(`warnings (the gate still passes):\n${warnings}`);
       for (const { locale, keys } of unreviewed) {

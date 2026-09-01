@@ -298,7 +298,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const report =
       reporter === 'github'
         ? `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`
-        : `[verbaly] check failed\n${formatCheckResult(result)}`;
+        : `[verbaly] check failed\n${formatCheckResult(result, cfg.root)}`;
     console.error(`${report}\n${checkNextSteps(result)}`);
     process.exitCode = 1;
     return;

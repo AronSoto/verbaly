@@ -49,6 +49,11 @@ export function localeFromPath(options) {
   return readPath({ ...options, supported: locales });
 }
 
+// identity: it exists so the compiler can see keys that live in a module instead of at a call site
+export function defineKeys(keys) {
+  return keys;
+}
+
 // the whole switch a language control needs, in either mode: catalog or navigation, then persistence
 export function switchLocale(locale, options) {
   return runSwitch(v, locale, { supported: locales, sourceLocale, routing, ...options });
@@ -132,6 +137,9 @@ declare module 'virtual:verbaly' {
 ${lines.join('\n')}
   }
   export type VerbalyKey = keyof VerbalyMessages & string;
+
+  export type VerbalyKeyTree = VerbalyKey | { readonly [name: string]: VerbalyKeyTree };
+  export function defineKeys<const T extends VerbalyKeyTree>(keys: T): T;
 
   export const verbaly: import('verbaly').Verbaly<VerbalyKey>;
 

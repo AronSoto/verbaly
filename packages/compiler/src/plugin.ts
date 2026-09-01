@@ -87,6 +87,6 @@ export function runBuildGate(
   const result = failOnMissing === false ? { ...found, missing: [] } : found;
   if (gatePasses(result)) return;
   throw new Error(
-    `[verbaly] build blocked\n${formatCheckResult(result)}\n${checkNextSteps(result, cliReachable(cfg.root))}`,
+    `[verbaly] build blocked\n${formatCheckResult(result, cfg.root)}\n${checkNextSteps(result, cliReachable(cfg.root))}`,
   );
 }

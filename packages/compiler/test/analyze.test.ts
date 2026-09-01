@@ -41,6 +41,31 @@ describe('analyze', () => {
     expect(usedKeys.map((u) => u.key)).toEqual(['home.title', 'nav.back']);
   });
 
+  it('records the keys a key module declares, which no call site spells out', () => {
+    // the shape a project with shared keys already writes: a texts.ts read as t(text.title)
+    const code = `export const BannerText = defineKeys({
+      title: 'alerts_banner_title',
+      subtitle: 'alerts_banner_subtitle',
+      marketLabel: '',
+    });`;
+    const { usedKeys } = analyze(code, 'texts.ts');
+    expect(usedKeys.map((u) => u.key)).toEqual(['alerts_banner_title', 'alerts_banner_subtitle']);
+  });
+
+  it('walks a nested key module, because one entry can hold a whole dialog', () => {
+    const code = `export const ErrorText = defineKeys({
+      [Code.invalid]: { title: 'err_title', ok: 'err_ok' },
+      generic: { title: 'generic_title' },
+    });`;
+    const { usedKeys } = analyze(code, 'texts.ts');
+    expect(usedKeys.map((u) => u.key)).toEqual(['err_title', 'err_ok', 'generic_title']);
+  });
+
+  it('takes nothing from a defineKeys it cannot read', () => {
+    const { usedKeys } = analyze('defineKeys(fromElsewhere); defineKeys();', 'texts.ts');
+    expect(usedKeys).toHaveLength(0);
+  });
+
   it('ignores unrelated tags and calls', () => {
     const { tagged, usedKeys } = analyze('css`color: red`; fetch("/x");', 'app.ts');
     expect(tagged).toHaveLength(0);

@@ -29,6 +29,7 @@ export interface BundleConfig {
 
 export interface RenderConfig {
   links?: Record<string, RichLink>;
+  exclude?: string[];
   site?: string;
   attribute?: string;
   base?: string;

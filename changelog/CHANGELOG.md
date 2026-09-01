@@ -53,7 +53,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Sizes unmoved: 3.00 tree-shaken, 5.71 a real app, 1.60 devtools, 7.10 every export.** Nothing here lands in core except the Next client's condition, and that ships in an adapter.
 - **The PLAN was carrying stale sizes** (5.65 and 7.04, the 0.44.0 figures), because 0.45.0 recorded its 0.06 KB in this file and not there. Corrected by running the gate instead of reading the note.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/reference/cli`**: the intro says the `verbaly` binary "ships with `@verbaly/compiler` (a dependency of the Vite plugin), so `npx verbaly` works out of the box". **That is false under pnpm**, and it is the first thing a reader hits. Rewrite it to teach `@verbaly/compiler` as a direct dev dependency.
 - **`docs/init/start`**: the install step adds `verbaly @verbaly/vite`. Add `@verbaly/compiler`, or the `npx verbaly init` on the next step does not resolve.

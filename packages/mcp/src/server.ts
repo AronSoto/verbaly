@@ -189,7 +189,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Wrap hardcoded JSX text',
       description:
-        'Find hardcoded user-visible text in JSX/TSX files and wrap it in a t tagged template so the compiler can extract it (what `verbaly wrap` does). This is how an existing codebase is onboarded. Reports only unless write is set. Text it cannot wrap safely (a sentence split across markup, an expression rendering JSX) is listed as needing a human and never rewritten. After writing, make t available where TypeScript complains (React: const t = useT()) and run verbaly_extract.',
+        'Find hardcoded user-visible text in JSX/TSX files and wrap it in a t tagged template so the compiler can extract it (what `verbaly wrap` does). This is how an existing codebase is onboarded. Reports only unless write is set. Text it cannot wrap safely (a sentence split across markup, an expression rendering JSX) is listed as needing a human and never rewritten. A file that does not bind t is never written either, because the rewrite would not compile: those come back in blocked, with whether the file is a client component, so you can add the binding and run again.',
       inputSchema: {
         root: rootInput,
         write: z.boolean().optional().describe('Apply the rewrites instead of only reporting'),
@@ -210,16 +210,23 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         skipped: z.array(
           z.object({ file: z.string(), line: z.number(), text: z.string(), reason: z.string() }),
         ),
+        blocked: z.array(
+          z.object({ file: z.string(), texts: z.number(), client: z.boolean() }),
+        ),
       },
     },
     guarded(async ({ root, write }) => {
       const cfg = await config(root);
       const result = await wrapProject(cfg, { write });
+      const blocked = new Set(result.blocked.map((entry) => entry.file));
+      const done = result.changed.filter((file) => !blocked.has(file));
+      const texts = result.wrapped.filter((entry) => !blocked.has(entry.file));
       const verb = write ? 'wrapped' : 'would wrap';
-      const lines = [
-        `${verb} ${counted(result.wrapped.length, 'text')} in ${counted(result.changed.length, 'file')} of ${counted(result.files, 'file')} scanned`,
-      ];
-      for (const entry of result.wrapped) {
+      const counts = write
+        ? `${counted(texts.length, 'text')} in ${counted(done.length, 'file')}`
+        : `${counted(result.wrapped.length, 'text')} in ${counted(result.changed.length, 'file')}`;
+      const lines = [`${verb} ${counts} of ${counted(result.files, 'file')} scanned`];
+      for (const entry of write ? texts : result.wrapped) {
         const attr = entry.kind === 'attribute' ? `${entry.attribute} -> ` : '';
         lines.push(`  ${entry.file}:${entry.line}  ${attr}"${entry.text}"`);
       }
@@ -229,8 +236,15 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           lines.push(`  ${entry.file}:${entry.line}  "${entry.text}" (${entry.reason})`);
         }
       }
-      if (write && result.changed.length > 0) {
-        lines.push('  next: make t available where TS complains, then run verbaly_extract');
+      if (result.blocked.length > 0) {
+        lines.push(`  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`);
+        for (const entry of result.blocked) {
+          const how = entry.client ? '"use client", so const t = useT()' : 'no "use client"';
+          lines.push(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${how}`);
+        }
+        lines.push('  next: bind t there, run verbaly_wrap with write again, then verbaly_extract');
+      } else if (write && done.length > 0) {
+        lines.push('  next: run verbaly_extract');
       }
       return reply(lines.join('\n'), { ...result, write: write === true });
     }),

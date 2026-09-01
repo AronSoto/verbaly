@@ -7,7 +7,7 @@ import { check } from './check';
 import { generateDts } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
-import { detectHost, readDependencies, WIRING_PACKAGES } from './init';
+import { CLI_INSTALL_FIX, cliReachable, detectHost, readDependencies, WIRING_PACKAGES } from './init';
 import { counted } from './text';
 import { escapedSyntax } from './validate';
 
@@ -64,6 +64,10 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   if (configFile) ok('config', `${configFile} found`);
   else warn('config', 'no config file, running on defaults', 'run `npx verbaly init`');
 
+  // the build works without it: what breaks is every command we tell people to run
+  if (cliReachable(cfg.root)) ok('cli', 'the verbaly command is available in this project');
+  else warn('cli', 'the verbaly command is not linked in node_modules/.bin', CLI_INSTALL_FIX);
+
   const catalogs: Catalogs = {};
   let catalogsHealthy = true;
   if (!existsSync(cfg.dir)) {
@@ -109,9 +113,10 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       }
     }
     if (catalogsHealthy) {
+      const how = cfg.localesDeclared ? '' : ', no locales set, so the catalog files decide';
       ok(
         'catalogs',
-        `${counted(cfg.locales.length, 'locale')} (${cfg.locales.join(', ')}) in ${rel(cfg.dir)}/`,
+        `${counted(cfg.locales.length, 'locale')} (${cfg.locales.join(', ')}) in ${rel(cfg.dir)}/${how}`,
       );
     }
   }

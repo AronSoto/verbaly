@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateDts } from '../src/codegen';
 import { stableKey } from '../src/key';
-import { formatCliError, runCli } from '../src/run';
+import { COMMAND_FLAGS, formatCliError, runCli } from '../src/run';
 import { watchProject } from '../src/watch';
 
 // the CLI never exposes the watcher's dispose, a real one would leak across tests
@@ -53,6 +54,12 @@ describe('runCli: dispatch and exit codes', () => {
 
   it('prints help and exits 0 with --help', async () => {
     await runCli(['extract', '--help']);
+    expect(output(log)).toContain('Usage:');
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('exits 0 for a bare --help, which is the first thing anyone types', async () => {
+    await runCli(['--help']);
     expect(output(log)).toContain('Usage:');
     expect(process.exitCode).toBe(0);
   });
@@ -148,17 +155,30 @@ describe('runCli: wrap', () => {
     const root = makeProject({ en: {} });
     mkdirSync(join(root, 'src'), { recursive: true });
     const file = join(root, 'src', 'App.tsx');
-    writeFileSync(file, 'export const x = <h1>Welcome back</h1>;\n');
+    writeFileSync(file, 'const t = useT();\nexport const x = <h1>Welcome back</h1>;\n');
 
     await runCli(['wrap', '--root', root]);
     expect(output(log)).toContain('would wrap 1 text in 1 file');
-    expect(output(log)).toContain('src/App.tsx:1  "Welcome back"');
+    expect(output(log)).toContain('src/App.tsx:2  "Welcome back"');
     expect(readFileSync(file, 'utf8')).toContain('<h1>Welcome back</h1>');
     expect(process.exitCode).toBeUndefined();
 
     await runCli(['wrap', '--root', root, '--write']);
     expect(readFileSync(file, 'utf8')).toContain('{t`Welcome back`}');
+    expect(output(log)).toContain('next: run verbaly extract');
+  });
+
+  it('names the files it refused to write and leaves them untouched', async () => {
+    const root = makeProject({ en: {} });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const file = join(root, 'src', 'App.tsx');
+    writeFileSync(file, "'use client';\nexport const x = <h1>Welcome back</h1>;\n");
+
+    await runCli(['wrap', '--root', root, '--write']);
+    expect(output(log)).toContain('wrapped 0 texts in 0 files');
+    expect(output(log)).toContain('nothing written in 1 file with no t in scope');
     expect(output(log)).toContain('const t = useT()');
+    expect(readFileSync(file, 'utf8')).toContain('<h1>Welcome back</h1>');
   });
 
   it('says so when there is nothing to wrap', async () => {
@@ -792,5 +812,24 @@ describe('runCli: counts read like text', () => {
     expect(printed).toContain('1 message ·');
     expect(printed).toContain('exported 1 locale (csv)');
     expect(printed).not.toMatch(/\b1 (messages|locales|keys|pages|translations)\b/);
+  });
+});
+
+describe('the commands the tool tells people to run', () => {
+  const src = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
+
+  // a remedy that names a command is a promise, and the gate's promise was unreachable in pnpm
+  it('never names a command the CLI does not accept', () => {
+    const named = new Map<string, string>();
+    for (const file of readdirSync(src).filter((name) => name.endsWith('.ts'))) {
+      const code = readFileSync(join(src, file), 'utf8');
+      for (const match of code.matchAll(/npx verbaly ([a-z][a-z-]*)/g)) {
+        named.set(match[1]!, file);
+      }
+    }
+    expect(named.size).toBeGreaterThan(3);
+    for (const [command, file] of named) {
+      expect(Object.keys(COMMAND_FLAGS), `${file} names "verbaly ${command}"`).toContain(command);
+    }
   });
 });

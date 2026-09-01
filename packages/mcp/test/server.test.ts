@@ -222,7 +222,7 @@ describe('createVerbalyMcp: the onboarding half of the cycle', () => {
     const root = makeProject();
     writeFileSync(
       join(root, 'src', 'Page.jsx'),
-      'export const Page = () => <p title="Open me">Hello there</p>;\n',
+      'const t = useT();\nexport const Page = () => <p title="Open me">Hello there</p>;\n',
     );
     const client = await connect(root);
 
@@ -243,6 +243,20 @@ describe('createVerbalyMcp: the onboarding half of the cycle', () => {
     const source = readFileSync(join(root, 'src', 'Page.jsx'), 'utf8');
     expect(source).toContain('{t`Hello there`}');
     expect(source).toContain('t`Open me`');
+  });
+
+  it('wrap hands back the files it refused to write, so an agent can bind t first', async () => {
+    const root = makeProject();
+    writeFileSync(
+      join(root, 'src', 'Page.jsx'),
+      "'use client';\nexport const Page = () => <p>Hello there</p>;\n",
+    );
+    const client = await connect(root);
+    const applied = structured(
+      await client.callTool({ name: 'verbaly_wrap', arguments: { write: true } }),
+    ) as { blocked: Array<{ file: string; texts: number; client: boolean }> };
+    expect(applied.blocked).toEqual([{ file: 'src/Page.jsx', texts: 1, client: true }]);
+    expect(readFileSync(join(root, 'src', 'Page.jsx'), 'utf8')).toContain('<p>Hello there</p>');
   });
 });
 

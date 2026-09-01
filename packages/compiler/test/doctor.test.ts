@@ -16,6 +16,7 @@ interface ProjectOptions {
   dts?: boolean;
   pkg?: Record<string, unknown>;
   include?: string[];
+  cli?: boolean;
 }
 
 function makeProject(options: ProjectOptions = {}) {
@@ -40,6 +41,10 @@ function makeProject(options: ProjectOptions = {}) {
   if (options.pkg) {
     writeFileSync(join(root, 'package.json'), JSON.stringify(options.pkg));
   }
+  if (options.cli !== false) {
+    mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true });
+    writeFileSync(join(root, 'node_modules', '.bin', 'verbaly'), '');
+  }
   return resolveConfig({ root, sourceLocale: 'es', include: options.include });
 }
 
@@ -54,6 +59,15 @@ describe('doctor', () => {
     expect(result.entries.every((e) => e.level === 'ok')).toBe(true);
     expect(entry(result.entries, 'config')?.message).toContain('verbaly.config.json');
     expect(entry(result.entries, 'translations')?.message).toBe('all translations complete');
+  });
+
+  it('warns when the verbaly command is not linked, and never fails on it', async () => {
+    // the build works without the bin: what breaks is every command the tool tells people to run
+    const result = await doctor(makeProject({ cli: false }));
+    const e = entry(result.entries, 'cli');
+    expect(e?.level).toBe('warn');
+    expect(e?.fix).toContain('@verbaly/compiler');
+    expect(result.ok).toBe(true);
   });
 
   it('warns without a config file and points to init', async () => {

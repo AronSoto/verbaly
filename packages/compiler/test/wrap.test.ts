@@ -6,11 +6,45 @@ import { resolveConfig } from '../src/config';
 import { analyzeFile } from '../src/sfc';
 import { wrapCode, wrapProject } from '../src/wrap';
 
+const APP_WITH_T = 'const t = useT();\nexport const x = <h1>Welcome back</h1>;\n';
+
 describe('wrapCode', () => {
   it('wraps a plain text child', () => {
     const out = wrapCode('const x = <h1>Welcome back</h1>;', 'App.tsx');
     expect(out.code).toBe('const x = <h1>{t`Welcome back`}</h1>;');
     expect(out.wrapped).toEqual([{ file: 'App.tsx', line: 1, text: 'Welcome back', kind: 'text' }]);
+  });
+
+  it('leaves the contents of code and pre alone', () => {
+    const code = 'const x = <pre><code>python -m research.experiment --seed 42</code></pre>;';
+    const out = wrapCode(code, 'App.tsx');
+    expect(out.code).toBeUndefined();
+    expect(out.wrapped).toEqual([]);
+  });
+
+  it('leaves a lone lowercase token alone, in text and in attributes', () => {
+    // demo credentials, slugs and handles read as copy to a scanner that only looks for letters
+    expect(wrapCode('const x = <span>analyst</span>;', 'App.tsx').code).toBeUndefined();
+    expect(wrapCode('const x = <span>hapi-demo</span>;', 'App.tsx').code).toBeUndefined();
+    expect(wrapCode('const x = <img alt="logo.png" />;', 'App.tsx').code).toBeUndefined();
+    // a capital says a human wrote it as a word, so a one-word label still gets wrapped
+    expect(wrapCode('const x = <span>Save</span>;', 'App.tsx').code).toContain('{t`Save`}');
+  });
+
+  it('refuses a message that opens with an interpolation', () => {
+    const code = 'const x = <p>{lead} and the rest of the sentence follows.</p>;';
+    const out = wrapCode(code, 'App.tsx');
+    expect(out.code).toBeUndefined();
+    expect(out.skipped[0]?.reason).toContain('starts with an interpolation');
+  });
+
+  it('knows whether t is bound, however it was bound', () => {
+    const jsx = 'export const x = <h1>Welcome back</h1>;';
+    expect(wrapCode(jsx, 'App.tsx').hasT).toBe(false);
+    expect(wrapCode(`const t = useT();\n${jsx}`, 'App.tsx').hasT).toBe(true);
+    expect(wrapCode(`const { t } = useI18n();\n${jsx}`, 'App.tsx').hasT).toBe(true);
+    expect(wrapCode(`import { t } from './i18n';\n${jsx}`, 'App.tsx').hasT).toBe(true);
+    expect(wrapCode(`function C({ t }) { return ${jsx.slice(17)} }`, 'App.tsx').hasT).toBe(true);
   });
 
   it('joins text and expressions into one message', () => {
@@ -95,10 +129,10 @@ describe('wrapCode', () => {
 });
 
 describe('wrapProject', () => {
-  function makeProject(): string {
+  function makeProject(source = APP_WITH_T): string {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-wrap-'));
     mkdirSync(join(root, 'src'), { recursive: true });
-    writeFileSync(join(root, 'src', 'App.tsx'), 'export const x = <h1>Welcome back</h1>;\n');
+    writeFileSync(join(root, 'src', 'App.tsx'), source);
     writeFileSync(join(root, 'src', 'util.ts'), "export const label = 'not jsx';\n");
     return root;
   }
@@ -115,7 +149,22 @@ describe('wrapProject', () => {
     const root = makeProject();
     const result = await wrapProject(resolveConfig({ root }), { write: true });
     expect(result.changed).toEqual(['src/App.tsx']);
+    expect(result.blocked).toEqual([]);
     expect(readFileSync(join(root, 'src', 'App.tsx'), 'utf8')).toContain('{t`Welcome back`}');
     expect(readFileSync(join(root, 'src', 'util.ts'), 'utf8')).toContain("'not jsx'");
+  });
+
+  it('writes nothing into a file with no t, and says how many texts wait there', async () => {
+    // the reported failure: 149 texts written across 32 files, none of which declared t
+    const root = makeProject('export const x = <h1>Welcome back</h1>;\n');
+    const result = await wrapProject(resolveConfig({ root }), { write: true });
+    expect(result.blocked).toEqual([{ file: 'src/App.tsx', texts: 1, client: false }]);
+    expect(readFileSync(join(root, 'src', 'App.tsx'), 'utf8')).toContain('<h1>Welcome back</h1>');
+  });
+
+  it('reports which side a blocked file renders on, because it picks the binding', async () => {
+    const root = makeProject("'use client';\nexport const x = <h1>Welcome back</h1>;\n");
+    const result = await wrapProject(resolveConfig({ root }), { write: true });
+    expect(result.blocked[0]).toMatchObject({ client: true });
   });
 });

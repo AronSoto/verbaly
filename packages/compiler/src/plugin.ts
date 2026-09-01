@@ -5,6 +5,7 @@ import { loadCatalogs, needsIcu, needsRelative, type Catalog, type Catalogs } fr
 import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
+import { cliReachable } from './init';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
 import { transformCode, type TransformResult } from './transform';
@@ -86,6 +87,6 @@ export function runBuildGate(
   const result = failOnMissing === false ? { ...found, missing: [] } : found;
   if (gatePasses(result)) return;
   throw new Error(
-    `[verbaly] build blocked\n${formatCheckResult(result)}\n${checkNextSteps(result)}`,
+    `[verbaly] build blocked\n${formatCheckResult(result)}\n${checkNextSteps(result, cliReachable(cfg.root))}`,
   );
 }

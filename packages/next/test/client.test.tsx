@@ -70,6 +70,18 @@ describe('@verbaly/next/client', () => {
     expect(container.textContent).toBe('Hello');
   });
 
+  it('honors messages handed to it for the source locale instead of dropping them', () => {
+    // getVerbalyProps never sends them there, so messages on this prop were passed on purpose
+    act(() => {
+      root.render(
+        <VerbalyProvider locale="en" messages={{ greeting: 'Hi there' }}>
+          <Greeting />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Hi there');
+  });
+
   it('hydrates a non-source locale synchronously from serialized messages', () => {
     act(() => {
       root.render(

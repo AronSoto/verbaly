@@ -8,6 +8,61 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.46.0] · 2026-09-01
+
+**The first ten minutes.** Every problem in this release sits on the path a new project walks once: install, `init`, `doctor`, `wrap`, `extract`, `check`. None of them sits on the path an existing project walks daily, which is why 1126 tests never saw them. Breaking: yes, one, and it is the fix for the worst of them.
+
+### Highlights
+
+- **`verbaly init` now reads the config you already wrote.** It used to ignore it and create a second set of catalogs in the default folder, under the default language. If your config said Spanish in `locale/`, you got English in `locales/`, and `doctor` then told you to run the very command that had just done it.
+- **Breaking: the languages you list in your config are now the whole list.** A stray JSON file in your catalogs folder used to become a language you could never remove, and it blocked builds asking for translations you never wanted. If you list `locales`, that list wins. If you do not list them, the files in the folder still decide, exactly as before.
+- **`verbaly wrap --write` no longer leaves your project unable to compile.** It used to wrap text in files where `t` was not available, so the build broke and you found out afterwards. It now skips those files, tells you which ones and how many texts wait there, and says whether each one is a client component so you know which line to add.
+- **`wrap` stops picking up things that are not interface text:** the contents of `code` and `pre` blocks, single lowercase words like demo logins and file names, and sentences that start with a value instead of words.
+- **When the `verbaly` command is not installed, Verbaly says so instead of telling you to run it.** The build gate names the package to add, and `doctor` has a check for it.
+
+### Added
+
+- **`localesDeclared` on the resolved config** (`@verbaly/compiler`), so a tool can tell a declared locale list from a discovered one. `doctor` reads it to say which of the two is happening, which was the invisible half of the problem.
+- **A `cli` check in `doctor`** (`@verbaly/compiler`): it looks for the `verbaly` binary in `node_modules/.bin` and reports a warning with the install when it is missing. A warning and not an error, by the standing rule: the project builds fine without it, what breaks is every command the tool tells people to run.
+- **`WrapResult.blocked`** (`@verbaly/compiler`), a list of `{ file, texts, client }` for files `wrap` would rewrite but will not, because the rewrite would not compile. Exported as `WrapBlocked` and pinned in the surface test.
+- **`blocked` in the `verbaly_wrap` MCP tool** (`@verbaly/mcp`), in its `outputSchema` and in its description. Without it an agent would read "wrapped N" while nothing had been written.
+- **`scripts/first-contact.mjs` and `pnpm first-contact`** (repo): it packs the tarballs, installs them the way the docs teach under pnpm and npm, and checks that what the shell really does and what `doctor` claims about it agree. A release-ritual step and not a CI job, because it installs from the network. It found two of this release's fixes on its first run.
+
+### Changed
+
+- **Breaking (`@verbaly/compiler`): a declared `locales` list disables catalog-directory discovery.** Before, the resolved locales were the union of the config and every `*.json` in the catalogs folder, and nothing could subtract. A file left behind by an earlier run became a permanent locale that neither `--source` nor `--locales` could remove, and `check` then failed the build asking for its translations, so the only way out was `failOnMissing: false`. Discovery is untouched for a project that declares no `locales`, which is the documented flow of dropping a `pt.json` in and having it picked up.
+- **`init` reads an existing config file before scaffolding** (`@verbaly/compiler`). It was the only command that never called `loadConfig`, so it scaffolded into the default directory under the default source locale whatever the config said. Flags still win over the file. It is async now, which is internal: `init` is not part of the published surface.
+- **`wrap --write` writes only into files that already bind `t`** (`@verbaly/compiler`). Inserting the binding was considered and rejected: `wrap` errs on skipping and never on inventing, and guessing the hook, the import and the top-level component function is inventing. The flow is incremental instead, add `t` and run it again. The summary counts what was actually written.
+- **`wrap` skips three shapes it should never have taken** (`@verbaly/compiler`): the subtree of `code`, `pre`, `kbd`, `samp` and `var`; a single whitespace-free token whose first letter is lowercase, which is a slug, a handle or a file name and not a sentence; and a segment whose first meaningful child is an interpolation, which is reported as needing a human because a translator would receive a fragment.
+- **The build gate names the install when the command it just named does not exist** (`@verbaly/compiler`). `checkNextSteps` takes whether the CLI is reachable and the plugin passes the real answer. From the CLI itself the extra line never appears, because a running CLI is proof that it is reachable.
+- **`@verbaly/next` honours a `messages` prop for the source locale** instead of dropping it silently. `getVerbalyProps` never sends one there, so a `messages` that arrives was passed on purpose.
+- **Dependencies to latest stable, validated green**: happy-dom 20.12.0, svelte 5.57.0, zod 4.5.4, `@anthropic-ai/sdk` 0.122.0.
+
+### Fixed
+
+- **`verbaly --help` exited 1** (`@verbaly/compiler`). Asking for help is not a usage error, and it is the first thing anyone types. Only a bare `verbaly` with no arguments exits 1 now. Found by the new first-contact harness and not by the suite.
+
+### Notes
+
+- **Where this came from.** A dogfood on HapiGuard, a Next 15 console of 66 `.tsx` files that Verbaly did not grow up inside, produced a report of six failures. It is the seventh dogfood of the series and **it is not external feedback**, so the third criterion for 1.0 is still open. What is new is the codebase: the six before it ran on `verbaly-web`, a site that grew alongside the package and therefore never installs for the first time. A reader who already knows the answer never finds a hole in the documentation.
+- **Four of the six verdicts did not survive verification, and under one of them was a worse bug.** The CLI does publish a `bin` and has since the first commit, and what fails is that it is a transitive dependency, which pnpm never links. `extract` respects the config from a clean project, and the trap is that discovery unions and cannot subtract. The provider guard for the source locale is correct, because the codegen inlines that catalog. And the reason a stray `en.json` existed at all is that `init` ignored the config, which nobody had reported.
+- **A test had pinned the bug as behaviour.** `init.test.ts` asserted that a config saying `fr` produced `locales/en.json`. That is the third time in this project a test has fixed a footgun in place; the others were core's two `localePath` tests in 0.40.0.
+- **Every pin here was proved able to fail**, per the standing rule. The command-promise guard was run with a deliberate `npx verbaly setup` in `doctor.ts` and failed naming the file; the wrap and locale pins were run against the reverted behaviour.
+- **1143 tests** (was 1126). `pnpm test` and `pnpm coverage` agree, checked separately per the 0.30.0 lesson.
+- Bench vs i18next: **38.2x / 11.9x / 5.2x / 5.1x** (lookup, interpolation, plural, currency), against 32.8/12.8/5.2/5.7 in 0.45.0. `t()` was not touched, so the spread is the machine.
+- **Sizes unmoved: 3.00 tree-shaken, 5.71 a real app, 1.60 devtools, 7.10 every export.** Nothing here lands in core except the Next client's condition, and that ships in an adapter.
+- **The PLAN was carrying stale sizes** (5.65 and 7.04, the 0.44.0 figures), because 0.45.0 recorded its 0.06 KB in this file and not there. Corrected by running the gate instead of reading the note.
+
+### Docs impact (pending)
+
+- **`docs/reference/cli`**: the intro says the `verbaly` binary "ships with `@verbaly/compiler` (a dependency of the Vite plugin), so `npx verbaly` works out of the box". **That is false under pnpm**, and it is the first thing a reader hits. Rewrite it to teach `@verbaly/compiler` as a direct dev dependency.
+- **`docs/init/start`**: the install step adds `verbaly @verbaly/vite`. Add `@verbaly/compiler`, or the `npx verbaly init` on the next step does not resolve.
+- **`docs/reference/cli`, config section**: say that a declared `locales` list is the whole list and turns directory discovery off. The line in `docs/init/start` about dropping an `en.json` or `pt.json` in and having it picked up is still true, but only when `locales` is not declared, and it should say so.
+- **`docs/reference/cli`, the `wrap` rows**: `--write` now skips files with no `t` in scope and reports them, so the flow is incremental. Worth one sentence.
+- No page needs a new API table: `localesDeclared` and `WrapBlocked` are for tooling, not for a consumer writing an app.
+
+---
+
 ## [0.45.0] · 2026-08-28
 
 **A catalog only grows, and every page was paying for all of it.** Text that lives on one page, a changelog, a blog archive, a long FAQ, was downloaded by every visitor on every page. This version lets you name those groups and keep them in the build: the pages that use them still publish translated, because the pre-rendered HTML already carries the text, and the browser stops fetching it. Finding that also uncovered a real defect underneath it, fixed here and relevant to anyone using `render`: after its first pass, `bindDom` would paint a raw key over correct pre-rendered text whenever a key was missing. Not breaking.

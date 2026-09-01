@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { VerbalyProvider as ReactVerbalyProvider, useVerbaly } from '@verbaly/react';
 import { switchLocale, type SwitchLocaleOptions } from 'verbaly';
-import { createInstance, requestOptions, sourceLocale } from 'virtual:verbaly';
+import { createInstance, requestOptions } from 'virtual:verbaly';
 import type { VerbalyProviderProps as SerializableProps } from './server';
 
 export { Trans, useLocale, useT, useVerbaly } from '@verbaly/react';
@@ -22,11 +22,10 @@ export interface VerbalyProviderProps extends SerializableProps {
 }
 
 export function VerbalyProvider(props: VerbalyProviderProps): ReactElement {
+  // getVerbalyProps omits them for the source locale, so messages here were passed on purpose
   const [instance] = useState(() => {
     const created = createInstance({ locale: props.locale });
-    if (props.messages && props.locale !== sourceLocale) {
-      created.addMessages(props.locale, props.messages);
-    }
+    if (props.messages) created.addMessages(props.locale, props.messages);
     return created;
   });
 

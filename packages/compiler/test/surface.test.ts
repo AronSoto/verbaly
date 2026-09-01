@@ -84,6 +84,7 @@ const TYPES = [
   'TranslateResult',
   'UnknownEntry',
   'VerbalyConfig',
+  'WrapBlocked',
   'WrapEntry',
   'WrapOptions',
   'WrapResult',

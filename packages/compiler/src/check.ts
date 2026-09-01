@@ -3,6 +3,7 @@ import { relative } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
 import type { Catalog, Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
+import { CLI_INSTALL_FIX } from './init';
 import type { MessageRegistry } from './registry';
 import { validateMessage, validatePair, type IssueSeverity, type StructureIssue } from './validate';
 
@@ -130,7 +131,7 @@ export function formatCheckResult(result: CheckResult): string {
 }
 
 // what to do about each kind of failure: extract only fixes one of the three
-export function checkNextSteps(result: CheckResult): string {
+export function checkNextSteps(result: CheckResult, cliReachable = true): string {
   const steps: string[] = [];
   if (result.missing.length > 0) {
     steps.push(
@@ -146,6 +147,10 @@ export function checkNextSteps(result: CheckResult): string {
     steps.push(
       'broken: a translation has to keep the params, tags and plural cases of its source message',
     );
+  }
+  // the gate prints from inside a build, where the command it just named may not exist at all
+  if (steps.length > 0 && !cliReachable) {
+    steps.push(`the verbaly command is not linked in this project: ${CLI_INSTALL_FIX}`);
   }
   return steps.join('\n');
 }

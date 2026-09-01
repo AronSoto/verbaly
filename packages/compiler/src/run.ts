@@ -112,16 +112,17 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   });
 
   const command = positionals[0];
+  // asking for help is not a usage error, even with no command: only bare `verbaly` is
   if (values.help || !command) {
     console.log(HELP);
-    process.exitCode = command ? 0 : 1;
+    process.exitCode = values.help ? 0 : 1;
     return;
   }
 
   if (rejectStrayFlags(command, values)) return;
 
   if (command === 'init') {
-    const result = init({
+    const result = await init({
       root: values.root,
       dir: values.dir,
       sourceLocale: values.source,
@@ -215,12 +216,16 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       console.log(`[verbaly] nothing to wrap (${counted(result.files, 'file')} scanned) ✓`);
       return;
     }
+    const blocked = new Set(result.blocked.map((entry) => entry.file));
+    const done = result.changed.filter((file) => !blocked.has(file));
+    const texts = result.wrapped.filter((entry) => !blocked.has(entry.file));
     const verb = values.write ? 'wrapped' : 'would wrap';
     const note = values.write ? '' : ' (report only, use --write to apply)';
-    console.log(
-      `[verbaly] ${verb} ${counted(result.wrapped.length, 'text')} in ${counted(result.changed.length, 'file')}${note}`,
-    );
-    for (const entry of result.wrapped) {
+    const counts = values.write
+      ? `${counted(texts.length, 'text')} in ${counted(done.length, 'file')}`
+      : `${counted(result.wrapped.length, 'text')} in ${counted(result.changed.length, 'file')}`;
+    console.log(`[verbaly] ${verb} ${counts}${note}`);
+    for (const entry of values.write ? texts : result.wrapped) {
       const attr = entry.kind === 'attribute' ? `${entry.attribute} → ` : '';
       console.log(`  ${entry.file}:${entry.line}  ${attr}"${entry.text}"`);
     }
@@ -230,10 +235,17 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         console.log(`  ${entry.file}:${entry.line}  "${entry.text}" (${entry.reason})`);
       }
     }
-    if (values.write && result.changed.length > 0) {
-      console.log(
-        '  next: make t available where TS complains (React: const t = useT()), then run verbaly extract',
-      );
+    if (result.blocked.length > 0) {
+      console.log(`  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`);
+      for (const entry of result.blocked) {
+        const how = entry.client
+          ? '"use client", so const t = useT()'
+          : 'no "use client": check which side renders it before you pick the binding';
+        console.log(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${how}`);
+      }
+      console.log('  next: add t there, run verbaly wrap --write again, then verbaly extract');
+    } else if (values.write && done.length > 0) {
+      console.log('  next: run verbaly extract');
     }
     return;
   }
@@ -531,7 +543,7 @@ function reportEscapedSyntax(cfg: ResolvedConfig, registry: MessageRegistry): vo
 
 // flags shared by every command (config overrides)
 const COMMON_FLAGS = new Set(['root', 'dir', 'source', 'locales', 'help']);
-const COMMAND_FLAGS: Record<string, string[]> = {
+export const COMMAND_FLAGS: Record<string, string[]> = {
   init: [],
   doctor: [],
   extract: ['prune', 'dry-run', 'watch'],

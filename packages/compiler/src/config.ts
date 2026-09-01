@@ -60,6 +60,7 @@ export interface ResolvedConfig {
   dir: string;
   sourceLocale: string;
   locales: string[];
+  localesDeclared: boolean;
   routing: Routing;
   icu: boolean | undefined;
   relative: boolean | undefined;
@@ -76,8 +77,10 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
   const dir = resolve(root, config.dir ?? 'locales');
   const sourceLocale = config.sourceLocale ?? 'en';
 
+  const localesDeclared = config.locales !== undefined;
   const locales = new Set<string>([sourceLocale, ...(config.locales ?? [])]);
-  if (existsSync(dir)) {
+  // a declared list is the list: discovery is for a project that never wrote one down
+  if (!localesDeclared && existsSync(dir)) {
     for (const file of readdirSync(dir)) {
       if (file.endsWith('.json') && !file.startsWith('.') && file !== `${PSEUDO_LOCALE}.json`) {
         locales.add(file.slice(0, -5));
@@ -89,6 +92,7 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     root,
     dir,
     sourceLocale,
+    localesDeclared,
     // the mode follows the surface: render is what builds a url tree per locale, so it is the tell
     routing: config.routing ?? (config.render ? 'prefix-except-source' : 'no-prefix'),
     // the catalogs decide on their own; these only force it for messages that land after the build

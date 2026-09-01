@@ -120,6 +120,28 @@ describe('locale discovery', () => {
     expect(cfg.locales).toEqual(['en', 'es']);
   });
 
+  it('lets a declared list turn discovery off, so a locale can be taken back out', () => {
+    // a stray file used to join the set forever: no flag and no config could subtract it
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{}');
+    writeFileSync(join(dir, 'en.json'), '{}');
+    const cfg = resolveConfig({ root, sourceLocale: 'es', locales: ['es'] });
+    expect(cfg.locales).toEqual(['es']);
+    expect(cfg.localesDeclared).toBe(true);
+  });
+
+  it('keeps discovering when the config declares no locales', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{}');
+    const cfg = resolveConfig({ root });
+    expect(cfg.locales).toEqual(['en', 'es']);
+    expect(cfg.localesDeclared).toBe(false);
+  });
+
   it('never auto-adopts the pseudo QA catalog as a target', () => {
     const root = makeRoot();
     const dir = join(root, 'locales');

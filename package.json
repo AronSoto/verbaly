@@ -13,7 +13,8 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "release": "pnpm build && pnpm -r publish --access public --no-git-checks"
+    "release": "pnpm build && pnpm -r publish --access public --no-git-checks",
+    "first-contact": "node scripts/first-contact.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -228,6 +228,15 @@ describe('checkNextSteps', () => {
     expect(steps.split('\n')).toHaveLength(1);
   });
 
+  it('names the install when the command it just told you to run does not exist', () => {
+    // the gate prints from inside a build, and its "run npx verbaly extract" was unreachable there
+    const failing = result({ missing: [{ locale: 'es', key: 'k' }] });
+    expect(checkNextSteps(failing, false)).toContain('@verbaly/compiler');
+    expect(checkNextSteps(failing, true)).not.toContain('@verbaly/compiler');
+    // a passing check has no remedy to make unreachable
+    expect(checkNextSteps(result({}), false)).toBe('');
+  });
+
   it('stays quiet about warnings: they never block anything', () => {
     const warned = result({
       ok: true,

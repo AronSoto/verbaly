@@ -66,7 +66,7 @@ export { doctor, formatDoctorEntry } from './doctor';
 export type { DoctorEntry, DoctorResult } from './doctor';
 
 export { wrapProject } from './wrap';
-export type { WrapEntry, WrapOptions, WrapResult, WrapSkip } from './wrap';
+export type { WrapBlocked, WrapEntry, WrapOptions, WrapResult, WrapSkip } from './wrap';
 
 export { formatRenderWarnings, renderSite } from './render';
 export type { RenderSiteOptions, RenderSiteResult } from './render';

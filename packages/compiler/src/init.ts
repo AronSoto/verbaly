@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { findConfigFile } from './config';
+import { findConfigFile, loadConfigFile } from './config';
 
 export interface InitOptions {
   root?: string;
@@ -100,6 +100,15 @@ export function readDependencies(root: string): Record<string, string> {
   }
 }
 
+// a package manager links a bin for a direct dependency only, and ours is usually transitive
+export function cliReachable(root: string): boolean {
+  const bin = join(root, 'node_modules', '.bin');
+  return existsSync(join(bin, 'verbaly')) || existsSync(join(bin, 'verbaly.CMD'));
+}
+
+export const CLI_INSTALL_FIX =
+  'add `@verbaly/compiler` to your dev dependencies, then `npx verbaly` resolves';
+
 export function detectHost(root: string): HostSetup | undefined {
   const deps = readDependencies(root);
   return HOSTS.find((host) => deps[host.dep]);
@@ -118,7 +127,7 @@ function configSource(options: InitOptions, typescript: boolean): string {
   return `/** @type {import('@verbaly/compiler').VerbalyConfig} */\n${body};\n`;
 }
 
-export function init(options: InitOptions = {}): InitResult {
+export async function init(options: InitOptions = {}): Promise<InitResult> {
   const root = options.root ?? process.cwd();
   const created: string[] = [];
   const skipped: string[] = [];
@@ -133,9 +142,17 @@ export function init(options: InitOptions = {}): InitResult {
     created.push(configFile);
   }
 
-  const dir = join(root, options.dir ?? 'locales');
+  // a config already answers where the catalogs go: guessing again scaffolds a second set
+  const fromFile = existing ? await loadConfigFile(root) : {};
+  const scaffold: InitOptions = {
+    dir: options.dir ?? fromFile.dir,
+    sourceLocale: options.sourceLocale ?? fromFile.sourceLocale,
+    locales: options.locales ?? fromFile.locales,
+  };
+
+  const dir = join(root, scaffold.dir ?? 'locales');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  for (const locale of new Set([options.sourceLocale ?? 'en', ...(options.locales ?? [])])) {
+  for (const locale of new Set([scaffold.sourceLocale ?? 'en', ...(scaffold.locales ?? [])])) {
     const file = join(dir, `${locale}.json`);
     const label = relative(root, file).replaceAll('\\', '/');
     if (existsSync(file)) {

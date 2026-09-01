@@ -47,7 +47,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Sizes unmoved: 3.00 tree-shaken, 5.71 a real app, 1.60 devtools, 7.10 every export.** Nothing here lands in core: `defineKeys` is generated per project and `render` is build-time.
 - **Dependencies to latest stable, validated green**: typescript-eslint 8.69.0.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **New section on keys, probably in `docs/reference/cli` next to "Readable keys"**: what a key module is, `defineKeys`, and that the types come from your own catalog. It is the counterpart of `t.id`: that one names a key where the text is written, this one declares a key whose text lives only in the catalog. Worth saying plainly that the default is still writing text.
 - **`docs/reference/cli`, config section**: `render.exclude`, a list of globs against the path relative to the site directory. One row, next to the render options.

@@ -58,7 +58,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Dependencies to latest stable, validated green**: @types/node 26.4.1, astro 7.2.10, happy-dom 20.12.1, i18next 26.4.1, next 16.3.4, @anthropic-ai/sdk 0.123.0.
 - **Where this came from**: an audit of the four adapters against the i18n each framework's ecosystem actually ships (next-intl, @nuxtjs/i18n, Paraglide 2, `astro:i18n`). All four put the URL first. Two gaps were measured and deliberately declined: per-framework navigation wrappers (`localePath` and `switchLocale` already carry it, and a wrapper is new surface times four) and translated pathnames (they depend on the framework's route table, not on the locale set).
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/guide/server`**: the main change. Say that when your URLs carry the language, the address decides it, and show the wiring per framework: `verbalyHandle({ locales, routing })` plus `verbalyReroute` in `hooks.ts` for SvelteKit, nothing to write for Nuxt (the module reads the URL), and `setRequestLocale(locale)` in the layout for Next.
 - **`docs/frameworks/react`, `#next` section**: `setRequestLocale` with `generateStaticParams`, and say plainly why it matters (without it the page cannot be prerendered). Add `getAlternates` in `generateMetadata`.

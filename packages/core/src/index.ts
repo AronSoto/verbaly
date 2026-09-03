@@ -1,6 +1,7 @@
 export { createVerbaly } from './instance';
 export { bindDom, normalizeLink, RICH_TAGS, safeAttribute, safeHref, VOID_TAGS } from './dom';
 export {
+  alternateLinks,
   LOCALE_STORAGE_KEY,
   localeDirection,
   localeFromPath,
@@ -10,6 +11,7 @@ export {
   persistLocale,
   resolveLocale,
   resolveRequestLocale,
+  stripLocalePath,
   switchLocale,
 } from './locale';
 export { parse } from './parse';
@@ -17,14 +19,18 @@ export { parseIcu } from './icu';
 export { relativeFormatter } from './relative';
 export { flatten } from './flatten';
 export { parseTags } from './tags';
+export { warnOnce } from './warn';
 
 export type { BindDomOptions, RichLink } from './dom';
 export type {
+  AlternateLink,
+  AlternateLinksOptions,
   LocaleFromPathOptions,
   LocalePathOptions,
   RequestLocaleOptions,
   ResolveLocaleOptions,
   Routing,
+  StripLocalePathOptions,
   SwitchLocaleOptions,
 } from './locale';
 export type { IcuParser, MessageNode, ParamNode } from './parse';

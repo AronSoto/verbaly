@@ -8,6 +8,68 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.48.0] · 2026-09-02
+
+**The address decides the language.** When your URLs carry the language, that is the answer, and until now Verbaly's server integrations never looked at the URL at all: they asked the cookie and the browser, so `/es/dashboard` could arrive in English. Breaking: no, a project that does not put the language in its URLs behaves exactly as before.
+
+### Highlights
+
+- **A page at `/es/dashboard` now arrives in Spanish, always.** Before, Verbaly asked the visitor's saved choice and their browser instead of reading the address, so the same link could show two different languages to two people. An address is public and shared, so it wins.
+- **Your English pages stop being translated by accident.** A visitor who once picked Portuguese used to get Portuguese on your unprefixed pages too. Now the plain address means your source language, for everyone.
+- **Next.js pages can be prerendered again.** Verbaly used to read request headers on every page, which quietly turned every translated page into a dynamic one. Pass the language from your `[locale]` folder and the page goes back to being built ahead of time.
+- **Your translated pages can now tell search engines about each other, on a server too.** The `hreflang` links and the per-language canonical existed only for statically built sites; the same set is now available wherever you render.
+- **SvelteKit routes stay simple.** One line in `hooks.ts` and `/es/docs` is served by your `/docs` route, so you do not duplicate your route folders per language.
+- **Nothing changes if your URLs do not carry a language.** All of this switches on with the `routing` setting you already have.
+
+### Added
+
+- **`resolveRequestLocale` takes `path`, `routing` and `base`** (`verbaly`). When `routing` says the URL carries the locale, the URL is the answer and the cookie is not consulted. Under `prefix-except-source` an unprefixed URL resolves to the source locale and the chain stops; under `prefix-all` an unprefixed URL is not a page, so the cookie and header still decide where to send the visitor.
+- **`stripLocalePath`** (`verbaly`): the canonical route behind a localized URL (`/es/docs` to `/docs`), the inverse of `localePath` and the primitive a router hook needs.
+- **`alternateLinks`** (`verbaly`): the reciprocal hreflang set for one page plus `x-default`, the same one `render` writes. Returns an empty array under `no-prefix`, where every locale answers on one URL.
+- **`warnOnce`** (`verbaly`): promoted to the public surface so an integration that degrades reports it through the one dedupe set instead of a private `console.warn`.
+- **`verbalyReroute`** (`@verbaly/sveltekit`): the universal `reroute` hook, exported from `hooks.ts`. Without it a prefixed app needs `[[locale]]` through the whole route tree.
+- **`routing` and `base` on `verbalyHandle`** (`@verbaly/sveltekit`), which reads `event.url.pathname`.
+- **`setRequestLocale`** (`@verbaly/next`): call it in the layout with the `[locale]` segment. It is the only way to keep a translated route statically rendered, and it is the contract next-intl documents, so it is the ecosystem's shape.
+- **`getAlternates`** (`@verbaly/next`): `{ canonical, languages }`, ready to spread into `generateMetadata`'s `alternates`.
+
+### Changed
+
+- **The Nuxt runtime plugin reads the request URL** (`@verbaly/nuxt`) through `useRequestURL`, and honors the app's `baseURL`. The address is the one signal that is the same on both sides of hydration, unlike the header and the cookie.
+- **`render`'s hreflang set comes from core** (`@verbaly/compiler`). `pageAlternates` is now a built-path-to-request-path conversion in front of `alternateLinks`, so the static mirror and a server head cannot drift.
+- **`localePath` and `stripLocalePath` share one URL decomposition** (`verbaly`), so the two cannot disagree about a trailing slash or a base boundary.
+- **The Astro server-output warning names the actual path** (`@verbaly/astro`). It used to claim server-rendered pages "already pick their locale per request", which nothing in the integration did; it now points at `createRequestInstance(Astro.currentLocale ?? sourceLocale)`.
+
+### Fixed
+
+- **The three SSR integrations ignored the URL** (`@verbaly/sveltekit`, `@verbaly/nuxt`, `@verbaly/next`). `localeFromPath` has existed in core since 0.40.0 and none of them called it, so with `routing: 'prefix-except-source'` and a cookie saying otherwise, a prefixed page was served in the wrong language. The same URL returning different content per visitor also defeats caching, crawling and sharing.
+- **Every translated Next route was dynamic** (`@verbaly/next`). `getT()` reached `headers()` unconditionally, which opts an App Router route out of static rendering. With `setRequestLocale` that read is never made.
+- **The SvelteKit README's locale switcher did not compile** (`@verbaly/sveltekit`). Its snippet had been mangled into `<button on:click="{()" ="">` by a Prettier pass over an `html` fence holding Svelte, some releases back. The fences are now tagged `svelte`, so a formatter leaves them alone, and the handler is Svelte 5's `onclick`.
+- **The Astro README taught a call that does not work** (`@verbaly/astro`). Its path-based example was `await createInstance(Astro.currentLocale)`, and `createInstance` takes an options object, not a locale, and is synchronous: it produced an instance in the source locale whose catalog was never awaited, which is the flash the package exists to prevent. It now reads `await createRequestInstance(Astro.currentLocale ?? sourceLocale)`. Found while closing the Astro half of the audit, on exactly the path the audit had flagged.
+
+### Notes
+
+- **Not breaking, and the reason is the default.** `routing` is inferred as `no-prefix` for a project with no `render` section, and with `routing` absent `resolveRequestLocale` runs the old cookie chain unchanged. A project already setting `prefix-except-source` was serving the wrong language, so its behavior changing is the fix.
+- **The harness is per adapter and it is what would have caught this.** Each of the three now pins "the URL says `es`, the cookie says `en`, the answer is `es`" against its real entry point, plus the source-tree case and the base case. A fourth SSR integration copies those three tests, the same rule that keeps `<Trans>` identical across react, vue and svelte.
+- **The Next pins were proved able to fail**: the first run failed all four, because `React.cache` does not hold outside a request and the holder was allocating a fresh object per call. `holder()` compares two calls and falls back to a module-level object, which is correct outside RSC precisely because there is one request there.
+- **`alternateLinks` returning `[]` under `no-prefix` is the design, not a gap.** One href carrying every hreflang is a false statement about the site.
+- **Sizes: the two real budgets are 3.00 (unchanged) and 5.76 KB min+gzip**, from 5.71. The 0.05 KB is the shared URL decomposition, paid deliberately so `localePath` and `stripLocalePath` cannot drift; the new exports tree-shake out for anyone not using them, which is why the tree-shaken figure did not move at all. The canary (every export at once) went 7.10 to 7.35 against a 7.50 budget, **2% of room left**, so the next feature that touches core needs that budget revisited.
+- **1192 tests** (was 1153). `pnpm test` and `pnpm coverage` agree.
+- Bench vs i18next: **30.9x / 12.5x / 5.0x / 5.4x** (lookup, interpolation, plural, currency), against 32.3/19.5/5.0/5.4 in 0.47.0. `t()` was not touched, so the spread is the machine.
+- **Dependencies to latest stable, validated green**: @types/node 26.4.1, astro 7.2.10, happy-dom 20.12.1, i18next 26.4.1, next 16.3.4, @anthropic-ai/sdk 0.123.0.
+- **Where this came from**: an audit of the four adapters against the i18n each framework's ecosystem actually ships (next-intl, @nuxtjs/i18n, Paraglide 2, `astro:i18n`). All four put the URL first. Two gaps were measured and deliberately declined: per-framework navigation wrappers (`localePath` and `switchLocale` already carry it, and a wrapper is new surface times four) and translated pathnames (they depend on the framework's route table, not on the locale set).
+
+### Docs impact (pending)
+
+- **`docs/guide/server`**: the main change. Say that when your URLs carry the language, the address decides it, and show the wiring per framework: `verbalyHandle({ locales, routing })` plus `verbalyReroute` in `hooks.ts` for SvelteKit, nothing to write for Nuxt (the module reads the URL), and `setRequestLocale(locale)` in the layout for Next.
+- **`docs/frameworks/react`, `#next` section**: `setRequestLocale` with `generateStaticParams`, and say plainly why it matters (without it the page cannot be prerendered). Add `getAlternates` in `generateMetadata`.
+- **`docs/frameworks/svelte`, `#sveltekit` section**: the `reroute` hook in `hooks.ts`, and that it is what lets one route tree serve every language.
+- **`docs/frameworks/astro`**: the server-output path, `createRequestInstance(Astro.currentLocale ?? sourceLocale)`. This is the answer to "what do I do when the mirror is skipped".
+- **`docs/reference/api`**: three new core entries, `stripLocalePath`, `alternateLinks` and `warnOnce`, plus the new fields on `resolveRequestLocale`.
+- **`docs/guide/urls`**: the precedence is now worth one short paragraph: the address first when it carries the language, then the saved choice, then the browser. It answers the question that page already raises.
+- The comparison table on the landing does not move yet, **but the "translated head" claim now covers SSR too**, which it did not when it was written.
+
+---
+
 ## [0.47.0] · 2026-09-01
 
 **Keys you write down, and a sitemap that tells the truth.** Verbaly's default is that you write text and never see a key, and that stays. This version covers the other real case: keys that are a contract with something outside your app, a mobile client or a translation memory, written once in a module and read from everywhere. Until now the compiler could not see them at all. Breaking: no.

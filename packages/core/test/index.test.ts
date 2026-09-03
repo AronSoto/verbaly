@@ -7,6 +7,7 @@ const VALUES = [
   'LOCALE_STORAGE_KEY',
   'RICH_TAGS',
   'VOID_TAGS',
+  'alternateLinks',
   'bindDom',
   'createVerbaly',
   'flatten',
@@ -25,7 +26,9 @@ const VALUES = [
   'resolveRequestLocale',
   'safeAttribute',
   'safeHref',
+  'stripLocalePath',
   'switchLocale',
+  'warnOnce',
 ];
 
 describe('public API', () => {

@@ -1,9 +1,9 @@
 // default node environment: the SSR surface (no DOM)
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Verbaly } from 'verbaly';
 import plugin from '../src/runtime/plugin';
-import { headInputs, resetNuxtMock, seedState } from './mocks/imports';
-import { loadedLocales } from './mocks/virtual-verbaly';
+import { headInputs, resetNuxtMock, seedState, setRequestUrl } from './mocks/imports';
+import { loadedLocales, setRouting } from './mocks/virtual-verbaly';
 
 const runPlugin = plugin as unknown as (nuxtApp: unknown) => Promise<void>;
 
@@ -128,5 +128,37 @@ describe('runtime plugin (server)', () => {
     expect(first).not.toBe(second);
     expect(first.locale).toBe('pt'); // untouched by the second request
     expect(second.locale).toBe('es');
+  });
+});
+
+describe('runtime plugin (locale from the url)', () => {
+  afterEach(() => setRouting('no-prefix'));
+
+  it('reads the url over a cookie that says otherwise', async () => {
+    setRouting('prefix-except-source');
+    setRequestUrl('/es/docs');
+    const instance = await run({ cookie: 'verbaly-locale=pt', 'accept-language': 'pt' });
+    expect(instance.locale).toBe('es');
+    expect(instance.t('greet')).toBe('Hola');
+  });
+
+  it('serves the unprefixed tree in the source locale', async () => {
+    setRouting('prefix-except-source');
+    setRequestUrl('/docs');
+    const instance = await run({ cookie: 'verbaly-locale=pt' });
+    expect(instance.locale).toBe('en');
+  });
+
+  it('honors the app baseURL', async () => {
+    setRouting('prefix-except-source');
+    setRequestUrl('/app/pt/docs', '/app');
+    const instance = await run({ cookie: 'verbaly-locale=en' });
+    expect(instance.locale).toBe('pt');
+  });
+
+  it('leaves the cookie in charge under no-prefix', async () => {
+    setRequestUrl('/es/docs');
+    const instance = await run({ cookie: 'verbaly-locale=pt' });
+    expect(instance.locale).toBe('pt');
   });
 });

@@ -1,12 +1,13 @@
 // default node environment: the server-side surface (no DOM)
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, Reroute } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
-import { switchLocale, verbalyHandle, LOCALE_COOKIE } from '../src/index';
+import { switchLocale, verbalyHandle, verbalyReroute, LOCALE_COOKIE } from '../src/index';
 
 const LOCALES = ['en', 'es', 'pt'];
 
 interface MockEvent {
   request: Request;
+  url: URL;
   cookies: { get(name: string): string | undefined };
   locals: { verbalyLocale?: string };
 }
@@ -14,9 +15,12 @@ interface MockEvent {
 function makeEvent(
   headers: Record<string, string> = {},
   cookies: Record<string, string> = {},
+  path = '/',
 ): MockEvent {
+  const url = new URL(path, 'http://localhost');
   return {
-    request: new Request('http://localhost/', { headers }),
+    request: new Request(url, { headers }),
+    url,
     cookies: { get: (name) => cookies[name] },
     locals: {},
   };
@@ -104,6 +108,33 @@ describe('verbalyHandle', () => {
     expect(opts?.transformPageChunk?.({ html, done: true })).toBe('<html lang="ar" dir="rtl">');
   });
 
+  it('reads the locale from the url, over a cookie that says otherwise', async () => {
+    const event = makeEvent({ 'accept-language': 'en' }, { [LOCALE_COOKIE]: 'en' }, '/es/docs');
+    await run(verbalyHandle({ locales: LOCALES, routing: 'prefix-except-source' }), event);
+    expect(event.locals.verbalyLocale).toBe('es');
+  });
+
+  it('serves the unprefixed tree in the source locale, whatever the visitor stored', async () => {
+    const event = makeEvent({ 'accept-language': 'pt' }, { [LOCALE_COOKIE]: 'pt' }, '/docs');
+    await run(verbalyHandle({ locales: LOCALES, routing: 'prefix-except-source' }), event);
+    expect(event.locals.verbalyLocale).toBe('en');
+  });
+
+  it('leaves the cookie in charge when no routing is passed', async () => {
+    const event = makeEvent({}, { [LOCALE_COOKIE]: 'pt' }, '/es/docs');
+    await run(verbalyHandle({ locales: LOCALES }), event);
+    expect(event.locals.verbalyLocale).toBe('pt');
+  });
+
+  it('honors the base the app is served under', async () => {
+    const event = makeEvent({}, { [LOCALE_COOKIE]: 'en' }, '/app/pt/docs');
+    await run(
+      verbalyHandle({ locales: LOCALES, routing: 'prefix-except-source', base: '/app' }),
+      event,
+    );
+    expect(event.locals.verbalyLocale).toBe('pt');
+  });
+
   it('passes the resolved response through', async () => {
     const { response } = await run(verbalyHandle({ locales: LOCALES }), makeEvent());
     expect(await response.text()).toBe('ok');
@@ -120,6 +151,40 @@ describe('verbalyHandle', () => {
   it('is assignable to @sveltejs/kit Handle (type-level)', () => {
     const handle: Handle = verbalyHandle({ locales: LOCALES });
     expect(typeof handle).toBe('function');
+  });
+});
+
+describe('verbalyReroute', () => {
+  const reroute = verbalyReroute({ locales: LOCALES });
+  const at = (path: string): string => reroute({ url: new URL(path, 'http://localhost') });
+
+  it('routes a localized url as its canonical route', () => {
+    expect(at('/es/docs')).toBe('/docs');
+    expect(at('/pt/docs/format')).toBe('/docs/format');
+    expect(at('/es')).toBe('/');
+  });
+
+  it('leaves an unprefixed url alone', () => {
+    expect(at('/docs')).toBe('/docs');
+    expect(at('/')).toBe('/');
+  });
+
+  it('never eats a route that merely looks like a tag', () => {
+    expect(at('/es-la-guia')).toBe('/es-la-guia');
+  });
+
+  it('keeps the base in front', () => {
+    const scoped = verbalyReroute({ locales: LOCALES, base: '/app' });
+    expect(scoped({ url: new URL('/app/es/docs', 'http://localhost') })).toBe('/app/docs');
+  });
+
+  it('throws an actionable error without locales', () => {
+    expect(() => verbalyReroute({ locales: [] })).toThrow('virtual:verbaly');
+  });
+
+  it('is assignable to @sveltejs/kit Reroute (type-level)', () => {
+    const hook: Reroute = verbalyReroute({ locales: LOCALES });
+    expect(typeof hook).toBe('function');
   });
 });
 

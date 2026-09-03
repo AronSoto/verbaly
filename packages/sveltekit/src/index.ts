@@ -1,4 +1,10 @@
-import { LOCALE_STORAGE_KEY, localeDirection, resolveRequestLocale } from 'verbaly';
+import {
+  LOCALE_STORAGE_KEY,
+  localeDirection,
+  resolveRequestLocale,
+  stripLocalePath,
+  type Routing,
+} from 'verbaly';
 
 // derived from core's localStorage key: one identity per user across channels
 export const LOCALE_COOKIE: string = LOCALE_STORAGE_KEY;
@@ -8,6 +14,7 @@ const DIR_PLACEHOLDER = '%verbaly.dir%';
 // structural subset of @sveltejs/kit: no runtime or type dependency on kit
 interface HandleEvent {
   request: Request;
+  url: URL;
   cookies: { get(name: string): string | undefined };
   locals: { verbalyLocale?: string };
 }
@@ -23,6 +30,8 @@ export interface VerbalyHandleOptions {
   locales: string[];
   fallback?: string;
   cookie?: string | false;
+  routing?: Routing;
+  base?: string;
 }
 
 // server hook: sets event.locals.verbalyLocale and fills %verbaly.lang% / %verbaly.dir%
@@ -39,6 +48,9 @@ export function verbalyHandle(options: VerbalyHandleOptions) {
   return ({ event, resolve }: HandleInput): Response | Promise<Response> => {
     const resolved = resolveRequestLocale({
       supported: locales,
+      path: event.url.pathname,
+      routing: options.routing,
+      base: options.base,
       cookie: cookie ? event.cookies.get(cookie) : undefined,
       header: event.request.headers.get('accept-language'),
       fallback,
@@ -52,6 +64,23 @@ export function verbalyHandle(options: VerbalyHandleOptions) {
           .replaceAll(DIR_PLACEHOLDER, localeDirection(resolved)),
     });
   };
+}
+
+export interface VerbalyRerouteOptions {
+  locales: string[];
+  base?: string;
+}
+
+// universal hook (hooks.ts, never hooks.server.ts): /es/docs routes as /docs, one route tree
+export function verbalyReroute(options: VerbalyRerouteOptions) {
+  const { locales } = options;
+  if (!Array.isArray(locales) || locales.length === 0) {
+    throw new Error(
+      "[verbaly] verbalyReroute needs `locales`: pass the `locales` export from 'virtual:verbaly'",
+    );
+  }
+  return ({ url }: { url: URL }): string =>
+    stripLocalePath({ supported: locales, path: url.pathname, base: options.base });
 }
 
 // switchLocale moved to core in 0.18.0 (shared with @verbaly/nuxt): same API, re-exported

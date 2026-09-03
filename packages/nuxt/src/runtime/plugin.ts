@@ -1,7 +1,7 @@
-import { defineNuxtPlugin, useHead, useRuntimeConfig, useState } from '#imports';
+import { defineNuxtPlugin, useHead, useRequestURL, useRuntimeConfig, useState } from '#imports';
 import { verbalyPlugin, type VerbalyPlugin } from '@verbaly/vue';
 import { LOCALE_STORAGE_KEY, localeDirection, resolveRequestLocale } from 'verbaly';
-import { createRequestInstance, locales, sourceLocale } from 'virtual:verbaly';
+import { createRequestInstance, locales, routing, sourceLocale } from 'virtual:verbaly';
 import { shallowRef } from 'vue';
 
 interface VerbalyRuntimeConfig {
@@ -39,9 +39,12 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtAppLike) => {
         'or in the module options (`verbaly: { locales: [...] }` in nuxt.config)',
     );
   }
-  const config = (useRuntimeConfig().public.verbaly ?? {}) as VerbalyRuntimeConfig;
+  const runtime = useRuntimeConfig();
+  const config = (runtime.public.verbaly ?? {}) as VerbalyRuntimeConfig;
   const cookieName = config.cookie === false ? false : config.cookie || LOCALE_STORAGE_KEY;
   const fallback = config.fallback ?? sourceLocale;
+  // the address is the same on both sides of hydration, unlike the header and the cookie
+  const url = { path: useRequestURL().pathname, routing, base: runtime.app?.baseURL };
 
   // negotiated on the server, hydrated from the payload: the client renders the same locale
   const locale = useState<string>('verbaly:locale', () => {
@@ -49,14 +52,16 @@ export default defineNuxtPlugin(async (nuxtApp: NuxtAppLike) => {
     if (headers) {
       return resolveRequestLocale({
         supported: locales,
+        ...url,
         cookie: cookieName ? readCookie(headers.get('cookie'), cookieName) : undefined,
         header: headers.get('accept-language'),
         fallback,
       });
     }
-    // client-only app (ssr: false): cookie → navigator.languages → fallback
+    // client-only app (ssr: false): url → cookie → navigator.languages → fallback
     return resolveRequestLocale({
       supported: locales,
+      ...url,
       cookie:
         cookieName && typeof document !== 'undefined'
           ? readCookie(document.cookie, cookieName)

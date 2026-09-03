@@ -55,14 +55,18 @@ Every message becomes a stable key with typed params. Untranslated entries fail 
 
 ## 🌍 Two ways to ship the languages
 
-**Path-based pages** (Astro's i18n routing): create one instance per locale page and use `t` as usual. Astro owns the routes, Verbaly owns the catalogs and the type safety.
+**Path-based pages** (Astro's i18n routing): build one instance per request and use `t` as usual. Astro owns the routes, Verbaly owns the catalogs and the type safety.
 
 ```astro
 ---
-import { createInstance } from 'virtual:verbaly';
-const { t } = await createInstance(Astro.currentLocale);
+import { createRequestInstance, sourceLocale } from 'virtual:verbaly';
+const { t } = await createRequestInstance(Astro.currentLocale ?? sourceLocale);
 ---
 ```
+
+`createRequestInstance` awaits the catalog before it returns, which is what makes the page arrive
+translated instead of flashing. `Astro.currentLocale` is `undefined` outside a localized route, so
+the fallback is not decoration.
 
 **Mirror mode** (one tree, pre-translated copies): keep your markup bound with `data-verbaly` attributes and add a `render` section to your `verbaly.config`. After `astro build`, the integration mirrors `dist/` into `dist/<locale>/` with every message pre-filled, plus hreflang and a per-locale sitemap if you configure `baseUrl`. No flash of untranslated content, no client work.
 

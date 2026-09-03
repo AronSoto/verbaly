@@ -111,10 +111,28 @@ localeDirection('ar'); // 'rtl': switchLocale/persistLocale already apply it to 
 
 ```ts
 // server-side (SSR): one instance per request, locale from the request itself
-import { createVerbaly, negotiateLocale } from 'verbaly';
+import { createVerbaly, resolveRequestLocale } from 'verbaly';
 
-const locale = negotiateLocale(request.headers.get('accept-language'), ['en', 'es', 'pt']);
+// the address wins when it carries the language: a url is public, a cookie is one visitor
+const locale = resolveRequestLocale({
+  supported: ['en', 'es', 'pt'],
+  path: url.pathname,
+  routing: 'prefix-except-source',
+  cookie: cookies.get('verbaly-locale'),
+  header: request.headers.get('accept-language'),
+  fallback: 'en',
+});
 const v = createVerbaly({ locale, fallback: 'en', messages });
+```
+
+```ts
+// the url helpers, all pure and safe on a server
+import { alternateLinks, localePath, stripLocalePath } from 'verbaly';
+
+localePath('pt', { supported, sourceLocale: 'en', path: '/es/docs' }); // '/pt/docs'
+stripLocalePath({ supported, path: '/es/docs' }); // '/docs', the route behind the url
+alternateLinks({ supported, sourceLocale: 'en', path: '/docs', baseUrl: 'https://x.dev' });
+// one hreflang entry per locale plus x-default, the same set `verbaly render` writes
 ```
 
 ## ✨ What you get

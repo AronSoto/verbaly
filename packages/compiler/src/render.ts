@@ -4,6 +4,7 @@ import MagicString from 'magic-string';
 import picomatch from 'picomatch';
 import { glob } from 'tinyglobby';
 import {
+  alternateLinks,
   createVerbaly,
   localeDirection,
   LOCALE_STORAGE_KEY,
@@ -471,26 +472,26 @@ export function formatRenderWarnings(result: RenderSiteResult, sourceLocale: str
   return lines;
 }
 
-// public URL of a built page path (index.html → directory URL)
-function pageUrl(baseUrl: string, prefix: string, rel: string): string {
+// request path of a built page path (index.html → directory URL)
+function pagePath(rel: string): string {
   const path = rel.replace(/(^|\/)index\.html$/, '$1');
-  return `${baseUrl}${prefix}${path ? `/${path}` : '/'}`;
+  return path ? `/${path}` : '/';
 }
 
-// reciprocal hreflang set for one page across every locale (+ x-default = source)
+// reciprocal hreflang set for one page, from core: an SSR head has to write the same one
 function pageAlternates(
   baseUrl: string,
   rel: string,
   locales: string[],
   sourceLocale: string,
 ): Alternate[] {
-  const alternates: Alternate[] = [];
-  for (const locale of locales) {
-    const prefix = locale === sourceLocale ? '' : `/${locale}`;
-    alternates.push({ hreflang: locale, href: pageUrl(baseUrl, prefix, rel) });
-  }
-  alternates.push({ hreflang: 'x-default', href: pageUrl(baseUrl, '', rel) });
-  return alternates;
+  return alternateLinks({
+    supported: locales,
+    sourceLocale,
+    path: pagePath(rel),
+    routing: 'prefix-except-source',
+    baseUrl,
+  });
 }
 
 function buildSitemap(urls: Array<{ rel: string; alternates: Alternate[] }>): string {

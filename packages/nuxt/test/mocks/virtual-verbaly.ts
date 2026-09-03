@@ -1,8 +1,15 @@
-import { createVerbaly, type Verbaly, type VerbalyOptions } from 'verbaly';
+import { createVerbaly, type Routing, type Verbaly, type VerbalyOptions } from 'verbaly';
 
 export const sourceLocale = 'en';
 export const locales = ['en', 'es', 'pt', 'ar'];
 export const loadedLocales: string[] = [];
+
+// live binding: the plugin reads it per call, so a test can pick the mode it is exercising
+export let routing: Routing = 'no-prefix';
+
+export function setRouting(next: Routing): void {
+  routing = next;
+}
 
 const TARGETS: Record<string, Record<string, string>> = {
   es: { greet: 'Hola' },

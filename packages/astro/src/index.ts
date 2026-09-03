@@ -73,7 +73,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         if (!wanted) return;
         if (buildOutput === 'server') {
           console.warn(
-            '[verbaly] render skipped: only static output can be mirrored per locale (server-rendered pages already pick their locale per request)',
+            "[verbaly] render skipped: only static output can be mirrored per locale. In server output, build the instance per request: `createRequestInstance(Astro.currentLocale ?? sourceLocale)` from 'virtual:verbaly'",
           );
           return;
         }

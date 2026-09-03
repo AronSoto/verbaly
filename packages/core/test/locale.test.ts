@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { displayNames } from '../src/intl';
 import {
+  alternateLinks,
   localeDirection,
   localeFromPath,
   localeName,
@@ -10,6 +11,7 @@ import {
   persistLocale,
   resolveLocale,
   resolveRequestLocale,
+  stripLocalePath,
   switchLocale,
 } from '../src/locale';
 
@@ -389,6 +391,147 @@ describe('resolveRequestLocale', () => {
       resolveRequestLocale({ supported: SUPPORTED, cookie: 'fr', header: 'de', fallback: 'es' }),
     ).toBe('es');
     expect(resolveRequestLocale({ supported: SUPPORTED })).toBe('en');
+  });
+
+  it('lets the url win over a cookie that says otherwise', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/es/dashboard',
+      routing: 'prefix-except-source',
+      cookie: 'en',
+      header: 'en-US',
+    });
+    expect(locale).toBe('es');
+  });
+
+  it('reads the source tree as the source locale, never as the cookie', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/dashboard',
+      routing: 'prefix-except-source',
+      cookie: 'pt',
+      header: 'pt-BR',
+      fallback: 'en',
+    });
+    expect(locale).toBe('en');
+  });
+
+  it('negotiates on an unprefixed url under prefix-all, which is not a page', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/dashboard',
+      routing: 'prefix-all',
+      cookie: 'pt',
+      fallback: 'en',
+    });
+    expect(locale).toBe('pt');
+  });
+
+  it('ignores the url under no-prefix, where the address says nothing', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/es/dashboard',
+      routing: 'no-prefix',
+      cookie: 'pt',
+    });
+    expect(locale).toBe('pt');
+  });
+
+  it('is unchanged when routing is not passed, so an existing integration keeps its answer', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/es/dashboard',
+      cookie: 'pt',
+    });
+    expect(locale).toBe('pt');
+  });
+
+  it('honors the base the site is served under', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/app/es/docs',
+      base: '/app',
+      routing: 'prefix-except-source',
+      cookie: 'en',
+    });
+    expect(locale).toBe('es');
+  });
+
+  it('does not read a slug that merely looks like a tag', () => {
+    const locale = resolveRequestLocale({
+      supported: SUPPORTED,
+      path: '/es-la-guia',
+      routing: 'prefix-except-source',
+      cookie: 'pt',
+      fallback: 'en',
+    });
+    expect(locale).toBe('en');
+  });
+});
+
+describe('stripLocalePath', () => {
+  it('gives the canonical route behind a localized url', () => {
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/es/docs' })).toBe('/docs');
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/es/docs/' })).toBe('/docs/');
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/es' })).toBe('/');
+  });
+
+  it('leaves an unprefixed url alone', () => {
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/docs' })).toBe('/docs');
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/' })).toBe('/');
+  });
+
+  it('keeps the base in front and the query behind', () => {
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/app/pt/docs?q=1', base: '/app' })).toBe(
+      '/app/docs?q=1',
+    );
+  });
+
+  it('never eats a slug shaped like a tag', () => {
+    expect(stripLocalePath({ supported: SUPPORTED, path: '/es-la-guia' })).toBe('/es-la-guia');
+  });
+
+  it('is the inverse of localePath', () => {
+    const path = '/docs/format';
+    const localized = localePath('pt', { supported: SUPPORTED, sourceLocale: 'en', path });
+    expect(stripLocalePath({ supported: SUPPORTED, path: localized })).toBe(path);
+  });
+});
+
+describe('alternateLinks', () => {
+  const OPTIONS = { supported: SUPPORTED, sourceLocale: 'en', baseUrl: 'https://x.dev' };
+
+  it('writes one entry per locale plus x-default at the source', () => {
+    expect(alternateLinks({ ...OPTIONS, path: '/docs' })).toEqual([
+      { hreflang: 'en', href: 'https://x.dev/docs' },
+      { hreflang: 'es', href: 'https://x.dev/es/docs' },
+      { hreflang: 'pt', href: 'https://x.dev/pt/docs' },
+      { hreflang: 'x-default', href: 'https://x.dev/docs' },
+    ]);
+  });
+
+  it('answers the same set from any locale tree, which is what reciprocal means', () => {
+    expect(alternateLinks({ ...OPTIONS, path: '/es/docs' })).toEqual(
+      alternateLinks({ ...OPTIONS, path: '/docs' }),
+    );
+  });
+
+  it('prefixes every locale under prefix-all, x-default included', () => {
+    expect(alternateLinks({ ...OPTIONS, path: '/en/docs', routing: 'prefix-all' })).toEqual([
+      { hreflang: 'en', href: 'https://x.dev/en/docs' },
+      { hreflang: 'es', href: 'https://x.dev/es/docs' },
+      { hreflang: 'pt', href: 'https://x.dev/pt/docs' },
+      { hreflang: 'x-default', href: 'https://x.dev/en/docs' },
+    ]);
+  });
+
+  it('writes nothing under no-prefix, where one href would carry every hreflang', () => {
+    expect(alternateLinks({ ...OPTIONS, path: '/docs', routing: 'no-prefix' })).toEqual([]);
+  });
+
+  it('works without a baseUrl, for a head that wants root-relative hrefs', () => {
+    const links = alternateLinks({ supported: SUPPORTED, sourceLocale: 'en', path: '/docs' });
+    expect(links[1]).toEqual({ hreflang: 'es', href: '/es/docs' });
   });
 });
 

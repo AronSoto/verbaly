@@ -94,6 +94,33 @@ export function LocalePicker() {
 }
 ```
 
+**5. If your URLs carry the language** (`app/[locale]/…`), hand Verbaly the segment. This is what
+keeps the route statically rendered, because the alternative is reading request headers:
+
+```tsx
+// app/[locale]/layout.tsx
+import { setRequestLocale, getVerbalyProps, getAlternates } from '@verbaly/next/server';
+import { locales } from 'virtual:verbaly';
+
+export function generateStaticParams() {
+  return locales.map((locale) => ({ locale }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  return { alternates: getAlternates({ path: `/${locale}`, baseUrl: 'https://example.com' }) };
+}
+
+export default async function LocaleLayout({ children, params }) {
+  const { locale } = await params;
+  setRequestLocale(locale); // before any getT() in this tree
+  return <VerbalyProvider {...await getVerbalyProps()}>{children}</VerbalyProvider>;
+}
+```
+
+Without `setRequestLocale`, Verbaly negotiates from the cookie and `Accept-Language`, and that read
+is what makes the route dynamic. With it, no header is read at all.
+
 That's it. `next dev` extracts your messages live (catalogs + `verbaly.d.ts` stay fresh); `next build` blocks on missing translations.
 
 ## 📖 Options
@@ -106,7 +133,8 @@ Second argument of `withVerbaly`: every [`verbaly.config`](https://www.npmjs.com
 | `fallback`      | Locale when nothing matches (defaults to the source locale).                                            |
 | `failOnMissing` | `false` opts out of the build gate.                                                                     |
 
-- Negotiation reads `headers()`/`cookies()`, so negotiated routes render dynamically; for fully static output use [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) per locale.
+- **Negotiation reads `headers()`/`cookies()`, which makes a route dynamic.** Call `setRequestLocale` with your `[locale]` segment and that read never happens, so the route prerenders. For a fully static site with no server at all, [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) mirrors the output per locale.
+- `getAlternates({ path, baseUrl? })` returns `{ canonical, languages }` for `generateMetadata`, the same hreflang set the static mirror writes. It is empty under `no-prefix` routing, where one URL answers every language.
 - The generated `.verbaly/` directory is build output (it ships its own `.gitignore`).
 
 ## 📚 Docs

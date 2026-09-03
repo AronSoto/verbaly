@@ -5,6 +5,7 @@ import plugin from '../src/runtime/plugin';
 vi.mock('virtual:verbaly', () => ({
   locales: [],
   sourceLocale: 'en',
+  routing: 'no-prefix',
   createRequestInstance: () => Promise.resolve(null),
 }));
 

@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/astro",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "description": "Astro integration for Verbaly: write-in-source extraction for .astro files plus automatic per-locale static rendering.",
   "keywords": [
     "i18n",
@@ -48,7 +48,7 @@
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "astro": "^7.2.9",
+    "astro": "^7.2.10",
     "verbaly": "workspace:^"
   },
   "scripts": {

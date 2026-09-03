@@ -93,15 +93,29 @@ export function localePath(locale: string, options: LocalePathOptions): string {
   }
 
   const base = normalizeBase(options.base);
+  const parts = splitLocalePath(full, supported, base);
+  if (routing === 'prefix-all' || locale !== sourceLocale) parts.segments.unshift(locale);
+  return joinLocalePath(base, parts);
+}
+
+interface PathParts {
+  segments: string[];
+  rest: string;
+  trailingSlash: boolean;
+}
+
+// one decomposition for both directions: base out front, query behind, locale segment dropped
+function splitLocalePath(full: string, supported: string[], base: string): PathParts {
   const cut = full.search(/[?#]/);
   const path = stripBase(cut < 0 ? full : full.slice(0, cut), base);
-  const rest = cut < 0 ? '' : full.slice(cut);
-
   const segments = path.split('/').filter(Boolean);
   if (segments[0] && matchPathSegment(segments[0], supported)) segments.shift();
-  if (routing === 'prefix-all' || locale !== sourceLocale) segments.unshift(locale);
-  const trailing = segments.length && path.endsWith('/') ? '/' : '';
-  return `${base}/${segments.join('/')}${trailing}${rest}`;
+  return { segments, rest: cut < 0 ? '' : full.slice(cut), trailingSlash: path.endsWith('/') };
+}
+
+function joinLocalePath(base: string, parts: PathParts): string {
+  const trailing = parts.segments.length && parts.trailingSlash ? '/' : '';
+  return `${base}/${parts.segments.join('/')}${trailing}${parts.rest}`;
 }
 
 // which tree this page belongs to: a fact of the url, so it answers undefined instead of guessing
@@ -110,6 +124,57 @@ export function localeFromPath(options: LocaleFromPathOptions): string | undefin
   if (path === undefined) return undefined;
   const segment = stripBase(path, normalizeBase(options.base)).split('/').find(Boolean);
   return segment ? matchPathSegment(segment, options.supported) : undefined;
+}
+
+export interface StripLocalePathOptions {
+  supported: string[];
+  path?: string;
+  base?: string;
+}
+
+// the canonical route behind a localized url: /es/docs → /docs, so a router matches one tree
+export function stripLocalePath(options: StripLocalePathOptions): string {
+  const full = options.path ?? currentPath() ?? '/';
+  const base = normalizeBase(options.base);
+  return joinLocalePath(base, splitLocalePath(full, options.supported, base));
+}
+
+export interface AlternateLink {
+  hreflang: string;
+  href: string;
+}
+
+export interface AlternateLinksOptions {
+  supported: string[];
+  sourceLocale: string;
+  path: string;
+  routing?: Routing;
+  base?: string;
+  baseUrl?: string;
+}
+
+// the reciprocal hreflang set for one page, the same one render writes, for a server that renders
+export function alternateLinks(options: AlternateLinksOptions): AlternateLink[] {
+  const { supported, sourceLocale, path, baseUrl = '' } = options;
+  const routing = options.routing ?? 'prefix-except-source';
+
+  // no-prefix means every locale answers on this url, and one href under many hreflangs is a lie
+  if (routing === 'no-prefix') return [];
+
+  // the union is what makes sourceLocale required exactly where it decides, so the call branches
+  const base = options.base;
+  const href = (locale: string): string =>
+    baseUrl +
+    localePath(
+      locale,
+      routing === 'prefix-all'
+        ? { supported, routing, path, base }
+        : { supported, routing, sourceLocale, path, base },
+    );
+
+  const links = supported.map((locale) => ({ hreflang: locale, href: href(locale) }));
+  links.push({ hreflang: 'x-default', href: href(sourceLocale) });
+  return links;
 }
 
 export function resolveLocale(options: ResolveLocaleOptions): string {
@@ -208,16 +273,28 @@ function matchSupportedLoose(lang: string, supported: string[]): string | undefi
   return undefined;
 }
 
-// per-request negotiation shared by SSR integrations: cookie value → Accept-Language → fallback
+// per-request negotiation for SSR: url → cookie → Accept-Language → fallback
 export interface RequestLocaleOptions {
   supported: string[];
+  path?: string | null;
+  routing?: Routing;
+  base?: string;
   cookie?: string | null;
   header?: string | null;
   fallback?: string;
 }
 
 export function resolveRequestLocale(options: RequestLocaleOptions): string {
-  const { supported, cookie, header, fallback = supported[0] ?? 'en' } = options;
+  const { supported, path, routing, cookie, header, fallback = supported[0] ?? 'en' } = options;
+
+  // an address is public, a cookie is one visitor: where the url carries the locale, it wins
+  if (routing !== undefined && routing !== 'no-prefix' && path != null) {
+    const match = localeFromPath({ supported, path, base: options.base });
+    if (match) return match;
+    // under prefix-except-source no prefix means the source tree, so negotiating would translate it
+    if (routing === 'prefix-except-source') return fallback;
+  }
+
   if (cookie) {
     // '' sentinel = no match → fall through to the header
     const match = negotiateLocale(cookie, supported, '');

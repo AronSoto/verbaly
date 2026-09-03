@@ -11,7 +11,7 @@
 
 ---
 
-Server-rendered pages arrive already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
+Server-rendered pages arrive already translated in the visitor's language (the address first when your URLs carry it, then the cookie, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
 
 One line in `nuxt.config` wires everything: the Vite plugin (live extraction + the `virtual:verbaly` module), the per-request negotiation and `<html lang>`/`<html dir>`.
 
@@ -65,7 +65,7 @@ const verbaly = useVerbaly();
 </template>
 ```
 
-That's it. The module negotiates the locale per request (cookie → `Accept-Language` → fallback), awaits the catalog **before** render, installs the Vue plugin, and keeps `<html lang>` and `<html dir>` in sync.
+That's it. The module resolves the locale per request (URL → cookie → `Accept-Language` → fallback), awaits the catalog **before** render, installs the Vue plugin, and keeps `<html lang>` and `<html dir>` in sync.
 
 ## 📖 Options
 
@@ -76,6 +76,7 @@ Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in 
 | `cookie`   | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
 | `fallback` | Locale when nothing matches (defaults to the source locale).                                            |
 
+- **When your URLs carry the language, the address decides it** and the cookie is not consulted: on `/es/docs` a visitor gets Spanish whatever they picked before, and on an unprefixed page they get your source language. That follows your `routing` setting; nothing to configure here.
 - No dependency on `nuxt` or `@nuxt/kit`: the module is typed structurally; the only moving parts are core primitives (`resolveRequestLocale`) and the generated `createRequestInstance`.
 - For fully static sites (`nuxi generate`), consider [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) for pre-translated output per locale.
 

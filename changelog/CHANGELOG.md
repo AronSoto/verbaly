@@ -52,12 +52,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **`pnpm outdated -r` is empty in both repos**, and the flaky watcher test did not reproduce in this cycle's coverage run.
 - **pnpm 12 caught a package published nine hours earlier and we let it win.** Adding tinybench pulled 6.1.6, inside pnpm 12's release-age cutoff, and pnpm wrote itself an exclusion in `pnpm-workspace.yaml` to proceed. That exclusion exists in these repos for **our own** packages, never for a third party, so the lockfile was re-resolved to **6.1.4** (eight days old, and the version vitest already pins, so nothing new enters the store) and the exclusion removed. The lockfile passes the policy on 663 entries with no waiver.
 
-### Docs impact
+### Docs impact (synced)
 
-- **`docs/frameworks/astro`**: the section on `inlineCatalog` should say that the ClientRouter is handled for you, because that is the whole difference between this working and not. One sentence, no new concept.
-- **`docs/reference/api`**: `adoptPage` next to the other `virtual:verbaly` exports, described as what it is for ("hand the runtime the next page's messages when your router swaps the document"), and the `partial` option on `addMessages` in the same table as the rest.
-- **`docs/guide/urls`, the static hosting section**: it already explains the slice; add that a client-side router has to be told about each new page, and that Astro does it on its own.
-- **This site should stay exactly as it is configured.** `inlineCatalog: true` plus `bundle: { exclude: ['changelog_rel'] }` was the right pair in 0.50.0 and it still is; nothing in this release changes that measurement.
+- **`docs/frameworks/astro`**: the section on `inlineCatalog` now says the ClientRouter is handled for you, because that is the whole difference between this working and not. One sentence, no new concept.
+- **`docs/frameworks/vite`, not `docs/reference/api`, is where `adoptPage` went.** This note asked for the API reference, and that page documents core; the site documents `virtual:verbaly` in the Vite page's "The virtual module" section, so the export and its explanation belong there, with a pointer from the Astro page and from the URL guide. `docs/reference/api` did get the part that is core: `addMessages` now takes options, and its row says what `{ partial: true }` is for.
+- **`docs/guide/urls`, the static hosting section**: says a client-side router has to be handed each new page, and that Astro is wired for you.
+- **This site stays exactly as it was configured.** `inlineCatalog: true` plus `bundle: { exclude: ['changelog_rel'] }` was the right pair in 0.50.0 and still is; nothing here changed that measurement.
+- **The sync found a bug in `verbaly-web` that this release did not cause and did not fix.** The nav is `transition:persist`, so it survives a swap carrying the language it was rendered in, and `bundle.exclude` leaves the client no catalog to re-render its changelog preview from. After a language switch those two nodes kept the previous language. Verbaly behaved correctly throughout: it warned by name and kept the text rather than showing a raw key, which is what the warning is for. Fixed in the site by taking that text from the incoming document, **after** `bindDom` re-binds and not before: a mutation made earlier is repainted on the spot by the observer, still in the outgoing locale.
 
 ## [0.50.0] · 2026-09-05
 

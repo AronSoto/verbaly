@@ -285,7 +285,17 @@ describe('the inline slice in the generated module', () => {
     const out = generateRuntimeModule(cfg, {});
     expect(out).not.toContain('inlineMessages');
     expect(out).not.toContain('partial');
-    expect(out).not.toContain('pageSlice');
+    expect(out).not.toContain('readSlice');
+    expect(out).not.toContain('adoptPage');
+    expect(generateDts({ a: 'Hi' })).not.toContain('adoptPage');
+  });
+
+  it('exports adoptPage, which is how a client router hands over the next page slice', () => {
+    const out = generateRuntimeModule(cfg, { inlineCatalog: true });
+    expect(out).toContain('export function adoptPage(options)');
+    // partial, or the second page would count as the whole catalog and hide what it lacks
+    expect(out).toContain("v.addMessages(slice.locale, slice.messages, { partial: true })");
+    expect(generateDts({ a: 'Hi' }, { inlineCatalog: true })).toContain('export function adoptPage');
   });
 
   it('reads the page slice and tells the runtime the locale is partial', () => {

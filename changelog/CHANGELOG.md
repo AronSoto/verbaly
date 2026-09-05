@@ -8,6 +8,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.51.0] · 2026-09-05
+
+**A translated page stays translated when you navigate.** 0.50.0 made each page carry its own messages, and got the second page wrong: click a link inside a site with a client router and the text fell back to your source language until the visitor pressed F5. Three separate faults, all found and fixed. Breaking: no.
+
+### Highlights
+
+- **The 0.50.0 regression is gone.** Reading a site in Spanish and clicking through it now stays in Spanish, on every hop, in every direction: page to page, section to home, and across a language switch.
+- **It was three faults, not one, which is why it looked so total.** The slice was read once when the page first loaded and never again, the runtime could not tell "this page did not carry the word" from "this language has no word for it", and the DOM binder treated a page the router swapped in as text it had written itself.
+- **In Astro it fixes itself.** Turning on `inlineCatalog` now also wires the ClientRouter, so an Astro site gets the working behaviour with no code. Every other setup gets `adoptPage`, one call from a navigation hook.
+- **Switching language got cheaper on the way.** A visitor moving from Spanish to Portuguese used to download the whole Portuguese catalog; now the page they land on already carries what it shows, so the switch costs nothing extra.
+
+### Fixed
+
+- **A page slice was read once per browser session, not once per page** (`@verbaly/compiler`). The generated `virtual:verbaly` read the inlined blob while the module was evaluating, which happens exactly once. Under any client router every later document kept the first page's messages, so its own words resolved through the fallback chain and came out in the source language.
+- **A fallback hid a short slice** (`verbaly`). `partial` dropped its mark and fetched the rest only when a key resolved **nowhere**. But the source catalog always ships, so a key the slice did not carry resolved from it and looked like an ordinary fallback. The mark never dropped, the catalog was never fetched, and the page silently read in the wrong language. Now a lookup that the partial locale did not answer itself is what triggers the fetch.
+- **`bindDom` repainted server HTML that a router swapped in** (`verbaly`). Its trust in pre-rendered text was a property of **time** (everything before the first paint) instead of a property of the **nodes**. A client router swaps a fresh server document in later, while the bind from the previous page is still observing, so the observer overwrote correct text with a fallback. Nodes that arrive carrying text now get the same protection as the first paint.
+
+### Added
+
+- **`adoptPage(options?)` in `virtual:verbaly`** (`@verbaly/compiler`, under `render.inlineCatalog`): hands the runtime the slice of a document a client router is about to show. Takes `{ root, path }`, returns the locale it adopted. `@verbaly/astro` calls it for you on `astro:before-swap`.
+- **`addMessages(locale, messages, { partial: true })`** (`verbaly`): merge a slice without counting the locale as loaded, so the next key it does not carry still goes and gets the catalog. This is what makes a language switch through mirrored pages cost no request.
+- **`AddMessagesOptions`** (`verbaly`) and **`DtsOptions`** (`@verbaly/compiler`) are exported alongside the functions that take them, the same way `VerbalyOptions` and `RuntimeModuleOptions` already were. The compiler's pinned public surface is now **86 names** (46 values + 40 types), and the PLAN had been claiming 80 for five names too long.
+
+### Changed
+
+- **The slice now lists every key the page used**, with an empty string where the locale falls back (`@verbaly/compiler`). The runtime needs to tell "the slice never carried this key" from "this language has no message for it", and only the mirror knows. A fully translated site pays nothing for this; a half translated one pays a few empty strings and stops fetching catalogs it does not need.
+- **`@verbaly/astro` injects a client script when `render.inlineCatalog` is on**, and nothing at all when it is off. Its `astro:config:setup` hook is now async, because it has to resolve the config to know.
+- **`generateDts` takes the same flag**, so `adoptPage` is declared exactly when it is exported. `writeDts` reads it from the config, and `doctor` compares against the same shape.
+- **pnpm 11.17.0 to 12.3.4** in both repos, and **`pnpm/action-setup` to v6.1.0 with it, because they are coupled.** pnpm 12 ships as a native executable behind per-platform `@pnpm/exe.*` packages, and v6.1.0 is the release that adds that bootstrap path: the older pin installs pnpm the old way and cannot fetch 12. Locally the workspace files pass pnpm 12's new strict settings check, `--frozen-lockfile` is green, and the lockfile gains a `packageManagerDependencies` block where pnpm records its own version. Install now also runs a supply chain policy pass over the lockfile (663 entries).
+- **`verbaly-web` dependencies to latest stable, validated green**: astro 7.3.1, astro-icon 1.2.0, eslint 10.10.0, typescript-eslint 8.69.0, eslint-plugin-astro 3.1.0 (a major), prettier 3.9.6, @astrojs/sitemap 3.7.4, @astrojs/check 0.9.10, plus the fontsource and iconify sets. TypeScript stays on 6 there: typescript-eslint still does not support 7, which is the same reason this repo runs the side-by-side alias.
+- **Both eslint configs move from `tseslint.config(...)` to `defineConfig`**, the form typescript-eslint 8.69 deprecates the old one in favour of. Checked by diffing the resolved config: 100 rules for a `.ts` file and 95 for a `.astro` file, identical on both sides, same parser options.
+
+### Notes
+
+- **The bench had been dead since 0.50.0 and that release still quoted numbers from it.** vitest 5 removed `bench` from its exports, so the import threw and the suite reported "no tests". Rewritten to drive **tinybench** directly, which is what vitest ran underneath, and given a named project so the root config sees it: a config the glob cannot see is the exact failure a previous release already paid for. Isolated run: **28.4x / 11.1x / 5.1x / 5.2x** against i18next (lookup, interpolation, plural, currency), against 29.6/11.4/5.0/5.3 in 0.50.0. Two isolated runs of the same build came out ~10% apart, so read these as an order of magnitude and not as a delta.
+- **Reproduced in a browser before anything was written, and the culprit came out of a stack trace.** Spying on the `textContent` setter during a real navigation named `MutationObserver` then `renderAll` then `render` inside the runtime, which is what turned "the language breaks" into three separate defects instead of one guess.
+- **Proved able to fail.** Reverting the DOM fix turns its new test red; reverting the `partial` fix turns two red. A regression test that passes against the broken code is not a regression test.
+- **Verified against the real site, not a fixture.** 11 pages of verbaly-web navigated client side, every `data-verbaly` node compared against what the server sends for that same URL: **1152 nodes, zero divergences, zero raw keys**, and **zero locale catalogs fetched** across the whole walk plus a Spanish to Portuguese to English round trip.
+- **The other frameworks did not need the same work, and here is why.** `inlineCatalog` is a `render` option, and `renderSite` only runs for a static mirror: `@verbaly/astro` skips it in server output, and Next, Nuxt and SvelteKit render per request, so no page of theirs ever carries a slice. The two runtime faults were in **core** and did reach everyone using `partial` or `bindDom` under any router. The automatic wiring is Astro only because the ClientRouter is the one first-party client router we can wire without guessing.
+- **Sizes: 3.09 tree-shaken, 5.86 a real app, 1.60 devtools, 7.58 every export** (against 3.05 / 5.80 / 1.60 / 7.52). The 60 bytes are the precise `partial` check and the per-node trust flag, both inside `createVerbaly` and `bindDom` where they cannot shake out.
+- **1230 tests** (was 1218), and the count now includes the bench, which is the point of naming it.
+- **`pnpm outdated -r` is empty in both repos**, and the flaky watcher test did not reproduce in this cycle's coverage run.
+- **pnpm 12 caught a package published nine hours earlier and we let it win.** Adding tinybench pulled 6.1.6, inside pnpm 12's release-age cutoff, and pnpm wrote itself an exclusion in `pnpm-workspace.yaml` to proceed. That exclusion exists in these repos for **our own** packages, never for a third party, so the lockfile was re-resolved to **6.1.4** (eight days old, and the version vitest already pins, so nothing new enters the store) and the exclusion removed. The lockfile passes the policy on 663 entries with no waiver.
+
+### Docs impact
+
+- **`docs/frameworks/astro`**: the section on `inlineCatalog` should say that the ClientRouter is handled for you, because that is the whole difference between this working and not. One sentence, no new concept.
+- **`docs/reference/api`**: `adoptPage` next to the other `virtual:verbaly` exports, described as what it is for ("hand the runtime the next page's messages when your router swaps the document"), and the `partial` option on `addMessages` in the same table as the rest.
+- **`docs/guide/urls`, the static hosting section**: it already explains the slice; add that a client-side router has to be told about each new page, and that Astro does it on its own.
+- **This site should stay exactly as it is configured.** `inlineCatalog: true` plus `bundle: { exclude: ['changelog_rel'] }` was the right pair in 0.50.0 and it still is; nothing in this release changes that measurement.
+
 ## [0.50.0] · 2026-09-05
 
 **A translated page stops downloading the whole dictionary.** Until now a visitor opening one page in Spanish downloaded every Spanish message your site has, most of which that page never shows. The mirror now writes into each page exactly the messages it renders, so that page needs nothing else. Breaking: no, and it is off unless you turn it on.

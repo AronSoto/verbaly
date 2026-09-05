@@ -289,6 +289,114 @@ describe('lazy loaders', () => {
     expect(v.t('a')).toBe('La A');
   });
 
+  it('goes and gets the rest when the source answers for a key the slice never carried', async () => {
+    let calls = 0;
+    const v: Verbaly = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A', b: 'B' }, es: { a: 'La A' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A', b: 'La B' });
+        },
+      },
+      partial: ['es'],
+    });
+
+    expect(v.t('b')).toBe('B'); // the fallback answering is exactly what hid the short slice
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+    expect(v.t('b')).toBe('La B');
+  });
+
+  it("reads '' as an answer, so a key the slice carried untranslated fetches nothing", async () => {
+    let calls = 0;
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A', b: 'B' }, es: { a: 'La A', b: '' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A', b: '' });
+        },
+      },
+      partial: ['es'],
+    });
+
+    expect(v.t('b')).toBe('B');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0);
+  });
+
+  it('takes a second page slice without counting the locale as loaded', async () => {
+    let calls = 0;
+    const v: Verbaly = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A', b: 'B', c: 'C' }, es: { a: 'La A' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A', b: 'La B', c: 'La C' });
+        },
+      },
+      partial: ['es'],
+    });
+
+    v.addMessages('es', { b: 'La B' }, { partial: true });
+    expect(v.t('b')).toBe('La B');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0); // the second page brought its own words, so nothing was fetched
+    expect(v.t('c')).toBe('C');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1); // and a key neither slice carried still goes for the catalog
+  });
+
+  it('a slice for a locale with no catalog yet spares the fetch a switch would trigger', async () => {
+    let calls = 0;
+    const v: Verbaly = createVerbaly({
+      locale: 'en',
+      fallback: 'en',
+      messages: { en: { a: 'A' } },
+      loaders: {
+        pt: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'O A' });
+        },
+      },
+    });
+
+    v.addMessages('pt', { a: 'O A' }, { partial: true });
+    v.setLocale('pt');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(0);
+    expect(v.t('a')).toBe('O A');
+  });
+
+  it('never demotes a catalog it already loaded back to a slice', async () => {
+    let calls = 0;
+    const v: Verbaly = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A', b: 'B' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A', b: 'La B' });
+        },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+
+    v.addMessages('es', { a: 'La A' }, { partial: true });
+    v.t('b');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1); // the catalog is in, so a slice laid on top of it changes nothing
+  });
+
   it('loadLocale applies the catalog', async () => {
     const v = createVerbaly({
       locale: 'en',

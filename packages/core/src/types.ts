@@ -103,7 +103,7 @@ export interface ResolveInfo {
   from?: string;
 }
 
-// Partial: locales whose messages came with the page: enough for what it renders, maybe not for the rest
+// Partial: locales whose messages came with the page: enough for it, maybe not for the rest
 export interface VerbalyOptions<D extends DictionaryInput = DictionaryInput> {
   locale?: string;
   fallback?: string | string[];
@@ -116,6 +116,11 @@ export interface VerbalyOptions<D extends DictionaryInput = DictionaryInput> {
   partial?: string[];
 }
 
+// Partial: another page's slice, so the locale stays incomplete instead of counting as loaded
+export interface AddMessagesOptions {
+  partial?: boolean;
+}
+
 export interface Verbaly<D extends DictionaryInput = DictionaryInput> {
   readonly locale: string;
   readonly locales: string[];
@@ -123,7 +128,7 @@ export interface Verbaly<D extends DictionaryInput = DictionaryInput> {
   t: TFunction<D>;
   setLocale(locale: string): void;
   loadLocale(locale: string): Promise<void>;
-  addMessages(locale: string, messages: MessageTree): void;
+  addMessages(locale: string, messages: MessageTree, options?: AddMessagesOptions): void;
   subscribe(listener: () => void): () => void;
   has(key: string): boolean;
   inspect(key: string): { from: string; source: string } | undefined;

@@ -1,5 +1,6 @@
 import i18next from 'i18next';
-import { bench, describe } from 'vitest';
+import { Bench } from 'tinybench';
+import { test } from 'vitest';
 import { createVerbaly } from '../src/instance';
 
 const v = createVerbaly({
@@ -30,38 +31,35 @@ await i18next.init({
   },
 });
 
-describe('plain lookup', () => {
-  bench('verbaly', () => {
-    v.t('plain');
-  });
-  bench('i18next', () => {
-    i18next.t('plain');
-  });
-});
+const cases: Array<[string, () => void, () => void]> = [
+  ['plain lookup', () => void v.t('plain'), () => void i18next.t('plain')],
+  [
+    'interpolation (2 params)',
+    () => void v.t('param', { name: 'Aron', count: 3 }),
+    () => void i18next.t('param', { name: 'Aron', count: 3 }),
+  ],
+  [
+    'plural',
+    () => void v.t('plural', { count: 3 }),
+    () => void i18next.t('plural', { count: 3 }),
+  ],
+  [
+    'currency format',
+    () => void v.t('money', { total: 1234.5 }),
+    () => void i18next.t('money', { total: 1234.5 }),
+  ],
+];
 
-describe('interpolation (2 params)', () => {
-  bench('verbaly', () => {
-    v.t('param', { name: 'Aron', count: 3 });
-  });
-  bench('i18next', () => {
-    i18next.t('param', { name: 'Aron', count: 3 });
-  });
-});
-
-describe('plural', () => {
-  bench('verbaly', () => {
-    v.t('plural', { count: 3 });
-  });
-  bench('i18next', () => {
-    i18next.t('plural', { count: 3 });
-  });
-});
-
-describe('currency format', () => {
-  bench('verbaly', () => {
-    v.t('money', { total: 1234.5 });
-  });
-  bench('i18next', () => {
-    i18next.t('money', { total: 1234.5 });
-  });
+// vitest 5 dropped its bench runner, so this drives tinybench (what vitest ran under) itself
+test('verbaly against i18next', async () => {
+  for (const [name, ours, theirs] of cases) {
+    const bench = new Bench({ time: 500 });
+    bench.add('verbaly', ours).add('i18next', theirs);
+    await bench.run();
+    const [a, b] = bench.tasks.map((task) => task.result!.throughput.mean);
+    const ops = bench.tasks
+      .map((task) => `${task.name} ${Math.round(task.result!.throughput.mean)} ops/s`)
+      .join('  |  ');
+    console.log(`${name.padEnd(26)} ${ops}  ${(a! / b!).toFixed(1)}x`);
+  }
 });

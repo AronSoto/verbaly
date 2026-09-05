@@ -32,34 +32,67 @@ async function runBuild(
   buildOutput: 'static' | 'server' = 'static',
 ): Promise<void> {
   const integration = verbaly(options);
-  integration.hooks['astro:config:setup']({
+  await integration.hooks['astro:config:setup']({
     config: { root: pathToFileURL(root + '/') },
     updateConfig: () => undefined,
+    injectScript: () => undefined,
   });
   await integration.hooks['astro:config:done']({ buildOutput, injectTypes: fakeInjectTypes(root) });
   await integration.hooks['astro:build:done']({ dir: pathToFileURL(dist + '/') });
 }
 
 describe('verbaly astro integration', () => {
-  it('injects a fresh @verbaly/vite plugin with the project root pinned', () => {
+  async function setupScripts(root: string, config?: Record<string, unknown>): Promise<string[]> {
+    if (config) writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify(config));
+    const scripts: string[] = [];
+    await verbaly().hooks['astro:config:setup']({
+      config: { root: pathToFileURL(root + '/') },
+      updateConfig: () => undefined,
+      injectScript: (_stage, content) => scripts.push(content),
+    });
+    return scripts;
+  }
+
+  it('hands each swapped-in page its own slice, which the ClientRouter alone cannot do', async () => {
+    const { root } = makeProject();
+    const scripts = await setupScripts(root, {
+      locales: ['en', 'es'],
+      dir: 'locales',
+      render: { inlineCatalog: true },
+    });
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0]).toContain("import { adoptPage } from 'virtual:verbaly'");
+    // before-swap, not page-load: bindDom repaints the new dom before a page event ever fires
+    expect(scripts[0]).toContain("astro:before-swap");
+    expect(scripts[0]).toContain('root: event.newDocument');
+  });
+
+  it('injects nothing when no page carries a slice', async () => {
+    const { root } = makeProject();
+    expect(await setupScripts(root, { locales: ['en', 'es'], dir: 'locales' })).toEqual([]);
+  });
+
+  it('injects a fresh @verbaly/vite plugin with the project root pinned', async () => {
     let plugins: unknown[] = [];
     const integration = verbaly();
-    integration.hooks['astro:config:setup']({
+    await integration.hooks['astro:config:setup']({
       config: { root: pathToFileURL(process.cwd() + '/') },
       updateConfig: (config) => {
         plugins = config.vite?.plugins as unknown[];
       },
+      injectScript: () => undefined,
     });
     expect(plugins).toHaveLength(1);
     expect((plugins[0] as { name: string }).name).toBe('verbaly');
 
     let again: unknown[] = [];
     const second = verbaly();
-    second.hooks['astro:config:setup']({
+    await second.hooks['astro:config:setup']({
       config: { root: pathToFileURL(process.cwd() + '/') },
       updateConfig: (config) => {
         again = config.vite?.plugins as unknown[];
       },
+      injectScript: () => undefined,
     });
     expect(again[0]).not.toBe(plugins[0]); // no shared plugin state across integrations
   });
@@ -70,11 +103,12 @@ describe('verbaly astro integration', () => {
     let plugins: unknown[] = [];
 
     const integration = verbaly();
-    integration.hooks['astro:config:setup']({
+    await integration.hooks['astro:config:setup']({
       config: { root: pathToFileURL(root + '/') },
       updateConfig: (config) => {
         plugins = config.vite?.plugins as unknown[];
       },
+      injectScript: () => undefined,
     });
     await integration.hooks['astro:config:done']({
       buildOutput: 'static',
@@ -151,9 +185,10 @@ describe('verbaly astro integration', () => {
     writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ greet: 'Hola' }));
     let injected: { content: string } | undefined;
     const integration = verbaly();
-    integration.hooks['astro:config:setup']({
+    await integration.hooks['astro:config:setup']({
       config: { root: pathToFileURL(root + '/') },
       updateConfig: () => undefined,
+      injectScript: () => undefined,
     });
     await integration.hooks['astro:config:done']({
       buildOutput: 'static',

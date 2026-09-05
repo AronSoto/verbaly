@@ -4,6 +4,7 @@ import { narrowLocales } from './locale';
 import { parse } from './parse';
 import { warnOnce } from './warn';
 import type {
+  AddMessagesOptions,
   DictionaryInput,
   MessageTree,
   Params,
@@ -60,8 +61,9 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
 
   function translate(key: string, params: Params | undefined): string {
     const hit = lookup(key);
+    // a fallback hides a short slice: the source catalog answers for a key the page never got
+    if (partial.size > 0 && (hit === undefined || !partial.has(hit.from))) completePartial(key);
     if (hit === undefined) {
-      completePartial();
       const replacement = options.onMissing?.(key, locale);
       const value = typeof replacement === 'string' ? replacement : key;
       if (typeof replacement !== 'string' && !options.onMissing) {
@@ -114,9 +116,11 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   }
 
   // the slice lacked it, so the full catalog is worth fetching: once per locale, then repaint
-  function completePartial(): void {
+  function completePartial(key: string): void {
     for (const candidate of chain()) {
       if (!partial.has(candidate)) continue;
+      // '' is an answer: the slice carried the key and this locale simply has no message for it
+      if (dict[candidate]?.[key] !== undefined) return;
       partial.delete(candidate);
       loaded.delete(candidate);
       autoLoad(candidate);
@@ -153,7 +157,12 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     return load;
   }
 
-  function addMessages(loc: string, messages: MessageTree): void {
+  function addMessages(loc: string, messages: MessageTree, opts?: AddMessagesOptions): void {
+    // a slice is not the catalog, so the locale stays incomplete and never demotes a loaded one
+    if (opts?.partial && !loaded.has(loc) && !inFlight.has(loc)) {
+      partial.add(loc);
+      loaded.add(loc);
+    }
     dict[loc] = { ...dict[loc], ...flatten(messages) };
     notify();
   }

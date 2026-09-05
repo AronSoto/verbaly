@@ -176,12 +176,11 @@ export function bindDom<D extends DictionaryInput>(
     }
   }
 
-  // pre-rendered html wins until this locale resolves: repainting it is the flash render kills
-  let trustServerHtml = true;
   // one sample per bind: a build-only group is a normal setup and it can hold hundreds of keys
   let reportedKept = false;
 
-  function holdBack(key: string, current: string | null): boolean {
+  // trusted = text this bind never wrote (server render, router swap): only this locale beats it
+  function holdBack(key: string, current: string | null, trusted: boolean): boolean {
     if (!current?.trim()) return false;
     const hit = instance.inspect(key);
     // resolves nowhere: the raw key is never an improvement on the text the node already carries
@@ -192,13 +191,13 @@ export function bindDom<D extends DictionaryInput>(
       }
       return true;
     }
-    return trustServerHtml && hit.from !== instance.locale;
+    return trusted && hit.from !== instance.locale;
   }
 
-  function render(el: Element): void {
+  function render(el: Element, trusted: boolean): void {
     const args = cachedArgs(el);
     const key = el.getAttribute(attr);
-    if (key && !holdBack(key, el.textContent)) {
+    if (key && !holdBack(key, el.textContent, trusted)) {
       const text = t(key, args);
       if (el.hasAttribute(richAttr)) {
         el.textContent = '';
@@ -213,7 +212,7 @@ export function bindDom<D extends DictionaryInput>(
     if (attrMap) {
       for (const [name, attrKey] of Object.entries(attrMap)) {
         if (typeof attrKey !== 'string') continue;
-        if (holdBack(attrKey, el.getAttribute(name))) continue;
+        if (holdBack(attrKey, el.getAttribute(name), trusted)) continue;
         const value = safeAttribute(name, t(attrKey, args));
         if (value !== undefined) el.setAttribute(name, value);
       }
@@ -222,25 +221,25 @@ export function bindDom<D extends DictionaryInput>(
 
   const selector = `[${attr}], [${attrsAttr}]`;
 
-  function renderAll(scope: ParentNode | Element): void {
-    if (scope instanceof Element && scope.matches(selector)) render(scope);
-    for (const el of scope.querySelectorAll(selector)) render(el);
+  function renderAll(scope: ParentNode | Element, trusted: boolean): void {
+    if (scope instanceof Element && scope.matches(selector)) render(scope, trusted);
+    for (const el of scope.querySelectorAll(selector)) render(el, trusted);
   }
 
   warnOnLangMismatch(instance.locale);
   warnOnUnboundHead(root, selector);
-  renderAll(root);
-  // from here the dom is ours: a stale value from a previous locale must not survive a switch
-  trustServerHtml = false;
-  const unsubscribe = instance.subscribe(() => renderAll(root));
+  renderAll(root, true);
+  // the catalog moved, so the whole dom is ours: a stale locale must not survive a switch
+  const unsubscribe = instance.subscribe(() => renderAll(root, false));
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
       if (record.type === 'attributes' && record.target instanceof Element) {
-        render(record.target);
+        render(record.target, false);
       } else if (record.type === 'childList') {
+        // a node arrives carrying text someone else wrote, same standing as the first paint
         for (const node of record.addedNodes) {
-          if (node instanceof Element) renderAll(node);
+          if (node instanceof Element) renderAll(node, true);
         }
       }
     }

@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "description": "Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",
@@ -70,13 +70,14 @@
     "esbuild": "^0.28.2",
     "fast-check": "^4.9.0",
     "happy-dom": "^20.14.0",
-    "i18next": "^26.4.2"
+    "i18next": "^26.4.2",
+    "tinybench": "^6.1.4"
   },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
-    "bench": "vitest bench --run",
+    "bench": "vitest run --config vitest.bench.config.ts",
     "size": "node scripts/size.mjs",
     "typecheck": "tsc --noEmit"
   }

@@ -24,6 +24,7 @@ interface AstroConfigLike {
 interface ConfigSetupLike {
   config: AstroConfigLike;
   updateConfig(config: { vite?: { plugins?: unknown } }): unknown;
+  injectScript(stage: 'page', content: string): void;
 }
 interface ConfigDoneLike {
   buildOutput?: 'static' | 'server';
@@ -35,11 +36,18 @@ interface BuildDoneLike {
 export interface VerbalyAstroIntegration {
   name: string;
   hooks: {
-    'astro:config:setup'(options: ConfigSetupLike): void;
+    'astro:config:setup'(options: ConfigSetupLike): Promise<void>;
     'astro:config:done'(options: ConfigDoneLike): Promise<void>;
     'astro:build:done'(options: BuildDoneLike): Promise<void>;
   };
 }
+
+// the ClientRouter swaps the document, so each page's own slice has to reach the runtime with it
+const ADOPT_SCRIPT = `import { adoptPage } from 'virtual:verbaly';
+document.addEventListener('astro:before-swap', (event) => {
+  adoptPage({ root: event.newDocument, path: event.to.pathname });
+});
+`;
 
 export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstroIntegration {
   const { render, ...rest } = options;
@@ -51,10 +59,12 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
   return {
     name: '@verbaly/astro',
     hooks: {
-      'astro:config:setup'({ config, updateConfig }) {
+      async 'astro:config:setup'({ config, updateConfig, injectScript }) {
         // root pinned to the project dir: Astro's Vite root can differ and discovery finds nothing
         root = vite.root ??= fileURLToPath(config.root);
         updateConfig({ vite: { plugins: [verbalyVite(vite)] } });
+        const cfg = await loadConfig(root, vite);
+        if (cfg.render.inlineCatalog === true) injectScript('page', ADOPT_SCRIPT);
       },
       async 'astro:config:done'(options) {
         buildOutput = options.buildOutput;
@@ -62,7 +72,9 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         const cfg = await loadConfig(root, vite);
         const url = options.injectTypes({
           filename: 'verbaly.d.ts',
-          content: generateDts(loadCatalogs(cfg)[cfg.sourceLocale] ?? {}),
+          content: generateDts(loadCatalogs(cfg)[cfg.sourceLocale] ?? {}, {
+            inlineCatalog: cfg.render.inlineCatalog === true,
+          }),
         });
         vite.dts = fileURLToPath(url);
       },

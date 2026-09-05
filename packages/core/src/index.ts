@@ -45,6 +45,7 @@ export type {
 export type { IcuParser, MessageNode, ParamNode } from './parse';
 export type { TagNode } from './tags';
 export type {
+  AddMessagesOptions,
   DictionaryInput,
   FlatKeys,
   FormatInfo,

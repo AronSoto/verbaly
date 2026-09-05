@@ -31,7 +31,7 @@ export { stableKey } from './key';
 
 // generateLocaleModule/generateRuntimeModule are the no-virtual-modules path (Turbopack has none).
 export { generateDts, generateLocaleModule, generateRuntimeModule, writeDts } from './codegen';
-export type { RuntimeModuleOptions } from './codegen';
+export type { DtsOptions, RuntimeModuleOptions } from './codegen';
 
 export {
   LOCALE_MODULE_PREFIX,

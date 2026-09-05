@@ -62,6 +62,7 @@ const TYPES = [
   'DoctorEntry',
   'DoctorResult',
   'Drafts',
+  'DtsOptions',
   'GlossaryEntry',
   'Host',
   'InitOptions',

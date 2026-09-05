@@ -14,6 +14,22 @@ export interface RuntimeModuleOptions {
   inlineCatalog?: boolean;
 }
 
+// only under inlineCatalog: read the blob `verbaly render` left, and take the next page's own
+const SLICE_HELPERS = `function readSlice(root, path) {
+  const locale = readPath({ supported: locales, path });
+  if (!locale || locale === sourceLocale) return undefined;
+  const messages = inlineMessages(root);
+  return messages ? { locale, messages } : undefined;
+}
+
+export function adoptPage(options) {
+  const slice = readSlice(options?.root, options?.path);
+  if (slice) v.addMessages(slice.locale, slice.messages, { partial: true });
+  return slice ? slice.locale : undefined;
+}
+
+`;
+
 export function generateRuntimeModule(
   cfg: ResolvedConfig,
   options: RuntimeModuleOptions = {},
@@ -29,6 +45,7 @@ export function generateRuntimeModule(
   const icu = options.icu ? ',\n  parseIcu' : '';
   const rel = options.relative ? ',\n  relativeFormatter' : '';
   const slice = options.inlineCatalog ? ',\n  inlineMessages' : '';
+  const slices = options.inlineCatalog ? SLICE_HELPERS : '';
 
   return `import {
   createVerbaly,
@@ -72,19 +89,9 @@ export async function loadMessages(locale) {
   return loader ? (await loader()).default : {};
 }
 
-${
-    options.inlineCatalog
-      ? '// the slice `verbaly render` inlined here: enough for what this page shows, so nothing is fetched' +
-        '\nfunction pageSlice() {' +
-        '\n  const locale = readPath({ supported: locales });' +
-        '\n  if (!locale || locale === sourceLocale) return undefined;' +
-        '\n  const messages = inlineMessages();' +
-        '\n  return messages ? { locale, messages } : undefined;' +
-        '\n}\n\n'
-      : ''
-  }// per-request/per-instance factory (SSR): the singleton below is browser/SPA-only
+${slices}// per-request/per-instance factory (SSR): the singleton below is browser/SPA-only
 export function createInstance(options) {${
-    options.inlineCatalog ? '\n  const page = pageSlice();' : ''
+    options.inlineCatalog ? '\n  const page = readSlice();' : ''
   }
   return createVerbaly({
     locale: ${options.inlineCatalog ? `page ? page.locale : ${src}` : src},
@@ -135,7 +142,11 @@ export function generateLocaleModule(catalog: Catalog): string {
   return `export default ${JSON.stringify(catalog)};\n`;
 }
 
-export function generateDts(catalog: Catalog): string {
+export interface DtsOptions {
+  inlineCatalog?: boolean;
+}
+
+export function generateDts(catalog: Catalog, options: DtsOptions = {}): string {
   const lines: string[] = [];
   for (const [key, message] of Object.entries(catalog).sort(([a], [b]) => a.localeCompare(b))) {
     const params = collectParams(message);
@@ -172,7 +183,14 @@ ${lines.join('\n')}
     path?: string;
     base?: string;
   }): string | undefined;
-  export function loadMessages(locale: string): Promise<Record<string, string>>;
+  export function loadMessages(locale: string): Promise<Record<string, string>>;${
+    options.inlineCatalog
+      ? '\n  export function adoptPage(options?: {' +
+        '\n    root?: ParentNode;' +
+        '\n    path?: string;' +
+        '\n  }): string | undefined;'
+      : ''
+  }
   export function createInstance(
     options?: import('verbaly').VerbalyOptions<VerbalyKey>,
   ): import('verbaly').Verbaly<VerbalyKey>;
@@ -213,7 +231,7 @@ declare module 'virtual:verbaly/locale/*' {
 // unchanged writes are skipped: a rewritten verbaly.d.ts churns the consumer's TS server
 export function writeDts(cfg: ResolvedConfig, catalog: Catalog, file?: string): void {
   file ??= join(cfg.root, 'verbaly.d.ts');
-  const content = generateDts(catalog);
+  const content = generateDts(catalog, { inlineCatalog: cfg.render.inlineCatalog === true });
   try {
     if (readFileSync(file, 'utf8') === content) return;
   } catch {

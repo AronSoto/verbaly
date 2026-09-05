@@ -471,6 +471,17 @@ describe('the slice a page carries', () => {
     expect(slice(html)).toEqual({ m: 'a </script> b' });
   });
 
+  it("carries '' for a key that falls back, so the runtime knows the slice covered it", () => {
+    const { html } = renderHtml('<html><head></head><body><p data-verbaly="k"></p></body></html>', {
+      locale: 'es',
+      catalogs: { en: { k: 'Only english' }, es: {} },
+      sourceLocale: 'en',
+      inlineCatalog: true,
+    });
+    expect(html).toContain('Only english'); // the visitor still reads the fallback
+    expect(slice(html)).toEqual({ k: '' });
+  });
+
   it('is idempotent, so re-rendering a page does not stack blobs', () => {
     const first = page('<h1 data-verbaly="home.title" data-verbaly-rich></h1>').html;
     const second = renderHtml(first, {

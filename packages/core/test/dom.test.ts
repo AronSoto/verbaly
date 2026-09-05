@@ -335,6 +335,30 @@ describe('bindDom over a pre-rendered page', () => {
     expect(document.querySelector('h1')!.textContent).toBe('Otra página');
   });
 
+  it('protects server html a router swaps in under a live bind, with no unbind first', async () => {
+    const page = mirrorPage();
+    unbind = bindDom(page.instance);
+    // a client router swaps and only then fires its page event, so the observer sees it first
+    const swapped = document.createElement('main');
+    swapped.innerHTML = '<h2 data-verbaly="title">Otra pagina</h2>';
+    document.body.appendChild(swapped);
+    await tick();
+    expect(document.querySelector('h2')!.textContent).toBe('Otra pagina');
+  });
+
+  it('still paints a swapped-in node once the locale itself answers', async () => {
+    const page = mirrorPage();
+    unbind = bindDom(page.instance);
+    void page.instance.loadLocale('es');
+    page.land();
+    await tick();
+    const swapped = document.createElement('main');
+    swapped.innerHTML = '<h2 data-verbaly="title">stale</h2>';
+    document.body.appendChild(swapped);
+    await tick();
+    expect(document.querySelector('h2')!.textContent).toBe('Hola mundo');
+  });
+
   it('keeps text no catalog can resolve, and the catalog landing does not change that', async () => {
     const page = buildOnlyPage();
     unbind = bindDom(page.instance);

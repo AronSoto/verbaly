@@ -45,7 +45,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - Bench vs i18next: **34.0x / 12.0x / 5.4x / 5.5x** (lookup, interpolation, plural, currency), against 30.9/12.5/5.0/5.4 in 0.48.0. `t()` was not touched, so the spread is the machine.
 - **Sizes unmoved: 3.00 tree-shaken, 5.76 a real app, 1.60 devtools, 7.35 every export.** Nothing here reaches core.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/guide/agents`**: the main change, and the page currently says "six tools" in its lead, its heading and its table. Replace the count with the list, add `verbaly_init` first and `verbaly_drafts` last in cycle order, and add a **Resources** section: what `verbaly://config` and `verbaly://catalog/{locale}` hold, and the plain reason they exist (an agent could count your messages and never read one). The "none of them can approve a machine translation" line stays and is now truer: say that `verbaly_drafts` is what makes reviewing possible without approving.
 - **`llms.txt`**: same fix, it names the six tools inline.

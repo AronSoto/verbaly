@@ -44,13 +44,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **OpenSSF Scorecard is 8.1**, up from 7.8 because the 0.49.0 overrides took `Vulnerabilities` from 7 to 10. The remaining drags are `Code-Review` at 0 (no pull requests, the direct price of how this repo is worked) and `Maintained` at 0, which is purely the repo being under 90 days old and **clears itself around 2026-10-01**, worth about +0.86 on its own.
 - **The OpenSSF Best Practices badge stays dropped, now with numbers behind the decision.** The project exists at 16% of the passing tier with 185 criteria unanswered; finishing it moves the score about **+0.09**, and its top tier is structurally out of reach for a solo maintainer (`contributors_unassociated` asks for two unassociated significant contributors). The 0.43.0 reasoning holds: it buys a claim, not a measurement.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`docs/frameworks/astro`**, where the mirror is described: the main change. Say plainly what a visitor gains ("the page brings the words it shows, so it does not download the rest") and that it is one line, `inlineCatalog: true`, off by default. Give the measured number from our own site, because it is the point.
 - **`docs/reference/config`**: one row for `render.inlineCatalog` next to the other render options.
 - **`docs/guide/urls`, the static-hosting section**: this is the answer to "a static host sends the same file to everyone", so it belongs near that discussion.
 - **`docs/reference/api`**: `inlineMessages` in the locale helpers, and `partial` on the options table, described as what it is for rather than how it works.
-- **This site should turn it on**, and when it does, `bundle: { exclude: ['changelog_rel'] }` in `verbaly.config.mjs` becomes unnecessary: that exclusion is the manual version of this feature, and it costs the changelog page its own text. Measure both ways before removing it.
+- **This site should turn it on, and keep `bundle.exclude`.** Measured both ways: the slices are identical either way, because `renderSite` reads the full catalogs from disk and the exclusion only filters what is emitted to the client. So the changelog page gets its 315 release-prose keys inlined regardless, while the exclusion keeps them out of the eager chunk **every** visitor downloads: 41.7 KB with it against 56.8 without. The two features compose rather than replace each other, which is the opposite of what this line first said.
 
 ## [0.49.0] · 2026-09-05
 

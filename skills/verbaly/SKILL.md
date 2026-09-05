@@ -20,7 +20,9 @@ Verbaly inverts the i18n flow: you write natural text in the source and the comp
 
 `npx verbaly status` shows coverage per locale at any time; `npx verbaly doctor` diagnoses a broken setup. To onboard an existing JSX/TSX codebase, `npx verbaly wrap` reports hardcoded text and `--write` wraps it.
 
-Prefer the MCP server when available: `claude mcp add verbaly -- npx -y @verbaly/mcp` exposes the cycle as six tools (`verbaly_doctor`, `verbaly_wrap`, `verbaly_extract`, `verbaly_status`, `verbaly_missing`, `verbaly_translate`), each answering with structured output as well as text. Approving a draft is not one of them, and never will be.
+Prefer the MCP server when available: `claude mcp add verbaly -- npx -y @verbaly/mcp` exposes the cycle as tools, in the order you meet a project: `verbaly_init`, `verbaly_doctor`, `verbaly_wrap`, `verbaly_extract`, `verbaly_status`, `verbaly_missing`, `verbaly_translate`, `verbaly_drafts`. Each answers with structured output as well as text. **Approving a draft is not one of them, and never will be**: `verbaly_drafts` shows you each machine translation next to its source so a human can decide, and accepting one is `verbaly review --approve`, run by them.
+
+It also serves two **resources**, which is how you read the project without spending a tool call: `verbaly://config` (source locale, every locale, catalog directory, url mode) and `verbaly://catalog/{locale}` (every message of one locale, flattened the way the runtime sees it). Reading a message's text is what these are for: no tool returns it.
 
 ## Rules that keep the cycle safe
 

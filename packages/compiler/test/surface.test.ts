@@ -26,6 +26,7 @@ const VALUES = [
   'generateDts',
   'generateLocaleModule',
   'generateRuntimeModule',
+  'init',
   'isTransformTarget',
   'loadCatalogs',
   'loadConfig',
@@ -62,6 +63,9 @@ const TYPES = [
   'DoctorResult',
   'Drafts',
   'GlossaryEntry',
+  'Host',
+  'InitOptions',
+  'InitResult',
   'IssueSeverity',
   'LocaleStatus',
   'MissingEntry',
@@ -123,7 +127,7 @@ describe('public surface', () => {
 
   it('keeps the extraction internals out of the surface', () => {
     // the audit's whole point: a bundler plugin gets messages, never the AST types behind them
-    const internals = ['analyze', 'analyzeFile', 'analyzeSfc', 'init'];
+    const internals = ['analyze', 'analyzeFile', 'analyzeSfc'];
     for (const name of internals) expect(compiler).not.toHaveProperty(name);
   });
 });

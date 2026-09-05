@@ -3,3 +3,8 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+overrides:
+  # express asks ^6.14.0, so this is inside its range: it only forces the resolution, not a mismatch
+  qs: '^6.16.0'
+  # kit asks ^0.6.0, so this one IS outside its range: scoped to kit, dev-only, pinned by the suite
+  '@sveltejs/kit>cookie': '^0.7.2'

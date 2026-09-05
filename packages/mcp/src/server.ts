@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   check,
@@ -12,6 +12,7 @@ import {
   formatDoctorEntry,
   formatStatusResult,
   formatTranslateFailures,
+  init,
   loadCatalogs,
   loadConfig,
   loadDrafts,
@@ -73,85 +74,102 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       }
     };
 
-  server.registerTool(
-    'verbaly_status',
+  // resources, not tools: reading the project is an address, and it must not spend a tool call
+  server.registerResource(
+    'verbaly-config',
+    'verbaly://config',
     {
-      title: 'Translation coverage',
+      title: 'Project shape',
       description:
-        'Translation coverage of the Verbaly project: total messages, translated count per locale and machine translations awaiting review (drafts). Read-only.',
-      inputSchema: { root: rootInput },
-      outputSchema: {
-        messages: z.number().describe('Messages the project has, source catalog plus code'),
-        source: z.string().describe('Source locale'),
-        locales: z.array(
-          z.object({
-            locale: z.string(),
-            translated: z.number(),
-            total: z.number(),
-            drafts: z.number().describe('Machine translations awaiting human review'),
-            broken: z.number().describe('Present but not rendering what the source renders'),
-          }),
-        ),
-      },
-      annotations: { readOnlyHint: true },
+        'The resolved Verbaly config: source locale, every locale, the catalog directory and where the language lives in the url. Read this before reasoning about anything else in the project.',
+      mimeType: 'application/json',
     },
-    guarded(async ({ root }) => {
-      const cfg = await config(root);
-      const registry = await extractProject(cfg);
-      const result = status(cfg, loadCatalogs(cfg), registry, loadDrafts(cfg));
-      return reply(formatStatusResult(result), { ...result });
+    async (uri) => {
+      const cfg = await config();
+      const shape = {
+        root: cfg.root,
+        sourceLocale: cfg.sourceLocale,
+        locales: cfg.locales,
+        localesDeclared: cfg.localesDeclared,
+        dir: cfg.dir,
+        routing: cfg.routing,
+        include: cfg.include,
+      };
+      return {
+        contents: [
+          { uri: uri.href, mimeType: 'application/json', text: JSON.stringify(shape, null, 2) },
+        ],
+      };
+    },
+  );
+
+  server.registerResource(
+    'verbaly-catalog',
+    new ResourceTemplate('verbaly://catalog/{locale}', {
+      list: async () => {
+        const cfg = await config();
+        return {
+          resources: cfg.locales.map((locale) => ({
+            name: `${locale} catalog`,
+            uri: `verbaly://catalog/${locale}`,
+            mimeType: 'application/json',
+          })),
+        };
+      },
     }),
+    {
+      title: 'Locale catalog',
+      description:
+        'Every message of one locale, keyed the way the runtime sees them: a nested catalog arrives flattened, and an empty value means untranslated. This is the only way to read what a message actually says.',
+      mimeType: 'application/json',
+    },
+    async (uri, { locale }) => {
+      const cfg = await config();
+      const name = String(locale);
+      if (!cfg.locales.includes(name)) {
+        const have = cfg.locales.join(', ');
+        throw new Error(`[verbaly] unknown locale "${name}": the project has ${have}`);
+      }
+      const catalog = loadCatalogs(cfg)[name] ?? {};
+      return {
+        contents: [
+          { uri: uri.href, mimeType: 'application/json', text: JSON.stringify(catalog, null, 2) },
+        ],
+      };
+    },
   );
 
   server.registerTool(
-    'verbaly_missing',
+    'verbaly_init',
     {
-      title: 'Missing and broken translations',
+      title: 'Set up Verbaly in a project',
       description:
-        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings such as an incomplete plural set for the locale are listed too and do not fail the gate. Optionally also lists machine translations awaiting review. Read-only.',
+        'Create the config file and the locale catalogs, and detect the bundler or meta-framework so the answer names the package to add and the line to wire (what `verbaly init` does). Writes files, and a file already there is kept rather than overwritten. Run this when doctor says there is no config.',
       inputSchema: {
         root: rootInput,
-        drafts: z
-          .boolean()
-          .optional()
-          .describe('Also list machine translations awaiting human review'),
+        dir: z.string().optional().describe('Directory for the catalogs (default: locales)'),
+        sourceLocale: z.string().optional().describe('The language you write in (default: en)'),
+        locales: z.array(z.string()).optional().describe('Every locale, source included'),
       },
       outputSchema: {
-        ok: z.boolean().describe('Whether `verbaly check` would pass (warnings never fail it)'),
-        missing: z.array(
-          z.object({ locale: z.string(), key: z.string(), source: z.string().optional() }),
-        ),
-        unknown: z.array(z.object({ key: z.string(), files: z.array(z.string()) })),
-        broken: z.array(
-          z.object({
-            locale: z.string(),
-            key: z.string(),
-            severity: z.enum(['error', 'warning']),
-            issue: z.string(),
-          }),
-        ),
-        unreviewed: perLocale,
+        created: z.array(z.string()).describe('Files written, relative to the project root'),
+        skipped: z.array(z.string()).describe('Files already there, left untouched'),
+        host: z
+          .string()
+          .optional()
+          .describe('Bundler or meta-framework detected from the dependencies'),
+        configFile: z.string(),
+        next: z.array(z.string()).describe('What a human still has to do, in order'),
       },
-      annotations: { readOnlyHint: true },
     },
-    guarded(async ({ root, drafts }) => {
-      const cfg = await config(root);
-      const registry = await extractProject(cfg);
-      const catalogs = loadCatalogs(cfg);
-      const result = check(cfg, catalogs, registry);
-      const unreviewed = drafts ? byLocale(effectiveDrafts(loadDrafts(cfg), catalogs)) : [];
-
+    guarded(async ({ root, dir, sourceLocale, locales }) => {
+      const result = await init({ root: root ?? options.root, dir, sourceLocale, locales });
       const lines: string[] = [];
-      if (!result.ok) lines.push(formatCheckResult(result, cfg.root));
-      const warnings = formatCheckWarnings(result);
-      if (warnings) lines.push(`warnings (the gate still passes):\n${warnings}`);
-      for (const { locale, keys } of unreviewed) {
-        if (keys.length) lines.push(`[${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
-      }
-      return reply(lines.length === 0 ? 'all translations complete' : lines.join('\n'), {
-        ...result,
-        unreviewed,
-      });
+      if (result.created.length) lines.push(`created: ${result.created.join(', ')}`);
+      if (result.skipped.length) lines.push(`kept (already there): ${result.skipped.join(', ')}`);
+      if (result.host) lines.push(`detected: ${result.host}`);
+      lines.push(...result.next.map((step, i) => `${i + 1}. ${step}`));
+      return reply(lines.join('\n'), { ...result });
     }),
   );
 
@@ -311,6 +329,88 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
   );
 
   server.registerTool(
+    'verbaly_status',
+    {
+      title: 'Translation coverage',
+      description:
+        'Translation coverage of the Verbaly project: total messages, translated count per locale and machine translations awaiting review (drafts). Read-only.',
+      inputSchema: { root: rootInput },
+      outputSchema: {
+        messages: z.number().describe('Messages the project has, source catalog plus code'),
+        source: z.string().describe('Source locale'),
+        locales: z.array(
+          z.object({
+            locale: z.string(),
+            translated: z.number(),
+            total: z.number(),
+            drafts: z.number().describe('Machine translations awaiting human review'),
+            broken: z.number().describe('Present but not rendering what the source renders'),
+          }),
+        ),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    guarded(async ({ root }) => {
+      const cfg = await config(root);
+      const registry = await extractProject(cfg);
+      const result = status(cfg, loadCatalogs(cfg), registry, loadDrafts(cfg));
+      return reply(formatStatusResult(result), { ...result });
+    }),
+  );
+
+  server.registerTool(
+    'verbaly_missing',
+    {
+      title: 'Missing and broken translations',
+      description:
+        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings such as an incomplete plural set for the locale are listed too and do not fail the gate. Optionally also lists machine translations awaiting review. Read-only.',
+      inputSchema: {
+        root: rootInput,
+        drafts: z
+          .boolean()
+          .optional()
+          .describe('Also list machine translations awaiting human review'),
+      },
+      outputSchema: {
+        ok: z.boolean().describe('Whether `verbaly check` would pass (warnings never fail it)'),
+        missing: z.array(
+          z.object({ locale: z.string(), key: z.string(), source: z.string().optional() }),
+        ),
+        unknown: z.array(z.object({ key: z.string(), files: z.array(z.string()) })),
+        broken: z.array(
+          z.object({
+            locale: z.string(),
+            key: z.string(),
+            severity: z.enum(['error', 'warning']),
+            issue: z.string(),
+          }),
+        ),
+        unreviewed: perLocale,
+      },
+      annotations: { readOnlyHint: true },
+    },
+    guarded(async ({ root, drafts }) => {
+      const cfg = await config(root);
+      const registry = await extractProject(cfg);
+      const catalogs = loadCatalogs(cfg);
+      const result = check(cfg, catalogs, registry);
+      const unreviewed = drafts ? byLocale(effectiveDrafts(loadDrafts(cfg), catalogs)) : [];
+
+      const lines: string[] = [];
+      if (!result.ok) lines.push(formatCheckResult(result, cfg.root));
+      const warnings = formatCheckWarnings(result);
+      if (warnings) lines.push(`warnings (the gate still passes):\n${warnings}`);
+      for (const { locale, keys } of unreviewed) {
+        if (keys.length) lines.push(`[${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
+      }
+      return reply(lines.length === 0 ? 'all translations complete' : lines.join('\n'), {
+        ...result,
+        unreviewed,
+      });
+    }),
+  );
+
+  server.registerTool(
     'verbaly_translate',
     {
       title: 'Machine-translate missing entries',
@@ -383,6 +483,56 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       return reply(lines.join('\n'), data);
     }),
   );
+  server.registerTool(
+    'verbaly_drafts',
+    {
+      title: 'Machine translations awaiting review',
+      description:
+        'Every machine translation still waiting for a human, each with the source text and what the provider wrote, so a person can read both and decide. Read-only. Approving is deliberately not a tool here and never will be: a machine translation is unreviewed by definition, so accepting one is `verbaly review --approve`, run by a human.',
+      inputSchema: {
+        root: rootInput,
+        locales: z.array(z.string()).optional().describe('Target locales (default: all)'),
+      },
+      outputSchema: {
+        total: z.number(),
+        entries: z.array(
+          z.object({
+            locale: z.string(),
+            key: z.string(),
+            source: z.string().describe('What the message says in the source locale'),
+            translated: z.string().describe('What the provider wrote, still unreviewed'),
+          }),
+        ),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    guarded(async ({ root, locales }) => {
+      const cfg = await config(root);
+      const catalogs = loadCatalogs(cfg);
+      const source = catalogs[cfg.sourceLocale] ?? {};
+      const pending = effectiveDrafts(loadDrafts(cfg), catalogs);
+      const wanted = locales ?? cfg.locales;
+      const entries = Object.entries(pending)
+        .filter(([locale]) => wanted.includes(locale))
+        .flatMap(([locale, keys]) =>
+          keys.map((key) => ({
+            locale,
+            key,
+            source: source[key] ?? '',
+            translated: catalogs[locale]?.[key] ?? '',
+          })),
+        );
+      const body = entries.length
+        ? entries
+            .map((e) => `[${e.locale}] ${e.key}
+  source: ${e.source}
+  draft:  ${e.translated}`)
+            .join('\n')
+        : 'nothing awaiting review';
+      return reply(body, { total: entries.length, entries });
+    }),
+  );
+
 
   return server;
 }

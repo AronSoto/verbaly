@@ -32,6 +32,13 @@ function structured(result: unknown): unknown {
   return (result as { structuredContent?: unknown }).structuredContent;
 }
 
+// contents is a text-or-blob union and every resource here is text: narrow once, not per test
+function resourceText(read: { contents: Array<Record<string, unknown>> }): string {
+  const first = read.contents[0];
+  if (typeof first?.text !== 'string') throw new Error('resource returned no text');
+  return first.text;
+}
+
 function resultText(result: unknown): string {
   const { content } = result as { content: Array<{ type: string; text: string }> };
   return content.map((entry) => entry.text).join('\n');
@@ -42,12 +49,14 @@ afterEach(() => {
 });
 
 describe('createVerbalyMcp', () => {
-  it('exposes the six cycle tools, each with an output schema', async () => {
+  it('exposes the cycle tools, each with an output schema', async () => {
     const client = await connect(makeProject());
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'verbaly_doctor',
+      'verbaly_drafts',
       'verbaly_extract',
+      'verbaly_init',
       'verbaly_missing',
       'verbaly_status',
       'verbaly_translate',
@@ -56,7 +65,132 @@ describe('createVerbalyMcp', () => {
     // an agent that has to regex the text is an agent one wording change away from breaking
     expect(tools.every((tool) => tool.outputSchema !== undefined)).toBe(true);
     const readOnly = tools.filter((tool) => tool.annotations?.readOnlyHint).map((t) => t.name);
-    expect(readOnly.sort()).toEqual(['verbaly_doctor', 'verbaly_missing', 'verbaly_status']);
+    expect(readOnly.sort()).toEqual([
+      'verbaly_doctor',
+      'verbaly_drafts',
+      'verbaly_missing',
+      'verbaly_status',
+    ]);
+  });
+
+  it('serves the tools in the order an agent meets a project, which is what the docs claim', async () => {
+    const client = await connect(makeProject());
+    const { tools } = await client.listTools();
+    // an agent reads this list top to bottom, so registration order is a documented promise
+    expect(tools.map((tool) => tool.name)).toEqual([
+      'verbaly_init',
+      'verbaly_doctor',
+      'verbaly_wrap',
+      'verbaly_extract',
+      'verbaly_status',
+      'verbaly_missing',
+      'verbaly_translate',
+      'verbaly_drafts',
+    ]);
+  });
+
+  it('never exposes a tool that approves a draft, and says so where an agent reads', async () => {
+    const client = await connect(makeProject());
+    const { tools } = await client.listTools();
+    expect(tools.map((tool) => tool.name)).not.toContain('verbaly_review');
+    const drafts = tools.find((tool) => tool.name === 'verbaly_drafts');
+    expect(drafts?.description).toContain('never will be');
+  });
+
+  it('serves the project shape as a resource, so reading it costs no tool call', async () => {
+    const client = await connect(makeProject());
+    const { resources } = await client.listResources();
+    expect(resources.map((r) => r.uri)).toContain('verbaly://config');
+
+    const read = await client.readResource({ uri: 'verbaly://config' });
+    const shape = JSON.parse(resourceText(read)) as {
+      sourceLocale: string;
+      locales: string[];
+      routing: string;
+    };
+    expect(shape.sourceLocale).toBe('en');
+    expect(shape.locales).toEqual(['en', 'es']);
+    expect(shape.routing).toBe('no-prefix');
+  });
+
+  it('serves one catalog per locale, flattened the way the runtime reads it', async () => {
+    const root = makeProject();
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+
+    const { resourceTemplates } = await client.listResourceTemplates();
+    expect(resourceTemplates.map((t) => t.uriTemplate)).toContain('verbaly://catalog/{locale}');
+
+    const read = await client.readResource({ uri: 'verbaly://catalog/en' });
+    const catalog = JSON.parse(resourceText(read)) as Record<string, string>;
+    // the whole point: a tool could count this message, none of them could read what it says
+    expect(Object.values(catalog)).toContain('Hello {name}');
+  });
+
+  it('refuses a locale the project does not have, naming the ones it does', async () => {
+    const client = await connect(makeProject());
+    await expect(client.readResource({ uri: 'verbaly://catalog/fr' })).rejects.toThrow('en, es');
+  });
+
+  it('init scaffolds a project from nothing and names what a human still has to do', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-mcp-init-'));
+    tempDirs.push(root);
+    const client = await connect(root);
+    const result = await client.callTool({ name: 'verbaly_init', arguments: { locales: ['en', 'es'] } });
+    const data = structured(result) as { created: string[]; next: string[]; configFile: string };
+
+    expect(existsSync(join(root, data.configFile))).toBe(true);
+    expect(data.created.length).toBeGreaterThan(0);
+    expect(data.next.length).toBeGreaterThan(0);
+  });
+
+  it('init keeps a file that is already there instead of overwriting it', async () => {
+    const root = makeProject();
+    const client = await connect(root);
+    const before = readFileSync(join(root, 'verbaly.config.mjs'), 'utf8');
+    const result = await client.callTool({ name: 'verbaly_init', arguments: {} });
+
+    expect(readFileSync(join(root, 'verbaly.config.mjs'), 'utf8')).toBe(before);
+    expect((structured(result) as { skipped: string[] }).skipped.length).toBeGreaterThan(0);
+  });
+
+  it('drafts come back with the source and the translation, which is what review needs', async () => {
+    const root = makeProject();
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+
+    const es = join(root, 'locales', 'es.json');
+    const catalog = JSON.parse(readFileSync(es, 'utf8')) as Record<string, string>;
+    const key = Object.keys(catalog)[0]!;
+    catalog[key] = 'Hola {name}';
+    writeFileSync(es, JSON.stringify(catalog, null, 2));
+    writeFileSync(
+      join(root, 'locales', '.verbaly-drafts.json'),
+      JSON.stringify({ es: [key] }, null, 2),
+    );
+
+    const result = await client.callTool({ name: 'verbaly_drafts', arguments: {} });
+    const data = structured(result) as {
+      total: number;
+      entries: Array<{ locale: string; key: string; source: string; translated: string }>;
+    };
+    expect(data.total).toBe(1);
+    expect(data.entries[0]).toEqual({
+      locale: 'es',
+      key,
+      source: 'Hello {name}',
+      translated: 'Hola {name}',
+    });
+    expect(resultText(result)).toContain('Hola {name}');
+  });
+
+  it('drafts says so plainly when there is nothing to review', async () => {
+    const root = makeProject();
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    const result = await client.callTool({ name: 'verbaly_drafts', arguments: {} });
+    expect(resultText(result)).toContain('nothing awaiting review');
+    expect((structured(result) as { total: number }).total).toBe(0);
   });
 
   it('extract writes catalogs and types, and reports the counts', async () => {

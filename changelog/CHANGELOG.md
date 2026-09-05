@@ -8,6 +8,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.49.0] · 2026-09-05
+
+**Your agent can read your messages.** The MCP server could count them, list which were missing and translate them, and it could not show you a single sentence. That made reviewing a machine translation through an agent impossible: you got a key and no text. Breaking: no.
+
+### Highlights
+
+- **An agent can now read what a message actually says.** Before, it could tell you 14 translations were missing and never show you one of them. Your catalogs and your project settings are readable directly, and looking at them does not use up one of its actions.
+- **Reviewing a machine translation finally works through an agent.** You get each one waiting for you next to the original sentence, so you can read both and decide. Accepting is still yours alone, on purpose: no tool here can approve a translation, and none ever will.
+- **An agent can set up Verbaly in a project from nothing.** It creates your settings file and your language files, works out which bundler or framework you use, and tells you the one line you still have to add yourself.
+- **Nothing you already use changed.** Every existing tool answers exactly as before.
+
+### Added
+
+- **Two resources** (`@verbaly/mcp`): `verbaly://config` (source locale, every locale, catalog directory, url mode) and `verbaly://catalog/{locale}` (one locale's messages, flattened the way the runtime reads them). A resource is an address rather than a call, so reading the project costs no tool invocation and the client can cache it.
+- **`verbaly_drafts`** (`@verbaly/mcp`): every machine translation still awaiting a human, each with its source text and what the provider wrote. Read-only.
+- **`verbaly_init`** (`@verbaly/mcp`): scaffolds the config and the catalogs and detects the host, the same as `verbaly init`. Files already present are kept, never overwritten.
+- **`init`, `Host`, `InitOptions` and `InitResult`** (`@verbaly/compiler`) are now public, because `verbaly_init` consumes them. It was the one command the CLI had and the agent channel could not run.
+
+### Changed
+
+- **The dependency tree carries no known vulnerabilities** (repo-wide). Three were reported against it, all from transitive packages already on their latest version: `qs` twice through `@modelcontextprotocol/sdk` to `express`, and `cookie` once through `@sveltejs/kit`. Two scoped `pnpm.overrides` resolve them, and `pnpm audit` is clean.
+- **The tools are listed rather than counted** in the README, the package README and the Agent Skill. "six tools" was written by hand in eight places across the two repos and rotted the moment one was added.
+
+### Notes
+
+- **The gap was measured, not guessed.** Every tool returns keys and counts: `verbaly_status` counts, `verbaly_missing` lists keys, `verbaly_translate` reports keys it wrote. **No tool returned message text**, so `verbaly_missing --drafts` handed a reviewer `x7Ka9q2f` and nothing else. That is why the fix is resources and a drafts tool, not more of the same shape.
+- **`verbaly_check` was considered and deliberately not added.** `verbaly_missing` already **is** the gate: it calls `check` and returns `ok`, documented as whether `verbaly check` would pass. A second tool over one call gives an agent two names for one question. `export`/`import` (a human translator's round-trip), `render` (a build step) and `pseudo` (a QA artifact) were declined on the same reasoning: the CLI has thirteen commands and the agent channel is not a race to match them.
+- **Prompts were considered and deliberately not added.** An MCP prompt would be a fourth copy of guidance that already lives in three places required to agree, and cross-copy drift is this project's most repeated failure.
+- **The resources take no `root` argument, and that is a design decision.** A URI is an address, so it resolves against the server's own root; a tool call carries arguments and keeps its `root`.
+- **The invariant pin was proved able to fail**: relaxing "never will be" in the `verbaly_drafts` description turns the test red. A pin nobody proved can fail is decoration.
+- **The compiler's public surface is 85 names, counted: 46 values and 39 types.** The dev skill said 78 and the PLAN said 80. Both were stale and neither had been re-counted, which is the same rule the sizes and the download numbers already live under.
+- **The `cookie` override is outside its dependent's declared range and is scoped for it.** `@sveltejs/kit` asks `^0.6.0` and the fix is 0.7.x, so the override names kit alone: a global one dragged Astro from `cookie@2.0.1` back to 0.7.2, a major downgrade, which the first attempt did before it was caught. `qs` needed no such care: express asks `^6.14.0` and the fix is 6.16.0.
+- **An override cleans this repo and not a consumer's install.** Anyone adding `@verbaly/mcp` resolves their own tree and still gets the vulnerable `qs` through the SDK's `express`. Our server speaks stdio and never imports express, so the code is not reachable, but a consumer's `npm audit` will still show it until the SDK moves.
+- **1200 tests** (was 1192). `pnpm test` and `pnpm coverage` agree.
+- Bench vs i18next: **34.0x / 12.0x / 5.4x / 5.5x** (lookup, interpolation, plural, currency), against 30.9/12.5/5.0/5.4 in 0.48.0. `t()` was not touched, so the spread is the machine.
+- **Sizes unmoved: 3.00 tree-shaken, 5.76 a real app, 1.60 devtools, 7.35 every export.** Nothing here reaches core.
+
+### Docs impact (pending)
+
+- **`docs/guide/agents`**: the main change, and the page currently says "six tools" in its lead, its heading and its table. Replace the count with the list, add `verbaly_init` first and `verbaly_drafts` last in cycle order, and add a **Resources** section: what `verbaly://config` and `verbaly://catalog/{locale}` hold, and the plain reason they exist (an agent could count your messages and never read one). The "none of them can approve a machine translation" line stays and is now truer: say that `verbaly_drafts` is what makes reviewing possible without approving.
+- **`llms.txt`**: same fix, it names the six tools inline.
+- **`docs/reference/cli`**: one line, it repeats the "six tools" phrase.
+- **Consider a `tools.ts` in `src/data`**, the way `packages.ts` and `frameworks.ts` already work: the table and any prose count would derive from one place, and this exact rot could not happen again.
+
 ## [0.48.0] · 2026-09-02
 
 **The address decides the language.** When your URLs carry the language, that is the answer, and until now Verbaly's server integrations never looked at the URL at all: they asked the cookie and the browser, so `/es/dashboard` could arrive in English. Breaking: no, a project that does not put the language in its URLs behaves exactly as before.

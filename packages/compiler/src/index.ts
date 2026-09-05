@@ -63,6 +63,8 @@ export type { Drafts } from './drafts';
 export { formatTranslateFailures, resolveProvider, translateCatalogs } from './translate';
 
 export { doctor, formatDoctorEntry } from './doctor';
+export { init } from './init';
+export type { Host, InitOptions, InitResult } from './init';
 export type { DoctorEntry, DoctorResult } from './doctor';
 
 export { wrapProject } from './wrap';

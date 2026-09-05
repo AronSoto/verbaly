@@ -38,6 +38,7 @@ export interface RenderConfig {
   sitemap?: boolean | string;
   redirect?: boolean | RedirectConfig;
   clean?: boolean;
+  inlineCatalog?: boolean;
 }
 
 export interface VerbalyConfig {

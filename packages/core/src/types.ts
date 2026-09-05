@@ -103,6 +103,7 @@ export interface ResolveInfo {
   from?: string;
 }
 
+// Partial: locales whose messages came with the page: enough for what it renders, maybe not for the rest
 export interface VerbalyOptions<D extends DictionaryInput = DictionaryInput> {
   locale?: string;
   fallback?: string | string[];
@@ -112,6 +113,7 @@ export interface VerbalyOptions<D extends DictionaryInput = DictionaryInput> {
   icu?: import('./parse').IcuParser;
   onMissing?: (key: string, locale: string) => string | void;
   onResolve?: (info: ResolveInfo) => void;
+  partial?: string[];
 }
 
 export interface Verbaly<D extends DictionaryInput = DictionaryInput> {

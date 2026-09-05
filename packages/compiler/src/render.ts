@@ -11,6 +11,7 @@ import {
   normalizeLink,
   parseTags,
   RICH_TAGS,
+  CATALOG_SCRIPT,
   safeAttribute,
   VOID_TAGS,
   type MessageTree,
@@ -54,6 +55,7 @@ interface RenderHtmlBase {
   alternates?: Alternate[];
   mirror?: MirrorLinks;
   redirect?: RedirectScript;
+  inlineCatalog?: boolean;
 }
 
 // one of the two, never both: an instance already carries the catalogs it was built from
@@ -75,10 +77,14 @@ export function localeInstance(
 export interface RenderHtmlResult {
   html: string;
   missing: string[];
+  // every key this page resolved: the exact set a visitor needs, and nothing else
+  used: string[];
 }
 
 const HREFLANG_OPEN = '<!--verbaly:hreflang-->';
 const HREFLANG_CLOSE = '<!--/verbaly:hreflang-->';
+const CATALOG_OPEN = '<!--verbaly:catalog-->';
+const CATALOG_CLOSE = '<!--/verbaly:catalog-->';
 const REDIRECT_OPEN = '<!--verbaly:redirect-->';
 const REDIRECT_CLOSE = '<!--/verbaly:redirect-->';
 
@@ -103,6 +109,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
 
   const ms = new MagicString(html);
   const missing = new Set<string>();
+  const used = new Set<string>();
   const skip = protectedRanges(html);
   const inSkip = (index: number): boolean => skip.some(([from, to]) => index >= from && index < to);
 
@@ -186,6 +193,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       if (!v.has(key)) {
         missing.add(key);
       } else if (!VOID.has(tagName) && !attrChunk.trimEnd().endsWith('/')) {
+        used.add(key);
         const close = findClose(html, tagName, openEnd, inSkip);
         if (close) {
           const text = t(key, args);
@@ -212,6 +220,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
             missing.add(attrKey);
             continue;
           }
+          used.add(attrKey);
           const value = safeAttribute(name, t(attrKey, args));
           if (value !== undefined)
             setAttribute(ms, html, chunkStart, openEnd, attrChunk, name, value);
@@ -222,8 +231,23 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
 
   if (options.alternates?.length) injectAlternates(ms, html, options.alternates);
   if (options.redirect) injectRedirect(ms, html, options.redirect);
+  // the source catalog always ships eagerly, so its own tree gains nothing from a slice
+  if (options.inlineCatalog && options.locale !== sourceLocale) {
+    const slice = pageSlice(v, options.locale, used);
+    if (Object.keys(slice).length > 0) injectCatalog(ms, html, slice);
+  }
 
-  return { html: ms.toString(), missing: [...missing] };
+  return { html: ms.toString(), missing: [...missing], used: [...used] };
+}
+
+// only what this locale answers itself: a key that fell back already ships in the source catalog
+function pageSlice(v: Verbaly, locale: string, used: Set<string>): Record<string, string> {
+  const slice: Record<string, string> = {};
+  for (const key of used) {
+    const found = v.inspect(key);
+    if (found?.from === locale) slice[key] = found.source;
+  }
+  return slice;
 }
 
 // the public path of a built page, the shape both the page set and an author's href reduce to
@@ -319,6 +343,24 @@ function injectAlternates(ms: MagicString, html: string, alternates: Alternate[]
     const to = html.indexOf(HREFLANG_CLOSE, from);
     if (to !== -1) {
       const end = to + HREFLANG_CLOSE.length;
+      if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
+      return;
+    }
+  }
+  const head = /<\/head\s*>/i.exec(html);
+  if (head) ms.appendLeft(head.index, block);
+}
+
+// inlines the slice this page needs, so a mirrored page fetches no catalog at all
+function injectCatalog(ms: MagicString, html: string, messages: Record<string, string>): void {
+  const json = JSON.stringify(messages).replace(/<\//g, '<\\/');
+  const tag = `<script ${CATALOG_SCRIPT} type="application/json">${json}</script>`;
+  const block = `${CATALOG_OPEN}${tag}${CATALOG_CLOSE}`;
+  const from = html.indexOf(CATALOG_OPEN);
+  if (from !== -1) {
+    const to = html.indexOf(CATALOG_CLOSE, from);
+    if (to !== -1) {
+      const end = to + CATALOG_CLOSE.length;
       if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
       return;
     }
@@ -438,6 +480,7 @@ export async function renderSite(
         alternates,
         mirror: locale === cfg.sourceLocale ? undefined : { prefix: `/${locale}`, base, pages },
         redirect: routed && locale === cfg.sourceLocale ? script : undefined,
+        inlineCatalog: cfg.render.inlineCatalog === true,
       });
       for (const key of result.missing) {
         const list = (missing[locale] ??= []);

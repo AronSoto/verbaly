@@ -77,6 +77,26 @@ export const RICH_TAGS = [
   'wbr',
 ];
 
+export const CATALOG_SCRIPT = 'data-verbaly-catalog';
+
+// the slice `verbaly render` inlined here, so a mirrored page needs no catalog over the network
+export function inlineMessages(root?: ParentNode): Record<string, string> | undefined {
+  const scope = root ?? (typeof document === 'undefined' ? undefined : document);
+  if (!scope) return undefined;
+  const node = scope.querySelector(`script[${CATALOG_SCRIPT}]`);
+  if (!node?.textContent) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(node.textContent);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    // one message for both breakages: the remedy is the same, fix the blob or drop it
+  }
+  warnOnce('inline catalog is not a usable object, so the page loads its locale instead');
+  return undefined;
+}
+
 export function bindDom<D extends DictionaryInput>(
   instance: Verbaly<D>,
   options: BindDomOptions = {},

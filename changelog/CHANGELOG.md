@@ -8,6 +8,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.50.0] · 2026-09-05
+
+**A translated page stops downloading the whole dictionary.** Until now a visitor opening one page in Spanish downloaded every Spanish message your site has, most of which that page never shows. The mirror now writes into each page exactly the messages it renders, so that page needs nothing else. Breaking: no, and it is off unless you turn it on.
+
+### Highlights
+
+- **A first visit gets much lighter.** On our own home page a visitor was downloading 53 KB of Spanish messages to read a page that uses 2.8 KB of them. Now they download the 2.8 KB, and it arrives with the page rather than as a second request.
+- **The saving is per page, and it is most of the file every time.** Measured across our own site: 50.2 KB less on the home, 49.0 on a docs page, 48.7 on the API reference, 32.6 on the changelog, which is the heaviest page we have.
+- **Nothing is missing when someone interacts.** If your page later asks for a message it did not show, Verbaly fetches the rest once and updates, instead of quietly falling back to your source language.
+- **It is one line and it is off by default.** Add `inlineCatalog: true` to your `render` settings. A project that does not turn it on builds byte for byte as before.
+
+### Added
+
+- **`render.inlineCatalog`** (`@verbaly/compiler`): `renderSite` writes the messages a page actually renders into that page, as a `<script data-verbaly-catalog type="application/json">` blob, between markers so a re-render replaces it rather than stacking. The source tree gets none: its catalog already ships in the bundle.
+- **`RenderHtmlResult.used`** (`@verbaly/compiler`): the keys a page resolved, which is the input the slice is built from and useful on its own for anyone measuring a mirror.
+- **`inlineMessages` and `CATALOG_SCRIPT`** (`verbaly`): the reader for that blob and the attribute it hangs on, so the mirror that writes it and the runtime that reads it share one definition. A blob that is not a usable object is ignored with a warning rather than crashing the page.
+- **`partial` on `createVerbaly`** (`verbaly`): locales whose messages arrived with the page. Construction does not fetch them, and a lookup that misses inside one loads the full catalog once and repaints.
+
+### Changed
+
+- **Dependencies to latest stable, validated green**: vitest and @vitest/coverage-v8 to 5.0.0, eslint to 10.9.1, tsdown to 0.23.0, astro 7.2.10, happy-dom 20.14.0, i18next 26.4.1, @types/react-dom 19.2.5. Three of those are majors and the whole suite, typecheck and lint pass on them.
+- **The size canary budget goes from 7.50 to 7.75 KB**, a conscious decision after the 0.48.0 entry left it at 2% of room and predicted the next core feature would need it revisited.
+
+### Notes
+
+- **The roadmap called this blocked, and the blocker was real for the wrong half.** It said `renderSite` runs after the client bundle is emitted so it cannot feed back into it. True. It only matters if you try to change the bundle: once the mirror **ships the slice itself**, the ordering stops being a constraint at all. The feature had been waiting on a framing, not on a mechanism.
+- **Measured through the public path on real pages, not a fixture.** A temporary project holding our own built HTML and our own catalogs, rendered by `renderSite` exactly as the Astro integration calls it: full `es` catalog **53.0 KB brotli**, home slice **2.8**, agents 3.9, api 4.2, changelog 20.3. The changelog page is the worst case and still saves 32.6 KB.
+- **Two bugs, both caught by the tests written alongside the feature.** The slice filtered on whether a key resolved in the page's own locale, expecting the source locale to answer by fallback; **it answers from itself**, so every source page was getting a redundant blob. And the `</script>` escape was written `'<\/'`, which JavaScript reads as `'</'`: a no-op that would have let one message break the page it shipped in.
+- **A miss has to be able to recover, or the feature would trade bytes for silent wrong text.** That is what `partial` is: the mark is dropped on the first miss, the full catalog loads once, the subscriber repaints. Proved able to fail by deleting the call, which turns two tests red.
+- **Sizes: 3.05 tree-shaken (was 3.00), 5.80 a real app (was 5.76), 1.60 devtools, 7.52 every export.** Everyone pays ~50 bytes for an option only mirrored sites use, because it lives inside `createVerbaly` and cannot shake out. Accepted deliberately: extracting 50 bytes costs more mechanism than it saves, which is the opposite of the ICU parser (544 B) and the relative formatter (318 B).
+- **The generated module costs nothing when the feature is off**, pinned by a codegen test: `inlineMessages` is imported and the slice reader emitted only under the flag, the same conditional-import shape `icu` and `relative` use.
+- **1218 tests** (was 1201). `pnpm test` and `pnpm coverage` agree.
+- Bench vs i18next: **29.6x / 11.4x / 5.0x / 5.3x** (lookup, interpolation, plural, currency), against 34.0/12.0/5.4/5.5 in 0.49.0. `t()` gained one branch on the **miss** path only, which no hit reaches, so the spread is the machine.
+- **OpenSSF Scorecard is 8.1**, up from 7.8 because the 0.49.0 overrides took `Vulnerabilities` from 7 to 10. The remaining drags are `Code-Review` at 0 (no pull requests, the direct price of how this repo is worked) and `Maintained` at 0, which is purely the repo being under 90 days old and **clears itself around 2026-10-01**, worth about +0.86 on its own.
+- **The OpenSSF Best Practices badge stays dropped, now with numbers behind the decision.** The project exists at 16% of the passing tier with 185 criteria unanswered; finishing it moves the score about **+0.09**, and its top tier is structurally out of reach for a solo maintainer (`contributors_unassociated` asks for two unassociated significant contributors). The 0.43.0 reasoning holds: it buys a claim, not a measurement.
+
+### Docs impact (pending)
+
+- **`docs/frameworks/astro`**, where the mirror is described: the main change. Say plainly what a visitor gains ("the page brings the words it shows, so it does not download the rest") and that it is one line, `inlineCatalog: true`, off by default. Give the measured number from our own site, because it is the point.
+- **`docs/reference/config`**: one row for `render.inlineCatalog` next to the other render options.
+- **`docs/guide/urls`, the static-hosting section**: this is the answer to "a static host sends the same file to everyone", so it belongs near that discussion.
+- **`docs/reference/api`**: `inlineMessages` in the locale helpers, and `partial` on the options table, described as what it is for rather than how it works.
+- **This site should turn it on**, and when it does, `bundle: { exclude: ['changelog_rel'] }` in `verbaly.config.mjs` becomes unnecessary: that exclusion is the manual version of this feature, and it costs the changelog page its own text. Measure both ways before removing it.
+
 ## [0.49.0] · 2026-09-05
 
 **Your agent can read your messages.** The MCP server could count them, list which were missing and translate them, and it could not show you a single sentence. That made reviewing a machine translation through an agent impossible: you got a key and no text. Breaking: no.

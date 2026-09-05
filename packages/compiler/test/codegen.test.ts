@@ -270,3 +270,35 @@ describe('the relative formatter rides only where a catalog writes it', () => {
     expect(mod.indexOf('...options,')).toBeLessThan(mod.indexOf('formatters: { relative'));
   });
 });
+
+describe('the inline slice in the generated module', () => {
+  const cfg = {
+    locales: ['en', 'es'],
+    sourceLocale: 'en',
+    routing: 'prefix-except-source',
+    dir: 'locales',
+    bundle: {},
+    render: {},
+  } as unknown as Parameters<typeof generateRuntimeModule>[0];
+
+  it('costs nothing at all when the option is off', () => {
+    const out = generateRuntimeModule(cfg, {});
+    expect(out).not.toContain('inlineMessages');
+    expect(out).not.toContain('partial');
+    expect(out).not.toContain('pageSlice');
+  });
+
+  it('reads the page slice and tells the runtime the locale is partial', () => {
+    const out = generateRuntimeModule(cfg, { inlineCatalog: true });
+    expect(out).toContain('inlineMessages');
+    expect(out).toContain('partial: page ? [page.locale] : undefined');
+    // the source tree ships its catalog eagerly, so asking it for a slice would be wasted work
+    expect(out).toContain('if (!locale || locale === sourceLocale) return undefined;');
+  });
+
+  it('lets a caller override the locale, which is what SSR does every request', () => {
+    const out = generateRuntimeModule(cfg, { inlineCatalog: true });
+    const body = out.slice(out.indexOf('export function createInstance'));
+    expect(body.indexOf('...options,')).toBeGreaterThan(body.indexOf('partial:'));
+  });
+});

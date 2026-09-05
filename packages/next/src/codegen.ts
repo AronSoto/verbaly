@@ -62,6 +62,7 @@ export function writeGeneratedModules(
     extraExports: `export const requestOptions = ${JSON.stringify(requestOptions)};\n`,
     icu: cfg.icu ?? compiler.needsIcu(client),
     relative: cfg.relative ?? compiler.needsRelative(client),
+    inlineCatalog: cfg.render.inlineCatalog === true,
   });
   changed = writeIfChanged(join(dir, 'index.js'), runtime) || changed;
 

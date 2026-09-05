@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createVerbaly } from '../src/instance';
-import type { DictionaryInput } from '../src/types';
+import type { DictionaryInput, Verbaly } from '../src/types';
 
 describe('locale resolution', () => {
   it('narrows BCP-47 subtags', () => {
@@ -209,6 +209,86 @@ describe('tagged template', () => {
 });
 
 describe('lazy loaders', () => {
+  it('a partial locale does not fetch the catalog it already has enough of', async () => {
+    let calls = 0;
+    const v = createVerbaly({
+      locale: 'es',
+      fallback: 'en',
+      messages: { en: { a: 'A', b: 'B' }, es: { a: 'La A' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A', b: 'La B' });
+        },
+      },
+      partial: ['es'],
+    });
+    await Promise.resolve();
+    expect(calls).toBe(0);
+    expect(v.t('a')).toBe('La A');
+    expect(calls).toBe(0);
+  });
+
+  it('a miss inside a partial locale goes and gets the rest, then repaints', async () => {
+    let calls = 0;
+    const v: Verbaly = createVerbaly({
+      locale: 'es',
+      messages: { es: { a: 'La A' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A', b: 'La B' });
+        },
+      },
+      partial: ['es'],
+    });
+    const seen: string[] = [];
+    v.subscribe(() => seen.push(v.t('b')));
+
+    expect(v.t('b')).toBe('b'); // the slice did not carry it, so this render is the key
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+    expect(seen).toEqual(['La B']); // and the subscriber repaints with the real text
+    expect(v.t('b')).toBe('La B');
+  });
+
+  it('asks for the rest once, however many keys miss', async () => {
+    let calls = 0;
+    const v: Verbaly = createVerbaly({
+      locale: 'es',
+      messages: { es: { a: 'La A' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A' });
+        },
+      },
+      partial: ['es'],
+    });
+    v.t('b');
+    v.t('c');
+    v.t('d');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+  });
+
+  it('leaves a locale that was never partial exactly as it was', async () => {
+    let calls = 0;
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { a: 'La A' } },
+      loaders: {
+        es: () => {
+          calls += 1;
+          return Promise.resolve({ a: 'La A' });
+        },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1); // construction loads it, which is the behaviour without partial
+    expect(v.t('a')).toBe('La A');
+  });
+
   it('loadLocale applies the catalog', async () => {
     const v = createVerbaly({
       locale: 'en',

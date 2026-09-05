@@ -4,6 +4,7 @@ import { bindDom, createVerbaly, flatten, parse } from '../src/index';
 
 // Pinned like the compiler's, without reading source: core carries no node types on purpose.
 const VALUES = [
+  'CATALOG_SCRIPT',
   'LOCALE_STORAGE_KEY',
   'RICH_TAGS',
   'VOID_TAGS',
@@ -11,6 +12,7 @@ const VALUES = [
   'bindDom',
   'createVerbaly',
   'flatten',
+  'inlineMessages',
   'localeDirection',
   'localeFromPath',
   'localeName',

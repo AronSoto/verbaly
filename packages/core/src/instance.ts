@@ -37,6 +37,10 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     }
   }
 
+  // a page carrying its own slice must not also fetch the catalog it already has enough of
+  const partial = new Set(options.partial ?? []);
+  for (const loc of partial) loaded.add(loc);
+
   function chain(): string[] {
     if (chainCache) return chainCache;
     const result = narrowLocales(locale);
@@ -57,6 +61,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   function translate(key: string, params: Params | undefined): string {
     const hit = lookup(key);
     if (hit === undefined) {
+      completePartial();
       const replacement = options.onMissing?.(key, locale);
       const value = typeof replacement === 'string' ? replacement : key;
       if (typeof replacement !== 'string' && !options.onMissing) {
@@ -106,6 +111,17 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     void loadLocale(target).catch(() => {
       warnOnce(`failed to load catalog for "${target}"`);
     });
+  }
+
+  // the slice lacked it, so the full catalog is worth fetching: once per locale, then repaint
+  function completePartial(): void {
+    for (const candidate of chain()) {
+      if (!partial.has(candidate)) continue;
+      partial.delete(candidate);
+      loaded.delete(candidate);
+      autoLoad(candidate);
+      return;
+    }
   }
 
   function pendingLoader(target: string): string | undefined {

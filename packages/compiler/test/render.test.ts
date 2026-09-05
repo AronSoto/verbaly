@@ -414,6 +414,75 @@ describe('renderHtml', () => {
   });
 });
 
+describe('the slice a page carries', () => {
+  const page = (body: string, locale = 'es') =>
+    renderHtml(`<html><head></head><body>${body}</body></html>`, {
+      locale,
+      catalogs: CATALOGS,
+      sourceLocale: 'en',
+      inlineCatalog: true,
+    });
+
+  function slice(html: string): Record<string, string> {
+    const found = /<script data-verbaly-catalog type="application\/json">(.*?)<\/script>/s.exec(html);
+    return found ? (JSON.parse(found[1]!) as Record<string, string>) : {};
+  }
+
+  it('carries the keys the page renders and not one more', () => {
+    const { html, used } = page('<h1 data-verbaly="home.title" data-verbaly-rich></h1>');
+    expect(used).toEqual(['home.title']);
+    expect(slice(html)).toEqual({ 'home.title': 'El <em>gate</em> del build' });
+  });
+
+  it('carries the message as written, not as rendered, because the runtime formats it', () => {
+    const { html } = page(`<p data-verbaly="home.count" data-verbaly-args='{"n":3}'></p>`);
+    expect(html).toContain('3 archivos'); // what the visitor reads
+    expect(slice(html)['home.count']).toBe('{n | one: # archivo | other: # archivos}');
+  });
+
+  it('counts a key used only in an attribute', () => {
+    const { html } = page(`<nav data-verbaly-attr='{"aria-label":"nav.aria"}'></nav>`);
+    expect(slice(html)).toEqual({ 'nav.aria': 'Menú principal' });
+  });
+
+  it('writes nothing on the source tree, whose catalog already ships', () => {
+    const { html } = page('<h1 data-verbaly="home.title" data-verbaly-rich></h1>', 'en');
+    expect(html).not.toContain('data-verbaly-catalog');
+  });
+
+  it('stays out of the page unless it is asked for', () => {
+    const { html } = renderHtml('<html><head></head><body><h1 data-verbaly="home.title"></h1></body></html>', {
+      locale: 'es',
+      catalogs: CATALOGS,
+      sourceLocale: 'en',
+    });
+    expect(html).not.toContain('data-verbaly-catalog');
+  });
+
+  it('escapes a closing script tag, which JSON has no other way to survive', () => {
+    const catalogs = { en: { m: 'x' }, es: { m: 'a </script> b' } };
+    const { html } = renderHtml('<html><head></head><body><p data-verbaly="m"></p></body></html>', {
+      locale: 'es',
+      catalogs,
+      sourceLocale: 'en',
+      inlineCatalog: true,
+    });
+    expect(html).not.toContain('b </script> b');
+    expect(slice(html)).toEqual({ m: 'a </script> b' });
+  });
+
+  it('is idempotent, so re-rendering a page does not stack blobs', () => {
+    const first = page('<h1 data-verbaly="home.title" data-verbaly-rich></h1>').html;
+    const second = renderHtml(first, {
+      locale: 'es',
+      catalogs: CATALOGS,
+      sourceLocale: 'en',
+      inlineCatalog: true,
+    }).html;
+    expect(second.match(/data-verbaly-catalog/g)).toHaveLength(1);
+  });
+});
+
 describe('a site served under a base path', () => {
   const pages = new Set(['/docs', '/']);
 

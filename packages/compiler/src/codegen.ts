@@ -11,6 +11,7 @@ export interface RuntimeModuleOptions {
   extraExports?: string;
   icu?: boolean;
   relative?: boolean;
+  inlineCatalog?: boolean;
 }
 
 export function generateRuntimeModule(
@@ -27,12 +28,13 @@ export function generateRuntimeModule(
   // named in the import list only when a catalog uses them, so otherwise they tree-shake out
   const icu = options.icu ? ',\n  parseIcu' : '';
   const rel = options.relative ? ',\n  relativeFormatter' : '';
+  const slice = options.inlineCatalog ? ',\n  inlineMessages' : '';
 
   return `import {
   createVerbaly,
   localeFromPath as readPath,
   localePath as writePath,
-  switchLocale as runSwitch${icu}${rel},
+  switchLocale as runSwitch${icu}${rel}${slice},
 } from 'verbaly';
 import source from '${importPath(cfg.sourceLocale)}';
 
@@ -70,13 +72,29 @@ export async function loadMessages(locale) {
   return loader ? (await loader()).default : {};
 }
 
-// per-request/per-instance factory (SSR): the singleton below is browser/SPA-only
-export function createInstance(options) {
+${
+    options.inlineCatalog
+      ? '// the slice `verbaly render` inlined here: enough for what this page shows, so nothing is fetched' +
+        '\nfunction pageSlice() {' +
+        '\n  const locale = readPath({ supported: locales });' +
+        '\n  if (!locale || locale === sourceLocale) return undefined;' +
+        '\n  const messages = inlineMessages();' +
+        '\n  return messages ? { locale, messages } : undefined;' +
+        '\n}\n\n'
+      : ''
+  }// per-request/per-instance factory (SSR): the singleton below is browser/SPA-only
+export function createInstance(options) {${
+    options.inlineCatalog ? '\n  const page = pageSlice();' : ''
+  }
   return createVerbaly({
-    locale: ${src},
+    locale: ${options.inlineCatalog ? `page ? page.locale : ${src}` : src},
     fallback: ${src},
-    messages: { [${src}]: source },
-    loaders: localeLoaders,${options.icu ? '\n    icu: parseIcu,' : ''}
+    messages: ${
+      options.inlineCatalog
+        ? `page ? { [${src}]: source, [page.locale]: page.messages } : { [${src}]: source }`
+        : `{ [${src}]: source }`
+    },
+    loaders: localeLoaders,${options.inlineCatalog ? '\n    partial: page ? [page.locale] : undefined,' : ''}${options.icu ? '\n    icu: parseIcu,' : ''}
     ...options,${
       options.relative
         ? '\n    // merged, not spread over: passing your own formatters must not drop this one' +

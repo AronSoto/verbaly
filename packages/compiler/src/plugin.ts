@@ -35,6 +35,7 @@ export function loadVirtualModule(
     return generateRuntimeModule(cfg, {
       icu: cfg.icu ?? needsIcu(client),
       relative: cfg.relative ?? needsRelative(client),
+      inlineCatalog: cfg.render.inlineCatalog === true,
     });
   }
   if (id.startsWith(LOCALE_MODULE_PREFIX)) {

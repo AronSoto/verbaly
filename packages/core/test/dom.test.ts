@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { bindDom, normalizeLink, safeAttribute, safeHref } from '../src/dom';
+import { bindDom, inlineMessages, normalizeLink, safeAttribute, safeHref } from '../src/dom';
 import { createVerbaly } from '../src/instance';
 import { persistLocale } from '../src/locale';
 
@@ -625,5 +625,31 @@ describe('bindDom and the head', () => {
     expect(document.body.textContent).toBe('Chau');
     stop();
     document.head.innerHTML = '';
+  });
+});
+
+describe('inlineMessages', () => {
+  it('reads the slice the mirror inlined in the page', () => {
+    document.body.innerHTML =
+      '<script data-verbaly-catalog type="application/json">{"a":"La A"}</script>';
+    expect(inlineMessages(document)).toEqual({ a: 'La A' });
+  });
+
+  it('answers undefined on a page that carries none', () => {
+    document.body.innerHTML = '<p>nothing here</p>';
+    expect(inlineMessages(document)).toBeUndefined();
+  });
+
+  // one test for both breakages because they share one message, and warnOnce fires a message once
+  it('never crashes on a broken blob, and says so instead of degrading quietly', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    document.body.innerHTML = '<script data-verbaly-catalog>{ not json</script>';
+    expect(inlineMessages(document)).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('not a usable object'));
+
+    document.body.innerHTML = '<script data-verbaly-catalog>["a","b"]</script>';
+    expect(inlineMessages(document)).toBeUndefined();
+    warn.mockRestore();
   });
 });

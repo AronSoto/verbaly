@@ -172,6 +172,11 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       if (tagName === 'a' || tagName === 'area') {
         const inside = mirroredHref(attrs.get('href'), mirror);
         if (inside) setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'href', inside);
+      } else if (tagName === 'form' || tagName === 'button' || tagName === 'input') {
+        // submitting navigates: a form landing on a page we mirrored belongs in the mirror too
+        const name = tagName === 'form' ? 'action' : 'formaction';
+        const inside = mirroredHref(attrs.get(name), mirror);
+        if (inside) setAttribute(ms, html, chunkStart, openEnd, attrChunk, name, inside);
       } else if (tagName === 'meta' && attrs.get('http-equiv')?.toLowerCase() === 'refresh') {
         // a redirect page ships inside the mirror too, and its target must not leave it
         const content = attrs.get('content') ?? '';
@@ -198,9 +203,27 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
         if (close) {
           const text = t(key, args);
           const own = parseArgs(attrs.get(linksAttr)) as Record<string, RichLink> | undefined;
-          const links = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
+          const merged = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
+          // a link inside a message is a link: without the prefix it leaves the mirror
+          const links = mirror ? mirroredLinks(merged, mirror) : merged;
+          const nodes = attrs.has(richAttr) ? parseTags(text) : [];
+          // the page carries its own links: the runtime rebuilds from here, never from the config
+          if (mirror && links) {
+            const carried = usedLinks(nodes, links);
+            if (carried && JSON.stringify(carried) !== JSON.stringify(own)) {
+              setAttribute(
+                ms,
+                html,
+                chunkStart,
+                openEnd,
+                attrChunk,
+                linksAttr,
+                JSON.stringify(carried),
+              );
+            }
+          }
           const content = attrs.has(richAttr)
-            ? richToHtml(parseTags(text), richTags, links)
+            ? richToHtml(nodes, richTags, links)
             : escapeHtml(text);
           if (html.slice(openEnd, close.contentEnd) !== content) {
             if (openEnd === close.contentEnd) ms.appendLeft(openEnd, content);
@@ -254,6 +277,39 @@ function pageSlice(v: Verbaly, locale: string, used: Set<string>): Record<string
 export function publicPath(rel: string): string {
   const path = `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
   return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
+
+// only the names this message actually renders: a global map has entries other messages use
+function usedLinks(
+  nodes: TagNode[],
+  links: Record<string, RichLink>,
+): Record<string, RichLink> | undefined {
+  const out: Record<string, RichLink> = {};
+  const walk = (list: TagNode[]): void => {
+    for (const node of list) {
+      if (typeof node === 'string') continue;
+      if (links[node.name] !== undefined) out[node.name] = links[node.name]!;
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+// same rule as an author's href, applied to the links a message renders through its map
+function mirroredLinks(
+  links: Record<string, RichLink> | undefined,
+  mirror: MirrorLinks,
+): Record<string, RichLink> | undefined {
+  if (!links) return links;
+  const out: Record<string, RichLink> = {};
+  for (const [name, link] of Object.entries(links)) {
+    const href = typeof link === 'string' ? link : link.href;
+    const inside = mirroredHref(href, mirror);
+    if (inside === undefined) out[name] = link;
+    else out[name] = typeof link === 'string' ? inside : { ...link, href: inside };
+  }
+  return out;
 }
 
 // only a root-relative link to a page the mirror contains: assets, externals and anchors stay

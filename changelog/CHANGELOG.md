@@ -8,6 +8,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.52.0] · 2026-09-06
+
+**A link inside a sentence now keeps the reader in their language.** On a mirrored site, every link the author wrote got the locale prefix and every link a **message** rendered did not, so clicking one dropped a Spanish reader onto the English tree. It had been that way since rich links existed, and two tests were asserting it. Breaking: no.
+
+### Highlights
+
+- **Click a link inside a translated sentence and you stay in your language.** Until now those links pointed at your source language, so a reader clicking "see the guide" inside a Spanish paragraph landed on the English page. Every other link on the same page was already correct, which is what made it so confusing.
+- **It was hiding behind two tests that asserted it.** One of them was the end to end test that follows a visitor through the mirrored site, so the suite was green while the bug shipped. Both now assert the correct address.
+- **A mirrored page carries its own links.** It no longer needs the link map from your config at runtime, so the browser cannot rebuild an anchor from a locale-blind copy of it.
+- **Forms go with them.** Submitting is navigating, so a form that posts to a page the mirror holds now stays inside the mirror too.
+
+### Fixed
+
+- **Links a message renders escaped the mirror** (`@verbaly/compiler`). `verbaly render` rewrote `<a>` and `<area>` hrefs the author wrote, but the anchors built from a rich message's link map never went through the same rewrite. On this project's own docs site that was **16 links per translated tree, 32 in total**, every one of them sending a Spanish or Portuguese reader to the English pages. The map is now rewritten before a single anchor is written, so the fix arrives through the map instead of by re-scanning content the renderer had just filled.
+- **And the runtime rebuilt them unprefixed** (`@verbaly/compiler`). `bindDom` recreates a rich anchor from `data-verbaly-links` on every render, so even a site that corrected those hrefs itself saw them reverted on the next paint. The mirror now rewrites that attribute too, and writes it even when the link came from the config map, so **a mirrored page is self-sufficient**: the browser rebuilds the same anchor the server sent without the consumer having to rebuild the map per locale in client code.
+
+### Changed
+
+- **`form` actions and `formaction` buttons join the mirror** (`@verbaly/compiler`). Submitting navigates, and the existing guard only rewrites a target the mirror actually holds, so nothing else moves. This matches what core already treats as a URL attribute in `safeAttribute`.
+- **What the mirror deliberately does not touch is now pinned by a test**: `<base href>` (it rewrites every relative URL on the page), `<iframe src>` (it embeds instead of navigating) and a href that comes from a catalog through `data-verbaly-attr` (a URL that lives per locale was already decided by whoever wrote it).
+
+### Notes
+
+- **The reason it survived three releases is the uncomfortable part: two tests asserted it.** One in `render.test.ts` was written to protect a real invariant (the scanner must not re-enter content it just filled) and concluded from that the link had to stay unprefixed. The other was in `journey.test.ts`, the suite that walks a visitor through the mirror, whose whole job is to catch exactly this. **A green suite is only worth what its assertions claim**, and an assertion written next to a real constraint is the easiest place to freeze a bug.
+- **Measured on the public path, not a fixture.** The docs site was rebuilt with the fix and every navigation link in the mirrored trees was checked: **4634 links, all inside their own tree**, against 32 that were not. Then verified in a browser through real client-side navigation, because the static half was only half the bug: after the swap and the repaint, **zero rich links point outside the tree**.
+- **The adjacent cases were already correct, and that is worth writing down.** The URL helpers were probed for the same class: a hash survives, a query survives, both together survive, prefixing an already prefixed path is idempotent, switching language keeps the hash, and going back to the source language drops the prefix. **Eight cases, eight already right.** The defect was never in the URL logic; it was that rich links never reached it.
+- **`verbaly-web` gains a guard that fails its build on this class** (`check-links.mjs`): every `<a>`, `<area>` and `<form action>` in a mirrored tree has to stay in that tree. It reproduced the 32 broken links before the fix and passes on 4634 after it. The site's `pnpm check` discovers it without registration.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** The fix is build side only, so nothing reaches the runtime.
+- **1233 tests** (measured, and the first number written here was estimated: 1247 was wrong). Four new cases plus two corrected assertions, covering the attribute rewrite, a link the mirror does not hold, forms, and the three surfaces that must stay untouched.
+
+### Docs impact
+
+- **`docs/guide/urls`**: the page that explains the URL strategy should say plainly that a link inside a message gets the prefix like any other, because that is the promise this release repairs.
+- **`docs/frameworks/dom` and `docs/reference/api`**, wherever the links map is described: add that on a mirrored page the map travels with the page, so `bindDom` does not need `richLinks` for those anchors.
+- **Nothing to add about forms.** They are covered by the same sentence as links and do not deserve their own paragraph.
 ## [0.51.0] · 2026-09-05
 
 **A translated page stays translated when you navigate.** 0.50.0 made each page carry its own messages, and got the second page wrong: click a link inside a site with a client router and the text fell back to your source language until the visitor pressed F5. Three separate faults, all found and fixed. Breaking: no.

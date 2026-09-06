@@ -98,16 +98,62 @@ describe('renderHtml', () => {
     expect(html).toContain('content="0;url=/pt/docs/start"');
   });
 
-  it('never edits inside content it just replaced, even when the message brings its own link', () => {
+  it('prefixes a link a message renders, through the map and never by re-scanning', () => {
     const mirror = { prefix: '/es', pages: new Set(['/docs']) };
     const catalogs = { es: { m: 'lee la <docs>guía</docs>' } };
-    // caught on the real docs site: the scanner met the <a> the message had just written
+    // this used to assert the bug: the prefix comes from the map, before any anchor is written
     const { html } = renderHtml(
       '<p data-verbaly="m" data-verbaly-rich><a href="/docs">old</a></p><a href="/docs">nav</a>',
       { locale: 'es', catalogs, richLinks: { docs: '/docs' }, mirror },
     );
-    expect(html).toContain('<p data-verbaly="m" data-verbaly-rich>lee la <a href="/docs">guía</a>');
+    expect(html).toContain('lee la <a href="/es/docs">guía</a>');
     expect(html).toContain('<a href="/es/docs">nav</a>');
+    // it came from the config map, so the page carries it and the runtime needs no map
+    expect(html).toContain('data-verbaly-links="{&quot;docs&quot;:&quot;/es/docs&quot;}"');
+  });
+
+  it('rewrites the links attribute too, or the runtime rebuilds the anchor unprefixed', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs']) };
+    const catalogs = { es: { m: 'lee la <docs>guía</docs>' } };
+    const { html } = renderHtml(
+      `<p data-verbaly="m" data-verbaly-rich data-verbaly-links='{"docs":"/docs"}'></p>`,
+      { locale: 'es', catalogs, mirror },
+    );
+    expect(html).toContain('data-verbaly-links="{&quot;docs&quot;:&quot;/es/docs&quot;}"');
+    expect(html).toContain('<a href="/es/docs">guía</a>');
+  });
+
+  it('sends a form that submits to a mirrored page into the mirror', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs']) };
+    const html = '<form action="/docs"></form><button formaction="/docs">x</button>';
+    const out = renderHtml(html, { locale: 'es', catalogs: CATALOGS, mirror }).html;
+    expect(out).toContain('<form action="/es/docs">');
+    expect(out).toContain('<button formaction="/es/docs">');
+  });
+
+  it('never touches base, iframes or a translated href', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs']) };
+    const catalogs = { es: { url: '/docs' } };
+    const html =
+      `<base href="/docs"><iframe src="/docs"></iframe>` +
+      `<a data-verbaly-attr='{"href":"url"}' href="/x">x</a>`;
+    const out = renderHtml(html, { locale: 'es', catalogs, mirror }).html;
+    // base rewrites everything relative, an iframe embeds, and a catalog href is per-locale
+    expect(out).toContain('<base href="/docs">');
+    expect(out).toContain('<iframe src="/docs">');
+    expect(out).toContain('href="/docs"');
+    expect(out).not.toContain('/es/docs');
+  });
+
+  it('leaves a link the mirror does not hold exactly as it is', () => {
+    const mirror = { prefix: '/es', pages: new Set(['/docs']) };
+    const catalogs = { es: { m: 'ver <x>esto</x>' } };
+    const { html } = renderHtml(
+      `<p data-verbaly="m" data-verbaly-rich data-verbaly-links='{"x":"https://example.com"}'></p>`,
+      { locale: 'es', catalogs, mirror },
+    );
+    expect(html).toContain('<a href="https://example.com">esto</a>');
+    expect(html).not.toContain('/es/https');
   });
 
   it('rewrites nothing without a mirror: the source locale keeps its own links', () => {

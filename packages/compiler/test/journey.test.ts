@@ -69,7 +69,8 @@ describe('a visitor walking through the mirror', () => {
     const html = read('es', 'index.html');
     expect(html).toContain('<html lang="es" dir="ltr">');
     expect(html).toContain('>Documentación<');
-    expect(html).toContain('Lee la <a href="/docs">guía</a>');
+    // a link a message renders keeps the visitor inside, like one the author wrote
+    expect(html).toContain('Lee la <a href="/es/docs">guía</a>');
   });
 
   it('learns its locale from the url, over a browser that asks for something else', () => {

@@ -25,6 +25,8 @@ How the runtime enforces this today:
 - Link hrefs come only from your code, never from catalogs, and `javascript:`, `data:` and `vbscript:` URLs are rejected.
 - A catalog value that is not text never reaches the renderer: `flatten` is the single door and it treats what arrives from a lazy loader, `addMessages` or a CMS as hostile.
 
+The static mirror writes catalog content into your HTML, so it carries the same rules: `verbaly render` HTML-escapes every message it pre-fills, passes translated attributes through the same `safeAttribute` guard, and escapes `</` when it inlines a page's messages as JSON, so a message can never close the script tag it ships in. The runtime reads that blob defensively: anything that is not a plain object is ignored with a warning instead of trusted.
+
 The build side has its own gate: `verbaly check` fails on a translation that no longer renders what its source renders, so a tampered catalog does not pass CI quietly.
 
 ## Supply chain

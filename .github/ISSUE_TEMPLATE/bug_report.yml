@@ -26,7 +26,8 @@ body:
     id: version
     attributes:
       label: Version
-      placeholder: '0.43.0'
+      description: The twelve packages share one number, so any of them answers this.
+      placeholder: '0.x.y'
     validations:
       required: true
   - type: textarea

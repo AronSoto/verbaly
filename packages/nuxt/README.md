@@ -69,7 +69,7 @@ That's it. The module resolves the locale per request (URL → cookie → `Accep
 
 ## 📖 Options
 
-Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in `nuxt.config.ts`: autocomplete and typo checking, since 0.21.0). Every [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) option passes through, plus:
+Via the `verbaly` key in `nuxt.config` or inline module options (fully typed in `nuxt.config.ts`: autocomplete and typo checking). Every [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) option passes through, plus:
 
 | Option     | What it does                                                                                            |
 | ---------- | ------------------------------------------------------------------------------------------------------- |

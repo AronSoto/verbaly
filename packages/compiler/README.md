@@ -215,7 +215,9 @@ export default {
 };
 ```
 
-`render` keeps reading the full catalogs, so those pages still publish translated; the browser just stops fetching that text. Entries are key prefixes matched whole segment by whole segment, so `nav` never takes `navbar` with it, and `changelog.v1` excludes one version instead of the group. Measured on this project's own docs site: the file every page loads went from **46.3 KB to 33.5 KB brotli** with nothing lost on screen.
+`render` keeps reading the full catalogs, so those pages still publish translated; the browser just stops fetching that text. Entries are key prefixes matched whole segment by whole segment, so `nav` never takes `navbar` with it, and `changelog.v1` excludes one version instead of the group. Measured on this project's own docs site: the locale chunk goes from **55.6 KB to 39.3 KB brotli** with nothing lost on screen.
+
+**It composes with `render.inlineCatalog`, it is not replaced by it.** With both on, a mirrored page ships only the messages it renders (**2.86 KB brotli** on that site's home) and fetches no chunk at all, while the exclusion caps what a visitor would download on the day something does need the catalog.
 
 **Use it for text `render` covers.** A key that is excluded and then asked for at runtime resolves to itself, like any absent key, and `bindDom` leaves the pre-rendered text alone rather than painting the key over it. The build says so when a prefix matches nothing, and when your code reads an excluded key through `t()`. To use an excluded group at runtime anyway, load it yourself:
 

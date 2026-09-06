@@ -120,7 +120,7 @@ Plain HTML, no framework? Bind by attribute:
 |                           | **Verbaly**           | i18next            | Lingui                 | Paraglide      | typesafe-i18n |
 | ------------------------- | --------------------- | ------------------ | ---------------------- | -------------- | ------------- |
 | Type-safe keys & params   | ✅ inferred from text | plugin/manual      | partial                | ✅             | ✅            |
-| Runtime size (gzip)       | **~3KB, zero deps**   | ~14KB (+9KB react) | ~5KB                   | ~0 (compiled)  | ~1KB          |
+| Runtime size (gzip)       | **3.09KB, zero deps** | 13.6KB (19.0 +react) | 2.2KB (3.3 +react)   | compiled       | 1.2KB         |
 | Setup                     | 1 Vite plugin         | heavy config       | macros + Babel/SWC     | inlang project | generator     |
 | Key maintenance           | **none, extracted**   | by hand            | extract → compile step | by hand        | by hand       |
 | Dynamic / CMS content     | ✅ real runtime path  | ✅                 | ✅                     | ⚠️ weak        | ✅            |

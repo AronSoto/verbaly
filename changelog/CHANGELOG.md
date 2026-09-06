@@ -38,11 +38,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** The fix is build side only, so nothing reaches the runtime.
 - **1233 tests** (measured, and the first number written here was estimated: 1247 was wrong). Four new cases plus two corrected assertions, covering the attribute rewrite, a link the mirror does not hold, forms, and the three surfaces that must stay untouched.
 
-### Docs impact
+### Docs impact (synced)
 
-- **`docs/guide/urls`**: the page that explains the URL strategy should say plainly that a link inside a message gets the prefix like any other, because that is the promise this release repairs.
-- **`docs/frameworks/dom` and `docs/reference/api`**, wherever the links map is described: add that on a mirrored page the map travels with the page, so `bindDom` does not need `richLinks` for those anchors.
-- **Nothing to add about forms.** They are covered by the same sentence as links and do not deserve their own paragraph.
+- **`docs/guide/urls`**: says plainly that the prefix reaches every link, including the ones written inside a sentence, because that is the promise this release repairs.
+- **`docs/frameworks/dom`**: the named-links list gains the line that on a mirrored page the map travels with the page, so those anchors need no `richLinks` in the browser.
+- **`docs/reference/api` got nothing, and that was the right call.** This note asked for it "wherever the links map is described"; that page documents core's API and **never describes the links map at all** (checked: zero mentions of `richLinks` outside `frameworks/dom`). Adding a paragraph there would have introduced the concept in the wrong place.
+- **Nothing about forms**, as planned: they are covered by the same sentence as links.
+- **Verified on the published package, not on a patched one.** The site was rebuilt against 0.52.0 from npm and the new `check-links` guard reports **4634 navigation links, all inside their own tree**. Then in a browser: the exact link from the report (`comparación honesta`) now lands on `/es/#compare` with `lang="es"`, and four more click-throughs from pages carrying rich links all stay in `/es/`. The `pt` tree is clean too.
 ## [0.51.0] · 2026-09-05
 
 **A translated page stays translated when you navigate.** 0.50.0 made each page carry its own messages, and got the second page wrong: click a link inside a site with a client router and the text fell back to your source language until the visitor pressed F5. Three separate faults, all found and fixed. Breaking: no.

@@ -50,13 +50,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** Nothing in this release reaches the runtime. `publint` is clean on the new package and `attw` shows the same single ESM-only note that `@verbaly/mcp` shows.
 - **One decision is deliberately still open: whether `@verbaly/studio` publishes now or waits for its interface.** What exists is useful (the API, `--json`, and a specification the panel will be built against) and the README does not oversell it, but publishing a package whose own README says the interface is not written yet is a judgement call, not a technical one. Marking it `private: true` until the panel lands is one line. It is written up in `.claude/STUDIO.md` in both repositories so it gets answered once.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
-- **A new page, `/docs/guide/studio`**, is the only real gap: `@verbaly/studio` is the first package with no docs route, and its `package.json` homepage points at the site root as a placeholder. The page should say what the release says: this is the server and the state, the panel is next.
-- **`src/data/packages.ts` gains `@verbaly/studio`** (group `agents`, or a new one), which is also what `check-homepages.mjs` reads. Do it in the same change as the page, because that guard compares the installed package's homepage against this file.
-- **The packages page and the nav** already describe Studio as a product; now one of them can link to a package that exists.
-- **The `/changelog` page** takes this entry's Highlights as usual.
-- **The counts in prose**: the site says twelve packages wherever it counts them. It is thirteen.
+- **`/docs/guide/studio` exists**, in the three trees, pre-rendered in each language. It opens with the same warning this entry does: the server and the state ship, the screen does not. It documents the command, the four addresses, the rule about source text, why nothing it reads can take it down, the six triage signals with the measurement that changed two of them, and why Studio may approve a draft while the MCP server may not.
+- **`src/data/packages.ts` gained `@verbaly/studio` in a new group, `Tools`.** It did not fit the five that existed: it serves a person reviewing, not a bundler, a framework or an agent. `check-homepages.mjs` is what proves the new route resolves, and it now reports thirteen.
+- **The site stopped saying "today the CLI does it".** That sentence was on the nav pane and on the home banner, and it was true until this release. Both now point at the new page, and the banner's button reads "See what it does today".
+- **The counts in prose were already right.** Every "twelve" left in the repository is inside a past changelog entry, which is history and stays as it was written.
+- **What was deliberately not done**: the nav pane keeps its work-in-progress sign, because there is still no screen, and `package.json`'s `homepage` stays at the site root until the panel gives the page something more than a specification to describe.
 
 ## [0.52.0] · 2026-09-06
 

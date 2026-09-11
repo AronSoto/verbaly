@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.52.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.53.0" alt="Socket supply chain security" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/verbaly#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <img src="https://img.shields.io/badge/gzip-3.09KB-3fb950" alt="3.09KB gzip runtime" />
@@ -142,7 +142,7 @@ Verbaly ships first-class support for AI coding agents:
   claude mcp add verbaly -- npx -y @verbaly/mcp
   ```
 
-  Machine translations stay drafts until a human approves them (`verbaly review --approve`), so an agent can fill gaps without silently shipping unreviewed text. Approving is deliberately not a tool.
+  Machine translations stay drafts until a human approves them (`verbaly review --approve`, or the panel below), so an agent can fill gaps without silently shipping unreviewed text. Approving is deliberately not a tool.
 
 - **Agent Skill**: [`skills/verbaly`](skills/verbaly/SKILL.md) teaches an agent the write → extract → check → translate cycle and the rules that keep it safe. Install it into a project:
 
@@ -151,6 +151,25 @@ Verbaly ships first-class support for AI coding agents:
   ```
 
 - **llms.txt**: the docs site publishes [verbaly-web.vercel.app/llms.txt](https://verbaly-web.vercel.app/llms.txt) for agents that read documentation.
+
+---
+
+## Review translations locally
+
+`@verbaly/studio` serves your whole project over localhost: every catalog, what is missing, what is
+broken, what a machine wrote, and where each message is used in your code.
+
+```bash
+npx verbaly-studio
+```
+
+Your JSON catalogs are the database and git is the history, so it cannot fall out of sync with your
+code: it does not own anything. **It never edits your source text**, because that lives in your code
+and the key derives from it, and a translation you save runs the same two validations
+`verbaly check` runs in CI.
+
+**This release ships the server and the state, not the interface.** `--json` prints the same object
+the panel will read, so it is scriptable today. The panel is next.
 
 ---
 

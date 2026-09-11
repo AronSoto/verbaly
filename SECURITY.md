@@ -32,5 +32,6 @@ The build side has its own gate: `verbaly check` fails on a translation that no 
 ## Supply chain
 
 - Releases are published from CI with **npm provenance** (SLSA v1 attestations). A Verbaly version on npm **without** a provenance attestation is suspect: verify with `npm view <pkg>@<version> dist.attestations`.
+- **One documented exception, and it can only ever happen once per package: `@verbaly/studio@0.53.0`.** npm Trusted Publishing is configured on a package that already exists, so a package's very first version cannot be published by the workflow that would attest it. That first version is published by the maintainer, its Trusted Publisher is configured immediately after, and **every version from the next one on carries provenance like the rest**. If a first version of a future package appears here, this line will name it too.
 - The published runtime has **zero dependencies**. The compiler's are build-time only and never reach your app's bundle.
-- Every release is cut from a tagged commit by the `Release` workflow; nothing is published from a laptop.
+- Every release is cut from a tagged commit by the `Release` workflow; the only thing ever published from a laptop is the first version of a new package, for the reason above.

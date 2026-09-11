@@ -30,6 +30,7 @@ npx verbaly status         # coverage per locale, plus unreviewed and broken cou
 npx verbaly check          # exit 1 if anything is missing or broken (CI)
 npx verbaly translate      # fill missing translations via Claude (or your provider), as drafts
 npx verbaly review         # list machine drafts, --approve accepts them
+npx verbaly-studio         # the same catalogs on localhost (@verbaly/studio, separate package)
 npx verbaly export         # translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
 npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV/PO files
 npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA)

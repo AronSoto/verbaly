@@ -86,6 +86,12 @@ Whitespace is stored as the empty string, because that is what untranslated mean
 applies. Without it you would fix a bad machine translation by hand and `verbaly check --drafts`
 would keep failing on your own text.
 
+**Studio can approve and `@verbaly/mcp` deliberately cannot, and that is not a contradiction.** The
+MCP server is the agent's hands, and an agent approving its own translation is the safeguard
+approving itself. Studio is the human's: it exists to put the source text and the translation in
+front of a person. The token is what keeps that true, so treat it as the thing that says a person is
+here, and do not paste it into an agent's prompt.
+
 ## 🔎 Triage: which machine translations are worth reading
 
 Adding a language writes hundreds of drafts at once, and reading them one by one is a wall. Walls

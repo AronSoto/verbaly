@@ -46,7 +46,7 @@ The server reads the project from its working directory; pass `--root <path>` (o
 | `verbaly_translate` | Fill missing entries with the configured provider (default: Claude). Output is saved as drafts awaiting human review.                                    |
 | `verbaly_drafts`    | Every machine translation still waiting for a human, each with its source text and what the provider wrote. Read-only, and it cannot approve.            |
 
-Machine translations stay drafts until a human accepts them (`verbaly review --approve`), so an agent can fill gaps without silently shipping unreviewed text. **No tool here can approve a draft**, on purpose. `verbaly_drafts` is the other half of that promise: it shows each one next to its source, so the human deciding can actually read what they are accepting.
+Machine translations stay drafts until a human accepts them (`verbaly review --approve`), so an agent can fill gaps without silently shipping unreviewed text. **No tool here can approve a draft**, on purpose. `verbaly_drafts` is the other half of that promise: it shows each one next to its source, so the human deciding can actually read what they are accepting. Approving lives where a person is looking at the text: `verbaly review --approve`, or [`@verbaly/studio`](https://www.npmjs.com/package/@verbaly/studio).
 
 ## 📖 Resources
 

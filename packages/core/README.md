@@ -161,6 +161,7 @@ alternateLinks({ supported, sourceLocale: 'en', path: '/docs', baseUrl: 'https:/
 | `@verbaly/astro`                                         | Astro integration + per-locale static build             |
 | `@verbaly/next` · `@verbaly/nuxt` · `@verbaly/sveltekit` | SSR: locale per request, hydration with no flash        |
 | `@verbaly/mcp`                                           | MCP server: the translation cycle as tools for an agent |
+| `@verbaly/studio`                                        | Local review server over your catalogs                  |
 
 All thirteen share one version number, so you never match compatible ranges.
 

@@ -34,7 +34,8 @@ packages/
 ├─ react/ · vue/ · svelte/          (adapters)
 ├─ sveltekit/ · nuxt/ · next/       (SSR meta-framework integrations)
 ├─ astro/      → @verbaly/astro     (Astro integration + per-locale SSG)
-└─ mcp/        → @verbaly/mcp       (MCP server: the cycle as tools for agents)
+├─ mcp/        → @verbaly/mcp       (MCP server: the cycle as tools for agents)
+└─ studio/     → @verbaly/studio    (local review server over your catalogs)
 ```
 
 ## Pull requests
@@ -43,7 +44,7 @@ packages/
 - **Every behavior change needs a test.** Suites run per package: `pnpm --filter verbaly test`.
 - **The core stays dependency-free, and its weight is gated.** `pnpm --filter verbaly size` measures four surfaces against budgets; a PR that adds a dependency to `verbaly` core won't be merged, and one that pushes a budget over needs a reason in the changelog.
 - **Adapters stay thin.** `react`/`vue`/`svelte` only bridge the core's reactivity. If an adapter needs real logic, it probably belongs in core.
-- **Don't bump versions.** The twelve packages release together; releases are cut by the maintainer.
+- **Don't bump versions.** The thirteen packages release together; releases are cut by the maintainer.
 - Match the existing style: Prettier and ESLint run in CI, and comments are sparse on purpose.
 
 ## What makes a good first contribution

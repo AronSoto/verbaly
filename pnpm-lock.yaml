@@ -314,6 +314,16 @@ importers:
         specifier: workspace:^
         version: link:../core
 
+  packages/studio:
+    dependencies:
+      '@verbaly/compiler':
+        specifier: workspace:^
+        version: link:../compiler
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.1
+        version: 26.4.1
+
   packages/svelte:
     devDependencies:
       '@sveltejs/vite-plugin-svelte':

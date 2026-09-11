@@ -98,6 +98,7 @@ Plain HTML, no framework? Bind by attribute:
 | [`@verbaly/next`](packages/next)           | [![npm](https://img.shields.io/npm/v/@verbaly/next?label=)](https://www.npmjs.com/package/@verbaly/next)           | Next.js App Router/RSC: Turbopack & webpack, per-request locale, flash-free hydration |
 | [`@verbaly/astro`](packages/astro)         | [![npm](https://img.shields.io/npm/v/@verbaly/astro?label=)](https://www.npmjs.com/package/@verbaly/astro)         | Astro integration: write-in-source `.astro` extraction, automatic per-locale SSG      |
 | [`@verbaly/mcp`](packages/mcp)             | [![npm](https://img.shields.io/npm/v/@verbaly/mcp?label=)](https://www.npmjs.com/package/@verbaly/mcp)             | MCP server: diagnosis, onboarding, extraction, coverage and translation for agents    |
+| [`@verbaly/studio`](packages/studio)       | [![npm](https://img.shields.io/npm/v/@verbaly/studio?label=)](https://www.npmjs.com/package/@verbaly/studio)       | Local review server over your catalogs: state, writes, approvals and triage           |
 
 ---
 

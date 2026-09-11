@@ -19,6 +19,7 @@ body:
         - '@verbaly/next'
         - '@verbaly/astro'
         - '@verbaly/mcp'
+        - '@verbaly/studio'
         - not sure
     validations:
       required: true
@@ -26,7 +27,7 @@ body:
     id: version
     attributes:
       label: Version
-      description: The twelve packages share one number, so any of them answers this.
+      description: The thirteen packages share one number, so any of them answers this.
       placeholder: '0.x.y'
     validations:
       required: true

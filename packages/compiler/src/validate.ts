@@ -132,7 +132,7 @@ export function validatePair(source: string, translated: string): StructureIssue
   if (lostParams.length > 0) {
     issues.push({
       severity: 'error',
-      message: `${list(lostParams.map((name) => `{${name}}`))} ${lostParams.length > 1 ? 'are' : 'is'} missing, so ${lostParams.length > 1 ? 'their values' : 'its value'} never reaches the text`,
+      message: `${list(lostParams.map((name) => `{${name}}`))} ${lostParams.length > 1 ? 'are' : 'is'} missing, so ${lostParams.length > 1 ? 'their values never reach' : 'its value never reaches'} the text`,
     });
   }
   if (newParams.length > 0) {

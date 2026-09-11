@@ -19,9 +19,12 @@ export async function extractProject(cfg: ResolvedConfig): Promise<MessageRegist
   return registry;
 }
 
-// root-relative, forward slashes: paths a translator can read on any OS
-export async function collectOrigins(cfg: ResolvedConfig): Promise<Record<string, string[]>> {
-  const registry = await extractProject(cfg);
+// root-relative with forward slashes so a translator reads the same path on any OS, one scan
+export async function collectOrigins(
+  cfg: ResolvedConfig,
+  reuse?: MessageRegistry,
+): Promise<Record<string, string[]>> {
+  const registry = reuse ?? (await extractProject(cfg));
   const origins: Record<string, string[]> = {};
   for (const [key, files] of registry.origins()) {
     origins[key] = files.map((file) => relative(cfg.root, file).replaceAll('\\', '/'));

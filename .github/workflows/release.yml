@@ -74,16 +74,24 @@ jobs:
         if: steps.version.outputs.new == 'true'
         run: |
           V="${{ steps.version.outputs.version }}"
+          FAILED=""
           # per-package resume: tolerates partial runs and manual first publishes
           # (a brand-new package can't have a Trusted Publisher until it exists on npm)
           for dir in packages/*; do
             NAME=$(node -p "require('./$dir/package.json').name")
-            if npm view "$NAME@$V" version > /dev/null 2>&1; then
+            if [ "$(node -p "require('./$dir/package.json').private === true")" = "true" ]; then
+              echo "$NAME is private, skipping"
+            elif npm view "$NAME@$V" version > /dev/null 2>&1; then
               echo "$NAME@$V already on npm, skipping"
-            else
-              pnpm --filter "$NAME" publish --access public --no-git-checks --provenance
+            elif ! pnpm --filter "$NAME" publish --access public --no-git-checks --provenance; then
+              # one package without a Trusted Publisher must not strand the ones after it
+              FAILED="$FAILED $NAME"
             fi
           done
+          if [ -n "$FAILED" ]; then
+            echo "::error::failed to publish:$FAILED (a brand-new package needs one manual publish, then a Trusted Publisher, then re-run this workflow)"
+            exit 1
+          fi
 
       - name: Create the GitHub Release from the changelog entry
         if: steps.version.outputs.new == 'true'

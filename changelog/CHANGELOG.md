@@ -1,12 +1,62 @@
 # Changelog
 
-Version history of **Verbaly**: one file, full detail per version, newest first. The twelve packages share one version number (aligned releases).
+Version history of **Verbaly**: one file, full detail per version, newest first. The thirteen packages share one version number (aligned releases).
 
 Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/). Pre-1.0: the API may still break between minors (called out explicitly). Each entry ends with a **Docs impact** note, the contract `verbaly-web` syncs against. Since 0.15.0, entries open with a short **Highlights** section: the `Release` workflow publishes it (plus the theme line) as the GitHub Release notes, and the full detail lives here.
 
 > Length control: when 1.0 ships, the 0.x entries move to `changelog/archive-0.x.md`.
 
 ---
+
+## [0.53.0] · 2026-09-11
+
+**A thirteenth package: your catalogs, served on localhost.** `npx verbaly-studio` reads the whole project in one shot and lets you write a translation back, with the same validation the CI gate runs. This release ships the server and the state, not the interface, and says so in its own README. Breaking: no.
+
+### Highlights
+
+- **New package, `@verbaly/studio`.** Run `npx verbaly-studio` inside your project and it serves everything Verbaly knows about it over localhost: every catalog, what is missing, what is broken, what a machine wrote and where each message is used in your code.
+- **This release is the server, not the panel.** There is no interface yet. What works today is the API and `--json`, which prints the same object the interface will read, so it can be piped into a script. The README opens by saying exactly that.
+- **It never edits your source text.** That text lives in your code and the key is derived from it, so a write to the source language is refused, and so is a key your source catalog does not have.
+- **A saved translation is checked before it lands.** It runs the same two validations `verbaly check` runs, so a lost `{param}`, a lost tag or a plural missing its `other` case is refused with the reason, instead of passing here and failing your CI later.
+- **Nothing it reads can take it down.** A catalog it cannot parse, a drafts file it cannot parse, a source file that will not compile, or a `--root` pointing at the wrong folder are each reported by name, and the rest is served. Studio is what you open to fix those files, so it has to open.
+- **Triage: which machine translations are worth reading first.** Adding a language writes hundreds of drafts at once, and reading them one by one is a wall. Six signals point at the few worth a human eye: on this project's own site that is **18 messages out of 1425** per language.
+
+### Added
+
+- **`@verbaly/studio`** (new package, `verbaly-studio` bin). Four routes, all JSON: `GET /api/state` (the whole project in one unpaginated answer), `GET /api/health` (what `doctor` reports), `PUT /api/message/:locale/:key` (write a translation and clear its draft flag), `POST /api/approve` (approve a list of keys, or the whole locale). Flags: `--root`, `--port`, `--json`.
+- **Three defenses, on by default, because a local server that writes files is reachable from any page your browser has open**: it binds to `127.0.0.1` and never `0.0.0.0`; the `Host` header must name this machine, which is what stops a DNS rebind; and a 72-bit token is minted per boot, compared in constant time, with a cross `Origin` refused even when the token is right. Bodies are capped at 1 MB and the absolute path of your project is stripped from every error before it reaches the browser.
+- **Triage (`@verbaly/studio`)**: `divergent` (a reviewed locale already rendered this source text two ways, so the English is ambiguous), `collision` (the same thing seen in the result when no reviewed locale can tell), `echo` (still identical to the source while every locale with an opinion did translate it), `digits`, `url` and `code`. A locale that still carries drafts is never the control, and neither is a blank.
+- **Seven names join the compiler's public surface**, each with a consumer in this same diff: `readCatalog` and `targetLocales` (Studio degrades one broken locale instead of the panel), `validateMessage` and `validatePair` (the write gate has to be the gate, not half of it), `clearDrafts` (Studio is where a person approves what a machine wrote), `DRAFTS_FILE` (so a problem can name the sidecar) and `formatCliError` (a second bin prefixes `[verbaly]` the one documented way). The pinned surface is **94 names, 53 values + 41 types**.
+
+### Changed
+
+- **`collectOrigins` takes an optional `MessageRegistry`** (`@verbaly/compiler`). Studio already extracts once to build its state; without this it paid for a second full scan of the project to learn where each message is used.
+- **The compiler README's API table and `src/index.ts` now agree exactly**, checked mechanically. The table was missing six names (`init`, `Host`, `InitOptions`, `InitResult`, `DtsOptions`, `WrapBlocked`) while the section above it promises that anything not listed is internal. Four of those shipped in 0.49.0 and one in 0.51.0.
+- **`hostAllowed` accepts a `Host` with no port when the port is 80** (`@verbaly/studio`). A browser omits the port when it is the scheme default, so `--port 80` would have refused every real request with a 403.
+
+### Fixed
+
+- **A shipped grammar bug in the gate's own message** (`@verbaly/compiler`). Two or more missing params read `their values never reaches the text`. It now reads `never reach`.
+
+### Notes
+
+- **Two of the six triage signals changed because the measurement said so, not because the design did.** Run against this project's own 1425-message catalog, `digits` produced 10 hits per language and **all 10 were correct translations**, in two classes: the regex was swallowing the comma that follows a number (`BCP-47,` compared as `47.` against `47`), and it was flagging a number the translation added where the source had none, which is what "survives a refresh" becoming "sobrevive al F5" looks like. Both are now excluded, `digits` reports **0 of 1425** on this catalog, and the case it exists for (`Node 20+` becoming `Node 22+`) still fires. This is the same standard that retired the length-deviation signal during the design: **a signal whose every hit on real data is a false positive is noise, and noise is how a safeguard turns into something people route around.**
+- **`echo` no longer depends on the least finished locale.** It asked every other locale to have translated the key; a locale that had not been filled in yet therefore silenced the signal for the whole project. Only the locales with an opinion on that key vote now.
+- **A source text of `__proto__` crashed the whole panel.** `triage` grouped keys by their source text in a plain object, so a text that names a member of `Object.prototype` made the lookup return a function instead of an array. Both maps are null-prototype now, the same defect `writeMessage` had already been given `Object.hasOwn` for.
+- **Whitespace is stored as the empty string.** `''` means untranslated everywhere else in the cycle, so a field cleared to three spaces was skipping validation and being written as a translation.
+- **The public surface grew by seven and each one was justified before it was exported**, not after: the rule is that a first-party package imports it or it is a documented extension point. `StructureIssue` is the exception that proves it, exported with no importer because it is what the two now-public validators return, and typed code cannot hold a result without it.
+- **1290 tests** (up from 1233), **57 of them in the new package**. Every regression pin in it was verified to fail first: the process-killing `GET //`, the percent-encoding guard, the body cap, the path scrubbing, the structure gate, the prototype walk, the per-locale degradation, the drafts sidecar, the relative paths, the `Host` default port, and each of the two triage corrections. **Nineteen sabotages, nineteen red runs.**
+- **Measured end to end against a real project**, not a fixture: `verbaly-studio --root ../verbaly-web --json` answers in **0.27s** with 712 KB of state over 1425 messages and three locales, gate green, zero problems.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** Nothing in this release reaches the runtime. `publint` is clean on the new package and `attw` shows the same single ESM-only note that `@verbaly/mcp` shows.
+- **One decision is deliberately still open: whether `@verbaly/studio` publishes now or waits for its interface.** What exists is useful (the API, `--json`, and a specification the panel will be built against) and the README does not oversell it, but publishing a package whose own README says the interface is not written yet is a judgement call, not a technical one. Marking it `private: true` until the panel lands is one line. It is written up in `.claude/STUDIO.md` in both repositories so it gets answered once.
+
+### Docs impact (pending)
+
+- **A new page, `/docs/guide/studio`**, is the only real gap: `@verbaly/studio` is the first package with no docs route, and its `package.json` homepage points at the site root as a placeholder. The page should say what the release says: this is the server and the state, the panel is next.
+- **`src/data/packages.ts` gains `@verbaly/studio`** (group `agents`, or a new one), which is also what `check-homepages.mjs` reads. Do it in the same change as the page, because that guard compares the installed package's homepage against this file.
+- **The packages page and the nav** already describe Studio as a product; now one of them can link to a package that exists.
+- **The `/changelog` page** takes this entry's Highlights as usual.
+- **The counts in prose**: the site says twelve packages wherever it counts them. It is thirteen.
 
 ## [0.52.0] · 2026-09-06
 

@@ -1,12 +1,12 @@
 {
-  "name": "@verbaly/mcp",
+  "name": "@verbaly/studio",
   "version": "0.53.0",
-  "description": "MCP server for Verbaly: diagnosis, onboarding, extraction, coverage and machine translation as tools for coding agents.",
+  "description": "Local review server for Verbaly: read, edit and approve translations over the JSON files already in your repo. No account, no database.",
   "keywords": [
     "i18n",
-    "mcp",
-    "model-context-protocol",
-    "agent",
+    "translations",
+    "localhost",
+    "editor",
     "verbaly"
   ],
   "license": "MIT",
@@ -14,9 +14,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AronSoto/verbaly.git",
-    "directory": "packages/mcp"
+    "directory": "packages/studio"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/guide/agents",
+  "homepage": "https://verbaly-web.vercel.app",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },
@@ -29,7 +29,7 @@
     }
   },
   "bin": {
-    "verbaly-mcp": "./dist/cli.js"
+    "verbaly-studio": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -43,9 +43,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "@verbaly/compiler": "workspace:^",
-    "zod": "^4.5.4"
+    "@verbaly/compiler": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^26.4.1"

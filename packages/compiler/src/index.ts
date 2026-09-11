@@ -17,9 +17,10 @@ export type {
   TranslateResult,
 } from './translate';
 
-// Layer 2: what builds an integration; the six first-party packages consume exactly this.
-export { loadConfig, resolveConfig } from './config';
-export { loadCatalogs, needsIcu, needsRelative, writeCatalog } from './catalog';
+// Layer 2: what builds an integration; the seven first-party packages consume exactly this.
+export { loadConfig, resolveConfig, targetLocales } from './config';
+// readCatalog is public so @verbaly/studio can degrade one broken locale instead of the panel
+export { loadCatalogs, needsIcu, needsRelative, readCatalog, writeCatalog } from './catalog';
 export type { Catalog, Catalogs } from './catalog';
 // clientCatalogs is public because @verbaly/next emits the client module without the vite plugin.
 export { clientCatalogs } from './bundle';
@@ -50,14 +51,20 @@ export type { TransformResult } from './transform';
 
 export { check, formatCheckResult, formatCheckWarnings } from './check';
 export type { BrokenEntry, CheckResult, MissingEntry, UnknownEntry } from './check';
-export type { IssueSeverity } from './validate';
+// both are public because Studio has to run the same two checks the gate runs before it writes
+export { validateMessage, validatePair } from './validate';
+// StructureIssue is what those two return, so typed code cannot hold a result without it
+export type { IssueSeverity, StructureIssue } from './validate';
 
 export { formatStatusResult, status } from './status';
 export type { LocaleStatus, StatusResult } from './status';
 
 export { counted } from './text';
+// formatCliError is public so a new entry point prefixes [verbaly] the one documented way
+export { formatCliError } from './run';
 
-export { effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
+// clearDrafts is public because @verbaly/studio is where a person approves what a machine wrote.
+export { clearDrafts, DRAFTS_FILE, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 export type { Drafts } from './drafts';
 
 export { formatTranslateFailures, resolveProvider, translateCatalogs } from './translate';

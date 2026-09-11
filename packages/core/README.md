@@ -162,7 +162,7 @@ alternateLinks({ supported, sourceLocale: 'en', path: '/docs', baseUrl: 'https:/
 | `@verbaly/next` · `@verbaly/nuxt` · `@verbaly/sveltekit` | SSR: locale per request, hydration with no flash        |
 | `@verbaly/mcp`                                           | MCP server: the translation cycle as tools for an agent |
 
-All twelve share one version number, so you never match compatible ranges.
+All thirteen share one version number, so you never match compatible ranges.
 
 📖 **Docs:** https://verbaly-web.vercel.app/docs/reference/api
 

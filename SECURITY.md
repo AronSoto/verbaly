@@ -2,9 +2,9 @@
 
 ## Supported versions
 
-Verbaly is pre-1.0: only the **latest published `0.x` release** receives security fixes. All twelve packages share one version number and are patched together:
+Verbaly is pre-1.0: only the **latest published `0.x` release** receives security fixes. All thirteen packages share one version number and are patched together:
 
-`verbaly` · `@verbaly/compiler` · `@verbaly/vite` · `@verbaly/unplugin` · `@verbaly/react` · `@verbaly/vue` · `@verbaly/svelte` · `@verbaly/sveltekit` · `@verbaly/nuxt` · `@verbaly/next` · `@verbaly/astro` · `@verbaly/mcp`
+`verbaly` · `@verbaly/compiler` · `@verbaly/vite` · `@verbaly/unplugin` · `@verbaly/react` · `@verbaly/vue` · `@verbaly/svelte` · `@verbaly/sveltekit` · `@verbaly/nuxt` · `@verbaly/next` · `@verbaly/astro` · `@verbaly/mcp` · `@verbaly/studio`
 
 ## Reporting a vulnerability
 

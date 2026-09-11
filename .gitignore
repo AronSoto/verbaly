@@ -38,3 +38,7 @@ coverage/
 .turbo/
 .eslintcache
 .astro/
+
+# Agent tooling (installed skills, same reason as .claude/)
+.agents/
+skills-lock.json

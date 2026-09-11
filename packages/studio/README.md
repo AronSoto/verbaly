@@ -33,7 +33,7 @@ npx verbaly-studio
 
 #   Verbaly Studio   http://127.0.0.1:4747/api/state?t=kQ7pVn2XsL4b
 #   Project          /home/you/app
-#   Catalog          1425 messages · 212 untranslated · 187 drafts
+#   Catalog          1479 messages · 212 untranslated · 187 drafts
 #
 #   Ctrl+C to stop
 ```
@@ -72,7 +72,7 @@ keep in step. Every answer is JSON, including the errors, which are `{ "error": 
 | `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }` |
 | `POST /api/approve` | approve drafts; body `{ "locale": "es", "keys": ["…"] }`, and the whole locale when `keys` is omitted |
 
-`GET /api/state` is unpaginated on purpose: the biggest catalog we know is 1425 messages, and over
+`GET /api/state` is unpaginated on purpose: the biggest catalog we know is 1479 messages, and over
 localhost that is instant. Its `problems` array is why nothing Studio reads can take the server
 down: a catalog it cannot parse, a drafts sidecar it cannot parse, a source file Babel cannot read,
 and a `--root` with no catalogs in it are all reported there, by a path relative to your project,
@@ -117,7 +117,7 @@ an unfinished translation is not a second opinion.
 changed because of what the measurement said.** `digits` was reading the comma after a number as
 part of it, and it was flagging a number the translation added where the source had none, which is
 what "refresh" becoming "F5" looks like. Those were **10 of 10** of its hits, all correct text, so
-both are now excluded. The result is **18 of 1425 messages** flagged per language.
+both are now excluded. The result is **18 of 1479 messages** flagged per language.
 
 ## 🧩 Programmatic API
 

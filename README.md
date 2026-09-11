@@ -142,7 +142,7 @@ Verbaly ships first-class support for AI coding agents:
   claude mcp add verbaly -- npx -y @verbaly/mcp
   ```
 
-  Machine translations stay drafts until a human approves them (`verbaly review --approve`, or the panel below), so an agent can fill gaps without silently shipping unreviewed text. Approving is deliberately not a tool.
+  Machine translations stay drafts until a human approves them (`verbaly review --approve`, or the local review server below), so an agent can fill gaps without silently shipping unreviewed text. Approving is deliberately not a tool.
 
 - **Agent Skill**: [`skills/verbaly`](skills/verbaly/SKILL.md) teaches an agent the write → extract → check → translate cycle and the rules that keep it safe. Install it into a project:
 

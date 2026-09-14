@@ -41,6 +41,8 @@ export interface RawState {
   dir: string;
   sourceLocale: string;
   locales: string[];
+  // include: [] means scanning is off, which is not the same as having found nothing
+  scanning: boolean;
   catalogs: Catalogs;
   origins: Record<string, string[]>;
   drafts: Record<string, string[]>;
@@ -118,6 +120,11 @@ export function health(panel: Panel): LocaleHealth[] {
     }
     return { locale, source: false, total, ...count };
   });
+}
+
+// A command rewrote the catalogs, so every row comes back rather than being patched key by key.
+export function applyState(panel: Panel, raw: RawState): void {
+  Object.assign(panel, toPanel(raw));
 }
 
 export interface Filter {

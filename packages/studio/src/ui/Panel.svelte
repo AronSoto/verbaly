@@ -2,18 +2,16 @@
   import HealthView from './Health.svelte';
   import Rail from './Rail.svelte';
   import RowView from './Row.svelte';
-  import { health, visible, type Panel } from './model';
+  import { applyState, health, visible, type Panel } from './model';
   import Actions from './Actions.svelte';
-  import { fetchHealth, markRead, saveMessage, type Check } from './save';
-  import { fetchState } from './run';
-  import { applyState } from './store.svelte';
+  import type { Check, StudioApi } from './api';
 
   interface Props {
     panel: Panel;
-    token: string;
+    api: StudioApi;
   }
 
-  const { panel, token }: Props = $props();
+  const { panel, api }: Props = $props();
 
   let editing: string | null = $state(null);
   let note: { text: string; file: string } | null = $state(null);
@@ -24,23 +22,23 @@
   // doctor reads the disk, so it is asked once at boot and again whenever you open the view
   async function openHealth() {
     view = 'health';
-    const result = await fetchHealth(token);
+    const result = await api.health();
     if (result.error) {
       note = { text: result.error, file: '' };
       return;
     }
-    checks = { ok: result.ok, entries: result.entries };
+    if (result.value) checks = result.value;
   }
 
   $effect(() => {
-    void fetchHealth(token).then((result) => {
-      if (!result.error) checks = { ok: result.ok, entries: result.entries };
+    void api.health().then((result) => {
+      if (result.value) checks = result.value;
     });
   });
 
   // a command rewrote the catalogs, so the panel re-reads them instead of patching key by key
   async function refresh(said: string) {
-    const answer = await fetchState(token);
+    const answer = await api.state();
     if (answer.error || !answer.value) {
       note = { text: answer.error ?? '[verbaly] the server sent no state', file: '' };
       return;
@@ -50,29 +48,29 @@
     pending = null;
     applyState(panel, answer.value);
     note = { text: said, file: '' };
-    const next = await fetchHealth(token);
-    if (!next.error) checks = { ok: next.ok, entries: next.entries };
+    const next = await api.health();
+    if (next.value) checks = next.value;
   }
 
   // the flag says who wrote the text, so both directions are a write and both report what moved
   async function setRead(locale: string, keys: string[] | undefined, undo: boolean) {
-    const result = await markRead(token, locale, keys, undo);
+    const result = await api.setRead(locale, keys, undo);
     if (result.error) {
       note = { text: result.error, file: '' };
       return;
     }
-    const moved = new Set(result.done?.keys ?? []);
+    const moved = new Set(result.value?.keys ?? []);
     for (const row of panel.rows) {
       if (!moved.has(row.key)) continue;
       const cell = row.cells.find((c) => c.locale === locale);
       if (cell?.text) cell.state = undo ? 'draft' : 'done';
     }
-    pending = undo ? null : { locale, keys: result.done?.keys ?? [] };
+    pending = undo ? null : { locale, keys: result.value?.keys ?? [] };
   }
 
   // the row shows what the server refused; the panel only celebrates what it accepted
   async function save(locale: string, key: string, text: string): Promise<string | null> {
-    const result = await saveMessage(token, locale, key, text);
+    const result = await api.save(locale, key, text);
     if (result.error) return result.error;
     const row = panel.rows.find((r) => r.key === key);
     const cell = row?.cells.find((c) => c.locale === locale);
@@ -166,7 +164,7 @@
       onHealth={openHealth}
     >
       {#snippet actions()}
-        <Actions {token} {shown} onDone={refresh} />
+        <Actions {api} {shown} onDone={refresh} />
       {/snippet}
     </Rail>
 
@@ -210,7 +208,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100%;
   }
 
   /* the bar stays ink in both themes: the one brand colour cannot vanish on a theme switch */

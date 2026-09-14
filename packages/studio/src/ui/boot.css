@@ -1,0 +1,14 @@
+/* Only the page `npx verbaly-studio` serves loads this: a host owns its own html and body. */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+}
+
+#app {
+  height: 100%;
+}

@@ -7,6 +7,7 @@ function raw(over: Partial<Parameters<typeof toPanel>[0]> = {}) {
     dir: '/app/locales',
     sourceLocale: 'en',
     locales: ['en', 'es', 'pt'],
+    scanning: true,
     catalogs: {
       en: { nav: { home: 'Home' }, greet: 'Hi {name}', bye: 'Bye', gone: 'Gone' },
       es: { nav: { home: 'Inicio' }, greet: 'Hola', bye: '', gone: 'Ido' },

@@ -1,23 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ACTION, messages } from './words';
-  import {
-    currentJob,
-    findText,
-    planTranslation,
-    readJob,
-    startTranslation,
-    type Job,
-    type Plan,
-  } from './run';
+  import type { Job, Plan, StudioApi } from './api';
 
   interface Props {
-    token: string;
+    api: StudioApi;
     shown: string[];
     onDone: (said: string) => Promise<void> | void;
   }
 
-  const { token, shown, onDone }: Props = $props();
+  const { api, shown, onDone }: Props = $props();
 
   type Phase =
     | { at: 'idle' }
@@ -37,7 +29,7 @@
 
   async function find() {
     phase = { at: 'finding' };
-    const answer = await findText(token);
+    const answer = await api.extract();
     if (answer.error || !answer.value) return said(answer.error ?? 'no answer', true);
     const { found } = answer.value;
     if (!found) return said(ACTION.nothingNew);
@@ -48,7 +40,7 @@
 
   async function plan() {
     phase = { at: 'planning' };
-    const answer = await planTranslation(token, shown);
+    const answer = await api.plan(shown);
     if (answer.error || !answer.value) return said(answer.error ?? 'no answer', true);
     if (!answer.value.total) return said(ACTION.nothingMissing);
     phase = { at: 'plan', plan: answer.value };
@@ -56,7 +48,7 @@
 
   // the bar is asked, never pushed: translate writes partial results, so a reload must not lose it
   async function poll(id: string) {
-    const answer = await readJob(token, id);
+    const answer = await api.job(id);
     if (answer.error || !answer.value) return said(answer.error ?? 'no answer', true);
     const job = answer.value;
     if (job.state === 'running') {
@@ -70,14 +62,14 @@
   }
 
   async function go() {
-    const answer = await startTranslation(token, shown);
+    const answer = await api.translate(shown);
     if (answer.error || !answer.value) return said(answer.error ?? 'no answer', true);
     phase = { at: 'running', job: answer.value };
   }
 
   // a run outlives the page that started it, so the bar comes back instead of the job hiding
   onMount(() => {
-    void currentJob(token).then((answer) => {
+    void api.job().then((answer) => {
       if (answer.value && phase.at === 'idle') phase = { at: 'running', job: answer.value };
     });
   });

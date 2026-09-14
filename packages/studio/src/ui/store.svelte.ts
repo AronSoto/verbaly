@@ -6,8 +6,3 @@ export function reactivePanel(raw: RawState): Panel {
   const panel = $state(toPanel(raw));
   return panel;
 }
-
-// A command rewrote the catalogs, so every row comes back rather than being patched key by key.
-export function applyState(panel: Panel, raw: RawState): void {
-  Object.assign(panel, toPanel(raw));
-}

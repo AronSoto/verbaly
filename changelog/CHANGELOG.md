@@ -8,6 +8,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.56.0] · 2026-09-14
+
+**The panel stopped fetching its own data.** It is handed a `StudioApi` and calls it, which is what turns it from a page the command serves into a thing you can render yourself over whatever data you have. And it finally opens dark on a dark machine. Breaking: no.
+
+### Highlights
+
+- **Studio's panel is renderable outside the command.** `@verbaly/studio/Panel.svelte` and `@verbaly/studio/ui` ship the real components, the same ones `npx verbaly-studio` opens, for a host that compiles Svelte 5.
+- **Nothing in the panel knows about http any more.** It takes a `StudioApi` as a prop: `serverApi(token)` talks to the running command, and anything else satisfying the type works the same. One file in the package makes a network call, and a test keeps it that way.
+- **The panel opens in your machine's theme.** It had a dark palette and no way to reach it, so `npx verbaly-studio` opened light on a dark desktop. A host can still force either one.
+- **A live panel is coming to the docs site** on the back of this: the same components, over an example project held in memory, with nothing pretending to be a server.
+
+### Added
+
+- **`@verbaly/studio/Panel.svelte`**, the panel itself, shipped as source because a `.svelte` has to reach your compiler unbuilt. The same arrangement `@verbaly/svelte/Trans.svelte` has had since 0.10.0.
+- **`@verbaly/studio/ui`**, everything a host needs around it: `toPanel` and `applyState` to shape the state, `health` and `visible` to project and filter it, `preview` for the live validation, the `STATE`/`FILTER`/`SIGNAL` vocabulary, `serverApi`, and the types including `StudioApi`.
+- **`@verbaly/studio/tokens.css`**, the panel's own eight steps and four inks, on the single class `.verbaly-studio`. A host puts that class on a wrapper and the panel fills it; nothing in the file can reach a `body` or a `:root` that is not its own.
+- **`svelte` and `verbaly` as optional peer dependencies.** Only a host that renders the panel needs them; the command needs neither, and the install is unchanged for everybody who just runs it.
+
+### Changed
+
+- **`Panel.svelte` takes `{ panel, api }` where it took `{ panel, token }`**, and `Actions.svelte` the same. Nothing outside the package could reach either before this release, so nothing breaks.
+- **`save.ts` and `run.ts` became `api.ts`**, one object with one implementation instead of two modules of loose functions, each doing its own `fetch` dance.
+
+### Fixed
+
+- **The panel's stylesheet painted `:root` and `body`.** Loading it anywhere but on its own page repainted the host's background and reset its box model. Everything is on `.verbaly-studio` now, and the handful of page-level rules the command needs moved to a `boot.css` only the command loads.
+- **The shell measured itself against the viewport** (`height: 100vh`), so inside a host it was as tall as the window rather than as tall as the box it was given. It fills its parent now, and the command's own page is what makes that parent the window.
+- **The panel had a dark palette that nothing ever turned on.** `tokens.css` defined `:root[data-theme='dark']` and no code set the attribute, so the command always opened light. It now answers `prefers-color-scheme`, and `data-theme` still wins in both directions for a host that wants to decide.
+
+### Notes
+
+- **This came out of trying to put the panel on the docs site.** The first attempt served the published bundle in an iframe with a fake server patched over `fetch`, which worked and read as litter: a copied build in `public/`, a mock file, an iframe document built by string concatenation. The fix was not a tidier demo, it was noticing that a component fetching its own data is a component nobody else can use.
+- **The Svelte-only shape is deliberate and narrow.** A React or Vue build of the panel is not planned, because Studio is a local command, not a library: on any other stack the way to use it is to run it. The export exists because our own site renders Svelte and needed the real components rather than a copy that could drift.
+- **The rune module does not cross the package boundary.** `store.svelte.ts` stays behind with `main.ts`, because a `.svelte.ts` in `node_modules` is the one thing a host's bundler is not guaranteed to transform. `applyState` moved to `model.ts`, where it always belonged: it is a plain `Object.assign`.
+- **5 new tests, 1360 in total**, and each was verified to fail first: a `node:` import in a shipped file, the rune module imported back into `Panel.svelte`, a raw `fetch` in a component, an export pointing at a file the build does not copy, and the peers declared as hard dependencies.
+- **The package grew from 67.6 KB to 83.4 KB** packed, all of it the panel source. Nothing your visitors download changed.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.**
+
+### Docs impact (synced)
+
+- **`/docs/guide/studio` gains the host section**: the `StudioApi` prop, what ships as source, and why there is no React build.
+- **A live `/studio` page** renders the panel over an example project, with the writes answered in memory.
+
 ## [0.55.0] · 2026-09-14
 
 **The panel.** `npx verbaly-studio` now opens a page, not just an API. You read your messages, fix one in the row it lives in, mark what a machine wrote as read, and run the two commands that change your catalogs. Breaking: no.
@@ -39,7 +82,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Progress counted batches, and batches run in parallel across languages.** A batch number is per language, so the bar walked backwards every time a batch of another language landed. It counts keys now, against the total the plan promised, which is the one number that only goes up.
 - **The panel ran `translate` with different settings than the command does.** It ignored your `batchSize`, `concurrency` and `retries`, and never passed origins, so the provider saw less context from the panel than from the terminal. Same command, same behaviour now.
 - **Finding new text reported a number that meant nothing.** It summed what was added across every language, so two new messages in a project with two target languages read as *56 added*: the targets gain a blank for every gap they already had. Only the source locale counts as new text.
-- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against holds 1587). Re-measured, along with the triage: **23 of 1587 in Spanish, 22 in Portuguese**.
+- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against holds 1607). Re-measured, along with the triage: **23 of 1607 in Spanish, 22 in Portuguese**.
 - **`@verbaly/studio`'s npm page linked to the site's front door**, not to its own documentation. It is the only package that did; every other one points at the page that explains it. Deferred from 0.53.0 on purpose, because a homepage can only be corrected by a publish.
 - **A raw NUL byte reached `model.ts`** as a map separator, written as the character instead of the escape. It is the third time this has happened in this repository, it makes git treat the file as binary, and the only symptom is `Bin` in `git diff --stat`. The escape is identical and the file now carries the one line that says so.
 

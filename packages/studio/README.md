@@ -14,9 +14,10 @@
 Your JSON catalogs are the database and git is the history. Studio is a window onto them, which is
 why it cannot fall out of sync with your code: it does not own anything.
 
-> **This release ships the server and the state, not the interface.** Every route below is real and
-> tested; the panel that will consume them is not written yet. Useful today as `--json`, as a local
-> API for a script, and as the thing the interface will be built against.
+> **The panel is here.** `npx verbaly-studio` opens a page that shows every message in your project,
+> in as many languages as you tick, with its state on each one. You edit in the row itself, you mark
+> what a machine wrote as read, you read what `verbaly doctor` found, and you run the two commands
+> that change your catalogs: finding new text in your code, and translating what is missing.
 
 > **Studio edits translations. It never edits the source text.** The source lives in your code and
 > the key derives from it, so editing it here would be undone by the next `verbaly extract`. A write
@@ -31,9 +32,9 @@ pnpm add -D @verbaly/studio
 ```bash
 npx verbaly-studio
 
-#   Verbaly Studio   http://127.0.0.1:4747/api/state?t=kQ7pVn2XsL4b
+#   Verbaly Studio   http://127.0.0.1:4747/?t=kQ7pVn2XsL4b
 #   Project          /home/you/app
-#   Catalog          1479 messages · 212 untranslated · 187 drafts
+#   Catalog          1587 messages · 212 untranslated · 187 drafts
 #
 #   Ctrl+C to stop
 ```
@@ -45,7 +46,7 @@ npx verbaly-studio
 | `--json` | print the whole state to stdout and exit, no server |
 
 `--json` is the panel without the panel: the same object the interface reads, so it can be piped,
-diffed and scripted.
+diffed and scripted. Opening the printed url gets you the screen instead.
 
 ## 🔒 Security, which is not optional for a server that writes files
 
@@ -71,8 +72,13 @@ keep in step. Every answer is JSON, including the errors, which are `{ "error": 
 | `GET /api/health` | what `verbaly doctor` reports |
 | `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }` |
 | `POST /api/approve` | approve drafts; body `{ "locale": "es", "keys": ["…"] }`, and the whole locale when `keys` is omitted |
+| `POST /api/extract` | read your code and add what your catalogs do not have; answers in the request, because it is local and free |
+| `GET /api/translate` | **the bill**: how many messages and in which languages, without calling the provider |
+| `POST /api/translate` | start the run and get back a job; body `{ "locales": ["es"] }` |
+| `GET /api/job/:id` | how that run is going, to ask once a second |
+| `GET /api/job` | the run in progress, or `null`; a reloaded page asks this instead of losing the bar |
 
-`GET /api/state` is unpaginated on purpose: the biggest catalog we know is 1479 messages, and over
+`GET /api/state` is unpaginated on purpose: the biggest catalog we know is 1587 messages, and over
 localhost that is instant. Its `problems` array is why nothing Studio reads can take the server
 down: a catalog it cannot parse, a drafts sidecar it cannot parse, a source file Babel cannot read,
 and a `--root` with no catalogs in it are all reported there, by a path relative to your project,
@@ -91,6 +97,16 @@ MCP server is the agent's hands, and an agent approving its own translation is t
 approving itself. Studio is the human's: it exists to put the source text and the translation in
 front of a person. The token is what keeps that true, so treat it as the thing that says a person is
 here, and do not paste it into an agent's prompt.
+
+**Translating is the one thing here that spends money, so the panel shows the bill first.** The
+plan is its own route, which is why looking at the cost cannot start the spending: it says how
+many messages and in which languages, and nothing is called until you say go. The run itself is a
+job you ask about rather than a stream you listen to, because `verbaly translate` writes partial
+results on purpose and a reload must not lose them. **One run at a time**: two runs over the same
+catalogs is a race over the same files.
+
+**What a machine writes stays a draft**, here as everywhere else. The panel does not get to change
+that rule, so a finished run leaves you a list to read, not a job marked done.
 
 ## 🔎 Triage: which machine translations are worth reading
 
@@ -117,7 +133,7 @@ an unfinished translation is not a second opinion.
 changed because of what the measurement said.** `digits` was reading the comma after a number as
 part of it, and it was flagging a number the translation added where the source had none, which is
 what "refresh" becoming "F5" looks like. Those were **10 of 10** of its hits, all correct text, so
-both are now excluded. The result is **18 of 1479 messages** flagged per language.
+both are now excluded. The result is **23 of 1587 messages** flagged in Spanish and 22 in Portuguese.
 
 ## 🧩 Programmatic API
 

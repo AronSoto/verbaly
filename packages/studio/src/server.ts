@@ -1,7 +1,10 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { ResolvedConfig } from '@verbaly/compiler';
-import { approve, buildState, health, writeMessage } from './api';
+import { approve, buildState, health, unapprove, writeMessage } from './api';
+import { planTranslate, runExtract, startTranslate } from './actions';
+import { read as readJob, running } from './jobs';
+import { readAsset, uiBuilt } from './assets';
 import { guardRequest, newToken } from './guard';
 import { HttpError, badRequest, scrub } from './http';
 
@@ -74,13 +77,27 @@ export function createStudioApp(cfg: ResolvedConfig, port: number, token: string
         throw badRequest('the request target is not a valid url');
       }
 
+      const api = url.pathname.startsWith('/api/');
       const verdict = guardRequest({ host: req.headers.host, origin: req.headers.origin }, url, {
         port,
         token,
       });
-      if (!verdict.ok) {
+      // the panel files are the published npm package: only the project data needs a token
+      if (!verdict.ok && (api || verdict.status !== 401)) {
         send(res, verdict.status, { error: verdict.reason });
         return;
+      }
+
+      if (!api && req.method === 'GET') {
+        const asset = readAsset(url.pathname);
+        if (asset) {
+          res.writeHead(200, { 'content-type': asset.type, 'cache-control': 'no-store' });
+          res.end(asset.body);
+          return;
+        }
+        if (url.pathname === '/' && !uiBuilt()) {
+          throw new HttpError(500, 'the panel is not in this install, so only /api/* answers here');
+        }
       }
 
       if (req.method === 'GET' && url.pathname === '/api/state') {
@@ -106,9 +123,41 @@ export function createStudioApp(cfg: ResolvedConfig, port: number, token: string
         const keys = Array.isArray(body.keys)
           ? body.keys.filter((k): k is string => typeof k === 'string')
           : undefined;
+        if (body.undo === true) {
+          if (!keys?.length) throw badRequest('undoing needs the "keys" it should put back');
+          send(res, 200, unapprove(cfg, body.locale, keys));
+          return;
+        }
         send(res, 200, approve(cfg, body.locale, keys));
         return;
       }
+      if (req.method === 'POST' && url.pathname === '/api/extract') {
+        send(res, 200, await runExtract(cfg));
+        return;
+      }
+      if (req.method === 'GET' && url.pathname === '/api/translate') {
+        const locales = url.searchParams.getAll('locale');
+        send(res, 200, await planTranslate(cfg, locales.length ? locales : undefined));
+        return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/translate') {
+        const body = await readJson(req);
+        const locales = Array.isArray(body.locales)
+          ? body.locales.filter((l): l is string => typeof l === 'string')
+          : undefined;
+        send(res, 200, await startTranslate(cfg, locales?.length ? locales : undefined));
+        return;
+      }
+      // a reload loses the id, so the panel asks what is running rather than losing the bar
+      if (req.method === 'GET' && url.pathname === '/api/job') {
+        send(res, 200, running());
+        return;
+      }
+      if (req.method === 'GET' && url.pathname.startsWith('/api/job/')) {
+        send(res, 200, readJob(segment(url.pathname.slice('/api/job/'.length), 'job id')));
+        return;
+      }
+
       send(res, 404, { error: `[verbaly] no route for ${req.method} ${url.pathname}` });
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 500;
@@ -154,7 +203,7 @@ export async function startStudio(
     server,
     port,
     token,
-    url: `http://127.0.0.1:${port}/api/state?t=${token}`,
+    url: `http://127.0.0.1:${port}/?t=${token}`,
     close: () =>
       new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),

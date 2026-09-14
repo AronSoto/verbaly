@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadDrafts, resolveConfig, saveDrafts } from '@verbaly/compiler';
 import type { ResolvedConfig } from '@verbaly/compiler';
-import { approve, buildState, writeMessage } from '../src/api';
+import { approve, buildState, unapprove, writeMessage } from '../src/api';
 
 const made: string[] = [];
 
@@ -124,13 +124,13 @@ describe('writeMessage', () => {
 describe('approve', () => {
   it('approves one key', () => {
     const cfg = project({ es: ['hello', 'bye'] });
-    expect(approve(cfg, 'es', ['hello'])).toEqual({ locale: 'es', approved: 1 });
+    expect(approve(cfg, 'es', ['hello'])).toEqual({ locale: 'es', approved: 1, keys: ['hello'] });
     expect(loadDrafts(cfg)).toEqual({ es: ['bye'] });
   });
 
   it('approves the whole locale when no keys are given', () => {
     const cfg = project({ es: ['hello', 'bye'], de: ['hello'] });
-    expect(approve(cfg, 'es')).toEqual({ locale: 'es', approved: 2 });
+    expect(approve(cfg, 'es')).toEqual({ locale: 'es', approved: 2, keys: ['hello', 'bye'] });
     expect(loadDrafts(cfg)).toEqual({ de: ['hello'] });
   });
 
@@ -240,4 +240,35 @@ it('says so when there are no catalogs where it was pointed', async () => {
   const state = await buildState(cfg);
   expect(state.problems.map((p) => p.scope)).toContain('locales');
   expect(state.problems[0]!.message).toContain('check --root');
+});
+
+describe('undo, because the flag records who wrote the text', () => {
+  // Proved able to fail by returning the keys asked for: undo puts back one that never was.
+  it('reports the keys it really cleared, not the ones it was asked about', () => {
+    const cfg = project({ es: ['hello'] });
+    expect(approve(cfg, 'es', ['hello', 'never-was-a-draft'])).toEqual({
+      locale: 'es',
+      approved: 1,
+      keys: ['hello'],
+    });
+  });
+
+  it('puts back exactly what it cleared, and the file comes back identical', () => {
+    const cfg = project({ es: ['hello', 'bye'], de: ['hello'] });
+    // saveDrafts sorts and dedupes, so the baseline is what it writes, not what the fixture wrote
+    approve(cfg, 'de', []);
+    const before = readFileSync(join(cfg.dir, '.verbaly-drafts.json'), 'utf8');
+
+    const done = approve(cfg, 'es');
+    expect(loadDrafts(cfg)).toEqual({ de: ['hello'] });
+
+    unapprove(cfg, 'es', done.keys);
+    expect(loadDrafts(cfg)).toEqual({ de: ['hello'], es: ['bye', 'hello'] });
+    expect(readFileSync(join(cfg.dir, '.verbaly-drafts.json'), 'utf8')).toBe(before);
+  });
+
+  it('refuses a locale the project does not declare', () => {
+    const cfg = project();
+    expect(() => unapprove(cfg, 'fr', ['hello'])).toThrow(/not one of this project/);
+  });
 });

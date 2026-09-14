@@ -1,0 +1,85 @@
+/* The Studio's own layer. Nothing here comes from the site: this tool is denser and quieter. */
+:root {
+  --paper: #f8fbf7;
+  --ground: #eff4ee;
+  --hollow: #e5ede4;
+  --rule: #d7dfd5;
+  --rule-strong: #828d80;
+  --muted: #636c61;
+  --body: #374036;
+  --ink: #061005;
+  /* the bar never turns: lime on paper is 1.2:1 and the one brand colour cannot vanish on a theme */
+  --bar: #131e12;
+  --on-bar: #f8fbf7;
+
+  --broken: #b43931;
+  --broken-tint: #eee0db;
+  --missing: #8e5a04;
+  --missing-tint: #e9e4d5;
+  --draft: #2267ad;
+  --draft-tint: #dae6ed;
+  --done: #2e7428;
+  --done-tint: #dce8da;
+
+  --sans: 'Schibsted Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
+
+  --rail: 232px;
+  --radius: 6px;
+}
+
+:root[data-theme='dark'] {
+  --paper: #10170f;
+  --ground: #161e15;
+  --hollow: #1d271c;
+  --rule: #2a352a;
+  --rule-strong: #6f7a6d;
+  --muted: #9aa598;
+  --body: #d3dbd1;
+  --ink: #f2f7f1;
+
+  --broken: #f08a82;
+  --broken-tint: #3a211f;
+  --missing: #dcae4e;
+  --missing-tint: #352c16;
+  --draft: #7db6e8;
+  --draft-tint: #172a3a;
+  --done: #79c46f;
+  --done-tint: #182c16;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+code,
+kbd {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+/* Nothing loops and nothing moves on its own: only what reports a real process animates. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

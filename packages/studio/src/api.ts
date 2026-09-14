@@ -8,6 +8,7 @@ import {
   effectiveDrafts,
   extractProject,
   loadDrafts,
+  markDrafts,
   readCatalog,
   saveDrafts,
   status,
@@ -93,7 +94,7 @@ function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
   };
 }
 
-// One shot and unpaginated: the biggest catalog we know is 1479 messages, instant over localhost.
+// One shot and unpaginated: the biggest catalog we know is 1587 messages, instant over localhost.
 export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const { catalogs, problems } = readAll(cfg);
   const registry = await extractProject(cfg);
@@ -188,6 +189,7 @@ export function writeMessage(
 export interface ApproveResult {
   locale: string;
   approved: number;
+  keys: string[];
 }
 
 // The sidecar is re-read here: saveDrafts writes every locale, so a stale copy drops another's.
@@ -196,9 +198,21 @@ export function approve(cfg: ResolvedConfig, locale: string, keys?: string[]): A
     throw badRequest(`${locale} is not one of this project's locales`);
   }
   const drafts = loadDrafts(cfg);
-  const before = (drafts[locale] ?? []).length;
+  const had = drafts[locale] ?? [];
+  // the keys it really cleared, because undo has to put back exactly those and nothing else
+  const cleared = keys ? had.filter((key) => keys.includes(key)) : [...had];
   clearDrafts(drafts, locale, keys);
-  const after = (drafts[locale] ?? []).length;
   saveDrafts(cfg, drafts);
-  return { locale, approved: before - after };
+  return { locale, approved: cleared.length, keys: cleared };
+}
+
+// Undo is not a nicety here: the flag records who wrote the text, so restoring it restores a fact.
+export function unapprove(cfg: ResolvedConfig, locale: string, keys: string[]): ApproveResult {
+  if (!cfg.locales.includes(locale)) {
+    throw badRequest(`${locale} is not one of this project's locales`);
+  }
+  const drafts = loadDrafts(cfg);
+  markDrafts(drafts, locale, keys);
+  saveDrafts(cfg, drafts);
+  return { locale, approved: keys.length, keys };
 }

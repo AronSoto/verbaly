@@ -69,6 +69,14 @@ describe('guards', () => {
 });
 
 describe('routes', () => {
+  // Proved able to fail by answering 404 like /api/job/:id does: the panel treats that as an error.
+  it('says nothing is running rather than failing, so a reload can ask at boot', async () => {
+    const response = await call(withToken('/api/job'));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toBeNull();
+  });
+
   it('serves the whole project in one shot', async () => {
     const res = await call(withToken('/api/state'));
     expect(res.status).toBe(200);
@@ -104,7 +112,29 @@ describe('routes', () => {
       method: 'POST',
       body: JSON.stringify({ locale: 'es' }),
     });
-    expect(await res.json()).toEqual({ locale: 'es', approved: 1 });
+    expect(await res.json()).toEqual({ locale: 'es', approved: 1, keys: ['hello'] });
+  });
+
+  it('undoes an approval when asked, and refuses to guess what to put back', async () => {
+    const approved = await call(withToken('/api/approve'), {
+      method: 'POST',
+      body: JSON.stringify({ locale: 'es' }),
+    });
+    expect((await approved.json()).keys).toEqual(['hello']);
+
+    const blind = await call(withToken('/api/approve'), {
+      method: 'POST',
+      body: JSON.stringify({ locale: 'es', undo: true }),
+    });
+    expect(blind.status).toBe(400);
+    expect((await blind.json()).error).toContain('keys');
+
+    const back = await call(withToken('/api/approve'), {
+      method: 'POST',
+      body: JSON.stringify({ locale: 'es', keys: ['hello'], undo: true }),
+    });
+    expect(back.status).toBe(200);
+    expect(loadDrafts(resolveConfig({ root, dir: 'locales' }))).toEqual({ es: ['hello'] });
   });
 
   it('answers 404 naming the route it does not have', async () => {

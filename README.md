@@ -168,8 +168,10 @@ code: it does not own anything. **It never edits your source text**, because tha
 and the key derives from it, and a translation you save runs the same two validations
 `verbaly check` runs in CI.
 
-**This release ships the server and the state, not the interface.** `--json` prints the same object
-the panel will read, so it is scriptable today. The panel is next.
+The panel opens on a list of your messages: you edit in the row itself, you mark what a machine
+wrote as read, you read what `verbaly doctor` found, and you run the two commands that change your
+catalogs. Translating shows the bill first, because it is the one that spends money. `--json`
+prints the same object the panel reads, so the whole thing is scriptable too.
 
 ---
 

@@ -8,6 +8,60 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.55.0] · 2026-09-14
+
+**The panel.** `npx verbaly-studio` now opens a page, not just an API. You read your messages, fix one in the row it lives in, mark what a machine wrote as read, and run the two commands that change your catalogs. Breaking: no.
+
+### Highlights
+
+- **The interface `@verbaly/studio` promised in 0.53.0 is here**, and its README no longer opens by telling you it is missing. Every message, in as many languages as you tick, with its state on each one.
+- **Editing happens in the row.** No modal, no side panel, nothing opens: the line you are reading becomes the field you type in, and the validation runs while you type, in the browser, on the runtime's own parser.
+- **The four states are named by what they mean to you**, not by workflow stage: *ready*, *unread* (a machine wrote it and nobody has read it), *missing* (your visitor sees the source language), and *breaks your site*. Each carries its own shape as well as its own colour, so the list reads in greyscale.
+- **Two commands, from the page.** *Find new text* reads your code and adds what your catalogs do not have. *Translate what is missing* calls your provider, so it shows you the bill first and nothing is spent until you say go.
+- **A run you can walk away from.** Translating is a job you ask about once a second, not a stream you listen to, so reloading the page picks the bar back up instead of losing it.
+- **What a machine writes is still a draft.** A finished run hands you a list to read, not a job marked done. The panel does not get to change that rule, and neither does anything else.
+
+### Added
+
+- **The panel itself** (`@verbaly/studio`), built with Svelte 5 and served from `dist/ui` by the same localhost server: **24.52 KB of JavaScript and 3.03 KB of CSS, gzipped**, downloaded once. No CDN, no fonts fetched, no analytics, nothing leaves your machine.
+- **The list**, with the source above and one line per language below it, each with its own state. It grows with the number of languages you compare, never with the length of the text: a message is one line with an ellipsis until you open it.
+- **Editing in place**, with the parameters of the message shown as chips under the field and the one you dropped struck through in red. Saving runs the same two validations `verbaly check` runs, and the server is the authority: the browser preview exists to answer while you type, not to decide.
+- **Marking drafts as read**, per language and in one go, with **Undo in the rail rather than a toast**: for hundreds of messages, something that expires in five seconds is not undo.
+- **The Health view**, which is `verbaly doctor` read out loud: each check titled by what it means for your project rather than by the part of the compiler that answered.
+- **Filters that carry their own count**, including *worth a look*, which is the triage: the few translations whose shape moved away from the source.
+- **`POST /api/extract`**, which answers inside the request because it is local and free.
+- **`GET /api/translate`**, the plan, which is a separate route so that looking at the cost can never start the spending.
+- **`POST /api/translate` and `GET /api/job/:id`**, the run and its progress.
+- **`GET /api/job`**, which answers with the run in progress or `null`. It exists because a reloaded page has lost the id, and a job you cannot ask about is a stream with extra steps.
+
+### Fixed
+
+- **Progress counted batches, and batches run in parallel across languages.** A batch number is per language, so the bar walked backwards every time a batch of another language landed. It counts keys now, against the total the plan promised, which is the one number that only goes up.
+- **The panel ran `translate` with different settings than the command does.** It ignored your `batchSize`, `concurrency` and `retries`, and never passed origins, so the provider saw less context from the panel than from the terminal. Same command, same behaviour now.
+- **Finding new text reported a number that meant nothing.** It summed what was added across every language, so two new messages in a project with two target languages read as *56 added*: the targets gain a blank for every gap they already had. Only the source locale counts as new text.
+- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against holds 1587). Re-measured, along with the triage: **23 of 1587 in Spanish, 22 in Portuguese**.
+- **`@verbaly/studio`'s npm page linked to the site's front door**, not to its own documentation. It is the only package that did; every other one points at the page that explains it. Deferred from 0.53.0 on purpose, because a homepage can only be corrected by a publish.
+- **A raw NUL byte reached `model.ts`** as a map separator, written as the character instead of the escape. It is the third time this has happened in this repository, it makes git treat the file as binary, and the only symptom is `Bin` in `git diff --stat`. The escape is identical and the file now carries the one line that says so.
+
+### Notes
+
+- **Polling, not SSE, and the reason is not latency.** `TranslateProgress` fires once per batch, which is seconds apart, so a stream buys nothing there. What decides it is that `translate` writes partial results on purpose: a job you can ask again survives a reload, and a stream does not. `GET /api/job` is what makes that true rather than merely stated.
+- **One run at a time**, because two runs over the same catalogs is a race over the same files. The second one is refused with a sentence, not a spinner.
+- **The framework question dissolved when it was measured.** The panel's whole workload on the real site is under 3 ms (filtering the whole list is 0.9 ms), so nothing here is a rendering bottleneck and no framework could have been. What differs between the candidates is what the browser downloads, and there is a factor of thirteen between the heaviest and the lightest. Svelte compiles to code that touches the DOM directly, with no reconciliation runtime to ship.
+- **No virtualization library.** The visible window is a slice, and it measured 0.000 ms.
+- **The words are a product decision and they live in one file.** *unread* rather than *pending review*, *breaks your site* rather than *invalid*: every one of them names a checkable fact rather than a stage in somebody's workflow.
+- **Nothing on this screen animates except the progress bar**, which reports a run that is really happening. No staggered rows, no count-ups, no pulses.
+- **The disabled Translate button keeps its explanation at full contrast**, because the sentence under a disabled control is the one thing you most need to read. Every colour pair in the new section was measured in both themes: the lowest is 5.23:1.
+- **111 tests in `@verbaly/studio`, 1355 in the monorepo.** The five new ones were each verified to fail first: the counter that walks backwards, the batch size the panel ignored, the job without a denominator, the count that summed every language, and the boot probe answering 404.
+- **The public surface did not move.** The panel consumes what the compiler already exports; `collectOrigins` was already there.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** None of this is in anything your visitors download.
+
+### Docs impact (synced)
+
+- **`/docs/guide/studio` stops saying the interface is missing** and describes the panel: the list, editing in the row, the drafts, Health, and the two commands with the bill in front of the expensive one.
+- **The four routes the panel added join the API table there**, including `GET /api/job` and why it exists.
+- **The root README's Studio section** no longer ends with "the panel is next".
+
 ## [0.54.0] · 2026-09-14
 
 **Your catalogs were always welcome as they are, and our own docs said otherwise.** A question about how much a newcomer has to learn turned into a measurement, and the measurement found that three of the four things the migration guide asked people to do were never required. This release deletes that work from the page and hands the one real transformation to a command. Breaking: no.

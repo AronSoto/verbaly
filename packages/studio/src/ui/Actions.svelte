@@ -5,11 +5,13 @@
 
   interface Props {
     api: StudioApi;
+    scanning: boolean;
+    targets: number;
     shown: string[];
     onDone: (said: string) => Promise<void> | void;
   }
 
-  const { api, shown, onDone }: Props = $props();
+  const { api, scanning, targets, shown, onDone }: Props = $props();
 
   type Phase =
     | { at: 'idle' }
@@ -81,6 +83,11 @@
     return () => clearInterval(timer);
   });
 
+  // a disabled control still owes you the reason, and the reason is not always the same one
+  const why = $derived(
+    !targets ? ACTION.onlyLocale : shown.length ? ACTION.translateWhy : ACTION.pickFirst,
+  );
+
   const share = $derived(
     phase.at === 'running' && phase.job.total ? phase.job.done / phase.job.total : 0,
   );
@@ -105,13 +112,13 @@
       <p class="why">{phase.job.done} of {phase.job.total}</p>
     </div>
   {:else}
-    <button class="act" disabled={busy} onclick={find}>
+    <button class="act" disabled={busy || !scanning} onclick={find}>
       <span class="name">{phase.at === 'finding' ? ACTION.working : ACTION.find}</span>
-      <span class="why">{ACTION.findWhy}</span>
+      <span class="why">{scanning ? ACTION.findWhy : ACTION.scanOff}</span>
     </button>
     <button class="act" disabled={busy || !shown.length} onclick={plan}>
       <span class="name">{ACTION.translate}</span>
-      <span class="why">{shown.length ? ACTION.translateWhy : ACTION.pickFirst}</span>
+      <span class="why">{why}</span>
     </button>
   {/if}
 

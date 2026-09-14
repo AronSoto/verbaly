@@ -2,9 +2,10 @@
   import HealthView from './Health.svelte';
   import Rail from './Rail.svelte';
   import RowView from './Row.svelte';
-  import { applyState, health, visible, type Panel } from './model';
+  import { applyState, emptyReason, health, visible, type Panel } from './model';
   import Actions from './Actions.svelte';
   import type { Check, StudioApi } from './api';
+  import { EMPTY } from './words';
 
   interface Props {
     panel: Panel;
@@ -94,6 +95,7 @@
 
   const rail = $derived(health(panel));
   const rows = $derived(visible(panel.rows, { text, state: only, locales: shown }));
+  const empty = $derived(emptyReason(panel, shown, rows));
 
   // every count is over the languages actually shown, so the rail never promises rows a filter hides
   const counts = $derived.by(() => {
@@ -164,7 +166,7 @@
       onHealth={openHealth}
     >
       {#snippet actions()}
-        <Actions {api} {shown} onDone={refresh} />
+        <Actions {api} scanning={panel.scanning} targets={targets.length} {shown} onDone={refresh} />
       {/snippet}
     </Rail>
 
@@ -176,10 +178,8 @@
       />
     {:else}
     <main class="table" onscroll={onScroll}>
-      {#if !shown.length}
-        <p class="note">Tick a language in the rail to see its translations.</p>
-      {:else if !rows.length}
-        <p class="note">Nothing matches. Every message here is in the state you asked for.</p>
+      {#if empty}
+        <p class="note">{EMPTY[empty]}{empty === 'oneLocale' ? ` ${EMPTY.oneLocaleFix}` : ''}</p>
       {:else}
         {#each rows.slice(0, limit) as row (row.key)}
           <RowView {row} {shown} {editing} onEdit={(id) => (editing = id)} onSave={save} />

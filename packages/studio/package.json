@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/studio",
-  "version": "0.56.0",
+  "version": "0.56.1",
   "description": "Local review server for Verbaly: read, edit and approve translations over the JSON files already in your repo. No account, no database.",
   "keywords": [
     "i18n",

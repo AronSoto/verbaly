@@ -28,6 +28,7 @@ export interface LocaleHealth {
 
 export interface Panel {
   root: string;
+  scanning: boolean;
   sourceLocale: string;
   locales: string[];
   rows: Row[];
@@ -99,6 +100,7 @@ export function toPanel(raw: RawState): Panel {
 
   return {
     root: raw.root,
+    scanning: raw.scanning,
     sourceLocale: raw.sourceLocale,
     locales: raw.locales,
     rows,
@@ -125,6 +127,17 @@ export function health(panel: Panel): LocaleHealth[] {
 // A command rewrote the catalogs, so every row comes back rather than being patched key by key.
 export function applyState(panel: Panel, raw: RawState): void {
   Object.assign(panel, toPanel(raw));
+}
+
+export type Empty = 'noCatalogs' | 'oneLocale' | 'pickOne' | 'noMatch';
+
+// An empty screen that names what to click instead of what is true is the worst first run.
+export function emptyReason(panel: Panel, shown: string[], rows: Row[]): Empty | null {
+  if (!panel.rows.length) return 'noCatalogs';
+  if (panel.locales.length < 2) return 'oneLocale';
+  if (!shown.length) return 'pickOne';
+  if (!rows.length) return 'noMatch';
+  return null;
 }
 
 export interface Filter {

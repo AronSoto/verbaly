@@ -8,6 +8,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.56.1] · 2026-09-14
+
+**The first screen, when there is nothing on it.** Studio opened on a project that was not set up yet and told you to tick a language that was not there. Every empty state and every disabled button now names what is actually true. Breaking: no.
+
+### Fixed
+
+- **The empty table told you to do something impossible.** With one language in your config there is nothing to tick, and that was the only thing the screen said. It now says you have one language, and where to add the next one. Four states, one sentence each: no catalogs at all, one language, none ticked, and a filter that matched nothing.
+- **Find new text was offered on projects that cannot run it.** With `include: []` the button was live, and clicking it got you an error from the server. It is off, and the line under it says source scanning is off in your config.
+- **Translate what is missing said "tick a language" when there were none to tick.** A disabled control still owes you the reason, and the reason is not always the same one.
+
+### Notes
+
+- **This came from a question about how easy Studio is to stand up.** The answer to the command itself was already good: one command, no configuration of its own, a port that climbs when yours is busy, and a problems line that names the fix (`no catalogs here, run npx verbaly init or check --root`). What it did badly was the screen after that, which is the part a person actually reads.
+- **The reason is a function now, not a chain of conditions in the markup.** `emptyReason(panel, shown, rows)` decides, and the order matters: with no catalogs, "no catalogs" and "one language" are both true at once, and only one of them is useful. It is tested directly, which is why the branch order is pinned rather than described.
+- **Nothing about installing changed, and there was nothing to change.** `npx verbaly-studio` still installs 16 packages and no Svelte: the panel it serves is prebuilt, and `svelte` is an optional peer that only a project rendering the components itself ever pulls in. Measured on a bare `npm install @verbaly/studio@0.56.0`.
+- **7 new tests, 1367 in total.** Each was verified to fail first: asking about languages before catalogs, dropping the one-language branch, dropping the filter branch, and a state written as a label instead of a sentence.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.**
+
+### Docs impact (synced)
+
+- Nothing to change. The empty states are what the screen says, not what the docs say.
+
 ## [0.56.0] · 2026-09-14
 
 **The panel stopped fetching its own data.** It is handed a `StudioApi` and calls it, which is what turns it from a page the command serves into a thing you can render yourself over whatever data you have. And it finally opens dark on a dark machine. Breaking: no.
@@ -82,7 +104,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Progress counted batches, and batches run in parallel across languages.** A batch number is per language, so the bar walked backwards every time a batch of another language landed. It counts keys now, against the total the plan promised, which is the one number that only goes up.
 - **The panel ran `translate` with different settings than the command does.** It ignored your `batchSize`, `concurrency` and `retries`, and never passed origins, so the provider saw less context from the panel than from the terminal. Same command, same behaviour now.
 - **Finding new text reported a number that meant nothing.** It summed what was added across every language, so two new messages in a project with two target languages read as *56 added*: the targets gain a blank for every gap they already had. Only the source locale counts as new text.
-- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against holds 1607). Re-measured, along with the triage: **23 of 1607 in Spanish, 22 in Portuguese**.
+- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against holds 1619). Re-measured, along with the triage: **23 of 1619 in Spanish, 22 in Portuguese**.
 - **`@verbaly/studio`'s npm page linked to the site's front door**, not to its own documentation. It is the only package that did; every other one points at the page that explains it. Deferred from 0.53.0 on purpose, because a homepage can only be corrected by a publish.
 - **A raw NUL byte reached `model.ts`** as a map separator, written as the character instead of the escape. It is the third time this has happened in this repository, it makes git treat the file as binary, and the only symptom is `Bin` in `git diff --stat`. The escape is identical and the file now carries the one line that says so.
 

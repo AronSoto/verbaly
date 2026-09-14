@@ -42,7 +42,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **The public surface did not move: still 94 names.** `migrateCatalogs` lives in the compiler and is used by the CLI in the same package, so it needs no export, and the rule says not to add one.
 - **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** The command is build side only.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`/docs/guide/migrate` is rewritten** and now leads with the command: what Verbaly does for you, then the one thing that changes, then the optional upgrades. The before/after teaches the truth.
 - **`/docs/reference/cli` gains a `migrate` section**, in the set-up stage next to `wrap`, with the three ways to run it and the list of what it refuses to guess.

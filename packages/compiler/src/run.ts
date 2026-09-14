@@ -15,6 +15,7 @@ import { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
 import { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
 import { init } from './init';
+import { migrateCatalogs } from './migrate';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { formatRenderWarnings, renderSite } from './render';
 import type { MessageRegistry } from './registry';
@@ -36,6 +37,7 @@ Usage:
   verbaly init       scaffold config + locale catalogs (detects your framework)
   verbaly doctor     diagnose the setup (config, catalogs, plugin, types, keys)
   verbaly wrap       find hardcoded JSX text and wrap it in t\`…\` (report; --write applies)
+  verbaly migrate    port catalogs from another i18n library (report; --write applies)
   verbaly extract    scan sources, update catalogs and types
   verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
@@ -53,7 +55,8 @@ Options:
   --locales <csv>    extra locales; for translate: target locales to fill
   --prune            drop keys no longer referenced (extract)
   --watch            keep extracting as source files change (extract)
-  --write            apply the rewrites instead of only reporting (wrap)
+  --write            apply the rewrites instead of only reporting (wrap, migrate)
+  --plurals          also merge _one/_other into one message with variants (migrate)
   --json             machine-readable output (status)
   --drafts           also fail on unreviewed machine translations (check)
   --approve          mark listed drafts as reviewed (review)
@@ -103,6 +106,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       sitemap: { type: 'boolean' },
       clean: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
+      plurals: { type: 'boolean' },
       format: { type: 'string' },
       out: { type: 'string' },
       missing: { type: 'boolean' },
@@ -207,6 +211,36 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       watchProject(cfg, runExtract);
       console.log('[verbaly] watching for source changes (ctrl+c to stop)');
     }
+    return;
+  }
+
+  if (command === 'migrate') {
+    const result = migrateCatalogs(cfg, { write: values.write, plurals: values.plurals });
+    const from = result.detected.length ? result.detected.join(', ') : 'no known i18n library';
+    const changes = result.braces.length + result.plurals.length;
+    if (changes === 0 && result.skipped.length === 0) {
+      console.log(`[verbaly] catalogs need nothing (${from}) ✓`);
+      return;
+    }
+    const verb = values.write ? 'ported' : 'would port';
+    const note = values.write ? '' : ' (report only, use --write to apply)';
+    console.log(`[verbaly] ${verb} ${counted(changes, 'message')} from ${from}${note}`);
+    for (const entry of result.braces) {
+      console.log(`  ${entry.locale} ${entry.key}  ${entry.before} → ${entry.after}`);
+    }
+    for (const entry of result.plurals) {
+      console.log(`  ${entry.locale} ${entry.key}  ${entry.from.join(' + ')} → ${entry.after}`);
+    }
+    if (!values.plurals && changes > 0) {
+      console.log('  --plurals also merges _one/_other into one message with variants');
+    }
+    if (result.skipped.length > 0) {
+      console.log('  needs a human:');
+      for (const entry of result.skipped) {
+        console.log(`  ${entry.locale} ${entry.key}  ${entry.reason}`);
+      }
+    }
+    if (values.write) console.log('  next: run verbaly check');
     return;
   }
 
@@ -548,6 +582,7 @@ export const COMMAND_FLAGS: Record<string, string[]> = {
   doctor: [],
   extract: ['prune', 'dry-run', 'watch'],
   wrap: ['write'],
+  migrate: ['write', 'plurals'],
   status: ['json'],
   check: ['reporter', 'drafts'],
   translate: ['model', 'dry-run'],

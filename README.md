@@ -204,7 +204,7 @@ usageMatchRegex:
 monopoly: true
 ```
 
-`keystyle: flat` matters: Verbaly catalogs are flat maps, so the default nested guess would read a dotted key as a path. Use the extension for reading, not for writing: its extract and rename actions assume you own the keys, and in Verbaly the compiler does. New keys come from `verbaly extract`, translations from your catalogs, `verbaly export`/`import` or `verbaly translate`.
+`keystyle` has to match the shape of your own catalogs: `flat` if they hold dotted keys, `nested` if they hold groups. Verbaly reads both and writes back the shape your file already has, so the extension is the one that needs telling. Use the extension for reading, not for writing: its extract and rename actions assume you own the keys, and in Verbaly the compiler does. New keys come from `verbaly extract`, translations from your catalogs, `verbaly export`/`import` or `verbaly translate`.
 
 ---
 

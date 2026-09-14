@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.54.0] · 2026-09-14
+
+**Your catalogs were always welcome as they are, and our own docs said otherwise.** A question about how much a newcomer has to learn turned into a measurement, and the measurement found that three of the four things the migration guide asked people to do were never required. This release deletes that work from the page and hands the one real transformation to a command. Breaking: no.
+
+### Highlights
+
+- **New command, `npx verbaly migrate`.** Point it at a project that uses another i18n library and it ports the catalogs you already have. It shows you what it would do first, and `--write` applies it.
+- **Your files keep their shape.** Nested groups stay nested, and the command writes back exactly the layout your file already had. Nothing gets reformatted.
+- **One thing genuinely has to change, and now you do not do it by hand**: `{{name}}` becomes `{name}`. A doubled brace is how Verbaly writes a literal one, so those two spellings cannot both mean interpolation.
+- **What it will not guess, it tells you.** A format inside the braces, an unescaped value, a `$t()` nesting, or a merge that would overwrite a key you use are listed with the reason, and those messages are left exactly as they were.
+- **`--plurals` is the optional half.** It merges `_one` and `_other` into a single message, which is what turns on automatic plural selection, and inside it the count prints itself already localized. Leave the flag off and those keys keep working as they are.
+- **The migration page stopped asking for work that was never needed.** It used to say catalogs are flat and tell you to flatten yours, merge your plural suffixes and rename your namespaces. None of the three was ever true.
+
+### Added
+
+- **`verbaly migrate`** (`@verbaly/compiler`). Detects the library from your `package.json` (i18next, react-i18next, vue-i18n, react-intl, next-intl, svelte-i18n), reports by default, `--write` applies, `--plurals` opts into the merge. It reads and writes through the same `readCatalog`/`writeCatalog` pair every other command uses, which is why the file's shape survives.
+- **It knows both i18next plural spellings.** The current one is `key_one` + `key_other`; before v21 it was `key` + `key_plural`, where the bare key is the singular. The second was the interesting case: reading it as a name collision would have refused the merge on exactly the catalogs that most need it.
+
+### Fixed
+
+- **The migration guide asked for three transformations that were never required** (docs). Measured against the real compiler: a catalog straight out of i18next, with nested groups, `_one`/`_other` suffixes and a `ns:key` colon, passes `verbaly check` untouched. The page now says so, and its before/after highlights one line out of four instead of three.
+- **The same claim lived in eight places** across both repositories: twice on the migration page, in its concept table, in the before/after itself, twice on the translators page, three times in `@verbaly/compiler`'s README and once in the root README. All corrected.
+- **The i18n-ally recommendation was wrong for half of its readers.** The root README told everyone to set `keystyle: flat`. That is right only for a project whose catalogs are flat; a nested one needs `nested`. It now says to match your own files.
+
+### Notes
+
+- **This started as a product question and ended as a documentation defect, which is the useful part.** The question was whether Verbaly demands too much of a newcomer. The answer, measured rather than argued, is that the compiler already absorbs three of the four transformations and always did. **The complexity people would have felt was manufactured by the page that introduces the project**, not by the code.
+- **The project already knew.** `/docs/guide/keys` has been saying "flat is what extract writes, nested is what a person writes, both are read everywhere" the whole time, and `/docs/guide/testing` says the same. Two pages of the same site gave opposite instructions, and the one a newcomer reads first was the wrong one. **A claim can be contradicted by its own neighbour and still survive**, because nothing reads both at once.
+- **The strongest evidence was in the mirror**: this project's own site is 44 top-level groups, every one of them nested, and its whole gate is green. We were asking migrating users to flatten something we have never flattened ourselves.
+- **A single plural form is refused rather than merged**, and that is the one place the command says no to something it could technically do. `{count | other: # files}` has no `one` case, so English would render "1 files" for a count of one, and `validateMessage` cannot warn about it because a block whose only selector is `other` is a select, not a plural. Merging there would have been a silent downgrade, so it is reported instead.
+- **11 new tests, 1301 in total.** Every one was verified to fail first: ten sabotages, ten red runs, covering the brace rewrite, the shape being preserved, report mode writing nothing, each of the three refusals, the opt-in, the localized count, the pre-v21 pair and the overwrite guard.
+- **The public surface did not move: still 94 names.** `migrateCatalogs` lives in the compiler and is used by the CLI in the same package, so it needs no export, and the rule says not to add one.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** The command is build side only.
+
+### Docs impact (pending)
+
+- **`/docs/guide/migrate` is rewritten** and now leads with the command: what Verbaly does for you, then the one thing that changes, then the optional upgrades. The before/after teaches the truth.
+- **`/docs/reference/cli` gains a `migrate` section**, in the set-up stage next to `wrap`, with the three ways to run it and the list of what it refuses to guess.
+- **`/docs/guide/translators` stopped calling the catalogs flat**; the TMS advice is unchanged, because it never depended on that.
+- **The Agent Skill mentions it**, since porting a project is where an agent now starts.
+
 ## [0.53.0] · 2026-09-11
 
 **A thirteenth package: your catalogs, served on localhost.** `npx verbaly-studio` reads the whole project in one shot and lets you write a translation back, with the same validation the CI gate runs. This release ships the server and the state, not the interface, and says so in its own README. Breaking: no.

@@ -11,7 +11,7 @@
 
 ---
 
-The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `` t`…` `` **and JSX `<Trans>` children** into stable hashed keys (or **readable keys** via `` t.id('inbox.title')`…` `` and `<Trans id="inbox.title">…</Trans>`), flat JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
+The compiler behind [Verbaly](https://github.com/AronSoto/verbaly): AST extraction of `` t`…` `` **and JSX `<Trans>` children** into stable hashed keys (or **readable keys** via `` t.id('inbox.title')`…` `` and `<Trans id="inbox.title">…</Trans>`), JSON catalog sync, and typed codegen. It also ships the **`verbaly` CLI**.
 
 Extraction covers `.js`/`.ts`/`.jsx`/`.tsx` **and `.svelte`, `.vue` and `.astro` single-file components**: script blocks and frontmatter, plus markup expressions (Svelte's `$t` store form included). Text that only sits on screen is never extracted, so a documented snippet cannot become a real key.
 
@@ -23,6 +23,7 @@ Extraction covers `.js`/`.ts`/`.jsx`/`.tsx` **and `.svelte`, `.vue` and `.astro`
 npx verbaly init           # scaffold config + locale catalogs (detects your framework)
 npx verbaly doctor         # diagnose the setup (config, catalogs, wiring, types, translations)
 npx verbaly wrap           # onboarding codemod: report plain JSX text, --write wraps it in t``
+npx verbaly migrate        # port catalogs from another i18n library (--write applies, --plurals merges)
 npx verbaly extract        # sync catalogs + types
 npx verbaly extract --watch  # keep extracting as you code (dev loop)
 npx verbaly extract --prune  # drop orphaned keys
@@ -37,7 +38,7 @@ npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA
 npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
 ```
 
-Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (flat, portable, no proprietary format) and `verbaly.d.ts` with params typed per key.
+Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (portable JSON, flat or nested, whichever the file already is) and `verbaly.d.ts` with params typed per key.
 
 ## 🚦 The build gate
 
@@ -157,7 +158,7 @@ The other format cases stay in the runtime always, and that is measured rather t
 
 ## 🌍 Human translators & TMS
 
-Catalogs are **flat JSON**: most TMS platforms (Crowdin, Lokalise, Phrase, …) ingest them natively; point the platform at `locales/` and you're done. For everything else there's a built-in round-trip:
+Catalogs are **plain JSON**, in whichever shape your file already has: most TMS platforms (Crowdin, Lokalise, Phrase, …) ingest them natively; point the platform at `locales/` and you're done. For everything else there's a built-in round-trip:
 
 ```bash
 npx verbaly export                    # verbaly-export/<locale>.xlf (XLIFF 2.0, source + target per unit)

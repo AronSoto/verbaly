@@ -81,6 +81,8 @@
 }
 
 .verbaly-studio {
+  /* the class is the whole layer, so it paints its own ground: a host owes it nothing */
+  background: var(--ground);
   color: var(--body);
   font-family: var(--sans);
   font-size: 14px;

@@ -94,7 +94,7 @@ function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
   };
 }
 
-// One shot and unpaginated: the biggest catalog we know is 1619 messages, instant over localhost.
+// One shot and unpaginated: the biggest catalog we know is past 1600 messages, instant locally.
 export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const { catalogs, problems } = readAll(cfg);
   const registry = await extractProject(cfg);

@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/studio",
-  "version": "0.56.1",
+  "version": "0.57.0",
   "description": "Local review server for Verbaly: read, edit and approve translations over the JSON files already in your repo. No account, no database.",
   "keywords": [
     "i18n",
@@ -26,17 +26,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./ui": {
-      "types": "./dist/panel/index.ts",
-      "import": "./dist/panel/index.ts"
-    },
-    "./Panel.svelte": {
-      "types": "./dist/panel/Panel.svelte.d.ts",
-      "svelte": "./dist/panel/Panel.svelte",
-      "default": "./dist/panel/Panel.svelte"
-    },
-    "./tokens.css": "./dist/panel/tokens.css"
+    }
   },
   "bin": {
     "verbaly-studio": "./dist/cli.js"
@@ -65,21 +55,9 @@
     "verbaly": "workspace:^"
   },
   "scripts": {
-    "build": "tsdown && vite build && node scripts/copy-panel.mjs",
+    "build": "tsdown && vite build",
     "dev": "vite",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
-  },
-  "peerDependencies": {
-    "svelte": "^5.0.0",
-    "verbaly": "workspace:^"
-  },
-  "peerDependenciesMeta": {
-    "svelte": {
-      "optional": true
-    },
-    "verbaly": {
-      "optional": true
-    }
   }
 }

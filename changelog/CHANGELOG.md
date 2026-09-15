@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.57.0] · 2026-09-14
+
+**Studio is a command again.** Three releases ago it was one thing you run. Then it grew three entry points, an optional peer and a chapter of its README about rendering the panel by hand, and all of that existed for one web page. It is gone. Breaking: yes, for anyone importing from `@verbaly/studio` (`/ui`, `/Panel.svelte`, `/tokens.css`).
+
+### Highlights
+
+- **You install `@verbaly/studio` and there is nothing to import.** One command, no peers to add, no `.svelte` for your bundler to compile. The package has one entry again.
+- **Breaking:** `@verbaly/studio/Panel.svelte`, `@verbaly/studio/ui` and `@verbaly/studio/tokens.css` are removed, and `svelte` is no longer a peer. They shipped in 0.56.0 and had one consumer, our own demo page.
+- **Nothing about running Studio changed.** `npx verbaly-studio` opens the same screen, over the same files, with the same commands.
+
+### Removed
+
+- **`@verbaly/studio/Panel.svelte`, `@verbaly/studio/ui` and `@verbaly/studio/tokens.css`**, the three entry points 0.56.0 added. The `exports` map is back to one entry and `bin` is unchanged.
+- **`svelte` and `verbaly` as optional peer dependencies.** Nothing you install has to answer a question about them any more.
+- **The build step that copied the panel's source** (`scripts/copy-panel.mjs`), the hand-written `Panel.svelte.d.ts` and the public barrel `src/ui/index.ts`.
+- **The README chapter about rendering the panel yourself**, and the section that matched it in the docs site.
+
+### Fixed
+
+- **The panel was see-through inside another page.** 0.56.0 moved the page-level rules out of `tokens.css` so it could not touch a host's `body`, and the background went with them, so a host saw its own page through the table. The `.verbaly-studio` class paints its own ground now: it is the whole layer, so a host owes it nothing.
+- **A catalog size that ages was quoted in two more places.** The README and `api.ts` said 1619 messages, which stopped being true the day after it was measured. Neither quotes a number that grows with every release.
+
+### Notes
+
+- **The decision, because the mistake is worth naming.** The panel used to fetch its own data, so the demo page could not reuse it. Handing it a `StudioApi` was the right fix and it stays. Publishing the component so one page could import it was not: it turned a website problem into a public API, and the bill was paid by every reader of the README. A package whose pitch is *one command, no configuration* should not open with four import lines.
+- **What the refactor kept.** `Panel.svelte` still takes `{ panel, api }`, `wire.ts` is still the only file in the package that touches the network, and a test still keeps it that way. The reason is internal now instead of borrowed: it is what would let the panel be tested without a server.
+- **`test/embed.test.ts` became `test/panel.test.ts`.** The three structural pins survive (nothing imported but svelte, verbaly and its own files; the boot module is never reached from a component; one `fetch`). The two that pinned the shape of the exports were replaced by three that pin the opposite: one entry, no peers, and no `.svelte` anywhere in `exports`. All three were sabotaged and seen red before being trusted.
+- **The docs site never shipped the page that needed this.** The work that added `@astrojs/svelte`, `svelte` and `@verbaly/studio` to it was withdrawn before it was committed, so the only consumer these entry points ever had never reached production. Its Studio demo is being rebuilt in Astro, with no framework and nothing importing the panel.
+- **The packed package is 66.2 KB**, down from 83.4, and below the 67.6 it was before 0.56.0. The panel the command serves is unchanged at 23.8 KB gzip of JS plus 3.0 KB of CSS: it is built by Vite, and that never depended on the exports.
+- **1369 tests, 124 in `@verbaly/studio`.** Build, typecheck, lint and the comments rule are green. The count comes from the single-process run, which reads one higher than adding up the thirteen: the previous entry's 1367 was the sum, and this is the number worth carrying.
+- **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** Nothing in core was touched, and the bench says the same: 31.8x, 13.3x, 4.4x and 5.3x against i18next.
+- **The Socket badge in the root README was three versions behind**, pinned at 0.53.0. It is part of the ritual and it had been skipped since.
+
+### Docs impact (pending)
+
+- **There is nothing to remove, and that is the point.** The site never documented the embeddable surface, because the page that would have used it was withdrawn before it was committed. A reader of `/docs/guide/studio` has never been told to import anything.
+- **`/docs/guide/studio`: the catalog size stops being an exact figure.** It said 1587 messages, which was a number from another repo that ages with every release. Done with this release.
+- **No `/studio` route, and nothing links to one.** The nav pane, the mega-sheet and the home CTA all point at `/docs/guide/studio`.
+- **Nothing else on the site needs to change**, and after the publish it is the usual two steps: bump the three dependencies to `^0.57.0` and run `pnpm install`.
+- **Never quote an exact catalog size from another repo again.** This release closed the third place it had leaked into.
+
 ## [0.56.1] · 2026-09-14
 
 **The first screen, when there is nothing on it.** Studio opened on a project that was not set up yet and told you to tick a language that was not there. Every empty state and every disabled button now names what is actually true. Breaking: no.
@@ -104,7 +145,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Progress counted batches, and batches run in parallel across languages.** A batch number is per language, so the bar walked backwards every time a batch of another language landed. It counts keys now, against the total the plan promised, which is the one number that only goes up.
 - **The panel ran `translate` with different settings than the command does.** It ignored your `batchSize`, `concurrency` and `retries`, and never passed origins, so the provider saw less context from the panel than from the terminal. Same command, same behaviour now.
 - **Finding new text reported a number that meant nothing.** It summed what was added across every language, so two new messages in a project with two target languages read as *56 added*: the targets gain a blank for every gap they already had. Only the source locale counts as new text.
-- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against holds 1619). Re-measured, along with the triage: **23 of 1619 in Spanish, 22 in Portuguese**.
+- **Studio's README and `api.ts` quoted a catalog size from two releases ago** (1479 messages, when the site it is measured against was past 1600). It no longer quotes a number that grows with every release, and the triage was re-measured: **23 flagged in Spanish, 22 in Portuguese**.
 - **`@verbaly/studio`'s npm page linked to the site's front door**, not to its own documentation. It is the only package that did; every other one points at the page that explains it. Deferred from 0.53.0 on purpose, because a homepage can only be corrected by a publish.
 - **A raw NUL byte reached `model.ts`** as a map separator, written as the character instead of the escape. It is the third time this has happened in this repository, it makes git treat the file as binary, and the only symptom is `Bin` in `git diff --stat`. The escape is identical and the file now carries the one line that says so.
 

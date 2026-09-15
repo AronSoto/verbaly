@@ -78,7 +78,7 @@ keep in step. Every answer is JSON, including the errors, which are `{ "error": 
 | `GET /api/job/:id` | how that run is going, to ask once a second |
 | `GET /api/job` | the run in progress, or `null`; a reloaded page asks this instead of losing the bar |
 
-`GET /api/state` is unpaginated on purpose: the biggest catalog we know is 1619 messages, and over
+`GET /api/state` is unpaginated on purpose: the biggest catalog we know is more than 1600 messages, and over
 localhost that is instant. Its `problems` array is why nothing Studio reads can take the server
 down: a catalog it cannot parse, a drafts sidecar it cannot parse, a source file Babel cannot read,
 and a `--root` with no catalogs in it are all reported there, by a path relative to your project,
@@ -133,45 +133,7 @@ an unfinished translation is not a second opinion.
 changed because of what the measurement said.** `digits` was reading the comma after a number as
 part of it, and it was flagging a number the translation added where the source had none, which is
 what "refresh" becoming "F5" looks like. Those were **10 of 10** of its hits, all correct text, so
-both are now excluded. The result is **23 of 1619 messages** flagged in Spanish and 22 in Portuguese.
-
-## 🖼 Rendering the panel yourself
-
-The panel does not fetch anything. It is handed a `StudioApi` and calls it, so a host can render it
-over whatever it likes: `serverApi(token)` talks to the running command, and anything else that
-satisfies the type works the same. That is how the live panel on the docs site runs over an example
-project held in memory.
-
-```svelte
-<script lang="ts">
-  import Panel from '@verbaly/studio/Panel.svelte';
-  import { serverApi, toPanel, type RawState } from '@verbaly/studio/ui';
-  import '@verbaly/studio/tokens.css';
-
-  const { raw }: { raw: RawState } = $props();
-  // $state is what makes a written cell repaint: a plain object does not
-  const panel = $state(toPanel(raw));
-</script>
-
-<div class="verbaly-studio" style="height: 720px">
-  <Panel {panel} api={serverApi(token)} />
-</div>
-```
-
-**The class is the whole layer.** `tokens.css` defines its eight steps, its four inks and its box
-model on `.verbaly-studio` and nowhere else, so it cannot reach your `body` or your own variables.
-The panel fills the element you put the class on, and that element decides how tall it is.
-
-**It ships as source and needs Svelte 5**, like `@verbaly/svelte/Trans.svelte`: a `.svelte` has to
-reach your compiler unbuilt. `svelte` and `verbaly` are optional peers for that reason, and
-`npx verbaly-studio` needs neither.
-
-**This is the one host shape there is.** Studio is a local command first, and a React or Vue build of
-the panel is not planned: on any other stack, the way to use Studio is to run it.
-
-**The panel writes; it does not decide.** A `StudioApi` you write yourself is what runs the same two
-validations `verbaly check` runs, and what keeps a machine translation a draft. Nothing in the
-components enforces either, because nothing in them ever touched a file.
+both are now excluded. The result is **23 messages** flagged in Spanish and 22 in Portuguese.
 
 ## 🧩 Programmatic API
 

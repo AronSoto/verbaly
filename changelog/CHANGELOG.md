@@ -8,6 +8,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.58.0] · 2026-09-15
+
+**Two places where Verbaly quietly did something other than what it said.** It rewrote your catalog in alphabetical order without mentioning it, and it told you a translation was checked without ever looking inside an ICU message. Both are fixed at the source. Breaking: no, but **a project with a broken ICU message will start failing `verbaly check`**, which is the point.
+
+### Highlights
+
+- **Your catalog keeps the order you wrote it in.** Anything that wrote a catalog re-sorted the whole file alphabetically, so the first save turned a hand-ordered file into a diff of every line. On this project's own catalog that was **1817 of 1823 lines, and it is now zero**.
+- **The checks finally look inside an ICU message.** A translation that flattened `{count, plural, …}` into plain text, or dropped a parameter from it, came back clean. It is caught now, in `verbaly check`, in what a machine translation is allowed to return, and in what an imported file is allowed to contain.
+- **Studio's live preview says the same thing the build says**, ICU included. It used to go green on a message the server would then refuse.
+
+### Fixed
+
+- **A catalog is written back in the order its file already had.** The rule is per level: a level that was already sorted keeps being sorted, so a new key still lands in its alphabetical place; a level a person ordered keeps that order, and a new key goes at the end of its group, where it reads as an addition. A locale with no file yet is sorted, exactly as before.
+- **`verbaly migrate` stops reformatting the file it is migrating.** It writes in place, so converting an i18next catalog's braces and plurals also alphabetized it: a one-line change arrived as a whole-file diff, for the very people the command exists to welcome.
+- **`validateMessage` and `validatePair` read ICU with the ICU parser.** They called `parse(message)` with no parser, so an ICU message came back as one lump of text: no parameters, no plural block, nothing to compare. Every consumer gets the fix at once, because there is one validator: `check`, `status`, the guard on `translate`, the guard on `import`, and the panel.
+- **`verbaly check` no longer tells you to pass an `icu` option to `createVerbaly`.** Reading an ICU message without the parser warns, and that warning is correct for an app that fetched a catalog after its build. Coming from the compiler it blamed your runtime configuration for something the compiler simply was not doing.
+
+### Notes
+
+- **Why order preservation is safe, and it is the reason it can be done at all**: a catalog that Verbaly itself has written is already alphabetical, and a sorted level stays sorted, so nothing changes for it. The behaviour only differs for a file a person ordered, which is exactly the file that was being damaged. Measured on this project's three catalogs: **0 lines changed** where the old writer changed 1817.
+- **The order is not decoration.** A headline split into pieces (`claim_start`, `claim_mid`, `claim_end`) sorts into `claim_end, claim_mid, claim_start`: the sentence backwards, for the translator who has to read it.
+- **It costs no extra read.** `writeCatalog` already loaded and parsed the previous file to decide whether the catalog is grouped or flat; the key order is a second question about the same parse, so the file is now parsed once and answers both.
+- **ICU validation compares across syntaxes**, because each side is read with the parser it needs: an ICU source against a native-syntax translation validates correctly, which is what a half-migrated project looks like.
+- **21 new tests, 1390 in total**, and every one was run against a deliberately broken version first. Two of them only became real after that: a parity test between the panel and the gate passed with the panel's parser removed, because **`parse` caches by message alone**, so the gate had already put the correct tree in the cache; and a warn assertion passed because `warnOnce` is module state that an earlier test had already spent. The first is fixed by giving every case its own message, the second by giving the test its own file.
+- **The panel grew 0.50 KB gzip** (23.80 to 24.30) for the ICU parser. It is served from your own machine by a command, not downloaded by your visitors, so the weight argument that keeps ICU optional in the runtime does not apply here.
+- **Runtime untouched: 3.09 / 5.86 / 1.60 / 7.58.** Bench: 32.4x, 11.5x, 5.8x and 4.4x against i18next.
+
+### Docs impact (pending)
+
+- **`/docs/guide/format`, the ICU section: say that the checks read ICU.** The page explains that ICU is detected per message and what it weighs, and it can now also say that a broken ICU plural fails the build like a native one does.
+- **`/docs/guide/studio` and `/docs/guide/cli`: the catalog keeps its order.** Worth one sentence where writes are described, because it is the difference between a readable diff and a thousand-line one.
+- **Nothing on the site promised alphabetical catalogs**, so there is nothing to correct, only something to add.
+
 ## [0.57.0] · 2026-09-14
 
 **Studio is a command again.** Three releases ago it was one thing you run. Then it grew three entry points, an optional peer and a chapter of its README about rendering the panel by hand, and all of that existed for one web page. It is gone. Breaking: yes, for anyone importing from `@verbaly/studio` (`/ui`, `/Panel.svelte`, `/tokens.css`).

@@ -80,6 +80,7 @@ describe('the chips, which are how you see a param survive', () => {
 
 // The whole point of using the runtime's parser is that there is no second grammar to drift.
 describe('the preview never contradicts the gate that will run on the server', () => {
+  // every source is its own message: parse caches by message, so a repeat hides a lost parser
   const PAIRS: [string, string][] = [
     ['Hi {name}', 'Hola {name}'],
     ['Hi {name}', 'Hola'],
@@ -93,6 +94,9 @@ describe('the preview never contradicts the gate that will run on the server', (
     ['{n | one: one | other: # many}', '{n | one: uno | other: # muchos}'],
     ['Total {amount:currency/EUR}', 'Total {amount:currency/EUR}'],
     ['Total {amount:currency/EUR}', 'Total'],
+    ['{a, plural, one {# file} other {# files}}', '{a, plural, one {# fichero} other {# ficheros}}'],
+    ['{b, plural, one {# box} other {# boxes}}', 'cajas'],
+    ['{name} has {c, number} points', '{name} tiene puntos'],
   ];
 
   it.each(PAIRS)('agrees on %j -> %j', (source, translated) => {

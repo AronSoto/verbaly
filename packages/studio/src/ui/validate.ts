@@ -1,6 +1,6 @@
-import { parse, parseTags } from 'verbaly';
+import { parse, parseIcu, parseTags } from 'verbaly';
 
-// The browser preview of the gate, on the runtime's own parser: the server is still the authority.
+// The browser preview of the gate, on its exact parser, ICU included: the server still decides.
 export interface Preview {
   params: { name: string; inSource: boolean; inTarget: boolean }[];
   problems: string[];
@@ -23,7 +23,7 @@ function walk(nodes: Node[], out: Map<string, Set<string>>): void {
 function shape(message: string): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
   try {
-    walk(parse(message) as Node[], out);
+    walk(parse(message, parseIcu) as Node[], out);
   } catch {
     // a half-typed message is not a defect, so an unparseable draft simply reports nothing yet
   }

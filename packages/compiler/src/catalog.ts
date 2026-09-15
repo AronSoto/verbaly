@@ -100,8 +100,44 @@ function sortTree(tree: MessageTree): MessageTree {
   return sorted;
 }
 
-export function serializeCatalog(catalog: Catalog, nested = false): string {
-  return JSON.stringify(sortTree(nested ? nest(catalog) : catalog), null, 2) + '\n';
+function isSorted(keys: string[]): boolean {
+  for (let i = 1; i < keys.length; i++) if (keys[i - 1]! > keys[i]!) return false;
+  return true;
+}
+
+// a level a person ordered keeps that order; one that was already sorted keeps being sorted
+function orderLike(tree: MessageTree, previous: MessageTree): MessageTree {
+  const had = Object.keys(previous);
+  if (isSorted(had)) return sortTree(tree);
+
+  const out: MessageTree = {};
+  const take = (key: string): void => {
+    const value = tree[key];
+    if (typeof value === 'string') {
+      out[key] = value;
+      return;
+    }
+    if (value === undefined) return;
+    const before = previous[key];
+    out[key] =
+      typeof before === 'object' && before !== null
+        ? orderLike(value, before)
+        : sortTree(value);
+  };
+
+  for (const key of had) if (key in tree) take(key);
+  // a key the file did not have is an addition, and it reads as one at the end of its group
+  for (const key of Object.keys(tree).sort()) if (!(key in previous)) take(key);
+  return out;
+}
+
+export function serializeCatalog(
+  catalog: Catalog,
+  nested = false,
+  previous?: MessageTree,
+): string {
+  const tree: MessageTree = nested ? nest(catalog) : catalog;
+  return JSON.stringify(previous ? orderLike(tree, previous) : sortTree(tree), null, 2) + '\n';
 }
 
 export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catalog): string {
@@ -112,7 +148,9 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
   } catch {
     mkdirSync(cfg.dir, { recursive: true });
   }
-  const serialized = serializeCatalog(catalog, wantsNesting(cfg, locale, existing));
+  // parsed once: the shape and the key order are two questions about the same previous file
+  const previous = existing === undefined ? undefined : parseTree(existing);
+  const serialized = serializeCatalog(catalog, wantsNesting(cfg, locale, existing, previous), previous);
   // identical writes are skipped: a rewrite retriggers whatever watches the catalog
   if (existing === serialized) return serialized;
   writeFileSync(path, serialized);
@@ -120,11 +158,13 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
 }
 
 // the file's own shape, and for a locale that does not exist yet, the source catalog's
-function wantsNesting(cfg: ResolvedConfig, locale: string, existing: string | undefined): boolean {
-  if (existing !== undefined) {
-    const tree = parseTree(existing);
-    return tree !== undefined && isNested(tree);
-  }
+function wantsNesting(
+  cfg: ResolvedConfig,
+  locale: string,
+  existing: string | undefined,
+  previous: MessageTree | undefined,
+): boolean {
+  if (existing !== undefined) return previous !== undefined && isNested(previous);
   if (locale === cfg.sourceLocale) return false;
   return isNested(readTree(cfg, cfg.sourceLocale));
 }

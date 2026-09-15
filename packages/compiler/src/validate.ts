@@ -1,4 +1,7 @@
-import { parse, type MessageNode } from 'verbaly';
+import { parse, parseIcu, type MessageNode } from 'verbaly';
+
+// the gate reads every catalog on disk, so it always has the parser the runtime only opts into
+const read = (message: string): MessageNode[] => parse(message, parseIcu);
 
 export const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many']);
 export type IssueSeverity = 'error' | 'warning';
@@ -19,7 +22,7 @@ const EXACT = /^=\d+$/;
 // param name → its plural/select block, when it has one; first block per name wins
 function shapes(message: string): Map<string, VariantShape> {
   const out = new Map<string, VariantShape>();
-  walk(parse(message), out);
+  walk(read(message), out);
   return out;
 }
 
@@ -40,7 +43,7 @@ function walk(nodes: MessageNode[], out: Map<string, VariantShape>): void {
 
 function paramNames(message: string): string[] {
   const names = new Set<string>();
-  collect(parse(message), names);
+  collect(read(message), names);
   return [...names].sort();
 }
 

@@ -35,7 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **The panel grew 0.50 KB gzip** (23.80 to 24.30) for the ICU parser. It is served from your own machine by a command, not downloaded by your visitors, so the weight argument that keeps ICU optional in the runtime does not apply here.
 - **Runtime untouched: 3.09 / 5.86 / 1.60 / 7.58.** Bench: 32.4x, 11.5x, 5.8x and 4.4x against i18next.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`/docs/guide/format`, the ICU section: say that the checks read ICU.** The page explains that ICU is detected per message and what it weighs, and it can now also say that a broken ICU plural fails the build like a native one does.
 - **`/docs/guide/studio` and `/docs/guide/cli`: the catalog keeps its order.** Worth one sentence where writes are described, because it is the difference between a readable diff and a thousand-line one.

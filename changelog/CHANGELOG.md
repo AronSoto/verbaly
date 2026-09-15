@@ -41,7 +41,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Sizes unchanged: 3.09 / 5.86 / 1.60 / 7.58.** Nothing in core was touched, and the bench says the same: 31.8x, 13.3x, 4.4x and 5.3x against i18next.
 - **The Socket badge in the root README was three versions behind**, pinned at 0.53.0. It is part of the ritual and it had been skipped since.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **There is nothing to remove, and that is the point.** The site never documented the embeddable surface, because the page that would have used it was withdrawn before it was committed. A reader of `/docs/guide/studio` has never been told to import anything.
 - **`/docs/guide/studio`: the catalog size stops being an exact figure.** It said 1587 messages, which was a number from another repo that ages with every release. Done with this release.

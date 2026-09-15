@@ -41,7 +41,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **9 new tests, 1399 in total**, each run against a deliberately broken version first: asking git for the whole repository instead of the catalog directory, letting the git error escape, dropping the unknown keys in `toPanel`, and leaving a component at the root of `src/ui`.
 - **The panel now serves 25.98 KB gzip of JS and 3.62 of CSS** (from 24.30 and 3.03), and the package packs at 71.6 KB. **Runtime untouched: 3.09 / 5.86 / 1.60 / 7.58.** Bench: 33.0x, 10.0x, 5.1x and 5.1x against i18next.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`/docs/guide/studio`: describe the first screen.** The page explains the table, the row and the commands, and it should now open the way the tool does: with what is waiting for you, the health of the project and the recent commits.
 - **Say what the history card needs**, which is a git repository and nothing else, and that its absence is not an error.

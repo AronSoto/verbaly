@@ -1,8 +1,8 @@
 <script lang="ts">
   import Marks from './Marks.svelte';
-  import { preview } from './validate';
-  import { SIGNAL, STATE } from './words';
-  import type { Cell, Row } from './model';
+  import { preview } from '../validate';
+  import { SIGNAL, STATE } from '../words';
+  import type { Cell, Row } from '../model';
 
   interface Props {
     row: Row;

@@ -4,6 +4,7 @@ import type { ResolvedConfig } from '@verbaly/compiler';
 import { approve, buildState, health, unapprove, writeMessage } from './api';
 import { planTranslate, runExtract, startTranslate } from './actions';
 import { read as readJob, running } from './jobs';
+import { catalogHistory } from './history';
 import { readAsset, uiBuilt } from './assets';
 import { guardRequest, newToken } from './guard';
 import { HttpError, badRequest, scrub } from './http';
@@ -102,6 +103,10 @@ export function createStudioApp(cfg: ResolvedConfig, port: number, token: string
 
       if (req.method === 'GET' && url.pathname === '/api/state') {
         send(res, 200, await buildState(cfg));
+        return;
+      }
+      if (req.method === 'GET' && url.pathname === '/api/history') {
+        send(res, 200, { commits: await catalogHistory(cfg) });
         return;
       }
       if (req.method === 'GET' && url.pathname === '/api/health') {

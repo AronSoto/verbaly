@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ACTION, messages } from './words';
-  import type { Job, Plan, StudioApi } from './api';
+  import { ACTION, messages } from '../words';
+  import type { Job, Plan, StudioApi } from '../api';
 
   interface Props {
     api: StudioApi;

@@ -37,6 +37,13 @@ export interface Plan {
   total: number;
 }
 
+export interface Commit {
+  sha: string;
+  author: string;
+  date: string;
+  subject: string;
+}
+
 export interface Job {
   id: string;
   kind: 'translate';
@@ -50,6 +57,7 @@ export interface Job {
 export interface StudioApi {
   state(): Promise<Answer<RawState>>;
   health(): Promise<Answer<Health>>;
+  history(): Promise<Answer<{ commits: Commit[] }>>;
   save(locale: string, key: string, text: string): Promise<Answer<Saved>>;
   setRead(locale: string, keys: string[] | undefined, undo: boolean): Promise<Answer<ReadResult>>;
   extract(): Promise<Answer<Added>>;
@@ -63,6 +71,7 @@ export function serverApi(token: string): StudioApi {
   return {
     state: () => ask<RawState>(token, '/api/state'),
     health: () => ask<Health>(token, '/api/health'),
+    history: () => ask<{ commits: Commit[] }>(token, '/api/history'),
     save: (locale, key, text) =>
       ask<Saved>(token, `/api/message/${encodeURIComponent(locale)}/${encodeURIComponent(key)}`, {
         method: 'PUT',

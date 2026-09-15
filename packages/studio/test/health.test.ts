@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 // Every check doctor emits must have a name here, and the map lives in a .svelte file as text.
-const view = readFileSync(join(import.meta.dirname, '..', 'src', 'ui', 'Health.svelte'), 'utf8');
+const view = readFileSync(join(import.meta.dirname, '..', 'src', 'ui', 'components', 'Health.svelte'), 'utf8');
 const block = /const TITLE: Record<string, string> = \{([\s\S]*?)\n {2}\};/.exec(view)![1]!;
 const NAMED = [...block.matchAll(/^\s*(\w+):/gm)].map((match) => match[1]!);
 

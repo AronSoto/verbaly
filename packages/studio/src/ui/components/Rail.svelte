@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { FILTER, MARK_AS_READ, UNDO } from './words';
+  import { FILTER, MARK_AS_READ, UNDO } from '../words';
   import type { Snippet } from 'svelte';
-  import type { LocaleHealth, MessageState } from './model';
+  import type { LocaleHealth, MessageState } from '../model';
 
   type Which = 'all' | 'look' | 'missing' | 'draft' | 'broken';
+  type View = 'overview' | 'messages' | 'health';
 
   interface Props {
     health: LocaleHealth[];
@@ -16,7 +17,8 @@
     onRead: (locale: string) => void;
     onUndo: () => void;
     checks: { bad: number } | null;
-    onHealth: () => void;
+    view: View;
+    onView: (view: View) => void;
     actions: Snippet;
   }
 
@@ -31,9 +33,16 @@
     onState,
     onRead,
     onUndo,
-    onHealth,
+    view,
+    onView,
     actions,
   }: Props = $props();
+
+  const VIEWS: { id: View; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'messages', label: 'Messages' },
+    { id: 'health', label: 'Health' },
+  ];
 
   const ORDER: Which[] = ['all', 'look', 'missing', 'draft', 'broken'];
 
@@ -56,10 +65,23 @@
 </script>
 
 <nav class="rail" aria-label="Languages and filters">
-  <button class="nav" onclick={onHealth}>
-    <span>Health</span>
-    {#if checks}<span class="bad" class:clean={!checks.bad}>{checks.bad || "ok"}</span>{/if}
-  </button>
+  <ul class="views">
+    {#each VIEWS as item (item.id)}
+      <li>
+        <button
+          class="nav"
+          class:on={view === item.id}
+          aria-current={view === item.id ? 'page' : undefined}
+          onclick={() => onView(item.id)}
+        >
+          <span>{item.label}</span>
+          {#if item.id === 'health' && checks}
+            <span class="bad" class:clean={!checks.bad}>{checks.bad || 'ok'}</span>
+          {/if}
+        </button>
+      </li>
+    {/each}
+  </ul>
 
   {@render actions()}
 
@@ -120,12 +142,17 @@
     overflow-y: auto;
   }
 
+  .views {
+    list-style: none;
+    margin: 0 0 18px;
+    padding: 0;
+  }
+
   .nav {
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
-    margin-bottom: 18px;
     padding: 7px 8px;
     border: 0;
     border-radius: var(--radius);
@@ -139,6 +166,14 @@
 
   .nav:hover {
     background: var(--hollow);
+  }
+
+  /* the current view is marked, not just hoverable: a rail with no anchor is a list of buttons */
+  .nav.on {
+    background: var(--done-tint);
+    color: var(--done);
+    font-weight: 500;
+    box-shadow: inset 2px 0 0 var(--done);
   }
 
   .bad {

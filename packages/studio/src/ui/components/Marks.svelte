@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MessageState } from './model';
+  import type { MessageState } from '../model';
 
   // Each ink carries its own mark, so the ladder reads in greyscale and to a colourblind eye.
   const { state }: { state: MessageState } = $props();

@@ -1,9 +1,9 @@
 import { mount } from 'svelte';
-import Panel from './Panel.svelte';
+import Panel from './components/Panel.svelte';
 import { serverApi } from './api';
 import { reactivePanel } from './store.svelte';
-import './tokens.css';
-import './boot.css';
+import './css/tokens.css';
+import './css/boot.css';
 
 // the token rides in the url the command printed, so the page can ask for its own state
 const token = new URLSearchParams(location.search).get('t') ?? '';

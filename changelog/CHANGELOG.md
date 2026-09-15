@@ -8,6 +8,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.59.0] · 2026-09-15
+
+**Studio opens on what needs you.** It used to open on the table, with no idea which of your messages were waiting or whether your project was healthy. Now the first screen tells you, and the last thing it shows is real: the commits that touched your catalogs. Breaking: no.
+
+### Highlights
+
+- **Studio opens on an overview instead of a table.** What is waiting for you, one line each with its own button, and whether the project is healthy. Clicking one takes you to exactly those messages.
+- **The last changes to your catalogs, from git.** Real commits over your catalog directory, with who and when. A project with no git simply does not show the card, rather than showing an empty one.
+- **A key your code calls that no catalog defines is finally visible.** It already failed your build, and until now the only place you could see it was the command line.
+
+### Added
+
+- **The overview**, the panel's first screen: the things waiting for you (translations that break your site, messages that are missing, translations nobody has read, and keys nothing defines), the project's health as a count of `doctor`'s checks, how many messages and languages you have, and the recent commits.
+- **A rail you can navigate.** Overview, Messages and Health, with the current one marked. Health used to be a button that swapped the main area and had no way back except closing it.
+- **`GET /api/history`**, which is `git log` over your catalog directory and nothing else. It is asked for when the overview opens, not on every state read, because it spawns a process.
+
+### Changed
+
+- **The panel's module has folders now**: `src/ui/components/` for the seven components, `src/ui/css/` for the two stylesheets, and the root of `src/ui` for the five logic modules the components are handed. A test pins that shape, so a new file has one obvious home.
+- **`check().unknown` reaches the panel.** The server already sent it and the panel's own type dropped it on the floor.
+
+### Notes
+
+- **Two things this release had to correct about itself, both written down wrong two sessions ago.** `check().unknown` is *a key your code uses that no catalog and no extraction defines*, not *a key in a target catalog that the source lacks*. And `doctor`'s `orphans` check covers keys in the **source** catalog with no reference in code. So **a key that exists only in a target catalog is reported by nothing at all**: it is not in `check`'s `needed` set, `toPanel` builds rows from the source, and `orphans` looks the other way. That is a real gap and it is now written down as one, instead of being confused with this one.
+- **Git is asked, never assumed.** No repository, no `git` on the PATH, or a directory outside the repo all mean the same thing: no history, and the card says so in one line. The command runs through `execFile` with an argument array and never a shell, because the catalog directory comes from your config, and it gives up after three seconds.
+- **It lives in `@verbaly/studio`, not in the compiler.** The compiler's primitives are the ones the CLI, the plugin and the MCP share; this one has no other consumer, like `triage.ts` and `jobs.ts`. If a second consumer appears, it moves then.
+- **The card only became worth building in 0.58.0.** Before that release the first save rewrote the whole catalog, so every commit on it would have read as a thousand changed lines.
+- **The key nothing defines carries the same ink and the same mark as a broken translation**, because it is the same consequence: your build fails. A tile with a colour and no shape would have broken the rule that every state reads in greyscale.
+- **Dependencies are current across the workspace**, and `prettier-plugin-astro` was removed rather than taken to its 1.0: it was configured in `.prettierrc.json` and this repository has no `.astro` file for it to format.
+- **TypeScript stays split, and that was measured, not assumed.** npm still publishes `typescript@7.0.2`, the same version recorded in August, so the condition to collapse the side-by-side (a 7.1 with a stable API plus typescript-eslint support) has not arrived. `tsc` is TS 7 and the `typescript` alias is the TS 6 JS API, exactly as before.
+- **9 new tests, 1399 in total**, each run against a deliberately broken version first: asking git for the whole repository instead of the catalog directory, letting the git error escape, dropping the unknown keys in `toPanel`, and leaving a component at the root of `src/ui`.
+- **The panel now serves 25.98 KB gzip of JS and 3.62 of CSS** (from 24.30 and 3.03), and the package packs at 71.6 KB. **Runtime untouched: 3.09 / 5.86 / 1.60 / 7.58.** Bench: 33.0x, 10.0x, 5.1x and 5.1x against i18next.
+
+### Docs impact (pending)
+
+- **`/docs/guide/studio`: describe the first screen.** The page explains the table, the row and the commands, and it should now open the way the tool does: with what is waiting for you, the health of the project and the recent commits.
+- **Say what the history card needs**, which is a git repository and nothing else, and that its absence is not an error.
+- **Name the fourth thing the overview can report**: a key your code calls that no catalog defines. It is the one that has never had a place in the panel.
+
 ## [0.58.0] · 2026-09-15
 
 **Two places where Verbaly quietly did something other than what it said.** It rewrote your catalog in alphabetical order without mentioning it, and it told you a translation was checked without ever looking inside an ICU message. Both are fixed at the source. Breaking: no, but **a project with a broken ICU message will start failing `verbaly check`**, which is the point.

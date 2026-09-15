@@ -2,10 +2,11 @@
   import HealthView from './Health.svelte';
   import Rail from './Rail.svelte';
   import RowView from './Row.svelte';
-  import { applyState, emptyReason, health, visible, type Panel } from './model';
+  import { applyState, emptyReason, health, visible, type Panel } from '../model';
   import Actions from './Actions.svelte';
-  import type { Check, StudioApi } from './api';
-  import { EMPTY } from './words';
+  import Overview from './Overview.svelte';
+  import type { Check, Commit, StudioApi } from '../api';
+  import { EMPTY } from '../words';
 
   interface Props {
     panel: Panel;
@@ -17,8 +18,15 @@
   let editing: string | null = $state(null);
   let note: { text: string; file: string } | null = $state(null);
   let pending: { locale: string; keys: string[] } | null = $state(null);
-  let view: 'messages' | 'health' = $state('messages');
+  let view: 'overview' | 'messages' | 'health' = $state('overview');
   let checks: { ok: boolean; entries: Check[] } | null = $state(null);
+  // null means it has not answered yet, which is not the same as a project with no git
+  let commits: Commit[] | null = $state(null);
+
+  function goTo(next: 'overview' | 'messages' | 'health'): void {
+    if (next === 'health') void openHealth();
+    else view = next;
+  }
 
   // doctor reads the disk, so it is asked once at boot and again whenever you open the view
   async function openHealth() {
@@ -35,7 +43,17 @@
     void api.health().then((result) => {
       if (result.value) checks = result.value;
     });
+    void api.history().then((result) => {
+      commits = result.value?.commits ?? [];
+    });
   });
+
+  // the overview counts what the table would show, so a filter from it lands on the same rows
+  function openFilter(state: 'broken' | 'missing' | 'draft'): void {
+    picked = targets;
+    only = state;
+    view = 'messages';
+  }
 
   // a command rewrote the catalogs, so the panel re-reads them instead of patching key by key
   async function refresh(said: string) {
@@ -163,18 +181,30 @@
       onState={(next) => (only = next)}
       onRead={(locale) => setRead(locale, undefined, false)}
       onUndo={() => pending && setRead(pending.locale, pending.keys, true)}
-      onHealth={openHealth}
+      {view}
+      onView={goTo}
     >
       {#snippet actions()}
         <Actions {api} scanning={panel.scanning} targets={targets.length} {shown} onDone={refresh} />
       {/snippet}
     </Rail>
 
-    {#if view === 'health'}
+    {#if view === 'overview'}
+      <Overview
+        health={rail}
+        undefinedKeys={panel.undefined}
+        locales={panel.locales}
+        total={panel.rows.length}
+        checks={checks ? { ok: checks.entries.filter((e) => e.level === 'ok').length, total: checks.entries.length } : null}
+        {commits}
+        onFilter={openFilter}
+        onHealth={openHealth}
+      />
+    {:else if view === 'health'}
       <HealthView
         entries={checks?.entries ?? []}
         ok={checks?.ok ?? true}
-        onClose={() => (view = 'messages')}
+        onClose={() => (view = 'overview')}
       />
     {:else}
     <main class="table" onscroll={onScroll}>

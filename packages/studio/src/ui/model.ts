@@ -26,12 +26,19 @@ export interface LocaleHealth {
   broken: number;
 }
 
+export interface Undefined {
+  key: string;
+  files: string[];
+}
+
 export interface Panel {
   root: string;
   scanning: boolean;
   sourceLocale: string;
   locales: string[];
   rows: Row[];
+  // a key the code calls that no catalog defines: it fails the gate and has no row to live in
+  undefined: Undefined[];
   problems: { scope: string; message: string }[];
 }
 
@@ -48,7 +55,10 @@ export interface RawState {
   origins: Record<string, string[]>;
   drafts: Record<string, string[]>;
   triage: Record<string, Record<string, { signal: string; text: string }[]>>;
-  check: { broken: { locale: string; key: string; severity: string; issue: string }[] };
+  check: {
+    broken: { locale: string; key: string; severity: string; issue: string }[];
+    unknown?: { key: string; files: string[] }[];
+  };
   problems: { scope: string; message: string }[];
 }
 
@@ -104,6 +114,7 @@ export function toPanel(raw: RawState): Panel {
     sourceLocale: raw.sourceLocale,
     locales: raw.locales,
     rows,
+    undefined: raw.check.unknown ?? [],
     problems: raw.problems,
   };
 }

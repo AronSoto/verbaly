@@ -57,3 +57,33 @@ export const EMPTY = {
 export function messages(n: number): string {
   return `${n} ${n === 1 ? 'message' : 'messages'}`;
 }
+
+// The first screen names what is waiting, in the order you would want to deal with it.
+export const WAITING = {
+  broken: { one: 'translation breaks your site', many: 'translations break your site' },
+  missing: { one: 'message is missing', many: 'messages are missing' },
+  draft: { one: 'translation nobody has read', many: 'translations nobody has read' },
+  undefined: { one: 'key your code calls has no message', many: 'keys your code calls have no message' },
+} as const;
+
+export const WHY: Record<keyof typeof WAITING, string> = {
+  broken: 'It lost a parameter or a tag, so the sentence would ship incomplete.',
+  missing: 'Your visitor sees the source language until one is written.',
+  draft: 'A machine wrote it and nobody has looked. It is already on your site.',
+  undefined: 'Nothing defines it, so the build fails and the raw key would reach your page.',
+};
+
+export const OVERVIEW = {
+  here: 'Overview',
+  clear: 'Nothing is waiting for you.',
+  clearWhy: 'Every language is complete and the build passes.',
+  project: 'Project',
+  healthy: 'Healthy',
+  problems: 'Needs a look',
+  checks: 'checks',
+  history: 'Last changes to your catalogs',
+  noHistory: 'No git history for your catalog directory.',
+  countMessages: 'Messages',
+  countLocales: 'Languages',
+  open: 'Open',
+} as const;

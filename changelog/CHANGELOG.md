@@ -8,6 +8,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.60.0] · 2026-09-15
+
+**Your catalog becomes something you can move around in.** Search only looked at the languages you had ticked, so a Spanish word with Spanish unticked found nothing and never said why. And the groups your keys already declare were nowhere on screen. Both are fixed, and they work together. Breaking: no.
+
+### Highlights
+
+- **Search finds a word in any language, not only the ones you ticked.** Before, the box filtered the table, so it could only see what the table was showing. It reads your whole catalog now.
+- **Every result says which language it matched in.** That is the thing a filtered table cannot tell you: the same word usually only exists in one of your languages.
+- **`⌘K` opens it, the arrows move, enter takes you to the message.** It scrolls to the row wherever it is, even far past what the screen had loaded.
+- **Your keys already had groups, and now the panel shows them.** Pick one in the rail and the table, its counts and the commands all narrow to it. A search result says which group it lives in.
+
+### Added
+
+- **Groups.** The first segment of a key is its group, so `nav.home` belongs to `nav`. The rail lists every group with how many messages it holds and how many still need you, the table narrows to the one you pick, and a search result carries its group. Measured on this project's own catalog: **44 groups over 1623 keys**.
+- **A search sheet.** It matches your text and never the key, highlights what you typed, shows the source underneath when the match was in a translation, and marks each result with the language or languages it was found in.
+- **Keyboard all the way through**: `⌘K` or `Ctrl+K` focuses the box, `↑` and `↓` move, `enter` opens the result, `esc` closes.
+
+### Changed
+
+- **The box in the bar opens the sheet instead of filtering the table.** One text field that did two jobs was two behaviours to learn; the rail's filters are what narrow the table, and the box is what finds things.
+- **`GET /api/history` is split into a parser and the command that spawns git**, so the shape of a log line is tested without a repository and without writing one.
+
+### Notes
+
+- **The bug this closes was invisible, which is why it lasted.** `visible()` only looked at `filter.locales`, so a search for a Spanish word with Spanish unticked returned nothing at all, exactly like a word that is not in your project. Two different facts, one empty screen.
+- **Jumping to a result is three things, and the order of them is the whole trick**: clear every filter that could hide the row, raise the virtual window past it, and only then ask the browser to scroll. Raising the window inside the click handler does not work, because changing a filter resets it immediately afterwards, so it happens in the effect that runs once the filters have settled. And the scroll waits for `tick()`: with `requestAnimationFrame` the row was not in the document yet and nothing moved.
+- **The tests for git no longer create a commit.** They did, in a throwaway repository under the temp directory, and that is still `git commit` running on your machine. The parsing is now tested on its own with no git at all, and the command is tested read-only against this repository. It is also a better test: the `--` pathspec is proved with a directory that has no history, because a release commit touches every real one.
+- **A group is the first segment and nothing else is guessed.** A key with no separator has no group, on purpose. The obvious alternative, reading the part before the first underscore, was measured on this project's catalog and it is worse than nothing: the group names themselves contain underscores (`changelog_rel`, `docs_cli`, `docs_urls`), so **44 real groups collapse into 14 buckets and the biggest holds 996 of 1623 keys**. A project that writes flat keys with a separator of its own would have to declare it; inferring it is not on the table.
+- **The first segment is not a new idea, it is the unit `bundle.exclude` already matches** (`key === prefix || key.startsWith(prefix + '.')`). Using anything else would have meant two definitions of the same word.
+- **22 new tests, 1421 in total**, each run against a broken version first: searching only the ticked languages, dropping the language from a hit, dropping the `--` pathspec, dropping the guard that skips a half-written log line, reading the group from an underscore, and counting a group's problems in languages you did not tick.
+- **The panel serves 28.41 KB gzip of JS and 4.04 of CSS** (from 25.98 and 3.62). **Runtime untouched: 3.09 / 5.86 / 1.60 / 7.58.** Bench: 32.8x, 11.4x, 5.2x and 5.2x against i18next.
+
+### Docs impact (synced)
+
+- **`/docs/guide/studio`: say what search does now.** The page describes the table and the row; it should say that the box reads every language, that each result names the one it matched in, and that `⌘K` opens it.
+- **`/docs/guide/studio` and `/docs/guide/keys`: name the group.** The first segment of a key is a group the panel can filter by, which is worth one line where keys are explained, and it is the same unit `bundle.exclude` takes.
+- **Nothing promised the old behaviour**, so there is nothing to correct, only something to add.
+
 ## [0.59.0] · 2026-09-15
 
 **Studio opens on what needs you.** It used to open on the table, with no idea which of your messages were waiting or whether your project was healthy. Now the first screen tells you, and the last thing it shows is real: the commits that touched your catalogs. Breaking: no.

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { FILTER, MARK_AS_READ, UNDO } from '../words';
+  import { FILTER, GROUP, MARK_AS_READ, UNDO } from '../words';
   import type { Snippet } from 'svelte';
-  import type { LocaleHealth, MessageState } from '../model';
+  import type { Group, LocaleHealth, MessageState } from '../model';
 
   type Which = 'all' | 'look' | 'missing' | 'draft' | 'broken';
   type View = 'overview' | 'messages' | 'health';
@@ -19,6 +19,9 @@
     checks: { bad: number } | null;
     view: View;
     onView: (view: View) => void;
+    groups: Group[];
+    group: string | null;
+    onGroup: (group: string | null) => void;
     actions: Snippet;
   }
 
@@ -35,6 +38,9 @@
     onUndo,
     view,
     onView,
+    groups,
+    group,
+    onGroup,
     actions,
   }: Props = $props();
 
@@ -119,6 +125,25 @@
     </p>
   {/if}
 
+  {#if groups.length}
+    <h2 class="cap">{GROUP.cap}</h2>
+    <select
+      class="groups"
+      aria-label={GROUP.cap}
+      value={group ?? ''}
+      onchange={(event) => onGroup(event.currentTarget.value || null)}
+    >
+      <option value="">{GROUP.all}</option>
+      {#each groups as item (item.name)}
+        <option value={item.name}>
+          {item.name} ({item.total}){item.broken + item.missing + item.draft > 0
+            ? ` · ${item.broken + item.missing + item.draft} to do`
+            : ''}
+        </option>
+      {/each}
+    </select>
+  {/if}
+
   <h2 class="cap">Show</h2>
   <ul class="filters">
     {#each ORDER as which (which)}
@@ -189,6 +214,18 @@
   .bad.clean {
     background: var(--done-tint);
     color: var(--done);
+  }
+
+  .groups {
+    width: 100%;
+    margin-bottom: 18px;
+    padding: 7px 8px;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--body);
+    font: inherit;
+    font-size: 13px;
   }
 
   .cap {

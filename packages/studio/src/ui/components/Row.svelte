@@ -51,7 +51,7 @@
   }
 </script>
 
-<article class="row" class:open={cells.some((c) => editing === id(c))} data-worst={worst}>
+<article class="row" class:open={cells.some((c) => editing === id(c))} data-worst={worst} data-key={row.key}>
   <span class="tile" data-state={worst}><Marks state={worst} /></span>
 
   <span class="row-t">

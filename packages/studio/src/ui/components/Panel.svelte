@@ -2,11 +2,13 @@
   import HealthView from './Health.svelte';
   import Rail from './Rail.svelte';
   import RowView from './Row.svelte';
-  import { applyState, emptyReason, health, visible, type Panel } from '../model';
+  import { applyState, emptyReason, groups, health, search, visible, type Panel } from '../model';
   import Actions from './Actions.svelte';
   import Overview from './Overview.svelte';
+  import Search from './Search.svelte';
+  import { tick } from 'svelte';
   import type { Check, Commit, StudioApi } from '../api';
-  import { EMPTY } from '../words';
+  import { EMPTY, SEARCH } from '../words';
 
   interface Props {
     panel: Panel;
@@ -107,19 +109,27 @@
   let text: string = $state('');
   // null means nobody has picked yet, so the default follows the project instead of freezing at mount
   let picked: string[] | null = $state(null);
+  let group: string | null = $state(null);
 
   const targets = $derived(panel.locales.filter((locale) => locale !== panel.sourceLocale));
   const shown = $derived(picked ?? targets.slice(0, 1));
 
   const rail = $derived(health(panel));
-  const rows = $derived(visible(panel.rows, { text, state: only, locales: shown }));
+  const hits = $derived(search(panel, text));
+  let sheet: ReturnType<typeof Search> | undefined = $state();
+  let field: HTMLInputElement | undefined = $state();
+  let focused: string | null = $state(null);
+
+  // the table is not filtered by text any more: the sheet is what reads your words, in every language
+  const all = $derived(groups(panel.rows, shown));
+  const rows = $derived(visible(panel.rows, { text: '', state: only, locales: shown, group }));
   const empty = $derived(emptyReason(panel, shown, rows));
 
   // every count is over the languages actually shown, so the rail never promises rows a filter hides
   const counts = $derived.by(() => {
     const out: Record<string, number> = { all: 0, look: 0, missing: 0, draft: 0, broken: 0 };
     for (const id of ['all', 'look', 'missing', 'draft', 'broken'] as const) {
-      out[id] = visible(panel.rows, { text, state: id, locales: shown }).length;
+      out[id] = visible(panel.rows, { text: '', state: id, locales: shown, group }).length;
     }
     return out;
   });
@@ -128,11 +138,66 @@
   const STEP = 60;
   let limit: number = $state(STEP);
   $effect(() => {
-    void text;
     void only;
     void shown;
+    void group;
     limit = STEP;
   });
+
+  // a hit is a row somewhere in the whole catalog, so every filter that could hide it is cleared
+  function jumpTo(key: string): void {
+    text = '';
+    only = 'all';
+    group = null;
+    picked = targets;
+    view = 'messages';
+    focused = key;
+  }
+
+  // the window is raised here and not in jumpTo: changing a filter resets it right after, and the
+  // row has to exist in the DOM before the browser can be asked to scroll to it
+  $effect(() => {
+    if (!focused) return;
+    const target = focused;
+    const at = rows.findIndex((row) => row.key === target);
+    if (at < 0) {
+      focused = null;
+      return;
+    }
+    if (at + 1 > limit) {
+      limit = at + 1;
+      return;
+    }
+    focused = null;
+    void tick().then(() => {
+      document.querySelector(`[data-key="${CSS.escape(target)}"]`)?.scrollIntoView({
+        block: 'center',
+      });
+    });
+  });
+
+  function onKey(event: KeyboardEvent): void {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      field?.focus();
+      field?.select();
+      return;
+    }
+    if (!text) return;
+    if (event.key === 'Escape') {
+      text = '';
+      field?.blur();
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      sheet?.move(1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      sheet?.move(-1);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      sheet?.choose();
+    }
+  }
 
   function onScroll(event: Event) {
     const el = event.currentTarget as HTMLElement;
@@ -148,15 +213,18 @@
   }
 </script>
 
+<svelte:window onkeydown={onKey} />
+
 <div class="shell">
   <header class="bar">
     <span class="brand">verbaly <b>studio</b></span>
     <input
       class="search"
       type="search"
+      bind:this={field}
       bind:value={text}
-      placeholder="Search the text, not the key"
-      aria-label="Search the text, not the key"
+      placeholder={SEARCH.placeholder}
+      aria-label={SEARCH.placeholder}
     />
     <span class="root" title={panel.root}>{panel.root}</span>
   </header>
@@ -167,6 +235,17 @@
         <li><code>{problem.scope}</code> {problem.message}</li>
       {/each}
     </ul>
+  {/if}
+
+  {#if text}
+    <Search
+      bind:this={sheet}
+      query={text}
+      {hits}
+      sourceLocale={panel.sourceLocale}
+      onPick={jumpTo}
+      onClose={() => (text = '')}
+    />
   {/if}
 
   <div class="body">
@@ -183,6 +262,9 @@
       onUndo={() => pending && setRead(pending.locale, pending.keys, true)}
       {view}
       onView={goTo}
+      groups={all}
+      {group}
+      onGroup={(next) => (group = next)}
     >
       {#snippet actions()}
         <Actions {api} scanning={panel.scanning} targets={targets.length} {shown} onDone={refresh} />

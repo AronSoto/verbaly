@@ -26,6 +26,14 @@ export const SIGNAL: Record<string, string> = {
   code: 'a code span changed',
 };
 
+// The group is the first segment of the key, which is the only one the catalog really declares.
+export const GROUP = {
+  cap: 'Group',
+  all: 'every group',
+  none: 'Your keys have no groups yet.',
+  hint: 'A key like nav.home belongs to nav.',
+} as const;
+
 export const MARK_AS_READ = 'Mark as read';
 export const UNDO = 'Undo';
 
@@ -86,4 +94,18 @@ export const OVERVIEW = {
   countMessages: 'Messages',
   countLocales: 'Languages',
   open: 'Open',
+} as const;
+
+// Searching is the one place the panel reads languages you did not tick, so it says so.
+export const SEARCH = {
+  label: 'Search your messages',
+  scope: 'Searches your text in every language, never the key.',
+  none: 'Nothing has that text, in any language.',
+  oneHit: '1 message',
+  hits: (n: number) => `${n} messages`,
+  moveKeys: 'move',
+  openKeys: 'open',
+  closeKeys: 'close',
+  close: 'Close',
+  placeholder: 'Search the text, not the key',
 } as const;

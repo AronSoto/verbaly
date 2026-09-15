@@ -1,68 +1,74 @@
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveConfig } from '@verbaly/compiler';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { catalogHistory } from '../src/history';
+import { describe, expect, it } from 'vitest';
+import { catalogHistory, parseLog } from '../src/history';
 
-const git = (root: string, ...args: string[]): void => {
-  execFileSync('git', args, { cwd: root, stdio: 'pipe' });
-};
+const FIELD = '';
+const line = (sha: string, author: string, date: string, subject: string): string =>
+  [sha, author, date, subject].join(FIELD);
 
-function bare() {
-  const root = mkdtempSync(join(tmpdir(), 'verbaly-hist-'));
-  mkdirSync(join(root, 'locales'), { recursive: true });
-  writeFileSync(join(root, 'locales', 'en.json'), '{"a":"1"}');
-  return root;
+// this repository, read only: git log never writes, so no test here creates a commit
+const repo = join(import.meta.dirname, '..', '..', '..');
+
+function project(dir: string) {
+  return resolveConfig({ root: repo, dir, sourceLocale: 'en', locales: ['en'] });
 }
 
-let repo: string;
-
-beforeAll(() => {
-  repo = bare();
-  git(repo, 'init', '-q');
-  git(repo, 'config', 'user.email', 'test@example.com');
-  git(repo, 'config', 'user.name', 'Test Person');
-  git(repo, 'add', '.');
-  git(repo, 'commit', '-q', '-m', 'feat: the first catalog');
-
-  writeFileSync(join(repo, 'README.md'), 'not a catalog');
-  git(repo, 'add', '.');
-  git(repo, 'commit', '-q', '-m', 'docs: nothing to do with catalogs');
-
-  writeFileSync(join(repo, 'locales', 'en.json'), '{"a":"1","b":"2"}');
-  git(repo, 'add', '.');
-  git(repo, 'commit', '-q', '-m', 'feat: a second message');
-}, 30000);
-
-describe('the history of your catalogs comes from git', () => {
-  // Proved able to fail by asking git for the whole repo: the README commit comes back too.
-  it('lists only the commits that touched the catalog directory, newest first', async () => {
-    const cfg = resolveConfig({ root: repo, sourceLocale: 'en' });
-    const commits = await catalogHistory(cfg);
-    expect(commits.map((c) => c.subject)).toEqual([
-      'feat: a second message',
-      'feat: the first catalog',
+describe('a log line, which is where the parsing can go wrong', () => {
+  // Proved able to fail by splitting on the wrong field: the subject comes back truncated.
+  it('reads the four fields and shortens the sha to seven', () => {
+    const out = parseLog(line('0123456789abcdef', 'Aron Soto', '2026-09-15T10:00:00+02:00', 'feat: x'));
+    expect(out).toEqual([
+      { sha: '0123456', author: 'Aron Soto', date: '2026-09-15T10:00:00+02:00', subject: 'feat: x' },
     ]);
   });
 
-  it('reports the author, a short sha and a date that parses', async () => {
-    const cfg = resolveConfig({ root: repo, sourceLocale: 'en' });
-    const [first] = await catalogHistory(cfg);
-    expect(first!.author).toBe('Test Person');
-    expect(first!.sha).toHaveLength(7);
-    expect(Number.isNaN(Date.parse(first!.date))).toBe(false);
+  it('keeps a subject that holds a colon, a comma or a separator of its own', () => {
+    const odd = `fix: a, b${FIELD}c`;
+    expect(parseLog(line('abc1234', 'A', '2026-01-01T00:00:00Z', odd))[0]!.subject).toBe(odd);
+  });
+
+  it('skips the blank trailing line git always writes', () => {
+    const stdout = `${line('abc1234', 'A', '2026-01-01T00:00:00Z', 'one')}\n`;
+    expect(parseLog(stdout)).toHaveLength(1);
+  });
+
+  // Proved able to fail by dropping the rest.length guard: a half line becomes a commit.
+  it('skips a line that is not a full record', () => {
+    expect(parseLog('garbage')).toEqual([]);
+    expect(parseLog(`abc${FIELD}A${FIELD}2026-01-01T00:00:00Z`)).toEqual([]);
+  });
+});
+
+describe('the command, against this repository and without writing to it', () => {
+  it('answers with real commits for a directory that has them', async () => {
+    const commits = await catalogHistory(project(join(repo, 'packages', 'studio')), 3);
+    expect(commits.length).toBeGreaterThan(0);
+    expect(commits[0]!.sha).toHaveLength(7);
+    expect(Number.isNaN(Date.parse(commits[0]!.date))).toBe(false);
+    expect(commits[0]!.author).toBeTruthy();
+  });
+
+  // Proved able to fail by dropping the `--` pathspec: a release commit touches every directory.
+  it('asks only about the directory it was given', async () => {
+    const real = await catalogHistory(project(join(repo, 'packages', 'studio')), 3);
+    const none = await catalogHistory(project(join(repo, 'packages', 'no-such-directory')), 3);
+    expect(real.length).toBeGreaterThan(0);
+    expect(none).toEqual([]);
   });
 
   it('honours the limit, because the card shows a few and not a log', async () => {
-    const cfg = resolveConfig({ root: repo, sourceLocale: 'en' });
-    expect(await catalogHistory(cfg, 1)).toHaveLength(1);
+    expect(await catalogHistory(project(join(repo, 'packages')), 1)).toHaveLength(1);
   });
 
   // Proved able to fail by letting the error out: a project without git would take the route down
   it('answers with nothing outside a repository, instead of failing', async () => {
-    const cfg = resolveConfig({ root: bare(), sourceLocale: 'en' });
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-nogit-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), '{}');
+    const cfg = resolveConfig({ root, sourceLocale: 'en' });
     expect(await catalogHistory(cfg)).toEqual([]);
   });
 });

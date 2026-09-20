@@ -133,7 +133,7 @@ an unfinished translation is not a second opinion.
 changed because of what the measurement said.** `digits` was reading the comma after a number as
 part of it, and it was flagging a number the translation added where the source had none, which is
 what "refresh" becoming "F5" looks like. Those were **10 of 10** of its hits, all correct text, so
-both are now excluded. The result is **23 messages** flagged in Spanish and 22 in Portuguese.
+both are now excluded. The result is **21 messages** flagged in Spanish and 20 in Portuguese.
 
 ## 🧩 Programmatic API
 

@@ -19,8 +19,15 @@ export type {
 
 // Layer 2: what builds an integration; the seven first-party packages consume exactly this.
 export { loadConfig, resolveConfig, targetLocales } from './config';
-// readCatalog is public so @verbaly/studio can degrade one broken locale instead of the panel
-export { loadCatalogs, needsIcu, needsRelative, readCatalog, writeCatalog } from './catalog';
+// both are public for @verbaly/studio: one broken locale, and old revisions read straight from git
+export {
+  loadCatalogs,
+  needsIcu,
+  needsRelative,
+  parseCatalog,
+  readCatalog,
+  writeCatalog,
+} from './catalog';
 export type { Catalog, Catalogs } from './catalog';
 // clientCatalogs is public because @verbaly/next emits the client module without the vite plugin.
 export { clientCatalogs } from './bundle';

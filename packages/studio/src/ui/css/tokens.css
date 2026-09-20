@@ -25,6 +25,8 @@
   --serif: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
   --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'SF Mono', monospace;
 
+  --lift: 0 2px 6px rgb(6 16 5 / 0.07), 0 34px 64px -28px rgb(6 16 5 / 0.36);
+
   --rail: 232px;
   --radius: 6px;
 }
@@ -49,6 +51,7 @@
     --draft-tint: #172a3a;
     --done: #79c46f;
     --done-tint: #182c16;
+    --lift: 0 2px 6px rgb(0 0 0 / 0.45), 0 34px 64px -28px rgb(0 0 0 / 0.8);
   }
 }
 
@@ -71,6 +74,7 @@
   --draft-tint: #172a3a;
   --done: #79c46f;
   --done-tint: #182c16;
+  --lift: 0 2px 6px rgb(0 0 0 / 0.45), 0 34px 64px -28px rgb(0 0 0 / 0.8);
 }
 
 .verbaly-studio,

@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.63.0] · 2026-09-20
+
+**Every row in Studio has a menu, and the one thing it could not answer now it can.** Copy the key, copy the source text, edit in place, see which files use a message, and see the commit that last changed it. Breaking: no.
+
+### Highlights
+
+- **Every message row has a menu.** Copy its key, copy the source text, or start editing, without leaving the table.
+- **See the commit that last changed a message.** Studio reads your catalogs' history and names the commit, its author and its subject. Clicking copies the short sha, so `git show` is one paste away.
+- **See which files use a message**, straight from the row. With more than one it says how many, and it opens into the full list.
+- **When there is no answer, the menu says which kind of no it is.** A message you have not committed yet, one older than the history Studio read, and a project without git are three different things and read as three different things.
+- **Nothing in the menu is a button that does nothing.** The AI entry the design board drew is not there, because the assistant it would call does not exist yet.
+
+### Added
+
+- **The row menu (`@verbaly/studio`, `ui/components/RowMenu.svelte`).** Five entries: edit here, copy the key, copy the source text, the commit that changed it, and where it is used. It opens from a button in the row, moves with the arrow keys, closes on Escape, on a click outside and on a scroll, and hands focus back to the button it came from. It is positioned against the window rather than against the row, so the last row's menu is not clipped by the table and flips above its own button when there is no room below.
+- **`GET /api/commit/:key` (`@verbaly/studio`).** Answers `{ key, commit, reason? }`, where `reason` is one of `nogit`, `uncommitted` or `older`. The walk runs once per project, is cached against `HEAD`, and is dropped when a command rewrites the catalogs.
+- **`catalogKeyHistory`, `attribute` and `mergeOwners` (`@verbaly/studio`, `history.ts`).** One pass over each catalog's history that attributes every key to the newest commit whose value for it really differs from the parent's. `git log` lists the commits and a single `git cat-file --batch` process answers every revision, so the cost is two processes per catalog and not one per key.
+- **`parseCatalog` (`@verbaly/compiler`, public surface 94 to 95).** The flat view of a catalog that is not on disk. `readCatalog` needs a path and a revision out of git is text; this is the same byte order mark rule and the same `flatten`, so Studio does not carry a second copy of "how a catalog becomes flat". Its consumer ships in the same diff, which is the rule for a new compiler export.
+- **`originsReason` (`@verbaly/studio`, `ui/model.ts`).** Two facts leave the file list empty and only one of them is your config. The decision lives in a function for the same reason `emptyReason` does: a test that rebuilds it inside the test file stays green when the component changes underneath.
+- **A `--lift` token (`@verbaly/studio`, `tokens.css`).** The menu sits on the same paper as the table, so the shadow is what makes it a layer, and a shadow written in light ink is invisible in the dark theme.
+
+### Notes
+
+- **`git blame` was measured and rejected, with a number.** It is the obvious way to ask which commit touched a key and it is wrong for JSON: adding a sibling rewrites the previous line's trailing comma, so blame credits that commit. Over a sample of 46 keys in each of `verbaly-web`'s three catalogs it named a commit that did not change the message **12 times, 26 of every 100**. `common.copied` came back as a commit whose whole effect on that line was a comma. Comparing parsed values instead is exact, costs under two seconds once over 284 commits and 37 MB of blobs, and answers every key in the catalog at once. It is also immune to the reordering that put `git blame` on the discarded list in the first place, because it never looks at a line.
+- **A key with no commit is a real state, and the measurement is what found it.** Nineteen keys in `verbaly-web` had no answer on the first pass, the ones sitting in the working tree at that moment. They were committed within the hour and the menu started naming that commit, which is the whole proof: it is a state every catalog passes through whenever someone writes copy, not a rare one. A menu that showed a stale sha there would be the quiet kind of wrong.
+- **The AI entry of the board is deliberately absent, and so is the in-row proposal.** The board draws six entries and a `Propuesta del asistente` block with Accept and Discard. Both call an assistant that does not exist, and the standing rule is that the AI button is not shown until it does. Five entries and no proposal block.
+- **The board's `Enter` hint on "edit here" is not copied.** The board drew a single language; with two ticked, "edit here" has to say which one it opens, and the trailing slot shows the language code instead of a shortcut the panel does not have.
+- **The clipboard has a way back, because it was measured failing.** `navigator.clipboard.writeText` is denied outright in an embedded browser, and three of the five entries are a copy, so a denial makes most of the menu dead. A selection plus `document.execCommand('copy')` covers it, and when both fail the snackbar says so rather than looking like it worked.
+- **1461 tests, 16 new** (183 in `@verbaly/studio`, 3 in `@verbaly/compiler`). Five of them are regression pins and all five were sabotaged and seen red first: attributing a key whose value did not change, reading an unparseable revision as an empty one, letting the first catalog win instead of the newest, pairing a revision with the wrong commit, and blaming the config for a key that no file uses.
+- **Verified in the browser against two projects, one of which had to be built for it.** `verbaly-web` has the history, so it answers the commit question and it has `include: []`, which is the real "where it is used" is off. It cannot produce a key that scanning did miss, nor a project without git, so a second fixture does both: three messages, one used in two files, one used in one, one that lives only in the catalog, and no repository. Measured rather than eyeballed: 308px wide and 36px rows as the board draws them, the menu flipping above the button on the last row and staying inside the window, the arrow keys wrapping, Escape returning focus, a real wheel scroll closing it, and the browser dispatching a copy event carrying exactly the row's source text.
+- **A probe can lie about the thing it is probing.** Setting `scrollTop` from a script does not fire a scroll event here, so the first reading said the menu ignored scrolling. It does not: a real wheel closes it. The same shape as the `requestAnimationFrame` reading in 0.60.0, and the same answer, which is to drive the real event.
+- **Sizes.** The menu costs **1.55 KB gzip of JS and 0.22 of CSS** in the served panel, measured by building without it, so the panel is **33.22 KB gzip of JS and 4.86 of CSS**. Packed `@verbaly/studio` **94.8 KB** over 11 files. **The runtime did not move**: 3.19 / 6.00 / 1.60 / 7.72, the same four numbers as 0.62.0. Bench: 36.0x, 9.2x, 5.2x and 7.0x against i18next, against 32.8x, 11.4x, 5.2x and 5.2x in 0.62.0; the multiplier is the noisy half of that receipt, so read the order of magnitude and not the delta.
+
+### Docs impact (synced)
+
+- **`/docs/guide/studio`, the section about the table and the row** (it currently says "You fix it in the row"): add that each row has a menu, and name the five things it does. The one worth its own sentence is the commit: Studio reads your catalogs' history and tells you which commit last changed that message.
+- **Same page, the security section** does not change, but the new route belongs with the others if that page lists them: `GET /api/commit/:key`, read-only, behind the same token.
+- **Same page: say what "no answer" means**, because it is the part a reader will hit. A message you have not committed, a message older than the history Studio read, and a project without git are three distinct answers and the menu shows which.
+- **Nothing else changes.** The language view, the search sheet, the groups and the two commands behave exactly as documented.
+- **Executed:** `/docs/guide/studio` gained `p_menu` and `p_menu_none` after the two commands, and `td_commit` in the addresses table, in en, es and pt. Read in the browser in all three trees.
+
 ## [0.62.0] · 2026-09-20
 
 **A language you just translated is a language, not a filter.** Tick one and Studio stops comparing: it tells you the work already shipped, that nothing is broken, and puts the handful worth reading at the top with the reason written next to each one. Breaking: no.

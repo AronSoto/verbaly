@@ -70,6 +70,7 @@ keep in step. Every answer is JSON, including the errors, which are `{ "error": 
 |---|---|
 | `GET /api/state` | the whole project: config, catalogs, origins, status, check, drafts, triage and problems |
 | `GET /api/health` | what `verbaly doctor` reports |
+| `GET /api/commit/:key` | the commit that last changed that message, or why there is none |
 | `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }` |
 | `POST /api/approve` | approve drafts; body `{ "locale": "es", "keys": ["…"] }`, and the whole locale when `keys` is omitted |
 | `POST /api/extract` | read your code and add what your catalogs do not have; answers in the request, because it is local and free |
@@ -107,6 +108,13 @@ catalogs is a race over the same files.
 
 **What a machine writes stays a draft**, here as everywhere else. The panel does not get to change
 that rule, so a finished run leaves you a list to read, not a job marked done.
+
+**`GET /api/commit/:key` answers about values, not about lines.** It walks your catalogs' history
+once and remembers, per message, the newest commit where that message's text really differs from its
+parent's. `git blame` is the obvious way to ask and it is wrong here: adding a key rewrites the
+previous line's comma, so blame blames that commit, which on our own site is 26 messages in every
+100. When there is no answer the route says which of the three reasons applies, because "never
+committed", "older than the history I read" and "there is no git here" are three different facts.
 
 ## 🔎 Triage: which machine translations are worth reading
 

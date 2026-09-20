@@ -51,6 +51,12 @@ function readTree(cfg: ResolvedConfig, locale: string): MessageTree {
   );
 }
 
+// the flat view of a catalog that is not on disk: an old revision read out of git is text
+export function parseCatalog(content: string): Catalog | undefined {
+  const tree = parseTree(content);
+  return tree === undefined ? undefined : flatten(tree);
+}
+
 // a byte order mark is legal in the file and illegal to JSON.parse: drop it by code, never by regex
 function parseTree(content: string): MessageTree | undefined {
   const body = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;

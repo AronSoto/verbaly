@@ -18,7 +18,7 @@
   import Overview from './Overview.svelte';
   import Search from './Search.svelte';
   import { tick } from 'svelte';
-  import type { Check, Commit, StudioApi } from '../api';
+  import type { Check, Commit, KeyCommit, StudioApi } from '../api';
   import { EMPTY, SEARCH, TRIAGE } from '../words';
 
   interface Props {
@@ -35,6 +35,22 @@
   let checks: { ok: boolean; entries: Check[] } | null = $state(null);
   // null means it has not answered yet, which is not the same as a project with no git
   let commits: Commit[] | null = $state(null);
+  // the key whose menu is open, because two menus at once would be two places to look
+  let menu: string | null = $state(null);
+  const asked = new Map<string, KeyCommit>();
+
+  // the server walks the catalogs once, so a reopened menu must not ask it again
+  async function askCommit(key: string): Promise<KeyCommit | null> {
+    const held = asked.get(key);
+    if (held) return held;
+    const answer = await api.commit(key);
+    if (answer.error || !answer.value) {
+      note = { text: answer.error ?? '[verbaly] the server sent no answer', file: '' };
+      return null;
+    }
+    asked.set(key, answer.value);
+    return answer.value;
+  }
 
   function goTo(next: 'overview' | 'messages' | 'health'): void {
     if (next === 'health') void openHealth();
@@ -78,6 +94,9 @@
     // the open editor and the undo both point at keys this run may have moved under them
     editing = null;
     pending = null;
+    menu = null;
+    // a command rewrote the catalogs, so every answer about a commit is about the old ones
+    asked.clear();
     applyState(panel, answer.value);
     note = { text: said, file: '' };
     const next = await api.health();
@@ -341,6 +360,11 @@
               onEdit={(id) => (editing = id)}
               onSave={save}
               why={lens ? reasonFor(row, lens) : undefined}
+              scanning={panel.scanning}
+              menu={menu === row.key}
+              onMenu={(open) => (menu = open ? row.key : null)}
+              onNote={(text) => (note = { text, file: '' })}
+              onCommit={askCommit}
             />
           {/each}
           {#if limit < rows.length}

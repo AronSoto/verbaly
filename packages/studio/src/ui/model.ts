@@ -157,6 +157,15 @@ export function emptyReason(panel: Panel, shown: string[], rows: Row[]): Empty |
   return null;
 }
 
+export type OriginsOff = 'scanOff' | 'noFiles';
+
+// Two facts leave the list of files empty, and only one of them is something you turned off.
+export function originsReason(scanning: boolean, origins: string[]): OriginsOff | null {
+  if (!scanning) return 'scanOff';
+  if (!origins.length) return 'noFiles';
+  return null;
+}
+
 export interface Filter {
   text: string;
   state: MessageState | 'all' | 'look' | 'clean';

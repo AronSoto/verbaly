@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyReason, toPanel, visible } from '../src/ui/model';
+import { emptyReason, originsReason, toPanel, visible } from '../src/ui/model';
 import { EMPTY } from '../src/ui/words';
 
 // An empty screen that names what to click instead of what is true is the worst first run.
@@ -60,5 +60,22 @@ describe('the empty screen names what is actually true', () => {
   // every one of them has to name a fact, and a period is what separates a fact from a label
   it('is written as sentences, because this is the one screen with room for them', () => {
     for (const text of Object.values(EMPTY)) expect(text).toMatch(/\.$/);
+  });
+});
+
+describe('why the row menu cannot tell you where a message is used', () => {
+  // in a function for the same reason emptyReason is: a test that rebuilds it stays green
+  it('names the config when scanning is off, which is not the same as finding nothing', () => {
+    expect(originsReason(false, [])).toBe('scanOff');
+    expect(originsReason(false, ['src/app.ts'])).toBe('scanOff');
+  });
+
+  // Proved able to fail by answering scanOff for both: a catalog-only key would blame the config.
+  it('names the code when scanning ran and no file mentions the key', () => {
+    expect(originsReason(true, [])).toBe('noFiles');
+  });
+
+  it('gets out of the way when there is a list to show', () => {
+    expect(originsReason(true, ['src/app.ts'])).toBeNull();
   });
 });

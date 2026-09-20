@@ -27,6 +27,29 @@ export const SIGNAL: Record<string, string> = {
   code: 'a code span changed',
 };
 
+// The row menu. Every line names what it does to this message, and a dead one says why it is dead.
+export const MENU = {
+  open: 'More for this message',
+  close: 'Close',
+  edit: 'Edit here',
+  copyKey: 'Copy the key',
+  copySource: 'Copy the source text',
+  commit: 'The commit that changed it',
+  origins: 'Where it is used',
+  reading: 'reading your history',
+  nogit: 'no git here',
+  uncommitted: 'not committed yet',
+  older: 'not in recent commits',
+  scanOff: 'include: [] is off',
+  noFiles: 'no file in your code uses it',
+  more: (n: number) => `and ${n} more`,
+  copiedKey: 'The key is on your clipboard.',
+  copiedSource: 'The source text is on your clipboard.',
+  copiedSha: 'The commit is on your clipboard.',
+  noClipboard: 'Your browser would not let the panel write to the clipboard.',
+  nothingToEdit: 'Tick a language in the rail and this message has a line to edit.',
+} as const;
+
 // The group is the first segment of the key, which is the only one the catalog really declares.
 export const GROUP = {
   cap: 'Group',

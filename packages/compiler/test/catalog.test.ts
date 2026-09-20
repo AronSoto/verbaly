@@ -6,6 +6,7 @@ import { analyze } from '../src/analyze';
 import {
   catalogPath,
   loadCatalogs,
+  parseCatalog,
   readCatalog,
   serializeCatalog,
   writeCatalog,
@@ -269,5 +270,26 @@ describe('formatCheckResult', () => {
     const text = formatCheckResult(result);
     expect(text).toContain('unknown keys (not in any catalog):');
     expect(text).toContain('ghost.key (used in app.ts)');
+  });
+});
+
+describe('parseCatalog, the flat view of a catalog that is not on disk', () => {
+  it('flattens groups the way the runtime does, so a revision reads like t() sees it', () => {
+    expect(parseCatalog('{"nav":{"docs":"Docs"},"flat.key":"x"}')).toEqual({
+      'nav.docs': 'Docs',
+      'flat.key': 'x',
+    });
+  });
+
+  // Proved able to fail by dropping the charCodeAt guard: a Windows editor's file stops parsing.
+  it('drops a byte order mark, because readCatalog does and they share the rule', () => {
+    const bom = String.fromCharCode(0xfeff);
+    expect(parseCatalog(`${bom}{"a":"b"}`)).toEqual({ a: 'b' });
+  });
+
+  // undefined and {} are different answers: an unreadable revision is not a revision with no keys
+  it('answers undefined for text that is not JSON, never an empty catalog', () => {
+    expect(parseCatalog('not json')).toBeUndefined();
+    expect(parseCatalog('{}')).toEqual({});
   });
 });

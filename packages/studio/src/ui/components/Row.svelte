@@ -1,8 +1,10 @@
 <script lang="ts">
   import Marks from './Marks.svelte';
+  import RowMenu from './RowMenu.svelte';
   import { preview } from '../validate';
-  import { SIGNAL, STATE, TRIAGE } from '../words';
+  import { MENU, SIGNAL, STATE, TRIAGE } from '../words';
   import type { Cell, Row } from '../model';
+  import type { KeyCommit } from '../api';
 
   interface Props {
     row: Row;
@@ -12,9 +14,29 @@
     onSave: (locale: string, key: string, text: string) => Promise<string | null>;
     // set only when one language is on screen: a reason belongs to a language, never to a row
     why?: string | null;
+    scanning: boolean;
+    // one menu at a time, so which row owns it is the panel's state and not each row's own
+    menu: boolean;
+    onMenu: (open: boolean) => void;
+    onNote: (text: string) => void;
+    onCommit: (key: string) => Promise<KeyCommit | null>;
   }
 
-  const { row, shown, editing, onEdit, onSave, why }: Props = $props();
+  const {
+    row,
+    shown,
+    editing,
+    onEdit,
+    onSave,
+    why,
+    scanning,
+    menu,
+    onMenu,
+    onNote,
+    onCommit,
+  }: Props = $props();
+
+  let trigger: HTMLButtonElement | undefined = $state();
   const lens = $derived(why !== undefined);
   const cells = $derived(row.cells.filter((cell) => shown.includes(cell.locale)));
   // the row's own state is the worst of the languages you are comparing, so the tile never lies
@@ -124,7 +146,39 @@
   {#if lens}
     <span class="why">{why ?? ''}</span>
   {/if}
+
+  <span class="row-go" class:held={menu}>
+    <button
+      class="ga"
+      bind:this={trigger}
+      aria-haspopup="menu"
+      aria-expanded={menu}
+      aria-label={MENU.open}
+      onclick={() => onMenu(!menu)}
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+        <circle cx="5.5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" />
+        <circle cx="18.5" cy="12" r="1.4" />
+      </svg>
+    </button>
+  </span>
 </article>
+
+{#if menu && trigger}
+  <RowMenu
+    {row}
+    locale={cells[0]?.locale ?? null}
+    {scanning}
+    anchor={trigger}
+    {onNote}
+    {onCommit}
+    onEdit={() => {
+      onMenu(false);
+      if (cells[0]) open(cells[0]);
+    }}
+    onClose={() => onMenu(false)}
+  />
+{/if}
 
 <style>
   .why {
@@ -391,5 +445,36 @@
     font-family: var(--mono);
     font-size: 11px;
     color: var(--muted);
+  }
+
+  .row-go {
+    flex: none;
+    align-self: center;
+    opacity: 0;
+  }
+
+  .row:hover .row-go,
+  .row:focus-within .row-go,
+  .row-go.held {
+    opacity: 1;
+  }
+
+  .ga {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .ga:hover {
+    background: var(--ground);
+    color: var(--body);
   }
 </style>

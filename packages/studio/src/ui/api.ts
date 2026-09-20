@@ -44,6 +44,12 @@ export interface Commit {
   subject: string;
 }
 
+export interface KeyCommit {
+  key: string;
+  commit: Commit | null;
+  reason?: 'nogit' | 'uncommitted' | 'older';
+}
+
 export interface Job {
   id: string;
   kind: 'translate';
@@ -58,6 +64,8 @@ export interface StudioApi {
   state(): Promise<Answer<RawState>>;
   health(): Promise<Answer<Health>>;
   history(): Promise<Answer<{ commits: Commit[] }>>;
+  // the row menu asks per key, and the server walks the catalogs once and answers from the map
+  commit(key: string): Promise<Answer<KeyCommit>>;
   save(locale: string, key: string, text: string): Promise<Answer<Saved>>;
   setRead(locale: string, keys: string[] | undefined, undo: boolean): Promise<Answer<ReadResult>>;
   extract(): Promise<Answer<Added>>;
@@ -72,6 +80,7 @@ export function serverApi(token: string): StudioApi {
     state: () => ask<RawState>(token, '/api/state'),
     health: () => ask<Health>(token, '/api/health'),
     history: () => ask<{ commits: Commit[] }>(token, '/api/history'),
+    commit: (key) => ask<KeyCommit>(token, `/api/commit/${encodeURIComponent(key)}`),
     save: (locale, key, text) =>
       ask<Saved>(token, `/api/message/${encodeURIComponent(locale)}/${encodeURIComponent(key)}`, {
         method: 'PUT',

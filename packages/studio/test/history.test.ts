@@ -1,9 +1,10 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveConfig } from '@verbaly/compiler';
-import { describe, expect, it } from 'vitest';
-import { catalogHistory, parseLog } from '../src/history';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { attribute, catalogHistory, keyCommit, mergeOwners, parseLog, type Commit } from '../src/history';
 
 const FIELD = '\u001f';
 const line = (sha: string, author: string, date: string, subject: string): string =>
@@ -70,5 +71,122 @@ describe('the command, against this repository and without writing to it', () =>
     writeFileSync(join(root, 'locales', 'en.json'), '{}');
     const cfg = resolveConfig({ root, sourceLocale: 'en' });
     expect(await catalogHistory(cfg)).toEqual([]);
+  });
+});
+
+const commit = (sha: string, date: string, subject = 'x'): Commit => ({
+  sha,
+  author: 'A',
+  date,
+  subject,
+});
+
+describe('which commit changed a key, which is a question about values and not about lines', () => {
+  // The pin. Proved able to fail by comparing texts: a sibling rewrites the line before it.
+  it('leaves a key alone when the commit only added a sibling next to it', () => {
+    const owners = attribute([
+      {
+        commit: commit('aaa', '2026-09-02T00:00:00Z', 'add b'),
+        now: { a: 'one', b: 'two' },
+        before: { a: 'one' },
+      },
+      {
+        commit: commit('bbb', '2026-09-01T00:00:00Z', 'write a'),
+        now: { a: 'one' },
+        before: {},
+      },
+    ]);
+    expect(owners.get('a')!.subject).toBe('write a');
+    expect(owners.get('b')!.subject).toBe('add b');
+  });
+
+  it('keeps the newest answer, because the walk runs newest first', () => {
+    const owners = attribute([
+      { commit: commit('new', '2026-09-02T00:00:00Z', 'newest'), now: { a: '2' }, before: { a: '1' } },
+      { commit: commit('old', '2026-09-01T00:00:00Z', 'older'), now: { a: '1' }, before: {} },
+    ]);
+    expect(owners.get('a')!.subject).toBe('newest');
+  });
+
+  it('counts a key that was removed, because that is the commit that touched it', () => {
+    const owners = attribute([
+      { commit: commit('del', '2026-09-02T00:00:00Z', 'drop a'), now: {}, before: { a: '1' } },
+    ]);
+    expect(owners.get('a')!.subject).toBe('drop a');
+  });
+
+  // Proved able to fail by treating an unreadable blob as an empty catalog: every key moves to it.
+  it('attributes nothing for a revision nobody could parse, instead of everything', () => {
+    const owners = attribute([
+      { commit: commit('bad', '2026-09-02T00:00:00Z', 'broken json'), now: undefined, before: { a: '1' } },
+      { commit: commit('ok', '2026-09-01T00:00:00Z', 'write a'), now: { a: '1' }, before: {} },
+    ]);
+    expect(owners.get('a')!.subject).toBe('write a');
+  });
+
+  // Proved able to fail by letting the first map win: a later locale edit would read stale.
+  it('takes the newest of the per-catalog answers, because a key lives in every language', () => {
+    const merged = mergeOwners([
+      new Map([['a', commit('en', '2026-09-01T00:00:00Z', 'english')]]),
+      new Map([['a', commit('es', '2026-09-05T00:00:00Z', 'spanish')]]),
+      new Map([['a', commit('pt', '2026-09-03T00:00:00Z', 'portuguese')]]),
+    ]);
+    expect(merged.get('a')!.subject).toBe('spanish');
+  });
+});
+
+describe('keyCommit, against this repository and without writing to it', () => {
+  // package.json is a committed JSON file with a real history, which is all the walk asks for
+  const asCatalog = () =>
+    resolveConfig({
+      root: repo,
+      dir: join('packages', 'studio'),
+      sourceLocale: 'package',
+      locales: ['package'],
+    });
+
+  beforeEach(() => {
+    // flatten warns on a leaf that is not text, and package.json has arrays: not the subject
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('names a commit that really changed that key, checked with a different git command', async () => {
+    const answer = await keyCommit(asCatalog(), 'name');
+    expect(answer.commit).not.toBeNull();
+    expect(answer.commit!.sha).toHaveLength(7);
+    // a revision where the file is not there yet is undefined, which is how the walk reads it too
+    const at = (rev: string): string | undefined => {
+      try {
+        const show = execFileSync('git', ['show', rev + ':packages/studio/package.json'], {
+          cwd: repo,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        return JSON.parse(show).name;
+      } catch {
+        return undefined;
+      }
+    };
+    expect(at(answer.commit!.sha)).not.toBe(at(`${answer.commit!.sha}^`));
+  });
+
+  // three facts, three answers: a null with no reason would make them look like the same thing
+  it('says a key no commit ever held was never committed', async () => {
+    const answer = await keyCommit(asCatalog(), 'no.such.key.anywhere');
+    expect(answer.commit).toBeNull();
+    expect(answer.reason).toBe('uncommitted');
+  });
+
+  it('says so when there is no repository, instead of answering with nothing', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-nogit-key-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), '{"a":"b"}');
+    const answer = await keyCommit(resolveConfig({ root, sourceLocale: 'en' }), 'a');
+    expect(answer.commit).toBeNull();
+    expect(answer.reason).toBe('nogit');
   });
 });

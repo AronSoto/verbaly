@@ -197,4 +197,15 @@ describe('routes', () => {
     expect(error).toContain('es.json');
     expect(error).not.toContain(root);
   });
+  // the fixture is a temporary directory with no repository, which is a real project state
+  it('answers the row menu about a key, and says so when there is no git to ask', async () => {
+    const res = await call(withToken('/api/commit/hello'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ key: 'hello', commit: null, reason: 'nogit' });
+  });
+
+  it('reads a key with a dot in it, because that is what a group looks like', async () => {
+    const res = await call(withToken('/api/commit/' + encodeURIComponent('nav.docs')));
+    expect((await res.json()).key).toBe('nav.docs');
+  });
 });

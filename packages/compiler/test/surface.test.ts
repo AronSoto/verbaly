@@ -38,6 +38,7 @@ const VALUES = [
   'markDrafts',
   'needsIcu',
   'needsRelative',
+  'parseCatalog',
   'pruneCatalogs',
   'readCatalog',
   'renderSite',

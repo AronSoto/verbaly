@@ -10,7 +10,7 @@ describe('divergent source', () => {
     const result = triage({
       source: { a: 'Get started', b: 'Get started' },
       target: { a: 'Commencer', b: 'Demarrer' },
-      reviewed: [{ a: 'Comienza ahora', b: 'Empezar' }],
+      reviewed: [{ locale: 'es', catalog: { a: 'Comienza ahora', b: 'Empezar' } }],
     });
     expect(signals(result, 'a')).toEqual(['divergent']);
     expect(signals(result, 'b')).toEqual(['divergent']);
@@ -20,7 +20,7 @@ describe('divergent source', () => {
     const result = triage({
       source: { a: 'Close', b: 'Close' },
       target: { a: 'Fermer', b: 'Fermer' },
-      reviewed: [{ a: 'Cerrar', b: 'Cerrar' }],
+      reviewed: [{ locale: 'es', catalog: { a: 'Cerrar', b: 'Cerrar' } }],
     });
     expect(result).toEqual({});
   });
@@ -30,7 +30,10 @@ describe('divergent source', () => {
     const result = triage({
       source: { a: 'Close', b: 'Close' },
       target: { a: 'Fermer', b: 'Fermer' },
-      reviewed: [{ a: 'Cerrar', b: '' }, { a: 'Fechar' }],
+      reviewed: [
+        { locale: 'es', catalog: { a: 'Cerrar', b: '' } },
+        { locale: 'pt', catalog: { a: 'Fechar' } },
+      ],
     });
     expect(result).toEqual({});
   });
@@ -51,7 +54,10 @@ describe('echo of the source', () => {
     const result = triage({
       source: { a: 'Docs' },
       target: { a: 'Docs' },
-      reviewed: [{ a: 'Documentacion' }, { a: 'Documentacao' }],
+      reviewed: [
+        { locale: 'es', catalog: { a: 'Documentacion' } },
+        { locale: 'pt', catalog: { a: 'Documentacao' } },
+      ],
     });
     expect(signals(result, 'a')).toEqual(['echo']);
   });
@@ -60,7 +66,10 @@ describe('echo of the source', () => {
     const result = triage({
       source: { a: 'JSON' },
       target: { a: 'JSON' },
-      reviewed: [{ a: 'JSON' }, { a: 'JSON' }],
+      reviewed: [
+        { locale: 'es', catalog: { a: 'JSON' } },
+        { locale: 'pt', catalog: { a: 'JSON' } },
+      ],
     });
     expect(result).toEqual({});
   });
@@ -111,7 +120,10 @@ describe('triage cannot be crashed or muted by its own data', () => {
     const result = triage({
       source: { a: 'Docs' },
       target: { a: 'Docs' },
-      reviewed: [{ a: 'Documentacion' }, { b: 'Otra' }],
+      reviewed: [
+        { locale: 'es', catalog: { a: 'Documentacion' } },
+        { locale: 'pt', catalog: { b: 'Otra' } },
+      ],
     });
     expect(signals(result, 'a')).toEqual(['echo']);
   });
@@ -138,5 +150,77 @@ describe('the two measured false positives, each pinned by the case that produce
 
     const changed = triage({ source: { a: 'Node 20+' }, target: { a: 'Node 22+' }, reviewed: [] });
     expect(signals(changed, 'a')).toEqual(['digits']);
+  });
+});
+
+// a label like "a link changed" fits the column and says nothing: a reason names its evidence
+describe('a reason names its evidence', () => {
+  const why = (result: ReturnType<typeof triage>, key: string) =>
+    (result[key] ?? []).map((r) => r.text);
+
+  it('divergent names the language and both renderings it already used', () => {
+    const result = triage({
+      source: { a: 'Get started', b: 'Get started' },
+      target: { a: 'Commencer', b: 'Demarrer' },
+      reviewed: [{ locale: 'es', catalog: { a: 'Comienza ahora', b: 'Empezar' } }],
+    });
+    expect(why(result, 'a')[0]).toBe(
+      'es already says this two ways: "Comienza ahora" and "Empezar"',
+    );
+  });
+
+  it('collision names the sibling key and what it says there', () => {
+    const result = triage({
+      source: { a: 'Get started', b: 'Get started' },
+      target: { a: 'Commencer', b: 'Demarrer' },
+      reviewed: [],
+    });
+    expect(why(result, 'a')[0]).toBe('b has the same source text and says "Demarrer"');
+  });
+
+  it('echo names the locales that did translate it', () => {
+    const result = triage({
+      source: { a: 'Docs' },
+      target: { a: 'Docs' },
+      reviewed: [
+        { locale: 'es', catalog: { a: 'Documentacion' } },
+        { locale: 'pt', catalog: { a: 'Documentacao' } },
+      ],
+    });
+    expect(why(result, 'a')[0]).toBe('still the source text, and es and pt did translate it');
+  });
+
+  it('digits quotes the number that moved, on both sides', () => {
+    const result = triage({ source: { a: 'Node 20+' }, target: { a: 'Node 22+' }, reviewed: [] });
+    expect(why(result, 'a')[0]).toBe('the source says "20", this one says "22"');
+  });
+
+  it('digits says which side is missing one when only one side has it', () => {
+    const gone = triage({ source: { a: 'Node 20+' }, target: { a: 'Node recent' }, reviewed: [] });
+    expect(why(gone, 'a')[0]).toBe('the source says "20" and this one does not');
+  });
+
+  it('url quotes the link', () => {
+    const result = triage({
+      source: { a: 'see https://verbaly.dev/a' },
+      target: { a: 'ver https://verbaly.dev/b' },
+      reviewed: [],
+    });
+    expect(why(result, 'a')[0]).toBe(
+      'the source links to "https://verbaly.dev/a", this one links to "https://verbaly.dev/b"',
+    );
+  });
+
+  // a reason is three short lines in the board, so a long message cannot push the column open
+  it('clips a long quote instead of letting it run', () => {
+    const long = 'Get started with the compiler and the whole write to ship cycle today';
+    const result = triage({
+      source: { a: long, b: long },
+      target: { a: 'Commencer', b: 'Demarrer' },
+      reviewed: [{ locale: 'es', catalog: { a: 'Comienza ahora mismo con todo el compilador', b: 'Empezar' } }],
+    });
+    const text = why(result, 'a')[0]!;
+    expect(text).toContain('…');
+    expect(text.length).toBeLessThan(100);
   });
 });

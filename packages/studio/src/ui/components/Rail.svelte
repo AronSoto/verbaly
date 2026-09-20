@@ -1,9 +1,10 @@
 <script lang="ts">
+  import { localeName } from 'verbaly';
   import { FILTER, GROUP, MARK_AS_READ, UNDO } from '../words';
   import type { Snippet } from 'svelte';
   import type { Group, LocaleHealth, MessageState } from '../model';
 
-  type Which = 'all' | 'look' | 'missing' | 'draft' | 'broken';
+  type Which = 'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken';
   type View = 'overview' | 'messages' | 'health';
 
   interface Props {
@@ -50,15 +51,22 @@
     { id: 'health', label: 'Health' },
   ];
 
-  const ORDER: Which[] = ['all', 'look', 'missing', 'draft', 'broken'];
+  const ORDER: Which[] = ['all', 'look', 'clean', 'missing', 'draft', 'broken'];
 
   // the second line is the state, and it is what makes the rail worth more than a dropdown
-  function summary(h: LocaleHealth): string {
-    if (h.source) return 'the one you write';
-    if (h.broken) return `${h.broken} breaks your site`;
-    if (h.missing) return `${h.missing} missing`;
-    if (h.draft) return `${h.draft} nobody has read`;
-    return 'all read';
+  function parts(h: LocaleHealth): string[] {
+    if (h.source) return ['the one you write'];
+    const out: string[] = [];
+    if (h.broken) out.push(`${h.broken} ${h.broken === 1 ? 'breaks' : 'break'} your site`);
+    if (h.missing) out.push(`${h.missing} missing`);
+    if (h.draft) out.push(`${h.draft} nobody has read`);
+    return out.length ? out : ['all read'];
+  }
+
+  // worst first and then the rest: naming only the worst hid work that was really there
+  function line(h: LocaleHealth): { lead: string; rest: string } {
+    const all = parts(h);
+    return { lead: all[0]!, rest: all.slice(1).join(' · ') };
   }
 
   function tone(h: LocaleHealth): MessageState {
@@ -94,6 +102,7 @@
   <h2 class="cap">Languages</h2>
   <ul class="langs">
     {#each health as h (h.locale)}
+      {@const state = line(h)}
       <li>
         <label class="lang" class:source={h.source}>
           <input
@@ -103,8 +112,10 @@
             onchange={() => onToggle(h.locale)}
           />
           <span class="meta">
-            <span class="name">{h.locale}</span>
-            <span class="state" data-state={tone(h)}>{summary(h)}</span>
+            <span class="name">{localeName(h.locale)} <code>{h.locale}</code></span>
+            <span class="state" data-state={tone(h)}>
+              <b>{state.lead}</b>{#if state.rest}&nbsp;· {state.rest}{/if}
+            </span>
           </span>
         </label>
         {#if !h.source && h.draft > 0}
@@ -277,6 +288,16 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--ink);
+  }
+
+  .name code {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .state b {
+    font-weight: 500;
   }
 
   .state {

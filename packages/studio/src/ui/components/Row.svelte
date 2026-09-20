@@ -1,7 +1,7 @@
 <script lang="ts">
   import Marks from './Marks.svelte';
   import { preview } from '../validate';
-  import { SIGNAL, STATE } from '../words';
+  import { SIGNAL, STATE, TRIAGE } from '../words';
   import type { Cell, Row } from '../model';
 
   interface Props {
@@ -10,9 +10,12 @@
     editing: string | null;
     onEdit: (id: string | null) => void;
     onSave: (locale: string, key: string, text: string) => Promise<string | null>;
+    // set only when one language is on screen: a reason belongs to a language, never to a row
+    why?: string | null;
   }
 
-  const { row, shown, editing, onEdit, onSave }: Props = $props();
+  const { row, shown, editing, onEdit, onSave, why }: Props = $props();
+  const lens = $derived(why !== undefined);
   const cells = $derived(row.cells.filter((cell) => shown.includes(cell.locale)));
   // the row's own state is the worst of the languages you are comparing, so the tile never lies
   const worst = $derived(
@@ -51,8 +54,18 @@
   }
 </script>
 
-<article class="row" class:open={cells.some((c) => editing === id(c))} data-worst={worst} data-key={row.key}>
-  <span class="tile" data-state={worst}><Marks state={worst} /></span>
+<article
+  class="row"
+  class:open={cells.some((c) => editing === id(c))}
+  class:flagged={lens && !!why}
+  data-worst={worst}
+  data-key={row.key}
+>
+  {#if lens}
+    <span class="rmark">{#if why}<span class="ojo">{TRIAGE.mark}</span>{/if}</span>
+  {:else}
+    <span class="tile" data-state={worst}><Marks state={worst} /></span>
+  {/if}
 
   <span class="row-t">
     <span class="src">{row.source}</span>
@@ -98,16 +111,58 @@
           {:else}
             <button class="tv none" onclick={() => open(cell)}>{STATE.missing.long}</button>
           {/if}
-          {#each cell.signals as signal (signal)}
-            <span class="sig" title={SIGNAL[signal] ?? signal}>{SIGNAL[signal] ?? signal}</span>
-          {/each}
+          {#if !lens}
+            {#each cell.reasons as reason (reason.signal)}
+              <span class="sig" title={reason.text}>{SIGNAL[reason.signal] ?? reason.signal}</span>
+            {/each}
+          {/if}
         </span>
       {/if}
     {/each}
   </span>
+
+  {#if lens}
+    <span class="why">{why ?? ''}</span>
+  {/if}
 </article>
 
 <style>
+  .why {
+    width: 230px;
+    flex: none;
+    align-self: center;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .rmark {
+    width: 46px;
+    flex: none;
+    margin-top: 2px;
+  }
+
+  .ojo {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 500;
+    background: var(--missing-tint);
+    color: var(--missing);
+  }
+
+  .row.flagged {
+    box-shadow: inset 3px 0 0 var(--missing);
+  }
+
   .row {
     display: flex;
     align-items: flex-start;

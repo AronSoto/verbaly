@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { health, toPanel, visible, type Panel } from '../src/ui/model';
+import { health, lookFirst, reasonFor, toPanel, visible, type Panel } from '../src/ui/model';
 
 function raw(over: Partial<Parameters<typeof toPanel>[0]> = {}) {
   return {
@@ -67,8 +67,8 @@ describe('the state of a cell, which is what the whole screen is coloured by', (
 
   // Proved able to fail by dropping the signals: the row worth reading looks like the rest.
   it('carries the triage signal to the language it was measured on', () => {
-    expect(cell('nav.home', 'es').signals).toEqual(['echo']);
-    expect(cell('nav.home', 'pt').signals).toEqual([]);
+    expect(cell('nav.home', 'es').reasons.map((r) => r.signal)).toEqual(['echo']);
+    expect(cell('nav.home', 'pt').reasons).toEqual([]);
   });
 
   it('only treats an error as broken, because a warning is not a failure', () => {
@@ -116,5 +116,67 @@ describe('what the table shows, which is the search and the filters together', (
   it('ignores the spaces around what you typed', () => {
     expect(visible(panel.rows, { ...all, text: '   ' })).toHaveLength(4);
     expect(visible(panel.rows, { ...all, text: '  Home  ' })).toHaveLength(1);
+  });
+});
+
+// the order is a contract, so it is pinned on the function and not read off the markup
+describe('one language on screen', () => {
+  const panel = toPanel(
+    raw({
+      triage: {
+        es: {
+          'nav.home': [{ signal: 'echo', text: 'still the source text, and pt did translate it' }],
+          gone: [{ signal: 'digits', text: 'the source says "2" and this one does not' }],
+        },
+      },
+    }),
+  );
+
+  it('puts every flagged row first and keeps the rest in the order they came', () => {
+    const before = panel.rows.map((r) => r.key);
+    const after = lookFirst(panel.rows, 'es');
+    expect(after.flagged).toBe(2);
+    expect(after.rows.slice(0, 2).map((r) => r.key).sort()).toEqual(['gone', 'nav.home']);
+    expect(after.rows.map((r) => r.key).sort()).toEqual(before.sort());
+  });
+
+  it('leaves the order alone for a language nothing flagged', () => {
+    const after = lookFirst(panel.rows, 'pt');
+    expect(after.flagged).toBe(0);
+    expect(after.rows.map((r) => r.key)).toEqual(panel.rows.map((r) => r.key));
+  });
+
+  it('hands the column its prose, and nothing when there is no reason', () => {
+    expect(reasonFor(panel.rows.find((r) => r.key === 'gone')!, 'es')).toBe(
+      'the source says "2" and this one does not',
+    );
+    expect(reasonFor(panel.rows.find((r) => r.key === 'bye')!, 'es')).toBeNull();
+  });
+
+  it('joins the reasons when a row tripped more than one signal', () => {
+    const many = toPanel(
+      raw({
+        triage: {
+          es: {
+            gone: [
+              { signal: 'digits', text: 'the source says "2"' },
+              { signal: 'url', text: 'a link changed' },
+            ],
+          },
+        },
+      }),
+    );
+    expect(reasonFor(many.rows.find((r) => r.key === 'gone')!, 'es')).toBe(
+      'the source says "2". a link changed',
+    );
+  });
+
+  // two chips that overlap would let the same row be in both piles, and the counts would not add up
+  it('clean is exactly the rows look leaves out', () => {
+    const rows = panel.rows;
+    const look = visible(rows, { text: '', state: 'look', locales: ['es'] });
+    const clean = visible(rows, { text: '', state: 'clean', locales: ['es'] });
+    expect(look.length + clean.length).toBe(rows.length);
+    expect(look.some((row) => clean.includes(row))).toBe(false);
   });
 });

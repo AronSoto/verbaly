@@ -2,13 +2,24 @@
   import HealthView from './Health.svelte';
   import Rail from './Rail.svelte';
   import RowView from './Row.svelte';
-  import { applyState, emptyReason, groups, health, search, visible, type Panel } from '../model';
+  import {
+    applyState,
+    emptyReason,
+    groups,
+    health,
+    lookFirst,
+    reasonFor,
+    search,
+    visible,
+    type Panel,
+  } from '../model';
+  import Language, { type Chip } from './Language.svelte';
   import Actions from './Actions.svelte';
   import Overview from './Overview.svelte';
   import Search from './Search.svelte';
   import { tick } from 'svelte';
   import type { Check, Commit, StudioApi } from '../api';
-  import { EMPTY, SEARCH } from '../words';
+  import { EMPTY, SEARCH, TRIAGE } from '../words';
 
   interface Props {
     panel: Panel;
@@ -105,7 +116,8 @@
   }
 
   // `state` would shadow the rune, so the filter is named for what it reads like at the call site
-  let only: 'all' | 'look' | 'missing' | 'draft' | 'broken' = $state('all');
+  // the annotation goes on the rune: on the variable, Svelte 5 narrows it to the first member
+  let only = $state<'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken'>('all');
   let text: string = $state('');
   // null means nobody has picked yet, so the default follows the project instead of freezing at mount
   let picked: string[] | null = $state(null);
@@ -115,6 +127,17 @@
   const shown = $derived(picked ?? targets.slice(0, 1));
 
   const rail = $derived(health(panel));
+
+  // one language on screen is a different question from comparing two, so it gets its own bar
+  const lens = $derived(shown.length === 1 ? shown[0]! : null);
+  const lensHealth = $derived(lens ? rail.find((h) => h.locale === lens) : undefined);
+  // counted over the whole language and never over the filtered view, or a chip would hide itself
+  const lensFlagged = $derived(
+    lens ? panel.rows.filter((row) => reasonFor(row, lens) !== null).length : 0,
+  );
+  const chip = $derived<Chip | null>(
+    only === 'look' ? 'look' : only === 'clean' ? 'clean' : only === 'all' ? 'all' : null,
+  );
   const hits = $derived(search(panel, text));
   let sheet: ReturnType<typeof Search> | undefined = $state();
   let field: HTMLInputElement | undefined = $state();
@@ -122,13 +145,17 @@
 
   // the table is not filtered by text any more: the sheet is what reads your words, in every language
   const all = $derived(groups(panel.rows, shown));
-  const rows = $derived(visible(panel.rows, { text: '', state: only, locales: shown, group }));
+  // flagged first when a single language is on screen, because the bar promised they are on top
+  const rows = $derived.by(() => {
+    const found = visible(panel.rows, { text: '', state: only, locales: shown, group });
+    return lens ? lookFirst(found, lens).rows : found;
+  });
   const empty = $derived(emptyReason(panel, shown, rows));
 
   // every count is over the languages actually shown, so the rail never promises rows a filter hides
   const counts = $derived.by(() => {
-    const out: Record<string, number> = { all: 0, look: 0, missing: 0, draft: 0, broken: 0 };
-    for (const id of ['all', 'look', 'missing', 'draft', 'broken'] as const) {
+    const out: Record<string, number> = { all: 0, look: 0, clean: 0, missing: 0, draft: 0, broken: 0 };
+    for (const id of ['all', 'look', 'clean', 'missing', 'draft', 'broken'] as const) {
       out[id] = visible(panel.rows, { text: '', state: id, locales: shown, group }).length;
     }
     return out;
@@ -289,18 +316,41 @@
         onClose={() => (view = 'overview')}
       />
     {:else}
-    <main class="table" onscroll={onScroll}>
-      {#if empty}
-        <p class="note">{EMPTY[empty]}{empty === 'oneLocale' ? ` ${EMPTY.oneLocaleFix}` : ''}</p>
-      {:else}
-        {#each rows.slice(0, limit) as row (row.key)}
-          <RowView {row} {shown} {editing} onEdit={(id) => (editing = id)} onSave={save} />
-        {/each}
-        {#if limit < rows.length}
-          <p class="note">{rows.length - limit} more below</p>
-        {/if}
+    <div class="lens">
+      {#if lens && lensHealth && !empty}
+        <Language
+          locale={lens}
+          total={panel.rows.length}
+          unread={lensHealth.draft}
+          broken={lensHealth.broken}
+          flagged={lensFlagged}
+          {chip}
+          onChip={(next) => (only = next)}
+          onApprove={() => setRead(lens, undefined, false)}
+        />
       {/if}
-    </main>
+      <main class="table" onscroll={onScroll}>
+        {#if empty}
+          <p class="note">{EMPTY[empty]}{empty === 'oneLocale' ? ` ${EMPTY.oneLocaleFix}` : ''}</p>
+        {:else}
+          {#each rows.slice(0, limit) as row (row.key)}
+            <RowView
+              {row}
+              {shown}
+              {editing}
+              onEdit={(id) => (editing = id)}
+              onSave={save}
+              why={lens ? reasonFor(row, lens) : undefined}
+            />
+          {/each}
+          {#if limit < rows.length}
+            <p class="note">
+              {lens ? TRIAGE.rest(rows.length - limit) : `${rows.length - limit} more below`}
+            </p>
+          {/if}
+        {/if}
+      </main>
+    </div>
     {/if}
   </div>
 
@@ -316,6 +366,15 @@
 </div>
 
 <style>
+  /* the bar and its chips do not scroll with the rows, so the table keeps its own overflow */
+  .lens {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   .shell {
     position: relative;
     display: flex;

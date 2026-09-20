@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.62.0] · 2026-09-20
+
+**A language you just translated is a language, not a filter.** Tick one and Studio stops comparing: it tells you the work already shipped, that nothing is broken, and puts the handful worth reading at the top with the reason written next to each one. Breaking: no.
+
+### Highlights
+
+- **Tick one language and you get that language.** A bar over the table says how many messages it holds, that they are already on your site, and that the check your build runs passes. The reassurance comes first because it is the true part.
+- **Every flagged row says why, in words, next to it.** Not "a link changed" but which link. Not "the numbers moved" but that the source says 20 and this one says 22.
+- **Mark the whole language as read in one click, and undo it.** No confirmation dialog: you keep editing in the row, and the undo sits in the rail until you leave.
+- **A language in the rail shows everything pending, not just the worst of it.** It used to read "1 breaks your site" for a language that also had one missing, so the second one was invisible.
+
+### Added
+
+- **The language view (`@verbaly/studio`).** With a single target language ticked, the messages view gains a bar naming the language by its own name, three filter chips (everything, look, nothing odd) and a reasons column beside each row. With two or more ticked it is the comparison table exactly as before, because a reason belongs to a language and not to a row.
+- **A `clean` filter**, the exact inverse of `look`. The two together are the whole language and never overlap, which is what makes the chip counts add up, and a test pins that.
+- **`lookFirst` and `reasonFor` (`@verbaly/studio`, `ui/model.ts`).** The flagged rows go to the top because the bar says they are there, so the order is a contract and lives in a function instead of in the markup, the same reason `emptyReason` exists.
+
+### Changed
+
+- **A triage reason names its evidence (`@verbaly/studio`, `triage.ts`).** `divergent` names the language and both renderings it already used, `collision` names the sibling key and what it says there, `echo` names the locales that did translate it, and `digits`, `url` and `code` quote what moved on each side. Quotes are clipped so three short lines still hold them.
+- **`triage` takes its controls as `{locale, catalog}`** instead of bare catalogs. A reason that cannot name the language explains nothing, and two of the six signals need to.
+- **A language row in the rail lists every pending count, worst first**, and the worst one is the bold half.
+- **A language is named by its own name in the rail and in the bar** (`localeName` from core, the endonym), with the tag kept beside it in the disc. A tag is an address, not a name.
+
+### Notes
+
+- **The design board answered the rail question that was open in the roadmap.** It was written up as "the rail counts two ways, and that is a product decision for Aron": the board had already drawn it, `2 rompen el build · 2 sin traducir`, worst first and then the rest. **Reading the board beat asking**, which is the whole reason that document exists and the mistake it records having made twice.
+- **One thing on the board is deliberately not built: a fourth chip for length outliers.** The board draws it; the project measured it afterwards and put it in the discarded list, 6 outliers out of 1115 and all 6 correct. The board is older than the measurement, so the measurement wins and this note is here so nobody re-adds it from the picture.
+- **1445 tests, 12 new.** Six pin the prose of each signal, four pin the ordering and the reason lookup, one pins that `look` and `clean` partition the language exactly, and one pins that a long quote is clipped rather than left to push the column open.
+- **Verified in the browser against a fixture built to trip every signal**, not against a happy one: 13 messages, one language just translated and one reviewed control. Flagged first with the reasons beside them, chips at 6 and 7 adding to 13, approve moving the rail to "all read" and undo putting it back, and the bar and the column both disappearing when a second language is ticked. Geometry measured rather than eyeballed: the column is 230px at 11px with a three-line clamp, the mark is 46px, no horizontal overflow.
+- **Sizes.** The panel is a local server and nobody downloads it, but it is tracked: **31.10 KB gzip of JS and 4.54 of CSS**, from 29.53 and 4.13. Packed `@verbaly/studio` **81.9 KB** over 11 files, from 76.4. **The runtime did not move**: 3.19 / 6.00 / 1.60 / 7.72, the same four numbers as 0.61.0.
+- **Dependencies are current again, which they were not at the last two cuts.** `pnpm outdated -r` had thirteen entries and now has none. Three of them ship to consumers and are the half rule 4 really guards: `@babel/parser` 8.0.5 to **8.0.6** and `magic-string` 1.3.1 to **1.4.1** in `@verbaly/compiler`, and `unplugin` 3.3.0 to **3.4.0** in `@verbaly/unplugin`. The other ten are tooling. No major moved, and the whole suite, typecheck, lint and the four size surfaces were re-run green on top of them.
+- **The `$state` narrowing trap bit again and is worth the line.** `let only: Union = $state('all')` makes Svelte 5 narrow `only` to `'all'`, so comparing it against another member is an error that reads like a logic mistake. The annotation belongs on the rune, `$state<Union>('all')`. It was already written down in the project's notes, which is why it cost a minute instead of an hour.
+
+### Docs impact (pending)
+
+- **`/docs/guide/studio`, the section "Which machine translations to read first": it describes ranking, and now there is a screen.** Say that ticking a single language turns the table into that language, with the bar, the three chips and the reason beside each flagged row. The page currently only explains the signals in the abstract.
+- **Same page, the signals table:** the "What it means" column describes each signal. It is worth one line saying the panel now writes that reason per row with the actual evidence in it, so the table is the vocabulary and the row is the instance.
+- **Same page, the row about accepting drafts** (`Accept machine drafts: a list of keys, or the whole language at once`) is still true and gains a place: the whole-language button lives in that bar.
+- **Nothing else changes.** The comparison table, the search sheet and the groups behave exactly as documented.
+
 ## [0.61.0] · 2026-09-19
 
 **Three guards that were written to be exhaustive, and were not.** An audit of the runtime's own safety net found a URL check a browser walks straight past, a catalog lookup that answers with a function, and five number formats that print `NaN` without saying a word. All three are closed, and the fourth item is the invariant that would have made the first one reviewable. Breaking: no.

@@ -1,12 +1,18 @@
 // The shapes the panel reads: StudioState restated, so the UI never imports Node code.
 export type MessageState = 'done' | 'draft' | 'missing' | 'broken';
 
+// the reason travels with the signal: the column next to a flagged row is prose, not a label
+export interface Reason {
+  signal: string;
+  text: string;
+}
+
 export interface Cell {
   locale: string;
   text: string;
   state: MessageState;
   issue?: string;
-  signals: string[];
+  reasons: Reason[];
 }
 
 export interface Row {
@@ -103,8 +109,8 @@ export function toPanel(raw: RawState): Panel {
           : drafts.get(locale)?.has(key)
             ? 'draft'
             : 'done';
-      const signals = (raw.triage?.[locale]?.[key] ?? []).map((reason) => reason.signal);
-      return { locale, text, state, issue, signals };
+      const reasons = raw.triage?.[locale]?.[key] ?? [];
+      return { locale, text, state, issue, reasons };
     }),
   }));
 
@@ -153,7 +159,7 @@ export function emptyReason(panel: Panel, shown: string[], rows: Row[]): Empty |
 
 export interface Filter {
   text: string;
-  state: MessageState | 'all' | 'look';
+  state: MessageState | 'all' | 'look' | 'clean';
   locales: string[];
   group?: string | null;
 }
@@ -196,8 +202,10 @@ export function visible(rows: Row[], filter: Filter): Row[] {
   const shown = new Set(filter.locales);
   return rows.filter((row) => {
     const cells = row.cells.filter((cell) => shown.has(cell.locale));
-    if (filter.state === 'look' && !cells.some((cell) => cell.signals.length)) return false;
-    if (filter.state !== 'all' && filter.state !== 'look') {
+    if (filter.state === 'look' && !cells.some((cell) => cell.reasons.length)) return false;
+    // the inverse of look, so the two chips together are the whole language and never overlap
+    if (filter.state === 'clean' && cells.some((cell) => cell.reasons.length)) return false;
+    if (filter.state !== 'all' && filter.state !== 'look' && filter.state !== 'clean') {
       if (!cells.some((cell) => cell.state === filter.state)) return false;
     }
     if (filter.group && groupOf(row.key) !== filter.group) return false;
@@ -264,4 +272,27 @@ export function marked(text: string, query: string): [string, string, string] {
   const at = text.toLowerCase().indexOf(needle.toLowerCase());
   if (at < 0) return [text, '', ''];
   return [text.slice(0, at), text.slice(at, at + needle.length), text.slice(at + needle.length)];
+}
+
+// the bar promises the flagged ones are on top, so the order is a contract and lives in a function
+export interface LookFirst {
+  rows: Row[];
+  flagged: number;
+}
+
+export function lookFirst(rows: Row[], locale: string): LookFirst {
+  const flagged: Row[] = [];
+  const rest: Row[] = [];
+  for (const row of rows) {
+    const cell = row.cells.find((c) => c.locale === locale);
+    (cell?.reasons.length ? flagged : rest).push(row);
+  }
+  return { rows: [...flagged, ...rest], flagged: flagged.length };
+}
+
+// a row can trip more than one signal, and the column has room for them joined
+export function reasonFor(row: Row, locale: string): string | null {
+  const cell = row.cells.find((c) => c.locale === locale);
+  if (!cell?.reasons.length) return null;
+  return cell.reasons.map((reason) => reason.text).join('. ');
 }

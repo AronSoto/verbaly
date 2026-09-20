@@ -116,7 +116,7 @@ export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
       // a locale still carrying drafts has not been reviewed, so it cannot be the control
       reviewed: targets
         .filter((other) => other !== locale && !(live[other] ?? []).length)
-        .map((other) => (catalogs[other] ?? {}) as Catalog),
+        .map((other) => ({ locale: other, catalog: (catalogs[other] ?? {}) as Catalog })),
     });
   }
 

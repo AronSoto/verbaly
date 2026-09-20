@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/unplugin",
-  "version": "0.61.0",
+  "version": "0.62.0",
   "description": "Verbaly for webpack, Rollup, esbuild and Rspack: extraction, virtual modules and build gate via unplugin.",
   "keywords": [
     "i18n",
@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@verbaly/compiler": "workspace:*",
-    "unplugin": "^3.3.0"
+    "unplugin": "^3.4.0"
   },
   "peerDependencies": {
     "verbaly": "workspace:^"

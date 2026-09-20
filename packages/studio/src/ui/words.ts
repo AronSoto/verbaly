@@ -8,12 +8,13 @@ export const STATE: Record<MessageState, { short: string; long: string }> = {
   broken: { short: 'breaks', long: 'breaks your site' },
 };
 
-export const FILTER: Record<'all' | 'look' | 'missing' | 'draft' | 'broken', string> = {
+export const FILTER: Record<'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken', string> = {
   all: 'everything',
   missing: 'missing',
   draft: 'unread',
   broken: 'breaks your site',
   look: 'worth a look',
+  clean: 'nothing odd',
 };
 
 // The signals do not score a translation, they point at the few worth reading first.
@@ -108,4 +109,27 @@ export const SEARCH = {
   closeKeys: 'close',
   close: 'Close',
   placeholder: 'Search the text, not the key',
+} as const;
+
+// the bar reassures before it asks, because the work already shipped: what is left is reading
+export const TRIAGE = {
+  mark: 'Look',
+  live: 'They are already on your site.',
+  written: (n: number) =>
+    `A machine wrote ${n === 1 ? 'one of them' : `${n} of them`} and nobody has read ${n === 1 ? 'it' : 'them'} yet.`,
+  sound: 'Nothing is broken: the check your build runs passes on this language.',
+  broken: (n: number) =>
+    `${n} ${n === 1 ? 'breaks' : 'break'} your site, so ${n === 1 ? 'it is' : 'they are'} first.`,
+  flagged: (n: number) =>
+    `${n} ${n === 1 ? 'is' : 'are'} worth reading before the rest, so ${n === 1 ? 'it is' : 'they are'} at the top.`,
+  clean: 'Nothing in them looks off to me.',
+  approve: (locale: string) => `Mark all of ${locale} as read`,
+  approveSub: (n: number) => `${n} unread, and it undoes`,
+  nothingUnread: 'Every one of them has been read.',
+  chipAll: 'Everything',
+  chipLook: 'Look',
+  chipClean: 'Nothing odd',
+  rest: (n: number) =>
+    `${n} more with nothing odd. They are below and you do not need to read them.`,
+  order: 'Sorted by what is worth reading first',
 } as const;

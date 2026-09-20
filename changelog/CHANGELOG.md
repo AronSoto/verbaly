@@ -42,7 +42,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **Dependencies are current again, which they were not at the last two cuts.** `pnpm outdated -r` had thirteen entries and now has none. Three of them ship to consumers and are the half rule 4 really guards: `@babel/parser` 8.0.5 to **8.0.6** and `magic-string` 1.3.1 to **1.4.1** in `@verbaly/compiler`, and `unplugin` 3.3.0 to **3.4.0** in `@verbaly/unplugin`. The other ten are tooling. No major moved, and the whole suite, typecheck, lint and the four size surfaces were re-run green on top of them.
 - **The `$state` narrowing trap bit again and is worth the line.** `let only: Union = $state('all')` makes Svelte 5 narrow `only` to `'all'`, so comparing it against another member is an error that reads like a logic mistake. The annotation belongs on the rune, `$state<Union>('all')`. It was already written down in the project's notes, which is why it cost a minute instead of an hour.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`/docs/guide/studio`, the section "Which machine translations to read first": it describes ranking, and now there is a screen.** Say that ticking a single language turns the table into that language, with the bar, the three chips and the reason beside each flagged row. The page currently only explains the signals in the abstract.
 - **Same page, the signals table:** the "What it means" column describes each signal. It is worth one line saying the panel now writes that reason per row with the actual evidence in it, so the table is the vocabulary and the row is the instance.

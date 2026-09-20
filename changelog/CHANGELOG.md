@@ -44,9 +44,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ### Docs impact (pending)
 
-- **`/docs/reference/security` or wherever the security model is stated: the href promise changed shape.** It is not "hrefs never come from catalogs" but "hrefs from a catalog are checked the way a browser reads them". The root `SECURITY.md` has the new wording to copy.
-- **`/docs/guide/plain-html`: `data-verbaly-attr` is the path where a catalog controls a URL**, which is worth one line next to the attribute, since that is the reason the guard exists.
-- **Nothing in the docs promised the old behaviour of `toString` or of `€NaN`**, so there is nothing to correct there, only the security page to restate.
+- **`/docs/frameworks/dom`, the `data-verbaly-attr` row: the URL promise changed shape.** It said the attributes are sanitized against unsafe schemes; it should say they are checked **the way a browser reads a URL**, so a tab or a line break inside the scheme cannot hide one. That row is the one place a catalog controls a URL, which is the whole reason the guard exists.
+- **The two neighbouring claims were checked and are correct as they stand**: the named-links bullet on the same page ("hrefs come from your code, never from the catalog") is true of rich links, which is its subject, and `/docs/reference/api` only lists `safeHref` and `safeAttribute` among the low-level exports. **The sentence that was wrong was the root `SECURITY.md` one**, because it generalized the rich-link rule to every href, and it is already rewritten there.
+- **There is no security page and this release does not add one.** The claims live where the feature is documented, which is the DOM page.
+- **Nothing in the docs promised the old behaviour of `toString` or of `€NaN`**, so there is nothing to correct for those two.
 
 ## [0.60.0] · 2026-09-15
 

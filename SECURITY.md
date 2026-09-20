@@ -22,7 +22,7 @@ How the runtime enforces this today:
 
 - Rich text builds DOM from a **phrasing-tag whitelist**, never `innerHTML`; unknown tags become plain text.
 - Attribute values that come from a message pass one guard (`safeAttribute`): `on*` handlers and `style`/`srcdoc` are refused outright.
-- Link hrefs come only from your code, never from catalogs, and `javascript:`, `data:` and `vbscript:` URLs are rejected.
+- Link hrefs inside a rich message come from your code (`richLinks`), never from the message. Where a catalog does control a URL, which is a `data-verbaly-attr` mapping, `javascript:`, `data:` and `vbscript:` are rejected, and the check runs on the URL **normalized the way a browser normalizes it**: tab, newline and carriage return are removed from anywhere and leading control characters are trimmed before the scheme is read, so none of those can smuggle a scheme past the guard.
 - A catalog value that is not text never reaches the renderer: `flatten` is the single door and it treats what arrives from a lazy loader, `addMessages` or a CMS as hostile.
 
 The static mirror writes catalog content into your HTML, so it carries the same rules: `verbaly render` HTML-escapes every message it pre-fills, passes translated attributes through the same `safeAttribute` guard, and escapes `</` when it inlines a page's messages as JSON, so a message can never close the script tag it ships in. The runtime reads that blob defensively: anything that is not a plain object is ignored with a warning instead of trusted.

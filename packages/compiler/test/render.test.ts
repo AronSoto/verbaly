@@ -336,7 +336,18 @@ describe('renderHtml', () => {
       const { html } = render('<p data-verbaly="home.intro" data-verbaly-args="{not json}"></p>');
       // args unparsed: the {name} placeholder stays literal, no crash
       expect(html).toContain('Hola {name}');
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid args JSON'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid JSON in data-verbaly-args'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('names the attribute that is malformed, not the one that shares the parser', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      render('<a data-verbaly="home.intro" data-verbaly-attr="href:home.url"></a>');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid JSON in data-verbaly-attr'));
+      expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('data-verbaly-args'));
     } finally {
       warn.mockRestore();
     }

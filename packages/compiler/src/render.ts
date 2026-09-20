@@ -24,6 +24,7 @@ import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
 import type { RedirectConfig, ResolvedConfig } from './config';
 import { counted } from './text';
+import { warnOnce } from './warn';
 
 export interface Alternate {
   hreflang: string;
@@ -192,7 +193,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     const attrMapRaw = attrs.get(attrsAttr);
     if (key === undefined && attrMapRaw === undefined) continue;
 
-    const args = parseArgs(attrs.get(argsAttr));
+    const args = parseArgs(attrs.get(argsAttr), argsAttr);
 
     if (key) {
       if (!v.has(key)) {
@@ -202,7 +203,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
         const close = findClose(html, tagName, openEnd, inSkip);
         if (close) {
           const text = t(key, args);
-          const own = parseArgs(attrs.get(linksAttr)) as Record<string, RichLink> | undefined;
+          const own = parseArgs(attrs.get(linksAttr), linksAttr) as Record<string, RichLink> | undefined;
           const merged = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
           // a link inside a message is a link: without the prefix it leaves the mirror
           const links = mirror ? mirroredLinks(merged, mirror) : merged;
@@ -235,7 +236,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     }
 
     if (attrMapRaw !== undefined) {
-      const map = parseArgs(attrMapRaw);
+      const map = parseArgs(attrMapRaw, attrsAttr);
       if (map) {
         for (const [name, attrKey] of Object.entries(map)) {
           if (typeof attrKey !== 'string') continue;
@@ -620,12 +621,14 @@ function parseAttrs(chunk: string): Map<string, string> {
   return attrs;
 }
 
-function parseArgs(raw: string | undefined): Params | undefined {
+// three attributes share this parser, so the report names the one that is actually malformed
+function parseArgs(raw: string | undefined, attribute: string): Params | undefined {
   if (!raw) return undefined;
   try {
     return JSON.parse(decodeEntities(raw)) as Params;
   } catch {
-    console.warn(`[verbaly] invalid args JSON: ${raw}`);
+    // a page is mirrored once per locale, so a raw warn says the same thing once per tree
+    warnOnce(`invalid JSON in ${attribute}: ${raw}`, `${attribute}:${raw}`);
     return undefined;
   }
 }

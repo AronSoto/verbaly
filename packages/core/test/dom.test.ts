@@ -179,7 +179,35 @@ describe('safeHref / normalizeLink', () => {
     expect(safeHref('vbscript:msgbox')).toBeUndefined();
     expect(safeHref(' \tJAVASCRIPT:alert(1)')).toBeUndefined();
     expect(safeHref('https://x.dev')).toBe('https://x.dev');
+    // the scheme and never the href: warnOnce dedupes on the text and a catalog value is unbounded
+    expect(warn.mock.calls[0]![0]).toContain('resolves to "data:"');
+    expect(warn.mock.calls[0]![0]).not.toContain('script');
     warn.mockRestore();
+  });
+
+  it('blocks the schemes a browser reads after it normalizes the url', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // verified in Chromium: a.protocol is "javascript:" for every one of these
+    expect(safeHref('java\tscript:alert(1)')).toBeUndefined();
+    expect(safeHref('java\nscript:alert(1)')).toBeUndefined();
+    expect(safeHref('java\rscript:alert(1)')).toBeUndefined();
+    expect(safeHref('\u0001javascript:alert(1)')).toBeUndefined();
+    expect(safeHref('da\tta:text/html,<script>1</script>')).toBeUndefined();
+    expect(safeHref('\u0001\tvb\nscript:msgbox')).toBeUndefined();
+    warn.mockRestore();
+  });
+
+  it('gives a safe href back exactly as it arrived, normalization included', () => {
+    // the browser normalizes what it receives, so the value is checked normalized and passed raw
+    expect(safeHref('/docs\t/a')).toBe('/docs\t/a');
+    expect(safeHref('https://x.dev/a?q=java\tscript')).toBe('https://x.dev/a?q=java\tscript');
+    expect(safeHref('/javascripts/app.js')).toBe('/javascripts/app.js');
+    expect(safeHref('mailto:hola@example.com')).toBe('mailto:hola@example.com');
+  });
+
+  it('leaves a non-breaking space alone, because a browser reads it as a relative path', () => {
+    // verified in Chromium: it resolves to /%C2%A0javascript:alert(1), never to the scheme
+    expect(safeHref('\u00a0javascript:alert(1)')).toBe('\u00a0javascript:alert(1)');
   });
 
   it('normalizeLink expands strings and applies safeHref', () => {

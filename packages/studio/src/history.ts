@@ -13,7 +13,7 @@ export interface Commit {
 }
 
 // one field separator that no subject can contain, written as the escape and never as the byte
-const FIELD = '';
+const FIELD = '\u001f';
 const FORMAT = `--format=%H${FIELD}%an${FIELD}%aI${FIELD}%s`;
 
 // split out so the shape of a log line is tested without a repository and without writing one

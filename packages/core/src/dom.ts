@@ -13,13 +13,18 @@ export interface BindDomOptions {
   richLinks?: Record<string, RichLink>;
 }
 
-const UNSAFE_HREF = /^\s*(javascript|data|vbscript):/i;
+// eslint-disable-next-line no-control-regex
+const UNSAFE_HREF = /^[\u0000-\u0020]*(javascript|data|vbscript):/i;
 const URL_ATTR = /^(href|src|xlink:href|action|formaction)$/;
 const BLOCKED_ATTR = /^(style|srcdoc)$/;
+// a browser drops tab, LF and CR anywhere in a url and trims leading C0 before reading the scheme
+const URL_NOISE = /[\t\n\r]/g;
 
 export function safeHref(href: string): string | undefined {
-  if (UNSAFE_HREF.test(href)) {
-    warnOnce(`blocked unsafe href: ${href}`);
+  const unsafe = UNSAFE_HREF.exec(href.replace(URL_NOISE, ''));
+  if (unsafe) {
+    // the scheme and never the href: warnOnce dedupes on its text and a catalog value is unbounded
+    warnOnce(`blocked an unsafe href, it resolves to "${unsafe[1]!.toLowerCase()}:"`);
     return undefined;
   }
   return href;

@@ -51,4 +51,18 @@ describe('flatten with data the gate never saw', () => {
     expect(v.t('ok')).toBe('Hello');
     warn.mockRestore();
   });
+
+  it('hands back a null-prototype map, so a member of Object is not a message', () => {
+    const flat = flatten({ ok: 'Hello' });
+    expect(Object.getPrototypeOf(flat)).toBeNull();
+    expect(flat['toString']).toBeUndefined();
+    expect(flat['constructor']).toBeUndefined();
+    expect(flat['__proto__']).toBeUndefined();
+  });
+
+  it('still reads a key called toString when the catalog really defines it', () => {
+    const flat = flatten({ toString: 'Convert to text', nav: { constructor: 'Builder' } });
+    expect(flat['toString']).toBe('Convert to text');
+    expect(flat['nav.constructor']).toBe('Builder');
+  });
 });

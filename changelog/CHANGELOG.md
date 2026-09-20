@@ -8,6 +8,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.61.0] · 2026-09-19
+
+**Three guards that were written to be exhaustive, and were not.** An audit of the runtime's own safety net found a URL check a browser walks straight past, a catalog lookup that answers with a function, and five number formats that print `NaN` without saying a word. All three are closed, and the fourth item is the invariant that would have made the first one reviewable. Breaking: no.
+
+### Highlights
+
+- **A link in a catalog can no longer smuggle a `javascript:` URL into your site.** The check looked at the text as written; a browser deletes tabs and newlines from a URL before it reads it, so `java<tab>script:` passed. It is now checked the way a browser reads it.
+- **A message called `toString` or `constructor` is a missing message, not a blank one.** Those names belong to every JavaScript object, and the lookup was finding the object's own instead of yours. You got an empty string and no warning.
+- **A number format that gets something that is not a number now tells you.** A price with a text value used to render `€NaN`, and a price with no value at all used to render a confident `€0.00`. Both now show the plain value and name the message they came from.
+- **Nothing about how you write messages changes.** These are all paths that only run when something is already wrong.
+
+### Fixed
+
+- **`safeHref` (core) checks the URL a browser will read, not the one in the file.** The scheme test now runs after removing ASCII tab, line feed and carriage return from anywhere in the value and after skipping leading control characters, which is exactly the preprocessing the WHATWG URL parser does. Verified three ways: Node's `new URL()` resolves all of them to `javascript:`, Chromium reports `a.protocol === 'javascript:'`, and `verbaly render` wrote the payload into a mirrored page before the fix and writes the author's original href after it. It reaches every surface that puts a catalog value in a URL attribute: `data-verbaly-attr` in `bindDom` and in the static mirror, and `normalizeLink`, so `<Trans>` in react, vue and svelte too.
+- **`flatten` (core) hands back a null-prototype map.** `lookup` reads `dict[locale][key]`, and on a plain object `toString` answers a function, so `t('toString')` rendered `''`, `has()` said `true` and `inspect()` reported a hit that does not exist, none of it warned. `addMessages` was merging with a spread, which handed the prototype straight back, so both places are fixed and both are pinned.
+- **The five numeric formats (core) validate what they were given.** `number`, `integer`, `percent`, `currency` and `unit` used to hand `Number(value)` to `Intl`, which never throws and prints `NaN`. They now degrade through the same `warnOnce` path as everything else, naming the param and the message. `null` and `''` count as not a number, because `Number()` turns both into a plausible `0`.
+- **An auto-formatted `NaN` warns too (core)**, which also covers the `#` inside a plural. It shares one report with the invalid-Date case, since both say the same thing.
+- **`data-verbaly-attr` with malformed JSON names itself (compiler).** Three attributes share one parser and it always reported `data-verbaly-args`, so the message sent you to the wrong attribute. It also went through a raw `console.warn`, which repeats once per page and per locale: a one-page fixture printed it three times, a 27-page site would print 81. It goes through the compiler's `warnOnce` now.
+
+### Changed
+
+- **The blocked-href warning names the scheme instead of the URL (core).** `warnOnce` dedupes on the message text and its set is unbounded, so a URL built from a param could grow it without limit. The rule was already written down in 0.32.0 and this was the path that still broke it. The remedy does not depend on which URL fell through.
+- **`SECURITY.md` says what the code does.** It claimed link hrefs never come from catalogs, which is false for `data-verbaly-attr`, and that the three schemes are rejected, which was the claim this release had to make true. It now names the normalization as part of the promise.
+- **`packages/studio/src/history.ts` writes its field separator as `\u001f`** instead of the raw byte, which is what the comment on that line already said it did.
+
+### Notes
+
+- **1433 tests, 12 new**, and every one of them was run against a broken version of its fix before being trusted: eight sabotages, eight reds. One of them came back green on the first try, which is the reason the ritual exists: the branch that names `NaN` in a warning was not reachable from any assertion, so the test was decoration until a case went through an explicit numeric format.
+- **The differential is the other half of a security fix.** A guard that blocks more is not automatically better, so the old check and the new one were run over a corpus of real and hostile URLs: seven newly blocked, all of them vectors, and one newly allowed. That one is a leading non-breaking space, and Chromium was asked rather than reasoned about: it resolves to `/%C2%A0javascript:alert(1)`, a relative path, so the old check was over-blocking there. It has its own test.
+- **Sizes, with the cost of each fix measured separately** (min+gzip, real-app surface): the numeric guard **0.07 KB**, `safeHref` **0.05**, naming `NaN` **0.02**, and `flatten`, `addMessages` and the merged warn **0.01 each**. Totals: `createVerbaly` 3.09 to **3.19** (budget 3.25), a real app 5.86 to **6.00** (budget 6.10), devtools **1.60** unchanged, the canary 7.58 to **7.72** (budget 7.75). All four pass. **The canary has about half a percent of room left and the budgets were deliberately not raised**: that is Aron's call, not a fix inside a release.
+- **`Object.create(null)` is not the slow one.** The concern was that a dictionary-mode object would cost the hot path, so it was measured on a 1600-key map: **114.6M lookups/s against 106.0M for a plain object**, and `{ __proto__: null }` sits between them. The null prototype is faster here, not slower.
+- **Bench, and a caveat about how it is read**: 9.4M to 9.6M ops/s on plain lookup, 1.32M to 1.38M on interpolation, 0.76M on plural, 0.61M to 0.63M on currency, across three runs. Verbaly's own numbers vary by about 2%, but **the ratio against i18next swung from 28.5x to 32.9x in those same three runs**, because i18next's number moved 14%. The multiplier is the noisier half of the receipt, so a change in it is not by itself a signal.
+- **The control-byte trap fired three times while closing it**, which is the most useful thing this release learned. Writing `\u0000` through a text-editing tool produces the byte it means, so it landed in `dom.ts` (caught by `Bin` in `git diff --stat`, the documented symptom), in the new test (a `\u0001`, **no symptom at all**, because only NUL makes git say binary), and in this very entry, in the line above that documents the `\u001f` fix. **The lesson is not "be careful", it is that the scan has to run and it has to cover the whole C0 range**: `Bin` found one of the three. All of them were replaced by building the backslash in a script; the repo has zero raw control bytes in tracked source.
+
+### Docs impact (pending)
+
+- **`/docs/reference/security` or wherever the security model is stated: the href promise changed shape.** It is not "hrefs never come from catalogs" but "hrefs from a catalog are checked the way a browser reads them". The root `SECURITY.md` has the new wording to copy.
+- **`/docs/guide/plain-html`: `data-verbaly-attr` is the path where a catalog controls a URL**, which is worth one line next to the attribute, since that is the reason the guard exists.
+- **Nothing in the docs promised the old behaviour of `toString` or of `€NaN`**, so there is nothing to correct there, only the security page to restate.
+
 ## [0.60.0] · 2026-09-15
 
 **Your catalog becomes something you can move around in.** Search only looked at the languages you had ticked, so a Spanish word with Spanish unticked found nothing and never said why. And the groups your keys already declare were nowhere on screen. Both are fixed, and they work together. Breaking: no.

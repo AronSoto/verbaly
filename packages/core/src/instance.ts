@@ -163,7 +163,8 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
       partial.add(loc);
       loaded.add(loc);
     }
-    dict[loc] = { ...dict[loc], ...flatten(messages) };
+    // a spread would hand the merge Object.prototype back, and toString would answer as a message
+    dict[loc] = Object.assign(Object.create(null), dict[loc], flatten(messages));
     notify();
   }
 

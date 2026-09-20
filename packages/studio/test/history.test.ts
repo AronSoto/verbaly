@@ -5,7 +5,7 @@ import { resolveConfig } from '@verbaly/compiler';
 import { describe, expect, it } from 'vitest';
 import { catalogHistory, parseLog } from '../src/history';
 
-const FIELD = '';
+const FIELD = '\u001f';
 const line = (sha: string, author: string, date: string, subject: string): string =>
   [sha, author, date, subject].join(FIELD);
 

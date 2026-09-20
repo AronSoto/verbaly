@@ -1,10 +1,11 @@
 import type { MessageTree } from './types';
 import { warnOnce } from './warn';
 
+// null-prototype: lookup reads dict[loc][key], and a plain object answers toString
 export function flatten(
   tree: MessageTree,
   prefix = '',
-  out: Record<string, string> = {},
+  out: Record<string, string> = Object.create(null) as Record<string, string>,
 ): Record<string, string> {
   // a catalog is untrusted input: a lazy loader, addMessages or a CMS never crosses the build gate
   if (!isGroup(tree)) return out;

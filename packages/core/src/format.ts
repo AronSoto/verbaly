@@ -49,6 +49,8 @@ function formatParam(node: ParamNode, ctx: FormatContext): string {
 // the type of the offending value, never the value: the dedupe set must stay bounded
 function describe(value: unknown): string {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? 'an invalid Date' : 'a Date';
+  // NaN is typeof number, and "cannot format a number as a number" names nothing
+  if (typeof value === 'number' && Number.isNaN(value)) return 'NaN';
   if (Array.isArray(value)) return 'an array';
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
@@ -74,6 +76,8 @@ function pickVariant(
   return undefined;
 }
 
+const NUMERIC = /^(number|integer|percent|currency|unit)$/;
+
 function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): string {
   const { name, arg } = node;
   const format = node.format!;
@@ -81,23 +85,31 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
   if (custom) return custom(value, ctx.locale, arg, { param: name, key: ctx.key });
 
   const { locale } = ctx;
+  // what arrived, kept because the numeric guard below replaces value with the parsed number
+  const raw = value;
   // a format missing its argument degrades like an invalid one: with a warn, never in silence
   const degrade = (problem: string): string => {
     warnOnce(`{${name}:${format}}${where(ctx)} ${problem}`);
-    return String(value);
+    return String(raw);
   };
+  // what a number is gets decided once: Intl prints NaN instead of throwing, and Number(null) is 0
+  if (NUMERIC.test(format)) {
+    const n = value === null || value === '' ? NaN : Number(value);
+    if (Number.isNaN(n)) return degrade(`cannot format ${describe(value)} as a number`);
+    value = n;
+  }
 
   switch (format) {
     case 'number':
-      return numberFormat(locale).format(Number(value));
+      return numberFormat(locale).format(value as number);
     case 'integer':
-      return numberFormat(locale, { maximumFractionDigits: 0 }).format(Number(value));
+      return numberFormat(locale, { maximumFractionDigits: 0 }).format(value as number);
     case 'percent':
-      return numberFormat(locale, { style: 'percent' }).format(Number(value));
+      return numberFormat(locale, { style: 'percent' }).format(value as number);
     case 'currency':
       if (!arg) return degrade('needs an argument like /USD');
       try {
-        return numberFormat(locale, { style: 'currency', currency: arg }).format(Number(value));
+        return numberFormat(locale, { style: 'currency', currency: arg }).format(value as number);
       } catch {
         return degrade(`does not know the currency "${arg}"`);
       }
@@ -126,7 +138,7 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
     case 'unit':
       if (!arg) return degrade('needs an argument like /kilometer');
       try {
-        return numberFormat(locale, { style: 'unit', unit: arg }).format(Number(value));
+        return numberFormat(locale, { style: 'unit', unit: arg }).format(value as number);
       } catch {
         return degrade(`does not know the unit "${arg}"`);
       }
@@ -140,15 +152,13 @@ function applyFormat(value: unknown, node: ParamNode, ctx: FormatContext): strin
 
 export function autoFormat(value: unknown, locale: string, ctx?: FormatContext): string {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'number') return numberFormat(locale).format(value);
-  if (value instanceof Date) {
-    // an invalid Date makes Intl throw: degrade like every other bad format input
-    if (Number.isNaN(value.getTime())) {
-      warnOnce(`an invalid Date${ctx ? where(ctx) : ''} renders as plain text`);
-      return String(value);
-    }
-    return dateTimeFormat(locale).format(value);
+  // an invalid Date makes Intl throw and NaN makes it print "NaN": one degradation, one report
+  if (Number.isNaN(value instanceof Date ? value.getTime() : value)) {
+    warnOnce(`${describe(value)}${ctx ? where(ctx) : ''} renders as plain text`);
+    return String(value);
   }
+  if (typeof value === 'number') return numberFormat(locale).format(value);
+  if (value instanceof Date) return dateTimeFormat(locale).format(value);
   return String(value);
 }
 

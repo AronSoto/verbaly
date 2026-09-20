@@ -479,3 +479,59 @@ describe('relative without its formatter', () => {
     expect(seen[0]).toEqual({ param: 'amount', key: 'total', locale: 'en', arg: undefined });
   });
 });
+
+// its own locale because warnOnce is module-level and every warn text here carries one
+describe('a numeric format never renders NaN in silence', () => {
+  const n = createVerbaly({
+    locale: 'en-NZ',
+    messages: {
+      'en-NZ': {
+        price: '{amount:currency/EUR}',
+        pct: '{p:percent}',
+        whole: '{i:integer}',
+        plain: '{x:number}',
+        far: '{d:unit/kilometer}',
+        bare: '{c}',
+        counted: '{c | one: # item | other: # items}',
+      },
+    },
+  });
+
+  it('degrades to the plain value with a warn instead of printing NaN', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(n.t('price', { amount: 'abc' })).toBe('abc');
+    expect(n.t('pct', { p: 'x' })).toBe('x');
+    expect(n.t('whole', { i: 'x' })).toBe('x');
+    expect(n.t('plain', { x: 'x' })).toBe('x');
+    expect(n.t('far', { d: 'far' })).toBe('far');
+    expect(spy).toHaveBeenCalledTimes(5);
+    expect(spy.mock.calls[0]![0]).toContain('{amount:currency} in "price" cannot format a string');
+    spy.mockRestore();
+  });
+
+  it('catches the zero that looks right, which is the one nobody would question', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Number(null) and Number('') are both 0, so currency used to answer a confident €0.00
+    expect(n.t('price', { amount: null })).toBe('null');
+    expect(spy.mock.calls[0]![0]).toContain('cannot format null as a number');
+    spy.mockRestore();
+  });
+
+  it('says NaN, because describing it as "a number" names nothing', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(n.t('bare', { c: NaN })).toBe('NaN');
+    expect(n.t('counted', { c: NaN })).toBe('NaN items');
+    expect(spy.mock.calls[0]![0]).toContain('NaN in "bare" renders as plain text');
+    // NaN is typeof number, so without its own branch this line reads "a number as a number"
+    expect(n.t('price', { amount: NaN })).toBe('NaN');
+    expect(spy.mock.calls.at(-1)![0]).toContain('cannot format NaN as a number');
+    spy.mockRestore();
+  });
+
+  it('still formats every number it always formatted', () => {
+    expect(n.t('plain', { x: 1234.5 })).toBe(numberFormat('en-NZ').format(1234.5));
+    expect(n.t('whole', { i: '42' })).toBe('42');
+    expect(n.t('counted', { c: 1 })).toBe('1 item');
+    expect(n.t('pct', { p: 0.5 })).toContain('50');
+  });
+});

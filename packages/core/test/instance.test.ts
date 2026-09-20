@@ -65,6 +65,37 @@ describe('locale resolution', () => {
 });
 
 describe('missing keys', () => {
+  // the locales are unique per test because warnOnce is module-level and its text carries them
+  it('treats a member of Object like any other key nobody defined', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly<DictionaryInput>({
+      locale: 'en-XZ',
+      messages: { en: { real: 'Real' } },
+    });
+    expect(v.t('real')).toBe('Real');
+    // dict[loc][key] finds Object.prototype.toString on a plain object, and it is not a message
+    for (const key of ['toString', 'constructor', 'valueOf', 'hasOwnProperty']) {
+      expect(v.t(key)).toBe(key);
+      expect(v.has(key)).toBe(false);
+      expect(v.inspect(key)).toBeUndefined();
+    }
+    expect(warn).toHaveBeenCalledTimes(4);
+    warn.mockRestore();
+  });
+
+  it('keeps that true after addMessages, where a spread used to restore the prototype', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly<DictionaryInput>({
+      locale: 'en-XY',
+      messages: { en: { real: 'Real' } },
+    });
+    v.addMessages('en-XY', { later: 'Later' });
+    expect(v.t('later')).toBe('Later');
+    expect(v.t('valueOf')).toBe('valueOf');
+    expect(v.has('valueOf')).toBe(false);
+    warn.mockRestore();
+  });
+
   it('returns the key and warns once', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const v = createVerbaly<DictionaryInput>({ locale: 'es', messages: { es: {} } });

@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
-  <img src="https://img.shields.io/badge/gzip-3.19KB-3fb950" alt="3.19KB gzip" />
+  <img src="https://img.shields.io/badge/gzip-3.22KB-3fb950" alt="3.22KB gzip" />
   <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero dependencies" />
   <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
@@ -16,7 +16,7 @@
 
 ---
 
-Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.19 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.00 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
+Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.22 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.03 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
 
 ```ts
 // You write this:

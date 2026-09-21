@@ -8,6 +8,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.64.0] · 2026-09-20
+
+**A value that cannot become text no longer takes the render down.** A message parameter that JavaScript refuses to turn into a string made `t()` throw, and the path that was supposed to degrade threw as well. Breaking: no.
+
+### Highlights
+
+- **A bad parameter can no longer crash a render.** If a value cannot be turned into text, the message renders without it and Verbaly says so once, the same way every other bad value is handled.
+- **You get this shape for free from JSON.** A payload with a field called `toString` that holds an object is valid JSON, so a CMS or a catalog fetched at runtime could carry one into your page.
+- **Nothing changes for a project that was fine.** The check only runs where a parameter is already unusable.
+
+### Fixed
+
+- **`t()` no longer throws on a parameter that cannot be coerced (`verbaly`).** `String(value)` and `Number(value)` both throw a `TypeError` on an object whose `toString` is not a function. Five places in `format.ts` coerced a parameter, and the sixth was the report itself, so the degradation path crashed on exactly the values it existed to survive. A single check in `formatParam` now runs before any of them.
+- **Every message shape is covered, not only the one that was found.** Plain interpolation, the five numeric formats, date, time, list, relative, a plural selector and the `#` inside one: all of them reached a coercion, and all of them are pinned.
+
+### Notes
+
+- **It was found by the property test, on a seed nobody chose.** `fast-check` walked into `{v:currency/XYZ}` with `{"v":{"toString":{}}}` after 84 tries. That is the point of a property test and it is also the warning: the gate was green on the previous run and the bug had been shipping. A suite that explores is only as good as the day it explores the right corner.
+- **One door, not five guards, and the reason is measured.** Guarding each coercion cost **0.05 KB** and pushed the canary surface to 7.78 against its 7.75 budget. Checking once where the parameter enters costs **0.02 KB**, because the five call sites stay exactly as they were.
+- **The coercion has to be used.** A bare `` `${value}`; `` is an error under `no-unused-expressions` and a minifier is free to drop it, so the check returns `typeof \`${value}\` === 'string'`. That it survived minification was verified by running the built bundle, not by reading the source, which is the same rule the bundle receipts follow.
+- **Sizes.** The runtime went 3.19 to **3.22**, a real app 6.00 to **6.03**, devtools unchanged at 1.60, and the canary 7.72 to **7.75**, which is its budget exactly. **The canary now has no room at all**: the next thing added to core goes over it, and raising that budget is a decision rather than a fix.
+- **1464 tests, 3 new**, all three proved able to fail by removing the door.
+- Bench, measured on this cut: **37.8x, 11.0x, 5.0x and 5.8x** against i18next, against 36.0/9.2/5.2/7.0 on the last one. The hot path did not change in this release, which is the reminder that the multiplier is the noisy half of that receipt: i18next's own number moves more than ours does.
+
+### Docs impact (pending)
+
+- **The runtime figure moved, so the site has to follow it.** `src/constants/size.ts` goes to **3.22** and **6.03**, and the prose in `docs_why.q_light_b` of the three catalogs carries the same 3.22. Do it **after** `pnpm install`, because `check-size.mjs` measures the installed runtime and will fail against the old one. This is the whole reason that guard exists.
+- **No API moved, no option was added and no message format changed.** The behaviour that changed is a crash becoming a warning, so nothing else on the site is wrong today.
+- **`/docs/guide/troubleshooting`, if it lists the warnings Verbaly prints:** this release can emit `cannot format an object in "key"` for a parameter that used to crash instead, so a reader meeting it for the first time is seeing an old bug get reported, not a new one.
+
 ## [0.63.0] · 2026-09-20
 
 **Every row in Studio has a menu, and the one thing it could not answer now it can.** Copy the key, copy the source text, edit in place, see which files use a message, and see the commit that last changed it. Breaking: no.

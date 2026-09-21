@@ -27,10 +27,15 @@ function where(ctx: FormatContext): string {
 }
 
 function formatParam(node: ParamNode, ctx: FormatContext): string {
-  const value = ctx.params?.[node.name];
+  let value = ctx.params?.[node.name];
   if (value === undefined) {
     warnOnce(`missing param "${node.name}"${where(ctx)}`);
     return `{${node.name}}`;
+  }
+  // the one door: every path below coerces, so a value that cannot be coerced never gets there
+  if (!coercible(value)) {
+    warnOnce(`cannot format ${describe(value)}${where(ctx)}`);
+    value = '';
   }
 
   if (node.variants) {
@@ -44,6 +49,15 @@ function formatParam(node: ParamNode, ctx: FormatContext): string {
   }
   if (node.format) return applyFormat(value, node, ctx);
   return autoFormat(value, ctx.locale, ctx);
+}
+
+// String() and Number() both throw on an object with no callable toString, and a param can be one
+function coercible(value: unknown): boolean {
+  try {
+    return typeof `${value}` === 'string';
+  } catch {
+    return false;
+  }
 }
 
 // the type of the offending value, never the value: the dedupe set must stay bounded

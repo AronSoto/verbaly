@@ -535,3 +535,46 @@ describe('a numeric format never renders NaN in silence', () => {
     expect(n.t('pct', { p: 0.5 })).toContain('50');
   });
 });
+
+describe('a param that cannot become text', () => {
+  // JSON.parse gives you this shape for free, so a CMS payload or a lazy catalog can carry one
+  const hostile = JSON.parse('{"toString":{}}') as unknown;
+
+  const FORMATS = [
+    '{v}',
+    '{v:number}',
+    '{v:integer}',
+    '{v:percent}',
+    '{v:currency/EUR}',
+    '{v:unit/kilometer}',
+    '{v:date}',
+    '{v:time}',
+    '{v:list}',
+    '{v | one: a | other: b}',
+    '{v | one: # a | other: # b}',
+    'before {v} after',
+  ];
+
+  // found by fast-check on one seed: the degradation path coerced too, so the net crashed
+  it('never takes t() down, whatever the message asks for', () => {
+    for (const message of FORMATS) {
+      const v = createVerbaly({ locale: 'en', messages: { en: { m: message } } });
+      expect(typeof v.t('m', { v: hostile }), message).toBe('string');
+    }
+  });
+
+  // Proved able to fail by removing the try in formatParam: the first case throws a TypeError.
+  it('renders as nothing and says so once', () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const v = createVerbaly({ locale: 'en', messages: { en: { greet: 'hi {name}' } } });
+    expect(v.t('greet', { name: hostile })).toBe('hi ');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cannot format an object'));
+    warn.mockRestore();
+  });
+
+  // a Symbol is the other value that throws on coercion, and it arrives the same way
+  it('covers a symbol too, because the door is the coercion and not the type', () => {
+    const v = createVerbaly({ locale: 'en', messages: { en: { m: 'x {v}' } } });
+    expect(v.t('m', { v: Symbol('s') as unknown as string })).toBe('x ');
+  });
+});

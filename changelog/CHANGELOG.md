@@ -32,11 +32,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **1464 tests, 3 new**, all three proved able to fail by removing the door.
 - Bench, measured on this cut: **37.8x, 11.0x, 5.0x and 5.8x** against i18next, against 36.0/9.2/5.2/7.0 on the last one. The hot path did not change in this release, which is the reminder that the multiplier is the noisy half of that receipt: i18next's own number moves more than ours does.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **The runtime figure moved, so the site has to follow it.** `src/constants/size.ts` goes to **3.22** and **6.03**, and the prose in `docs_why.q_light_b` of the three catalogs carries the same 3.22. Do it **after** `pnpm install`, because `check-size.mjs` measures the installed runtime and will fail against the old one. This is the whole reason that guard exists.
 - **No API moved, no option was added and no message format changed.** The behaviour that changed is a crash becoming a warning, so nothing else on the site is wrong today.
-- **`/docs/guide/troubleshooting`, if it lists the warnings Verbaly prints:** this release can emit `cannot format an object in "key"` for a parameter that used to crash instead, so a reader meeting it for the first time is seeing an old bug get reported, not a new one.
+- **`/docs/guide/troubleshooting` does not list the warnings, so nothing moved there.** The page that does is `/docs/reference/api`, and its line already promised this: "bad catalog data never crashes a render, and never slips through unnoticed". **That sentence was false until this release** and is true now, so it needed no edit. Adding "a value that cannot become text" to the four cases it enumerates would finish the list, and it is left for whoever next opens that page.
+- **Executed:** `src/constants/size.ts` at 3.22 and 6.03, the same 3.22 in the prose of the three catalogs with each one keeping its own decimal separator, and the 0.64.0 block in `releases.ts` plus en, es and pt. Read in the browser in all three trees.
 
 ## [0.63.0] · 2026-09-20
 

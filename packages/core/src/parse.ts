@@ -38,8 +38,8 @@ export function parse(message: string, icu?: IcuParser): MessageNode[] {
 // visible and named, never a plausible-looking wrong render: the source shows and the warn says why
 function unparsedIcu(message: string): MessageNode[] {
   warnOnce(
-    'a message uses ICU syntax but no ICU parser is loaded: pass icu to createVerbaly (the ' +
-      'compiler wires it when a catalog needs it, so this means it arrived after the build)',
+    'a message uses ICU syntax and no ICU parser is loaded: set icu: true in your verbaly ' +
+      'config, or pass icu to createVerbaly',
   );
   return [{ kind: 'text', value: message }];
 }

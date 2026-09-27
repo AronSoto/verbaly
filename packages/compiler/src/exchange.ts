@@ -1,10 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import type { Catalogs } from './catalog';
+import type { Catalog, Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
 import { escapeXml, inlineToMessage, messageToInline, unescapeXml } from './inline';
 import { androidValuesDir, toAndroidXml, toIosStrings } from './mobile';
 import { parsePo, toPo } from './po';
+import { isLocaleTag, projectLocale, suggestTag } from './tag';
 import { structureMatches } from './translate';
 
 export type ExchangeFormat = 'xliff' | 'csv' | 'po';
@@ -47,6 +48,8 @@ export interface ImportResult {
   rejected: Record<string, string[]>;
   skipped: Record<string, string[]>;
   unknown: Record<string, string[]>;
+  unmatched: { file: string; locale: string; reason: 'undeclared' | 'invalid' }[];
+  mapped: { file: string; from: string; to: string }[];
 }
 
 // One file per target locale: source text + current translation
@@ -141,22 +144,41 @@ export function importCatalogs(
   options: ImportOptions = {},
 ): ImportResult {
   const source = catalogs[cfg.sourceLocale] ?? {};
-  const result: ImportResult = { imported: {}, rejected: {}, skipped: {}, unknown: {} };
+  const result: ImportResult = {
+    imported: {},
+    rejected: {},
+    skipped: {},
+    unknown: {},
+    unmatched: [],
+    mapped: [],
+  };
 
   for (const file of files) {
     const parsed = parseExchangeFile(file, options.locale);
-    const locale = parsed.locale;
-    if (!/^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]+)*$/.test(locale)) {
+    const detected = parsed.locale;
+    if (!/^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]+)*$/.test(detected)) {
       throw new Error(
-        `[verbaly] ${file}: "${locale}" doesn't look like a locale, pass --locale <id>.`,
+        `[verbaly] ${file}: "${detected}" doesn't look like a locale, pass --locale <id>.`,
       );
     }
+    const locale = projectLocale(detected, cfg.locales) ?? newLocale(cfg, detected);
     if (locale === cfg.sourceLocale) {
       throw new Error(
         `[verbaly] ${file} targets the source locale "${locale}": import fills translations, not the source. Pass --locale if the detection is wrong.`,
       );
     }
-    const catalog = (catalogs[locale] ??= {});
+    // a pt_BR catalog next to pt-BR, or one a declared list never loads, is a language nobody sees
+    if (locale === undefined) {
+      const near = isLocaleTag(detected) ? detected : suggestTag(detected);
+      result.unmatched.push(
+        near
+          ? { file, locale: near, reason: 'undeclared' }
+          : { file, locale: detected, reason: 'invalid' },
+      );
+      continue;
+    }
+    if (locale !== detected) result.mapped.push({ file, from: detected, to: locale });
+    const catalog = (catalogs[locale] ??= Object.create(null) as Catalog);
     for (const [key, text] of Object.entries(parsed.entries)) {
       if (!text.trim()) continue;
       if (!source[key]) {
@@ -246,11 +268,17 @@ function toXliff(sourceLocale: string, locale: string, entries: ExchangeEntry[])
   ].join('\n');
 }
 
+// with no list written down, a language exists by having a catalog, so a file may start one
+function newLocale(cfg: ResolvedConfig, detected: string): string | undefined {
+  if (cfg.localesDeclared) return undefined;
+  return isLocaleTag(detected) ? detected : suggestTag(detected);
+}
+
 function parseXliff(content: string): { locale?: string; entries: Record<string, string> } {
   const locale =
     /\btrgLang\s*=\s*"([^"]+)"/.exec(content)?.[1] ??
     /\btarget-language\s*=\s*"([^"]+)"/.exec(content)?.[1];
-  const entries: Record<string, string> = {};
+  const entries = Object.create(null) as Record<string, string>;
   const UNIT = /<(?:trans-)?unit\b([^>]*)>([\s\S]*?)<\/(?:trans-)?unit>/g;
   for (const match of content.matchAll(UNIT)) {
     const id = /\bid\s*=\s*"([^"]*)"/.exec(match[1]!)?.[1];
@@ -286,7 +314,7 @@ function parseCsv(content: string): Record<string, string> {
   if (keyCol === -1 || targetCol === -1) {
     throw new Error('[verbaly] CSV needs a header row with "key" and "target" columns.');
   }
-  const entries: Record<string, string> = {};
+  const entries = Object.create(null) as Record<string, string>;
   for (const row of rows.slice(1)) {
     const key = row[keyCol];
     if (key) entries[key] = row[targetCol] ?? '';

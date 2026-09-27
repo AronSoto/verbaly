@@ -2,6 +2,7 @@ import {
   collectOrigins,
   extractProject,
   loadCatalogs,
+  mergeTranslations,
   resolveProvider,
   syncCatalogs,
   translateCatalogs,
@@ -70,17 +71,21 @@ export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): P
         origins: await collectOrigins(cfg),
         onProgress: (p) => advance(id, p.keys, p.locale, p.error),
       });
-      for (const [locale, keys] of Object.entries(result.translated)) {
-        if (keys.length) writeCatalog(cfg, locale, catalogs[locale] ?? {});
-      }
       // what a machine wrote stays a draft: the panel does not get to change that rule
       const drafts = loadDrafts(cfg);
+      let written = 0;
+      let kept = 0;
       for (const [locale, keys] of Object.entries(result.translated)) {
-        markDrafts(drafts, locale, keys);
+        const landed = mergeTranslations(cfg, locale, catalogs[locale] ?? {}, keys);
+        markDrafts(drafts, locale, landed);
+        written += landed.length;
+        kept += keys.length - landed.length;
       }
       saveDrafts(cfg, drafts);
       finish(id, result.failed.length ? 'failed' : 'done', {
         result,
+        written,
+        kept,
         message: result.failed.length ? `${result.failed.length} batches did not answer` : undefined,
       });
     } catch (error) {

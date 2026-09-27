@@ -618,9 +618,15 @@ describe('localeName', () => {
     expect(localeName('pt-BR')).toContain('português');
   });
 
-  it('falls back to the tag itself on garbage', () => {
+  it('falls back to the tag itself when the tag is garbage', () => {
     expect(localeName('???')).toBe('???');
-    expect(localeName('es', '???')).toBe('es');
+  });
+
+  // a display language Intl cannot read degrades like a number or a date would, never to the code
+  it('reads pt_BR as pt-BR, and garbage as the default locale, to display a name in', () => {
+    expect(localeName('es', 'pt_BR')).toBe(localeName('es', 'pt-BR'));
+    const fallback = new Intl.DisplayNames(undefined, { type: 'language' }).of('es');
+    expect(localeName('es', '???')).toBe(fallback);
   });
 
   it('falls back to the tag when DisplayNames returns undefined', () => {
@@ -708,6 +714,18 @@ describe('switchLocale: one call, both modes', () => {
       navigate: (p) => void went.push(p),
     });
     expect(went).toEqual(['/docs/start']);
+  });
+
+  // Proved able to fail by falling back to [locale] again: /pt/docs becomes /es/pt/docs.
+  it('knows the current segment from the instance when no supported list is passed', async () => {
+    const { instance } = fake();
+    const went: string[] = [];
+    history.replaceState({}, '', '/pt/docs');
+    await switchLocale({ ...instance, locales: ['en', 'es', 'pt'] }, 'es', {
+      routing: 'prefix-all',
+      navigate: (p) => void went.push(p),
+    });
+    expect(went).toEqual(['/es/docs']);
   });
 
   it('an explicit no-prefix mode still swaps in place', async () => {

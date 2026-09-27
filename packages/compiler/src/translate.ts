@@ -1,4 +1,4 @@
-import type { Catalogs } from './catalog';
+import { readCatalog, writeCatalog, type Catalog, type Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
 import { counted } from './text';
 import { validateMessage, validatePair } from './validate';
@@ -183,6 +183,27 @@ export async function translateCatalogs(
 
 function compare(a: string[], b: string[]): number {
   return (a[0] ?? '').localeCompare(b[0] ?? '');
+}
+
+// a run takes minutes, so it writes onto the file as it is now: text a person added meanwhile stays
+export function mergeTranslations(
+  cfg: ResolvedConfig,
+  locale: string,
+  translated: Catalog,
+  keys: string[],
+): string[] {
+  const source = readCatalog(cfg, cfg.sourceLocale);
+  const current = readCatalog(cfg, locale);
+  const written: string[] = [];
+  for (const key of keys) {
+    const text = translated[key];
+    // pruned meanwhile, or filled meanwhile: either way the file already says what it should
+    if (!source[key] || current[key] || !text) continue;
+    current[key] = text;
+    written.push(key);
+  }
+  if (written.length > 0) writeCatalog(cfg, locale, current);
+  return written;
 }
 
 // the same reason repeats across batches: say it once and name every key it cost

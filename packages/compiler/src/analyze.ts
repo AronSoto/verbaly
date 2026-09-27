@@ -28,6 +28,7 @@ export interface TaggedMessage {
 export interface UsedKey {
   key: string;
   file: string;
+  loose?: true;
 }
 
 // a named import the verbaly packages do not export: t comes from an instance, never from a package
@@ -109,10 +110,8 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
         return;
       }
       if (!isTReference(callee, names)) return;
-      const first = args[0];
-      if (first?.type === 'StringLiteral') {
-        usedKeys.push({ key: first.value as string, file });
-      }
+      const key = staticString(args[0]);
+      if (key !== undefined) usedKeys.push(usedKey(key, file, args[0]));
     } else if (node.type === 'JSXElement') {
       handleTrans(code, node, file, tagged, usedKeys, names);
     }
@@ -127,12 +126,28 @@ function collectDeclaredKeys(node: AstNode | undefined, file: string, out: UsedK
   for (const property of node.properties as AstNode[]) {
     if (property.type !== 'ObjectProperty') continue;
     const value = property.value as AstNode;
-    if (value.type === 'StringLiteral') {
-      if ((value.value as string) !== '') out.push({ key: value.value as string, file });
+    const key = staticString(value);
+    if (key !== undefined) {
+      if (key !== '') out.push(usedKey(key, file, value));
     } else if (value.type === 'ObjectExpression') {
       collectDeclaredKeys(value, file, out);
     }
   }
+}
+
+function usedKey(key: string, file: string, node: AstNode | null | undefined): UsedKey {
+  return node?.type === 'StringLiteral' ? { key, file } : { key, file, loose: true };
+}
+
+// a key is a literal however it is spelled: '…', `…` with no ${}, or {'…'} in a JSX attribute
+function staticString(node: AstNode | null | undefined): string | undefined {
+  if (!node) return undefined;
+  if (node.type === 'StringLiteral') return node.value as string;
+  if (node.type === 'TemplateLiteral' && (node.expressions as AstNode[]).length === 0) {
+    return cookedValue((node.quasis as AstNode[])[0]);
+  }
+  if (node.type === 'JSXExpressionContainer') return staticString(node.expression as AstNode);
+  return undefined;
 }
 
 const VERBALY_PACKAGE = /^(?:verbaly|@verbaly\/[\w-]+)$/;
@@ -181,17 +196,17 @@ function handleTrans(
 
   if (idAttr) {
     const value = idAttr.value as AstNode | null;
-    if (value?.type !== 'StringLiteral') return;
-    const id = value.value as string;
-    // id + children → extract under the explicit key
-    if (attrs.length === 1 && children?.length) {
+    const id = staticString(value);
+    if (id === undefined) return;
+    // quoted id + children → extract under the explicit key; a backtick id never extracted before
+    if (value?.type === 'StringLiteral' && attrs.length === 1 && children?.length) {
       const built = buildTransMessage(code, children, names);
       if (built?.text.trim()) {
         push(id, built);
         return;
       }
     }
-    usedKeys.push({ key: id, file });
+    usedKeys.push(usedKey(id, file, value));
     return; // runtime-first, untouched
   }
   if (attrs.length > 0) return; // hand-written props → don't guess
@@ -218,6 +233,7 @@ function explicitId(
   if (!isTReference(obj, names)) return undefined;
   const args = tag.arguments as AstNode[];
   const first = args[0];
+  // quoted only: extracting a backtick id now would be a new reason for a build to fail
   if (args.length !== 1 || first?.type !== 'StringLiteral') return undefined;
   return { key: first.value as string, refStart: obj.start, refEnd: obj.end };
 }

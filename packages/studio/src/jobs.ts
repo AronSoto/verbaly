@@ -11,6 +11,8 @@ export interface Job {
   locale?: string;
   message?: string;
   result?: unknown;
+  written?: number;
+  kept?: number;
 }
 
 // One at a time, because two runs over the same catalogs is a race over the same files.

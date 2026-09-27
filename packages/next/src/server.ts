@@ -43,6 +43,13 @@ function holder(): LocaleHolder {
 
 // call it from the layout with the [locale] segment: reading headers() kills static rendering
 export function setRequestLocale(locale: string): void {
+  // a segment says the url carries the locale, and no-prefix tells every url helper it does not
+  if (routing === 'no-prefix') {
+    warnOnce(
+      `setRequestLocale got a locale segment while routing is "no-prefix": if your urls start ` +
+        `with the locale, set routing to 'prefix-all' or 'prefix-except-source' in your verbaly config`,
+    );
+  }
   holder().locale = locale;
 }
 

@@ -178,6 +178,7 @@ describe('formatCheckResult', () => {
       ],
       unknown: [{ key: 'ghost', files: ['src/a.ts'] }],
       broken: [],
+      extra: [],
     };
     const text = formatCheckResult(result);
     expect(text).toContain('  [es] greet: "Hello there"');
@@ -193,6 +194,7 @@ describe('formatCheckResult', () => {
       missing: [{ locale: 'es', key: 'k', source: long }],
       unknown: [],
       broken: [],
+      extra: [],
     });
     expect(text).toContain('…"');
     expect(text).not.toContain(long);
@@ -205,6 +207,7 @@ describe('checkNextSteps', () => {
     missing: [],
     unknown: [],
     broken: [],
+    extra: [],
     ...patch,
   });
 
@@ -299,6 +302,7 @@ describe('githubCheckAnnotations', () => {
       missing: [{ locale: 'es', key: 'k', source: '100% off\nreally, now: go' }],
       unknown: [],
       broken: [],
+      extra: [],
     };
     const [line] = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(line).toContain('100%25 off%0Areally, now: go');
@@ -313,6 +317,7 @@ describe('githubCheckAnnotations', () => {
         { key: 'used', files: ['/root/src/a.ts'] },
         { key: 'orphan', files: [] },
       ],
+      extra: [],
     };
     const lines = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(lines).toContain('::error file=src/a.ts::unknown key "used" (not in any catalog)');
@@ -338,6 +343,7 @@ describe('githubCheckAnnotations', () => {
       missing: [],
       unknown: [],
       broken: [{ locale: 'pl', key: 'items', severity: 'warning', issue: 'pl also needs few' }],
+      extra: [],
     };
     const [line] = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(line).toBe('::warning::[pl] items: pl also needs few');
@@ -350,5 +356,45 @@ describe('githubCheckAnnotations', () => {
     const lines = githubCheckAnnotations(result, registry, config.root);
     // both keys resolve to real line numbers from the single cached read
     expect(lines.filter((l) => l.includes(',line=')).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('a key only a translation has', () => {
+  // Proved able to fail by dropping the extra loop: both keys pass through check in silence.
+  it('is reported with the files that read it, and never fails the gate', () => {
+    const registry = new MessageRegistry();
+    registry.update('/app/src/a.ts', analyze("t('shown.key');", '/app/src/a.ts'));
+    const catalogs: Catalogs = {
+      en: { kept: 'Kept' },
+      es: { kept: 'Guardada', 'shown.key': 'Solo aquí', 'dead.key': 'Muerta' },
+    };
+    const result = check(cfg(), catalogs, registry);
+    expect(result.ok).toBe(true);
+    expect(result.extra).toEqual([
+      { locale: 'es', key: 'shown.key', files: ['/app/src/a.ts'] },
+      { locale: 'es', key: 'dead.key', files: [] },
+    ]);
+    const warnings = formatCheckWarnings(result);
+    expect(warnings).toContain(
+      '[es] shown.key: only this translation has it, so the source language shows the key itself',
+    );
+    expect(warnings).toContain('[es] dead.key: only this translation has it, and no code reads it');
+  });
+
+  // Proved able to fail by counting loose keys as unknown: a build that passed on 0.64.0 fails.
+  it('never fails the gate for a key spelled in backticks, which 0.64.0 did not read at all', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze('t(`nowhere.key`);', 'a.ts'));
+    const result = check(cfg(), { en: { kept: 'Kept' }, es: { kept: 'Guardada' } }, registry);
+    expect(result.unknown).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('is not a key the code already writes and the source catalog has not caught up with', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze('t`Fresh text`;', 'a.ts'));
+    const key = [...registry.messages().keys()][0]!;
+    const result = check(cfg(), { en: {}, es: { [key]: 'Texto nuevo' } }, registry);
+    expect(result.extra).toEqual([]);
   });
 });

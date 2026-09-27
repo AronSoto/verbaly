@@ -83,14 +83,13 @@ function readDrafts(cfg: ResolvedConfig): { drafts: Drafts; problems: StudioProb
   }
 }
 
-// check() reports the file a stray key was used in as an absolute path, origins already do not.
+// check() reports the files a key was used in as absolute paths, origins already do not.
 function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
+  const rel = (file: string): string => relative(cfg.root, file).replaceAll('\\', '/');
   return {
     ...result,
-    unknown: result.unknown.map((entry) => ({
-      ...entry,
-      files: entry.files.map((file) => relative(cfg.root, file).replaceAll('\\', '/')),
-    })),
+    unknown: result.unknown.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
+    extra: result.extra.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
   };
 }
 

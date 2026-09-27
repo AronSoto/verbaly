@@ -292,4 +292,28 @@ describe('@verbaly/vue <Trans>', () => {
     expect(a.hasAttribute('href')).toBe(false);
     expect(a.textContent).toBe('b');
   });
+
+  // Proved able to fail by reading components[name] again: hasOwnProperty runs as a render.
+  it('unwraps a tag named like a member of Object, components and links given', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: {
+        es: { odd: 'a <hasOwnProperty>b</hasOwnProperty> <constructor>c</constructor>' },
+      },
+    });
+    const comp = defineComponent({
+      setup() {
+        return () =>
+          h(Trans, {
+            id: 'odd',
+            components: { x: (c: VNodeChild[]) => h('strong', c) },
+            links: { docs: '/docs' },
+          });
+      },
+    });
+    const { el, errors } = mount(comp, verbalyPlugin(v));
+    expect(errors).toEqual([]);
+    expect(el.querySelector('a')).toBeNull();
+    expect(el.textContent).toBe('a b c');
+  });
 });

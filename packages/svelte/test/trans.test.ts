@@ -129,6 +129,22 @@ describe('<Trans>', () => {
     expect(target.querySelector('strong.wrapped')!.textContent).toBe('build');
   });
 
+  // Proved able to fail by passing the maps on as given: Object mounts as a component.
+  it('unwraps a tag named like a member of Object, components and links given', () => {
+    const instance = createVerbaly({
+      locale: 'en',
+      messages: { en: { odd: 'a <constructor>b</constructor> <toString>c</toString>' } },
+    });
+    const { target } = render(Trans, {
+      id: 'odd',
+      instance,
+      components: { em: Wrap },
+      links: { docs: '/docs' },
+    });
+    expect(target.querySelector('a')).toBeNull();
+    expect(target.textContent).toBe('a b c');
+  });
+
   it('accepts string shorthand and blocks unsafe hrefs', () => {
     const { target } = render(Trans, {
       id: 'evil',

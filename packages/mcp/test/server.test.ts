@@ -281,6 +281,29 @@ describe('createVerbalyMcp', () => {
     ).toContain('unreviewed');
   });
 
+  // Proved able to fail by writing the run's own copy back: the text written by hand is replaced.
+  it('translate keeps a message someone wrote while the provider was working', async () => {
+    const root = makeProject(
+      'translate: { provider: async ({ messages }) => { const fs = await import("node:fs"); const file = new URL("./locales/es.json", import.meta.url); const catalog = JSON.parse(fs.readFileSync(file, "utf8")); for (const key of Object.keys(messages)) catalog[key] = "Hola a mano {name}"; fs.writeFileSync(file, JSON.stringify(catalog)); return Object.fromEntries(Object.entries(messages).map(([k, v]) => [k, "ES " + v])); } }',
+    );
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    const result = await client.callTool({ name: 'verbaly_translate', arguments: {} });
+
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as Record<
+      string,
+      string
+    >;
+    expect(Object.values(es)).toEqual(['Hola a mano {name}']);
+    const data = structured(result) as {
+      translated: Array<{ locale: string; keys: string[] }>;
+      kept: Array<{ locale: string; keys: string[] }>;
+    };
+    expect(data.translated).toEqual([]);
+    expect(data.kept).toEqual([{ locale: 'es', keys: Object.keys(es) }]);
+    expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(false);
+  });
+
   it('translate dryRun lists pending entries without calling any provider', async () => {
     const root = makeProject('translate: { provider: async () => { throw new Error("never") } }');
     const client = await connect(root);

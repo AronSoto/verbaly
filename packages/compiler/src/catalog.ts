@@ -78,16 +78,21 @@ function isNested(tree: MessageTree): boolean {
   return Object.values(tree).some((value) => typeof value === 'object' && value !== null);
 }
 
+// null prototype: a group named __proto__ is data here, and on a plain object it writes to Object
+function group(): MessageTree {
+  return Object.create(null) as MessageTree;
+}
+
 // dotted key back to its group; a path already taken by text stays flat so nothing is overwritten
 function nest(catalog: Catalog): MessageTree {
-  const tree: MessageTree = {};
+  const tree = group();
   // sorted, so "hero" always lands before "hero.title" and a message is never replaced by its group
   for (const [key, message] of Object.entries(catalog).sort(([a], [b]) => (a < b ? -1 : 1))) {
     const parts = key.split('.');
     const leaf = parts[parts.length - 1]!;
     let node: MessageTree | undefined = parts.length > 1 ? tree : undefined;
     for (let i = 0; node && i < parts.length - 1; i++) {
-      const next = (node[parts[i]!] ??= {});
+      const next = (node[parts[i]!] ??= group());
       node = typeof next === 'object' && next !== null ? (next as MessageTree) : undefined;
     }
     if (node && typeof node[leaf] !== 'object') node[leaf] = message;
@@ -97,7 +102,7 @@ function nest(catalog: Catalog): MessageTree {
 }
 
 function sortTree(tree: MessageTree): MessageTree {
-  const sorted: MessageTree = {};
+  const sorted = group();
   for (const key of Object.keys(tree).sort()) {
     const value = tree[key];
     if (typeof value === 'string') sorted[key] = value;
@@ -116,7 +121,7 @@ function orderLike(tree: MessageTree, previous: MessageTree): MessageTree {
   const had = Object.keys(previous);
   if (isSorted(had)) return sortTree(tree);
 
-  const out: MessageTree = {};
+  const out = group();
   const take = (key: string): void => {
     const value = tree[key];
     if (typeof value === 'string') {
@@ -131,9 +136,9 @@ function orderLike(tree: MessageTree, previous: MessageTree): MessageTree {
         : sortTree(value);
   };
 
-  for (const key of had) if (key in tree) take(key);
+  for (const key of had) if (Object.hasOwn(tree, key)) take(key);
   // a key the file did not have is an addition, and it reads as one at the end of its group
-  for (const key of Object.keys(tree).sort()) if (!(key in previous)) take(key);
+  for (const key of Object.keys(tree).sort()) if (!Object.hasOwn(previous, key)) take(key);
   return out;
 }
 

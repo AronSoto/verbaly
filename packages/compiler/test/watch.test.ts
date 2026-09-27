@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { join, sep } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveConfig } from '../src/config';
-import { watchProject } from '../src/watch';
+import { watchProject, watchTree } from '../src/watch';
 
 function makeProject() {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-watch-'));
@@ -105,5 +105,70 @@ describe('watchProject', () => {
     } finally {
       stop();
     }
+  });
+});
+
+// forced by hand on every platform: it is the one that runs where Node cannot watch a tree
+describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
+  const closers: (() => void)[] = [];
+  afterEach(() => {
+    for (const close of closers.splice(0)) close();
+  });
+
+  function tree(options: { keep?: string } = {}) {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-tree-'));
+    mkdirSync(join(root, 'src', 'deep'), { recursive: true });
+    mkdirSync(join(root, 'node_modules', 'pkg'), { recursive: true });
+    mkdirSync(join(root, '.next'));
+    mkdirSync(join(root, '.i18n'));
+    const seen: string[] = [];
+    const record = (file: string) => seen.push(file.split(sep).join('/'));
+    closers.push(watchTree(root, { native: false, ...options }, record));
+    return { root, seen };
+  }
+
+  // Proved able to fail by fanning out to every directory: node_modules reports its change.
+  it('reports code at any depth, and never walks node_modules or a dot directory', async () => {
+    const { root, seen } = tree({ keep: '.i18n' });
+    await vi.waitFor(
+      () => {
+        writeFileSync(join(root, 'node_modules', 'pkg', 'index.js'), String(Date.now()));
+        writeFileSync(join(root, '.next', 'trace.js'), String(Date.now()));
+        writeFileSync(join(root, 'src', 'deep', 'page.tsx'), String(Date.now()));
+        writeFileSync(join(root, '.i18n', 'en.json'), String(Date.now()));
+        expect(seen).toContain('src/deep/page.tsx');
+        expect(seen).toContain('.i18n/en.json');
+      },
+      { timeout: 5000, interval: 100 },
+    );
+    expect(seen.filter((file) => /^(node_modules|[.]next)[/]/.test(file))).toEqual([]);
+  });
+
+  // Proved able to fail by dropping the top-level sync: a directory made later is never heard.
+  it('starts watching a top-level directory made after it started', async () => {
+    const { root, seen } = tree();
+    mkdirSync(join(root, 'app'));
+    await vi.waitFor(
+      () => {
+        writeFileSync(join(root, 'app', 'page.tsx'), String(Date.now()));
+        expect(seen).toContain('app/page.tsx');
+      },
+      { timeout: 5000, interval: 100 },
+    );
+  });
+
+  // Proved able to fail by keeping the first watcher: the src made again never reports.
+  it('watches a directory again once it is removed and made again', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { root, seen } = tree();
+    rmSync(join(root, 'src'), { recursive: true, force: true });
+    mkdirSync(join(root, 'src'));
+    await vi.waitFor(
+      () => {
+        writeFileSync(join(root, 'src', 'again.tsx'), String(Date.now()));
+        expect(seen).toContain('src/again.tsx');
+      },
+      { timeout: 5000, interval: 100 },
+    );
   });
 });

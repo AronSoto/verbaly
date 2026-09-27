@@ -578,3 +578,44 @@ describe('a param that cannot become text', () => {
     expect(v.t('m', { v: Symbol('s') as unknown as string })).toBe('x ');
   });
 });
+
+describe('a locale Intl cannot read', () => {
+  // Proved able to fail by handing Intl the tag as written: t throws a RangeError on pt_BR.
+  it('formats pt_BR the way pt-BR formats, and says how it read it', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({
+      locale: 'pt_BR',
+      messages: { pt_BR: { stock: '{n:number}, {c | one: # item | other: # itens}' } },
+    });
+    const number = new Intl.NumberFormat('pt-BR').format(1234.5);
+    expect(v.t('stock', { n: 1234.5, c: 2 } as never)).toBe(`${number}, 2 itens`);
+    expect(warn).toHaveBeenCalledWith(
+      '[verbaly] "pt_BR" is not a locale tag, so Intl reads it as pt-BR',
+    );
+    warn.mockRestore();
+  });
+
+  it('formats a tag with no sure fix in the default locale instead of throwing out of t', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({ locale: 'xx-!!', messages: { 'xx-!!': { total: '{n:number}' } } });
+    expect(v.t('total', { n: 1234.5 } as never)).toBe(new Intl.NumberFormat().format(1234.5));
+    expect(warn).toHaveBeenCalledWith(
+      '[verbaly] "xx-!!" is not a locale tag, so Intl reads it as its default locale',
+    );
+    warn.mockRestore();
+  });
+
+  // Proved able to fail by warning before a retry succeeds: en-IE gets blamed for the currency.
+  it('still names a bad currency as the currency, never as the locale', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // en-IE is used nowhere else here, so a warn blaming the locale cannot be deduped away
+    const v = createVerbaly({
+      locale: 'en-IE',
+      messages: { 'en-IE': { euro: '{v:currency/EURO}' } },
+    });
+    expect(v.t('euro', { v: 3 } as never)).toBe('3');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('does not know the currency "EURO"'));
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('is not a locale tag'));
+    warn.mockRestore();
+  });
+});

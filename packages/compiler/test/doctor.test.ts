@@ -360,3 +360,32 @@ describe('doctor: the url mode has a name now', () => {
     expect(entry?.message).toContain('one address serves every locale');
   });
 });
+
+describe('doctor: what the runtime would degrade on, said before it does', () => {
+  // Proved able to fail by dropping the locales loop: pt_BR sits among the catalogs unremarked.
+  it('warns on a locale Intl cannot read, with the rename that fixes it', async () => {
+    const cfg = makeProject({
+      catalogs: { es: { [KEY]: 'Hola {name}' }, pt_BR: { [KEY]: 'Olá {name}' } },
+    });
+    const result = await doctor(cfg);
+    const found = entry(result.entries, 'locales');
+    expect(found?.level).toBe('warn');
+    expect(found?.message).toContain('"pt_BR" is not a locale tag');
+    expect(found?.fix).toContain('rename it to pt-BR: the file locales/pt_BR.json and your config');
+    // a warn: the project builds, and the runtime falls back and says so
+    expect(result.ok).toBe(true);
+  });
+
+  // Proved able to fail by dropping the extra check: the stray key passes as healthy.
+  it('warns on a key only a translation has, and points at prune when the code is scanned', async () => {
+    const cfg = makeProject({
+      catalogs: { es: { [KEY]: 'Hola {name}' }, pt: { [KEY]: 'Olá {name}', stray: 'Sobra' } },
+    });
+    const result = await doctor(cfg);
+    const found = entry(result.entries, 'extras');
+    expect(found?.level).toBe('warn');
+    expect(found?.message).toBe('a translation has 1 key the source catalog does not (pt: stray)');
+    expect(found?.fix).toContain('npx verbaly extract --prune');
+    expect(result.ok).toBe(true);
+  });
+});

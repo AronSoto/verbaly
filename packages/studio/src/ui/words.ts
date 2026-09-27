@@ -75,6 +75,8 @@ export const ACTION = {
   pickFirst: 'Tick a language to translate it.',
   onlyLocale: 'This project has one language, so there is nothing to translate into.',
   scanOff: 'Source scanning is off in your config, so there is nothing to read.',
+  kept: (n: number) =>
+    `${n === 1 ? 'One was' : `${n} were`} written by someone else while it ran, so ${n === 1 ? 'it keeps its text' : 'they keep their text'}.`,
 } as const;
 
 // An empty screen that tells you to click something that is not there is worse than a blank one.
@@ -96,6 +98,7 @@ export const WAITING = {
   missing: { one: 'message is missing', many: 'messages are missing' },
   draft: { one: 'translation nobody has read', many: 'translations nobody has read' },
   undefined: { one: 'key your code calls has no message', many: 'keys your code calls have no message' },
+  extra: { one: 'key only a translation has', many: 'keys only a translation has' },
 } as const;
 
 export const WHY: Record<keyof typeof WAITING, string> = {
@@ -103,6 +106,7 @@ export const WHY: Record<keyof typeof WAITING, string> = {
   missing: 'Your visitor sees the source language until one is written.',
   draft: 'A machine wrote it and nobody has looked. It is already on your site.',
   undefined: 'Nothing defines it, so the build fails and the raw key would reach your page.',
+  extra: 'Your source catalog lacks it, so it is dead weight, or a raw key if your code reads it.',
 };
 
 export const OVERVIEW = {

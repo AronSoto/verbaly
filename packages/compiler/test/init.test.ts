@@ -110,3 +110,29 @@ describe('init', () => {
     expect(result.next.join(' ')).toContain('verbaly extract');
   });
 });
+
+describe('init: a locale is written the way Intl reads it', () => {
+  // Proved able to fail by taking the flags as typed: pt_BR.json lands and Intl rejects the name.
+  it('writes pt-BR for pt_BR and says so, and leaves out a flag with no sure fix', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-init-tag-'));
+    const result = await init({ root, locales: ['pt_BR', 'x'] });
+    expect(result.renamed).toEqual([{ from: 'pt_BR', to: 'pt-BR' }]);
+    expect(result.refused).toEqual(['x']);
+    expect(existsSync(join(root, 'locales', 'pt-BR.json'))).toBe(true);
+    expect(existsSync(join(root, 'locales', 'pt_BR.json'))).toBe(false);
+    expect(existsSync(join(root, 'locales', 'x.json'))).toBe(false);
+    expect(readFileSync(join(root, result.configFile), 'utf8')).toContain("locales: ['pt-BR']");
+  });
+
+  // Proved able to fail by keeping both spellings: the config lists pt-BR twice.
+  it('lists a locale once when two spellings of it were typed', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-init-tag-'));
+    const result = await init({ root, locales: ['pt_BR', 'pt-BR'] });
+    expect(readFileSync(join(root, result.configFile), 'utf8')).toContain("locales: ['pt-BR'],");
+  });
+
+  it('refuses a source locale it cannot name, since there is no project without one', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-init-tag-'));
+    await expect(init({ root, sourceLocale: 'x' })).rejects.toThrow(/"x" is not a locale tag/);
+  });
+});

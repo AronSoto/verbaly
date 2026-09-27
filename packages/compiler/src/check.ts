@@ -25,14 +25,21 @@ export interface BrokenEntry {
   issue: string;
 }
 
+export interface ExtraEntry {
+  locale: string;
+  key: string;
+  files: string[];
+}
+
 export interface CheckResult {
   ok: boolean;
   missing: MissingEntry[];
   unknown: UnknownEntry[];
   broken: BrokenEntry[];
+  extra: ExtraEntry[];
 }
 
-export function gatePasses(result: Omit<CheckResult, 'ok'>): boolean {
+export function gatePasses(result: Pick<CheckResult, 'missing' | 'unknown' | 'broken'>): boolean {
   return (
     result.missing.length === 0 &&
     result.unknown.length === 0 &&
@@ -54,8 +61,10 @@ export function check(
   }
   const source = flat[cfg.sourceLocale] ?? {};
 
+  const used = registry.usedKeys();
   const unknown: UnknownEntry[] = [];
-  for (const [key, files] of registry.usedKeys()) {
+  // strict: a key only spelled in backticks never failed the gate, and it does not start to here
+  for (const [key, files] of registry.usedKeys(true)) {
     const known =
       extracted.has(key) || cfg.locales.some((locale) => flat[locale]?.[key] !== undefined);
     if (!known) unknown.push({ key, files });
@@ -104,7 +113,17 @@ export function check(
     }
   }
 
-  return { ok: gatePasses({ missing, unknown, broken }), missing, unknown, broken };
+  // dead weight in that language's download, or, when the code reads it, the raw key in the source
+  const extra: ExtraEntry[] = [];
+  for (const locale of cfg.locales) {
+    if (locale === cfg.sourceLocale) continue;
+    for (const key of Object.keys(flat[locale] ?? {})) {
+      if (source[key] !== undefined || extracted.has(key)) continue;
+      extra.push({ locale, key, files: used.get(key) ?? [] });
+    }
+  }
+
+  return { ok: gatePasses({ missing, unknown, broken }), missing, unknown, broken, extra };
 }
 
 // root makes the paths readable: an absolute path is noise in the one message people are stuck on
@@ -159,10 +178,17 @@ export function checkNextSteps(result: CheckResult, cliReachable = true): string
 
 // warnings never fail the gate, so they print on their own
 export function formatCheckWarnings(result: CheckResult): string {
-  return result.broken
+  const lines = result.broken
     .filter((entry) => entry.severity === 'warning')
-    .map((entry) => `  [${entry.locale}] ${entry.key}: ${entry.issue}`)
-    .join('\n');
+    .map((entry) => `  [${entry.locale}] ${entry.key}: ${entry.issue}`);
+  for (const entry of result.extra) {
+    lines.push(
+      entry.files.length > 0
+        ? `  [${entry.locale}] ${entry.key}: only this translation has it, so the source language shows the key itself`
+        : `  [${entry.locale}] ${entry.key}: only this translation has it, and no code reads it`,
+    );
+  }
+  return lines.join('\n');
 }
 
 function truncate(text: string, max: number): string {
@@ -235,6 +261,16 @@ export function githubCheckAnnotations(
     const content = readSource(origin.file);
     const line = content === undefined ? undefined : lineAt(content, origin.start);
     lines.push(`::${command} file=${escapeProperty(file)}${line ? `,line=${line}` : ''}::${text}`);
+  }
+
+  for (const entry of result.extra) {
+    const text = escapeData(`[${entry.locale}] ${entry.key}: only this translation has it`);
+    const file = entry.files[0];
+    lines.push(
+      file
+        ? `::warning file=${escapeProperty(relative(root, file).replaceAll('\\', '/'))}::${text}`
+        : `::warning::${text}`,
+    );
   }
   return lines;
 }

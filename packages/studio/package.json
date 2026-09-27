@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/studio",
-  "version": "0.64.0",
+  "version": "0.65.0",
   "description": "Local review server for Verbaly: read, edit and approve translations over the JSON files already in your repo. No account, no database.",
   "keywords": [
     "i18n",
@@ -46,13 +46,13 @@
     "@verbaly/compiler": "workspace:^"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.3.0",
-    "@types/node": "^26.6.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@types/node": "^26.6.3",
     "svelte": "^5.57.1",
     "svelte-check": "^4.7.6",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "verbaly": "workspace:^",
-    "vite": "^8.3.0"
+    "vite": "^8.3.1"
   },
   "scripts": {
     "build": "tsdown && vite build",

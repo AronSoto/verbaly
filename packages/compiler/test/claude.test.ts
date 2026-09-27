@@ -72,6 +72,16 @@ describe('claudeProvider: an answer that is not one', () => {
     await expect(claudeProvider()(request)).rejects.toThrow(/lower translate.batchSize/);
   });
 
+  // Proved able to fail by dropping the refusal branch: it reads as {} and every key is "rejected".
+  it('names a decline as a decline, and marks it as one a retry cannot change', async () => {
+    mockSdk();
+    create.mockResolvedValue({ stop_reason: 'refusal', content: [] });
+    const error = await claudeProvider()(request).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain('the model declined a batch of 2 messages');
+    expect((error as { status?: number }).status).toBe(400);
+  });
+
   it('says the answer was not the json it asked for instead of throwing a parse error', async () => {
     mockSdk();
     create.mockResolvedValue({

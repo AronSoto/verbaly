@@ -119,6 +119,11 @@ export const Trans = defineComponent({
   },
 });
 
+// own entries only: a tag named constructor in a message must never find the one on Object
+function own<T>(map: Record<string, T>, name: string): T | undefined {
+  return Object.prototype.hasOwnProperty.call(map, name) ? map[name] : undefined;
+}
+
 function toNodes(
   nodes: TagNode[],
   components: TransComponents,
@@ -128,9 +133,9 @@ function toNodes(
   return nodes.map((node) => {
     if (typeof node === 'string') return node;
     const children = toNodes(node.children, components, links, richTags);
-    const fn = components[node.name];
+    const fn = own(components, node.name);
     if (fn) return fn(children);
-    const link = links[node.name];
+    const link = own(links, node.name);
     if (link !== undefined) {
       return h('a', normalizeLink(link), children);
     }

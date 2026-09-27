@@ -1,5 +1,4 @@
 import type { ResolvedConfig } from '@verbaly/compiler';
-import { watch } from 'node:fs';
 import { relative } from 'node:path';
 import { GENERATED_DIR, syncAndWrite, type Compiler, type RequestOptions } from './codegen';
 
@@ -45,7 +44,8 @@ export function startWatcher(
     timer = setTimeout(() => void refresh(), 150);
   }
 
-  const watcher = watch(cfg.root, { recursive: true }, (_event, filename) => {
+  const keep = catalogDir.split('/')[0];
+  const close = compiler.watchTree(cfg.root, { keep, persistent: false }, (filename) => {
     if (!filename) return;
     const file = filename.replaceAll('\\', '/');
     if (
@@ -59,11 +59,10 @@ export function startWatcher(
     const isCatalog = file.startsWith(`${catalogDir}/`) && file.endsWith('.json');
     if (isCatalog || compiler.SOURCE_FILE_RE.test(file)) schedule();
   });
-  watcher.unref?.();
 
   const dispose = (): void => {
     clearTimeout(timer);
-    watcher.close();
+    close();
     active.delete(cfg.root);
   };
   active.set(cfg.root, dispose);

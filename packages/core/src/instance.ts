@@ -1,11 +1,13 @@
 import { flatten } from './flatten';
-import { autoFormat, formatNodes } from './format';
+import { autoFormat, formatNodes, usable } from './format';
 import { narrowLocales } from './locale';
 import { parse } from './parse';
 import { warnOnce } from './warn';
 import type {
   AddMessagesOptions,
   DictionaryInput,
+  Formatter,
+  LocaleLoader,
   MessageTree,
   Params,
   TFunction,
@@ -16,10 +18,17 @@ import type {
 export function createVerbaly<const D extends DictionaryInput = DictionaryInput>(
   options: VerbalyOptions<D> = {},
 ): Verbaly<D> {
-  const dict: Record<string, Record<string, string>> = {};
+  // no prototype, so a name like toString is a miss; setPrototypeOf keeps them fast objects
+  const dict: Record<string, Record<string, string>> = Object.setPrototypeOf({}, null);
   const listeners = new Set<() => void>();
-  const formatters = options.formatters ?? {};
-  const loaders = options.loaders ?? {};
+  const formatters: Record<string, Formatter> = Object.assign(
+    Object.setPrototypeOf({}, null),
+    options.formatters,
+  );
+  const loaders: Record<string, LocaleLoader> = Object.assign(
+    Object.setPrototypeOf({}, null),
+    options.loaders,
+  );
   const loaded = new Set<string>();
   const inFlight = new Map<string, Promise<void>>();
   const fallbacks = options.fallback
@@ -86,7 +95,7 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
   function tagged(strings: TemplateStringsArray, values: unknown[]): string {
     let out = strings[0] ?? '';
     for (let i = 0; i < values.length; i++) {
-      out += autoFormat(values[i], locale) + (strings[i + 1] ?? '');
+      out += autoFormat(usable(values[i]), locale) + (strings[i + 1] ?? '');
     }
     return out;
   }

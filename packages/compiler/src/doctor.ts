@@ -9,6 +9,7 @@ import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
 import { CLI_INSTALL_FIX, cliReachable, detectHost, readDependencies, WIRING_PACKAGES } from './init';
 import { counted } from './text';
+import { isLocaleTag, suggestTag } from './tag';
 import { escapedSyntax } from './validate';
 
 export interface DoctorEntry {
@@ -119,6 +120,20 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         `${counted(cfg.locales.length, 'locale')} (${cfg.locales.join(', ')}) in ${rel(cfg.dir)}/${how}`,
       );
     }
+  }
+
+  // it builds and the runtime falls back with a warn, so this is a warn too, rename in hand
+  for (const locale of cfg.locales) {
+    if (isLocaleTag(locale)) continue;
+    const near = suggestTag(locale);
+    const file = rel(join(cfg.dir, `${locale}.json`));
+    warn(
+      'locales',
+      `"${locale}" is not a locale tag, so numbers, dates and plurals in it format in a fallback`,
+      near
+        ? `rename it to ${near}: the file ${file} and your config`
+        : `name it with a language tag like es or pt-BR, in ${file} and in your config`,
+    );
   }
 
   const source = catalogs[cfg.sourceLocale];
@@ -262,6 +277,16 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         'translations',
         `${counted(broken.length, 'broken translation')} (${locales.join(', ')}): present but not rendering what the source renders`,
         'run `npx verbaly check` to read what each one lost',
+      );
+    }
+    if (result.extra.length > 0) {
+      const shown = result.extra.map((entry) => `${entry.locale}: ${entry.key}`);
+      warn(
+        'extras',
+        `a translation has ${counted(result.extra.length, 'key')} the source catalog does not (${preview(shown)})`,
+        scanning
+          ? 'add them to the source catalog if your code uses them, or run `npx verbaly extract --prune` to drop the rest'
+          : 'add them to the source catalog if your code uses them, or delete them from the translations',
       );
     }
     const warnings = result.broken.filter((entry) => entry.severity === 'warning');

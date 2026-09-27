@@ -320,4 +320,20 @@ describe('@verbaly/react <Trans>', () => {
     expect(a.hasAttribute('href')).toBe(false);
     expect(a.textContent).toBe('b');
   });
+
+  // Proved able to fail by reading components[name] again: cloneElement(Object) throws.
+  it('unwraps a tag named like a member of Object, components and links given', () => {
+    const v = createVerbaly({
+      locale: 'es',
+      messages: { es: { odd: 'a <constructor>b</constructor> <toString>c</toString>' } },
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans id="odd" components={{ x: <strong /> }} links={{ docs: '/docs' }} />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.innerHTML).toBe('a b c');
+  });
 });

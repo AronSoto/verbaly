@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import { resolveConfig } from '../src/config';
 import { batchFormat, buildPrompt } from '../src/providers/claude';
 import {
   formatTranslateFailures,
+  mergeTranslations,
   structureMatches,
   translateCatalogs,
   type TranslateProgress,
@@ -343,5 +344,38 @@ describe('claude provider helpers', () => {
     });
     expect(prompt).toContain('Where each string appears');
     expect(prompt).toContain('a: src/App.tsx, src/home.vue');
+  });
+});
+
+describe('mergeTranslations, where a finished run lands', () => {
+  function onDisk(es: Record<string, string>) {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-merge-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    const write = (locale: string, catalog: Record<string, string>) =>
+      writeFileSync(join(root, 'locales', `${locale}.json`), JSON.stringify(catalog));
+    write('en', { hi: 'Hi', bye: 'Bye', gone: 'Gone' });
+    write('es', es);
+    return {
+      cfg: resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] }),
+      write,
+      read: () => JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object,
+    };
+  }
+
+  // Proved able to fail by writing the run's own copy back: the person's Adiós becomes MACHINE.
+  it('keeps what a person wrote while the run was out, and says which keys it did write', () => {
+    const { cfg, write, read } = onDisk({ hi: '', bye: '', gone: '' });
+    const run = { hi: 'MACHINE hi', bye: 'MACHINE bye' };
+    write('es', { hi: '', bye: 'Adiós', gone: '' });
+    expect(mergeTranslations(cfg, 'es', run, ['hi', 'bye'])).toEqual(['hi']);
+    expect(read()).toEqual({ hi: 'MACHINE hi', bye: 'Adiós', gone: '' });
+  });
+
+  it('never brings back a key that was pruned from the source while the run was out', () => {
+    const { cfg, write, read } = onDisk({ hi: '', bye: '', gone: '' });
+    write('en', { hi: 'Hi', bye: 'Bye' });
+    write('es', { hi: '', bye: '' });
+    expect(mergeTranslations(cfg, 'es', { gone: 'MACHINE gone' }, ['gone'])).toEqual([]);
+    expect(read()).toEqual({ hi: '', bye: '' });
   });
 });

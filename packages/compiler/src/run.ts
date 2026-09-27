@@ -23,6 +23,7 @@ import { formatStatusResult, status } from './status';
 import { counted } from './text';
 import {
   formatTranslateFailures,
+  mergeTranslations,
   resolveProvider,
   translateCatalogs,
   type TranslateProgress,
@@ -52,7 +53,7 @@ Options:
   --root <path>      project root (default: cwd)
   --dir <path>       catalogs directory (default: locales)
   --source <locale>  source locale (default: en)
-  --locales <csv>    extra locales; for translate: target locales to fill
+  --locales <csv>    run on these locales only, the source always included (init: the ones to create)
   --prune            drop keys no longer referenced (extract)
   --watch            keep extracting as source files change (extract)
   --write            apply the rewrites instead of only reporting (wrap, migrate)
@@ -134,6 +135,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     });
     if (result.created.length) console.log(`[verbaly] created: ${result.created.join(', ')}`);
     if (result.skipped.length) console.log(`  kept (already there): ${result.skipped.join(', ')}`);
+    for (const { from, to } of result.renamed) {
+      console.log(`  wrote ${to} for ${from}, since a locale tag takes a hyphen`);
+    }
+    for (const locale of result.refused) {
+      console.warn(`  left out "${locale}": it is not a locale tag, use one like es or pt-BR`);
+    }
     if (result.host) console.log(`  detected: ${result.host}`);
     console.log(
       ['  next steps:', ...result.next.map((step, i) => `    ${i + 1}. ${step}`)].join('\n'),
@@ -366,10 +373,14 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
     // machine output is a draft until a human reviews it (verbaly review / import)
     const drafts = loadDrafts(cfg);
-    for (const locale of Object.keys(result.translated)) {
-      writeCatalog(cfg, locale, catalogs[locale] ?? {});
-      markDrafts(drafts, locale, result.translated[locale]!);
-      console.log(`  ${locale}: +${result.translated[locale]!.length} translated (draft)`);
+    for (const [locale, keys] of Object.entries(result.translated)) {
+      const written = mergeTranslations(cfg, locale, catalogs[locale] ?? {}, keys);
+      markDrafts(drafts, locale, written);
+      console.log(`  ${locale}: +${written.length} translated (draft)`);
+      const kept = keys.length - written.length;
+      if (kept > 0) {
+        console.log(`  ${locale}: ${counted(kept, 'message')} kept as written while this ran`);
+      }
     }
     if (Object.keys(result.translated).length > 0) saveDrafts(cfg, drafts);
     for (const [locale, keys] of Object.entries(result.invalid)) {
@@ -478,6 +489,24 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       overwrite: values.overwrite,
       dryRun: values['dry-run'],
     });
+    for (const { file, from, to } of result.mapped) {
+      console.log(`  ${file}: "${from}" read as ${to}`);
+    }
+    // a warning and exit 1, like a batch translate could not land: the file is skipped, not guessed
+    for (const { file, locale, reason } of result.unmatched) {
+      if (reason === 'undeclared') {
+        console.warn(
+          `  ${file}: "${locale}" is not one of this project's locales (${cfg.locales.join(', ')}), so nothing was imported from it`,
+        );
+        console.warn(
+          `    fix: add ${locale} to locales in your verbaly config, or pass --locale with one of them`,
+        );
+      } else {
+        console.warn(`  ${file}: "${locale}" is not a locale tag, so nothing was imported from it`);
+        console.warn('    fix: pass --locale with the tag it stands for, like pt-BR');
+      }
+      process.exitCode = 1;
+    }
     // a human file clears the machine-draft flag: the imported text is reviewed
     const drafts = loadDrafts(cfg);
     let draftsChanged = false;
@@ -506,7 +535,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         `  ${locale}: ${counted(keys.length, 'unknown key')} ignored (not in the source catalog): ${keys.join(', ')}`,
       );
     }
-    if (Object.keys(result.imported).length === 0) {
+    if (Object.keys(result.imported).length === 0 && result.unmatched.length === 0) {
       console.log('[verbaly] nothing to import ✓');
     }
     return;

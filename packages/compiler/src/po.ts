@@ -30,7 +30,7 @@ export function toPo(sourceLocale: string, locale: string, entries: PoEntry[]): 
 }
 
 export function parsePo(content: string): { locale?: string; entries: Record<string, string> } {
-  const entries: Record<string, string> = {};
+  const entries = Object.create(null) as Record<string, string>;
   let locale: string | undefined;
 
   let msgctxt: string | undefined;

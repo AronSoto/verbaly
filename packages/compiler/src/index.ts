@@ -57,7 +57,7 @@ export { transformCode } from './transform';
 export type { TransformResult } from './transform';
 
 export { check, formatCheckResult, formatCheckWarnings } from './check';
-export type { BrokenEntry, CheckResult, MissingEntry, UnknownEntry } from './check';
+export type { BrokenEntry, CheckResult, ExtraEntry, MissingEntry, UnknownEntry } from './check';
 // both are public because Studio has to run the same two checks the gate runs before it writes
 export { validateMessage, validatePair } from './validate';
 // StructureIssue is what those two return, so typed code cannot hold a result without it
@@ -74,7 +74,17 @@ export { formatCliError } from './run';
 export { clearDrafts, DRAFTS_FILE, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 export type { Drafts } from './drafts';
 
-export { formatTranslateFailures, resolveProvider, translateCatalogs } from './translate';
+// mergeTranslations is public because the CLI, the MCP server and Studio all write a finished run
+export {
+  formatTranslateFailures,
+  mergeTranslations,
+  resolveProvider,
+  translateCatalogs,
+} from './translate';
+
+// watchTree is public because @verbaly/next watches its dev tree with the same walk the CLI uses
+export { watchTree } from './watch';
+export type { TreeOptions } from './watch';
 
 export { doctor, formatDoctorEntry } from './doctor';
 export { init } from './init';

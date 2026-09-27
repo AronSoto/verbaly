@@ -58,6 +58,8 @@ export interface Job {
   done: number;
   locale?: string;
   message?: string;
+  written?: number;
+  kept?: number;
 }
 
 export interface StudioApi {

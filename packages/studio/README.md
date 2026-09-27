@@ -109,6 +109,10 @@ catalogs is a race over the same files.
 **What a machine writes stays a draft**, here as everywhere else. The panel does not get to change
 that rule, so a finished run leaves you a list to read, not a job marked done.
 
+**A run writes onto the catalog as it is when the run ends.** It takes minutes, and you can keep
+fixing messages while it is out: anything you saved in the meantime keeps your text, never becomes
+a draft, and the panel says how many it left alone.
+
 **`GET /api/commit/:key` answers about values, not about lines.** It walks your catalogs' history
 once and remembers, per message, the newest commit where that message's text really differs from its
 parent's. `git blame` is the obvious way to ask and it is wrong here: adding a key rewrites the

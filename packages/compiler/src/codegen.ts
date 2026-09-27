@@ -85,7 +85,10 @@ ${loaders}
 // raw catalog access: SSR integrations serialize it across the client boundary
 export async function loadMessages(locale) {
   if (locale === ${src}) return source;
-  const loader = localeLoaders[locale];
+  // own entries only: a locale named constructor must be a miss, not the Object function
+  const loader = Object.prototype.hasOwnProperty.call(localeLoaders, locale)
+    ? localeLoaders[locale]
+    : undefined;
   return loader ? (await loader()).default : {};
 }
 

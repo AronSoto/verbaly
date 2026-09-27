@@ -43,6 +43,15 @@ export function claudeProvider(options: ClaudeProviderOptions = {}): TranslatePr
         `[verbaly] the model ran out of output room on a batch of ${Object.keys(request.messages).length} messages: lower translate.batchSize (or raise maxTokens on the provider)`,
       );
     }
+    // a decline is about the content, so asking again gets the same answer: a 400 is never retried
+    if (response.stop_reason === 'refusal') {
+      throw Object.assign(
+        new Error(
+          `[verbaly] the model declined a batch of ${Object.keys(request.messages).length} messages, so they stay untranslated: translate them by hand or with another provider`,
+        ),
+        { status: 400 },
+      );
+    }
     const text = response.content.find((block) => block.type === 'text')?.text ?? '{}';
     try {
       return JSON.parse(text) as Record<string, string>;

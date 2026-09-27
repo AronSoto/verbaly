@@ -101,6 +101,11 @@ export function Trans(props: TransProps): ReactElement {
 
 const VOID = new Set(VOID_TAGS);
 
+// own entries only: a tag named constructor in a message must never find the one on Object
+function own<T>(map: Record<string, T>, name: string): T | undefined {
+  return Object.prototype.hasOwnProperty.call(map, name) ? map[name] : undefined;
+}
+
 function toNodes(
   nodes: TagNode[],
   components: Record<string, ReactElement>,
@@ -110,9 +115,9 @@ function toNodes(
   return nodes.map((node, i) => {
     if (typeof node === 'string') return node;
     const children = toNodes(node.children, components, links, richTags);
-    const el = components[node.name];
+    const el = own(components, node.name);
     if (el) return cloneElement(el, { key: i }, ...children);
-    const link = links[node.name];
+    const link = own(links, node.name);
     if (link !== undefined) {
       return createElement('a', { key: i, ...normalizeLink(link) }, ...children);
     }

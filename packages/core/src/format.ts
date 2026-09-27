@@ -22,8 +22,8 @@ export function formatNodes(nodes: MessageNode[], ctx: FormatContext): string {
 }
 
 // every warn names its message: keying on the param alone silenced the second message with the gap
-function where(ctx: FormatContext): string {
-  return ctx.key ? ` in "${ctx.key}"` : '';
+function where(ctx?: FormatContext): string {
+  return ctx?.key ? ` in "${ctx.key}"` : '';
 }
 
 function formatParam(node: ParamNode, ctx: FormatContext): string {
@@ -33,10 +33,7 @@ function formatParam(node: ParamNode, ctx: FormatContext): string {
     return `{${node.name}}`;
   }
   // the one door: every path below coerces, so a value that cannot be coerced never gets there
-  if (!coercible(value)) {
-    warnOnce(`cannot format ${describe(value)}${where(ctx)}`);
-    value = '';
-  }
+  value = usable(value, ctx);
 
   if (node.variants) {
     const chosen = pickVariant(node.variants, value, ctx.locale, node.ordinal);
@@ -49,6 +46,14 @@ function formatParam(node: ParamNode, ctx: FormatContext): string {
   }
   if (node.format) return applyFormat(value, node, ctx);
   return autoFormat(value, ctx.locale, ctx);
+}
+
+// the door a value passes before anything coerces it: a param, or a tagged template's ${…}
+export function usable(value: unknown, ctx?: FormatContext): unknown {
+  if (coercible(value)) return value;
+  // the suffix is built here and not by the caller: every param of every call passes this door
+  warnOnce(`cannot format ${describe(value)}${where(ctx)}`);
+  return '';
 }
 
 // String() and Number() both throw on an object with no callable toString, and a param can be one
@@ -168,7 +173,7 @@ export function autoFormat(value: unknown, locale: string, ctx?: FormatContext):
   if (value === null || value === undefined) return '';
   // an invalid Date makes Intl throw and NaN makes it print "NaN": one degradation, one report
   if (Number.isNaN(value instanceof Date ? value.getTime() : value)) {
-    warnOnce(`${describe(value)}${ctx ? where(ctx) : ''} renders as plain text`);
+    warnOnce(`${describe(value)}${where(ctx)} renders as plain text`);
     return String(value);
   }
   if (typeof value === 'number') return numberFormat(locale).format(value);

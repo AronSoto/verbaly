@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { findConfigFile, loadConfigFile } from './config';
+import { isLocaleTag, suggestTag } from './tag';
 
 export interface InitOptions {
   root?: string;
@@ -15,6 +16,8 @@ export interface InitResult {
   host: Host | undefined;
   configFile: string;
   next: string[];
+  renamed: { from: string; to: string }[];
+  refused: string[];
 }
 
 export type Host =
@@ -127,10 +130,35 @@ function configSource(options: InitOptions, typescript: boolean): string {
   return `/** @type {import('@verbaly/compiler').VerbalyConfig} */\n${body};\n`;
 }
 
-export async function init(options: InitOptions = {}): Promise<InitResult> {
-  const root = options.root ?? process.cwd();
+export async function init(input: InitOptions = {}): Promise<InitResult> {
+  const root = input.root ?? process.cwd();
   const created: string[] = [];
   const skipped: string[] = [];
+  const renamed: InitResult['renamed'] = [];
+  const refused: string[] = [];
+
+  // only what was typed is corrected: a locale in a config file is the author's, doctor says so
+  const typed = input.locales?.flatMap((locale) => {
+    if (isLocaleTag(locale)) return [locale];
+    const near = suggestTag(locale);
+    if (near) renamed.push({ from: locale, to: near });
+    else refused.push(locale);
+    return near ? [near] : [];
+  });
+  // pt_BR,pt-BR is one locale once written right, and the config must not list it twice
+  const locales = typed && [...new Set(typed)];
+  let sourceLocale = input.sourceLocale;
+  if (sourceLocale !== undefined && !isLocaleTag(sourceLocale)) {
+    const near = suggestTag(sourceLocale);
+    if (!near) {
+      throw new Error(
+        `[verbaly] "${sourceLocale}" is not a locale tag: pass --source with one like en or pt-BR`,
+      );
+    }
+    renamed.push({ from: sourceLocale, to: near });
+    sourceLocale = near;
+  }
+  const options: InitOptions = { ...input, locales, sourceLocale };
 
   const existing = findConfigFile(root);
   const typescript = existsSync(join(root, 'tsconfig.json'));
@@ -168,5 +196,5 @@ export async function init(options: InitOptions = {}): Promise<InitResult> {
     ? [`pnpm add -D ${host.pkg}`, host.wire]
     : ['run "verbaly extract" after writing your first t`…` message'];
 
-  return { created, skipped, host: host?.name, configFile, next };
+  return { created, skipped, host: host?.name, configFile, next, renamed, refused };
 }

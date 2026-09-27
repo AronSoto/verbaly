@@ -74,6 +74,28 @@ describe('generateRuntimeModule', () => {
     expect(code).toContain('if (locale === "en") return source;');
   });
 
+  // Proved able to fail by reading localeLoaders[locale] again: constructor calls Object.
+  it('answers a locale named like a member of Object with nothing, running the shipped text', async () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    const body = /export async function loadMessages\(locale\) \{([\s\S]*?)\n\}/.exec(
+      generateRuntimeModule(cfg),
+    )![1]!;
+    const loaders = { es: async () => ({ default: { hi: 'Hola' } }) };
+    const loadMessages = new Function(
+      'localeLoaders',
+      'source',
+      `return async (locale) => {${body}\n};`,
+    )(loaders, { hi: 'Hi' }) as (locale: string) => Promise<Record<string, string>>;
+    expect(await loadMessages('es')).toEqual({ hi: 'Hola' });
+    expect(await loadMessages('en')).toEqual({ hi: 'Hi' });
+    expect(await loadMessages('constructor')).toEqual({});
+    expect(await loadMessages('toString')).toEqual({});
+  });
+
   it('supports custom locale imports and extra exports', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),
@@ -126,6 +148,16 @@ describe('collectParams', () => {
   it('finds params nested in variants', () => {
     const params = collectParams('{n | one: {name} tiene uno | other: {name} tiene #}');
     expect(params.has('name')).toBe(true);
+  });
+
+  // Proved able to fail without parseIcu; its own message, so the AST cache cannot hide it.
+  it('types an ICU message by its params, the way the gate and the runtime read it', () => {
+    const params = collectParams(
+      '{seats, plural, one {# seat left for {who}} other {# seats left for {who}}} on {day, date, short}',
+    );
+    expect(renderParamType(params.get('seats')!)).toBe('number');
+    expect(renderParamType(params.get('day')!)).toBe('Date | number | string');
+    expect(params.has('who')).toBe(true);
   });
 });
 

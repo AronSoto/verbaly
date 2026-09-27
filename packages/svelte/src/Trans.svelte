@@ -13,14 +13,17 @@
   onDestroy(v.subscribe(() => (version = v.version)));
 
   const allowed = $derived(new Set(richTags ?? RICH_TAGS));
-  // normalize + sanitize hrefs once (never from messages)
-  const linkDefs = $derived(
-    links
-      ? Object.fromEntries(
-          Object.entries(links).map(([name, link]) => [name, normalizeLink(link)]),
-        )
-      : undefined,
+  // null prototype: a tag named constructor in a message must never find the one on Object
+  const componentDefs = $derived(
+    components ? Object.assign(Object.create(null), components) : undefined,
   );
+  // normalize + sanitize hrefs once (never from messages)
+  const linkDefs = $derived.by(() => {
+    if (!links) return undefined;
+    const defs = Object.create(null);
+    for (const [name, link] of Object.entries(links)) defs[name] = normalizeLink(link);
+    return defs;
+  });
   // version keeps this reactive to locale/catalog changes
   const nodes = $derived.by(() => {
     void version;
@@ -28,4 +31,4 @@
   });
 </script>
 
-<TransNodes {nodes} {allowed} {components} links={linkDefs} />
+<TransNodes {nodes} {allowed} components={componentDefs} links={linkDefs} />

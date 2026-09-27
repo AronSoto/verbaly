@@ -37,6 +37,12 @@ export interface Undefined {
   files: string[];
 }
 
+export interface Extra {
+  locale: string;
+  key: string;
+  files: string[];
+}
+
 export interface Panel {
   root: string;
   scanning: boolean;
@@ -45,6 +51,7 @@ export interface Panel {
   rows: Row[];
   // a key the code calls that no catalog defines: it fails the gate and has no row to live in
   undefined: Undefined[];
+  extra: Extra[];
   problems: { scope: string; message: string }[];
 }
 
@@ -64,6 +71,7 @@ export interface RawState {
   check: {
     broken: { locale: string; key: string; severity: string; issue: string }[];
     unknown?: { key: string; files: string[] }[];
+    extra?: { locale: string; key: string; files: string[] }[];
   };
   problems: { scope: string; message: string }[];
 }
@@ -121,6 +129,7 @@ export function toPanel(raw: RawState): Panel {
     locales: raw.locales,
     rows,
     undefined: raw.check.unknown ?? [],
+    extra: raw.check.extra ?? [],
     problems: raw.problems,
   };
 }

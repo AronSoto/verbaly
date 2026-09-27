@@ -591,3 +591,31 @@ describe('detectLocale', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('a name Object.prototype already has', () => {
+  // Proved able to fail by going back to plain {} maps: a format named hasOwnProperty throws.
+  it('is a miss as a format, a loader, a locale and a key, never something Object answers', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({
+      locale: 'en',
+      messages: { en: { m: '{n:hasOwnProperty}|{n:__proto__}' } },
+    });
+    expect(v.t('m', { n: 5 } as never)).toBe('5|5');
+    expect(() => v.setLocale('constructor')).not.toThrow();
+    expect(v.has('name' as never)).toBe(false);
+    expect(v.t('name' as never)).toBe('name');
+    warn.mockRestore();
+  });
+});
+
+describe('the tagged template', () => {
+  // Proved able to fail by formatting the value as it came: String() throws out of t.
+  it('renders a value it cannot coerce as nothing, and says so the way a param does', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const v = createVerbaly({ locale: 'en' });
+    const hostile = JSON.parse('{"toString":{}}') as object;
+    expect(v.t`before ${hostile} after`).toBe('before  after');
+    expect(warn).toHaveBeenCalledWith('[verbaly] cannot format an object');
+    warn.mockRestore();
+  });
+});

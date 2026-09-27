@@ -117,7 +117,10 @@ export function bindDom<D extends DictionaryInput>(
   const richAttr = `${attr}-rich`;
   const linksAttr = `${attr}-links`;
   const richTags = new Set(options.richTags ?? RICH_TAGS);
-  const globalLinks = options.richLinks;
+  
+  // null prototype: a tag named constructor in a message is unknown, never Object's own function
+  const globalLinks: Record<string, RichLink> | undefined =
+    options.richLinks && Object.assign(Object.create(null), options.richLinks);
   const argsCache = new WeakMap<Element, { raw: string | null; value: Params | undefined }>();
   const linksCache = new WeakMap<
     Element,
@@ -148,7 +151,7 @@ export function bindDom<D extends DictionaryInput>(
     if (!raw) return globalLinks;
     return fromCache(linksCache, el, raw, () => {
       const own = parseArgs(raw) as Record<string, RichLink> | undefined;
-      return own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
+      return own ? Object.assign(Object.create(null), globalLinks, own) : globalLinks;
     });
   }
 
@@ -275,9 +278,8 @@ function warnOnLangMismatch(locale: string): void {
   const lang = document.documentElement.lang;
   if (!lang || narrowLocales(lang).includes(locale) || narrowLocales(locale).includes(lang)) return;
   warnOnce(
-    `the page is <html lang="${lang}"> and this instance is in "${locale}", so bindDom is about to ` +
-      `translate it away: read the url with localeFromPath when it carries the locale, and call ` +
-      `persistLocale first when it does not`,
+    `the page is <html lang="${lang}"> and this instance is in "${locale}": read the url with ` +
+      `localeFromPath, or call persistLocale first`,
   );
 }
 

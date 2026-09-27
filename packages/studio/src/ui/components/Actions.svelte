@@ -58,7 +58,8 @@
       return;
     }
     // every translation a machine wrote is a draft, and the panel has to say so out loud
-    const wrote = `${messages(job.done)} translated, unread until you read them`;
+    const landed = `${messages(job.written ?? job.done)} translated, unread until you read them`;
+    const wrote = job.kept ? `${landed}. ${ACTION.kept(job.kept)}` : landed;
     await onDone(wrote);
     said(job.state === 'failed' ? (job.message ?? 'the run failed') : wrote, job.state === 'failed');
   }

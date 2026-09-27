@@ -19,11 +19,13 @@
     config: 'Your settings',
     cli: 'The verbaly command',
     catalogs: 'Your catalogs',
+    locales: 'The names of your languages',
     routing: 'Where the language lives in your urls',
     plugin: 'The piece that wires your build',
     types: 'The generated types',
     sources: 'Reading your code',
     orphans: 'Keys nothing in your code uses',
+    extras: 'Keys only a translation has',
     bundle: 'What the browser downloads',
     translations: 'The translations themselves',
   };

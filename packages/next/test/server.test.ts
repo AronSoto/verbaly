@@ -141,7 +141,28 @@ describe('setRequestLocale', () => {
     const server = await load();
     server.setRequestLocale('fr');
     expect(await server.getRequestLocale()).toBe('es');
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('setRequestLocale'));
+    // its own words: the no-prefix warn also names setRequestLocale and must not stand in for it
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('a locale the project does not have, so it was ignored'),
+    );
+    warn.mockRestore();
+  });
+
+  // Proved able to fail by dropping the routing check: the recipe misses its routing line silently.
+  it('warns when routing says urls carry no locale, since a segment says they do', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const server = await load();
+    server.setRequestLocale('es');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('routing is "no-prefix"'));
+    warn.mockRestore();
+  });
+
+  it('stays quiet when routing puts the locale in the url', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const server = await load({ routing: 'prefix-all' });
+    server.setRequestLocale('es');
+    expect(await server.getRequestLocale()).toBe('es');
+    expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 });

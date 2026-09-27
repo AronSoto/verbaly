@@ -647,6 +647,23 @@ describe('bindDom rich links', () => {
     expect(el.querySelector('a')).toBeNull();
     expect(el.textContent).toBe('Lee la guía completa');
   });
+
+  // Proved able to fail by reading links off plain objects: <constructor> becomes an empty link.
+  it('unwraps a tag named like a member of Object, from global links or an element own', () => {
+    const v = createVerbaly({
+      locale: 'en',
+      messages: { en: { odd: 'a <constructor>b</constructor> <toString>c</toString>' } },
+    });
+    document.body.innerHTML =
+      '<p id="global" data-verbaly="odd" data-verbaly-rich></p>' +
+      `<p id="own" data-verbaly="odd" data-verbaly-rich data-verbaly-links='{"x":"/x"}'></p>`;
+    unbind = bindDom(v, { richLinks: { docs: '/docs' } });
+    expect(document.getElementById('global')!.innerHTML).toBe('a b c');
+    expect(document.getElementById('own')!.innerHTML).toBe('a b c');
+    unbind();
+    unbind = bindDom(v);
+    expect(document.getElementById('own')!.innerHTML).toBe('a b c');
+  });
 });
 
 describe('bindDom and the head', () => {

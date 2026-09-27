@@ -17,6 +17,7 @@ import {
   loadConfig,
   loadDrafts,
   markDrafts,
+  mergeTranslations,
   pruneCatalogs,
   resolveProvider,
   saveDrafts,
@@ -160,6 +161,12 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .describe('Bundler or meta-framework detected from the dependencies'),
         configFile: z.string(),
         next: z.array(z.string()).describe('What a human still has to do, in order'),
+        renamed: z
+          .array(z.object({ from: z.string(), to: z.string() }))
+          .describe('Locales written with the hyphen a locale tag takes (pt_BR became pt-BR)'),
+        refused: z
+          .array(z.string())
+          .describe('Locales left out: not a locale tag, and no sure way to fix one'),
       },
     },
     guarded(async ({ root, dir, sourceLocale, locales }) => {
@@ -167,6 +174,10 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       const lines: string[] = [];
       if (result.created.length) lines.push(`created: ${result.created.join(', ')}`);
       if (result.skipped.length) lines.push(`kept (already there): ${result.skipped.join(', ')}`);
+      for (const { from, to } of result.renamed) lines.push(`wrote ${to} for ${from}`);
+      for (const locale of result.refused) {
+        lines.push(`left out "${locale}": it is not a locale tag, use one like es or pt-BR`);
+      }
       if (result.host) lines.push(`detected: ${result.host}`);
       lines.push(...result.next.map((step, i) => `${i + 1}. ${step}`));
       return reply(lines.join('\n'), { ...result });
@@ -363,7 +374,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Missing and broken translations',
       description:
-        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings such as an incomplete plural set for the locale are listed too and do not fail the gate. Optionally also lists machine translations awaiting review. Read-only.',
+        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings such as an incomplete plural set for the locale are listed too and do not fail the gate, and so are keys a translation carries that the source catalog does not (extra). Optionally also lists machine translations awaiting review. Read-only.',
       inputSchema: {
         root: rootInput,
         drafts: z
@@ -385,6 +396,11 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
             issue: z.string(),
           }),
         ),
+        extra: z
+          .array(z.object({ locale: z.string(), key: z.string(), files: z.array(z.string()) }))
+          .describe(
+            'Keys only a translation has; files are where the code reads one, which the source language then shows as the key itself. Never fails the gate',
+          ),
         unreviewed: perLocale,
       },
       annotations: { readOnlyHint: true },
@@ -427,6 +443,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       outputSchema: {
         dryRun: z.boolean(),
         translated: perLocale.describe('Saved as drafts, a human still has to approve them'),
+        kept: perLocale.describe(
+          'Written on disk by someone else while the provider worked, so left as they were',
+        ),
         invalid: perLocale.describe('Rejected: params or tags were not preserved'),
         failed: z
           .array(z.object({ locale: z.string(), keys: z.array(z.string()), error: z.string() }))
@@ -447,29 +466,43 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         origins: dryRun ? undefined : await collectOrigins(cfg),
       });
 
-      const data = {
-        dryRun: dryRun === true,
-        translated: byLocale(result.translated),
-        invalid: byLocale(result.invalid),
-        failed: result.failed,
-        pending: byLocale(result.pending),
-      };
-
       if (dryRun) {
-        const lines = data.pending.map(
+        const pending = byLocale(result.pending);
+        const lines = pending.map(
           ({ locale, keys }) => `${locale}: ${keys.length} missing: ${keys.join(', ')}`,
         );
+        const data = { dryRun: true, translated: [], kept: [], invalid: [], failed: [], pending };
         return reply(lines.length === 0 ? 'nothing to translate' : lines.join('\n'), data);
       }
 
-      const lines: string[] = [];
+      // the file as it is now: what someone wrote while the provider worked is not overwritten
       const drafts = loadDrafts(cfg);
+      const written: Record<string, string[]> = {};
+      const kept: Record<string, string[]> = {};
+      for (const [locale, keys] of Object.entries(result.translated)) {
+        const landed = mergeTranslations(cfg, locale, catalogs[locale] ?? {}, keys);
+        markDrafts(drafts, locale, landed);
+        if (landed.length > 0) written[locale] = landed;
+        const left = keys.filter((key) => !landed.includes(key));
+        if (left.length > 0) kept[locale] = left;
+      }
+      if (Object.keys(written).length > 0) saveDrafts(cfg, drafts);
+
+      const data = {
+        dryRun: false,
+        translated: byLocale(written),
+        kept: byLocale(kept),
+        invalid: byLocale(result.invalid),
+        failed: result.failed,
+        pending: [],
+      };
+      const lines: string[] = [];
       for (const { locale, keys } of data.translated) {
-        writeCatalog(cfg, locale, catalogs[locale] ?? {});
-        markDrafts(drafts, locale, keys);
         lines.push(`${locale}: +${keys.length} translated (draft)`);
       }
-      if (data.translated.length > 0) saveDrafts(cfg, drafts);
+      for (const { locale, keys } of data.kept) {
+        lines.push(`${locale}: ${keys.length} kept as written while this ran: ${keys.join(', ')}`);
+      }
       for (const { locale, keys } of data.invalid) {
         lines.push(
           `${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,

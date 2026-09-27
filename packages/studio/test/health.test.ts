@@ -8,7 +8,7 @@ import { health } from '../src/api';
 
 const made: string[] = [];
 
-function project(files: Record<string, unknown>) {
+function project(files: Record<string, unknown>, locales = ['en', 'es']) {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-health-'));
   made.push(root);
   const dir = join(root, 'locales');
@@ -16,7 +16,7 @@ function project(files: Record<string, unknown>) {
   for (const [name, body] of Object.entries(files)) {
     writeFileSync(join(dir, name), JSON.stringify(body, null, 2));
   }
-  return resolveConfig({ root, dir: 'locales', sourceLocale: 'en', locales: ['en', 'es'] });
+  return resolveConfig({ root, dir: 'locales', sourceLocale: 'en', locales });
 }
 
 afterEach(() => {
@@ -30,19 +30,23 @@ const NAMED = [...block.matchAll(/^\s*(\w+):/gm)].map((match) => match[1]!);
 
 describe('the health view speaks for every check doctor can emit', () => {
   it('has a name for each one, on a project with problems', async () => {
-    const cfg = project({
-      'en.json': { a: 'Hi {name}', b: 'Bye', unused: 'Nobody says this' },
-      'es.json': { a: 'Hola', b: '', unused: 'Nadie dice esto' },
-    });
+    const cfg = project(
+      {
+        'en.json': { a: 'Hi {name}', b: 'Bye', unused: 'Nobody says this' },
+        'es.json': { a: 'Hola', b: '', unused: 'Nadie dice esto', stray: 'Sobra' },
+        'pt_BR.json': { a: 'Oi {name}', b: 'Tchau', unused: 'Ninguém diz isso' },
+      },
+      ['en', 'es', 'pt_BR'],
+    );
     mkdirSync(join(cfg.root, 'src'), { recursive: true });
     writeFileSync(join(cfg.root, 'src', 'app.ts'), 'export const x = 1;');
     const result = await health(cfg);
-    const unnamed = [...new Set(result.entries.map((e) => e.check))].filter(
-      (check) => !NAMED.includes(check),
-    );
+    const checks = new Set(result.entries.map((e) => e.check));
+    const unnamed = [...checks].filter((check) => !NAMED.includes(check));
     expect(unnamed).toEqual([]);
     // the pin is only worth the checks it triggers, so it says which ones it saw
     expect(result.entries.length).toBeGreaterThanOrEqual(7);
+    expect([...checks]).toEqual(expect.arrayContaining(['locales', 'extras']));
   });
 
   // Proved able to fail by keying the list on entry.check: the view throws and never paints.

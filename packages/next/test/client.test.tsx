@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { useSwitchLocale, useT, VerbalyProvider } from '../src/client';
+import { setRouting } from './mocks/virtual-verbaly';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -48,6 +49,7 @@ let root: Root;
 
 beforeEach(() => {
   refresh.mockClear();
+  push.mockClear();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -157,5 +159,29 @@ describe('useSwitchLocale: the mode decides what the router does', () => {
     expect(String(push.mock.calls[0]![0])).toContain('/es');
     // the navigation already re-renders the tree: refreshing on top of it is a second render
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  // Proved able to fail by leaving routing to each caller: the switch refreshes and the url stays.
+  it('navigates under the project routing without being told the mode', async () => {
+    setRouting('prefix-all');
+    history.replaceState({}, '', '/en/docs');
+    try {
+      act(() => {
+        root.render(
+          <VerbalyProvider locale="en">
+            <Switcher />
+          </VerbalyProvider>,
+        );
+      });
+      await act(async () => {
+        container.querySelector('button')!.click();
+        await Promise.resolve();
+      });
+      expect(push).toHaveBeenCalledWith('/es/docs');
+      expect(refresh).not.toHaveBeenCalled();
+    } finally {
+      setRouting('no-prefix');
+      history.replaceState({}, '', '/');
+    }
   });
 });

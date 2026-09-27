@@ -82,7 +82,8 @@ export function Counter() {
 }
 ```
 
-**4. Switching languages**: persists the cookie the server reads and re-renders Server Components:
+**4. Switching languages**: persists the cookie the server reads and re-renders Server Components,
+or, when your `routing` puts the language in the URL, moves to the same page in the new language:
 
 ```tsx
 'use client';
@@ -94,12 +95,25 @@ export function LocalePicker() {
 }
 ```
 
-**5. If your URLs carry the language** (`app/[locale]/…`), hand Verbaly the segment. This is what
-keeps the route statically rendered, because the alternative is reading request headers:
+**5. If your URLs carry the language** (`app/[locale]/…`), say so in the config first. That line
+is what gives `getAlternates` the other languages and sends `useSwitchLocale` to the new URL;
+leave it out and `setRequestLocale` warns once, because the segment and the config disagree:
+
+```ts
+// verbaly.config.ts
+export default {
+  locales: ['en', 'es', 'pt'],
+  routing: 'prefix-all', // every language has its segment: /en/…, /es/…, /pt/…
+};
+```
+
+Then hand Verbaly the segment. This is what keeps the route statically rendered, because the
+alternative is reading request headers:
 
 ```tsx
 // app/[locale]/layout.tsx
 import { setRequestLocale, getVerbalyProps, getAlternates } from '@verbaly/next/server';
+import { VerbalyProvider } from '@verbaly/next/client';
 import { locales } from 'virtual:verbaly';
 
 export function generateStaticParams() {

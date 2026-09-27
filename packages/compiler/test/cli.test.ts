@@ -533,6 +533,39 @@ describe('runCli: extract --watch', () => {
   });
 });
 
+describe('runCli: import names the language it could not place', () => {
+  it('skips a file for a language a declared list lacks, warns with the fix, and exits 1', async () => {
+    const root = makeProject({ en: { greet: 'Hello' }, es: { greet: '' } });
+    writeFileSync(join(root, 'verbaly.config.json'), '{"locales":["en","es"]}');
+    const file = join(root, 'fr.po');
+    writeFileSync(
+      file,
+      'msgid ""\nmsgstr ""\n"Language: fr\\n"\n\nmsgctxt "greet"\nmsgid "Hello"\nmsgstr "Bonjour"\n',
+    );
+    await runCli(['import', file, '--root', root]);
+    expect(output(warn)).toContain(`"fr" is not one of this project's locales (en, es)`);
+    expect(output(warn)).toContain('fix: add fr to locales in your verbaly config');
+    expect(output(log)).not.toContain('nothing to import ✓');
+    expect(existsSync(join(root, 'locales', 'fr.json'))).toBe(false);
+    expect(process.exitCode).toBe(1);
+  });
+
+  // Proved able to fail by refusing every language the project lacks: fr never gets a catalog.
+  it('starts the catalog of a new language when the project never listed its locales', async () => {
+    const root = makeProject({ en: { greet: 'Hello' }, es: { greet: '' } });
+    const file = join(root, 'fr.xlf');
+    writeFileSync(
+      file,
+      '<xliff version="2.0" srcLang="en" trgLang="fr"><file id="f"><unit id="greet"><segment>' +
+        '<source>Hello</source><target>Bonjour</target></segment></unit></file></xliff>',
+    );
+    await runCli(['import', file, '--root', root]);
+    const fr = JSON.parse(readFileSync(join(root, 'locales', 'fr.json'), 'utf8')) as object;
+    expect(fr).toEqual({ greet: 'Bonjour' });
+    expect(process.exitCode).not.toBe(1);
+  });
+});
+
 describe('runCli: translate', () => {
   const withProvider = (root: string) => {
     writeFileSync(
@@ -580,6 +613,30 @@ describe('runCli: translate', () => {
     expect(output(warn)).toContain('failed (529 overloaded), continuing');
     expect(output(error)).toContain('es: 1 message not translated (529 overloaded): bye');
     expect(process.exitCode).toBe(1);
+  });
+
+  // Proved able to fail by writing the run's own copy back: the hand-written Adiós is replaced.
+  it('keeps what someone wrote while the provider worked, and says so', async () => {
+    const root = makeProject({ en: { hi: 'Hi', bye: 'Bye' }, es: { hi: '', bye: '' } });
+    writeFileSync(
+      join(root, 'verbaly.config.mjs'),
+      `export default { translate: { provider: async ({ messages }) => {
+          const fs = await import('node:fs');
+          const file = new URL('./locales/es.json', import.meta.url);
+          fs.writeFileSync(file, JSON.stringify({ hi: '', bye: 'Adiós' }));
+          return Object.fromEntries(Object.entries(messages).map(([k, v]) => [k, '[es] ' + v]));
+        } } };\n`,
+    );
+    await runCli(['translate', '--root', root]);
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as Record<
+      string,
+      string
+    >;
+    expect(es).toEqual({ hi: '[es] Hi', bye: 'Adiós' });
+    expect(output(log)).toContain('es: +1 translated (draft)');
+    expect(output(log)).toContain('es: 1 message kept as written while this ran');
+    const drafts = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'));
+    expect(drafts).toEqual({ es: ['hi'] });
   });
 
   it('--dry-run lists the missing keys without writing', async () => {

@@ -1,15 +1,28 @@
 <script lang="ts">
   import Marks from './Marks.svelte';
   import { OVERVIEW, WAITING, WHY } from '../words';
-  import type { LocaleHealth, Undefined } from '../model';
+  import type { Extra, LocaleHealth, Undefined } from '../model';
 
   // the overview only ever sends you to a problem, so "done" is not one of its filters
   type Problem = 'broken' | 'missing' | 'draft';
   type Task = { id: keyof typeof WAITING; n: number };
 
+  // the ink is the consequence: an undefined key fails the build, an extra one never does
+  const INK: Record<Task['id'], Problem> = {
+    broken: 'broken',
+    missing: 'missing',
+    draft: 'draft',
+    undefined: 'broken',
+    extra: 'missing',
+  };
+
+  // a key outside the source has no row to open, so these two list their keys instead
+  const LISTED = new Set<Task['id']>(['undefined', 'extra']);
+
   interface Props {
     health: LocaleHealth[];
     undefinedKeys: Undefined[];
+    extraKeys: Extra[];
     locales: string[];
     total: number;
     checks: { ok: number; total: number } | null;
@@ -18,8 +31,17 @@
     onHealth: () => void;
   }
 
-  const { health, undefinedKeys, locales, total, checks, commits, onFilter, onHealth }: Props =
-    $props();
+  const {
+    health,
+    undefinedKeys,
+    extraKeys,
+    locales,
+    total,
+    checks,
+    commits,
+    onFilter,
+    onHealth,
+  }: Props = $props();
 
   const targets = $derived(health.filter((entry) => !entry.source));
 
@@ -32,6 +54,7 @@
       { id: 'missing', n: sum((e) => e.missing) },
       { id: 'draft', n: sum((e) => e.draft) },
       { id: 'undefined', n: undefinedKeys.length },
+      { id: 'extra', n: extraKeys.length },
     ];
     return out.filter((task) => task.n > 0);
   });
@@ -64,18 +87,21 @@
     <section class="jobs" aria-label="What needs you">
       {#each tasks as task (task.id)}
         <div class="job">
-          <!-- same ink and same mark as broken, because it is the same consequence: the build fails -->
-          <span class="tile" data-state={task.id === 'undefined' ? 'broken' : task.id}>
-            <Marks state={task.id === 'undefined' ? 'broken' : (task.id as Problem)} />
+          <span class="tile" data-state={INK[task.id]}>
+            <Marks state={INK[task.id]} />
           </span>
           <span class="what">
             <b>{task.n} {task.n === 1 ? WAITING[task.id].one : WAITING[task.id].many}</b>
             <span>{WHY[task.id]}</span>
             {#if task.id === 'undefined'}
               <code class="keys">{undefinedKeys.slice(0, 3).map((k) => k.key).join(' · ')}</code>
+            {:else if task.id === 'extra'}
+              <code class="keys"
+                >{extraKeys.slice(0, 3).map((k) => `${k.key} (${k.locale})`).join(' · ')}</code
+              >
             {/if}
           </span>
-          {#if task.id !== 'undefined'}
+          {#if !LISTED.has(task.id)}
             <button onclick={() => onFilter(task.id as Problem)}>{OVERVIEW.open}</button>
           {/if}
         </div>

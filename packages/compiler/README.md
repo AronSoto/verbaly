@@ -57,6 +57,8 @@ Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed
 
 Two more are reported as **warnings** and keep the exit code at 0, because the text still renders: a plural set missing forms the target language needs (Polish or Arabic want more than English), and a dropped `=0` style case that now falls back to `other`.
 
+A third warning is a key that **only a translation has**. It never fails the build either, and the report says which case it is: your code reads it, so the source language shows the raw key there, or nothing reads it and it is dead weight in that language's download (`extract --prune` drops it).
+
 ```bash
 npx verbaly check                     # text report
 npx verbaly check --reporter github   # ::error and ::warning annotations on the PR, at the source line
@@ -169,6 +171,8 @@ npx verbaly import verbaly-export/es.xlf   # fill the catalog back
 
 `export` writes one file per target locale with the source text alongside the current translation (`--missing` exports only the untranslated entries). Every entry carries **where the text lives in your source** (XLIFF `location` notes, a `location` column in CSV, `#:` comments in PO), so translators and TMS tools see the context instead of guessing it. In XLIFF, `{params}` and rich tags travel as **protected inline codes with semantic ids** (`<ph id="name"/>`, `<pc id="em">`), so TMS editors show them as untouchable chips instead of editable raw syntax. `import` reads XLIFF 2.0/1.2, CSV or PO back (PO entries flagged `fuzzy` count as untranslated) and **validates every entry like `translate` does**: a translation that drops a `{param}`, a variant block or an `<em>` tag is rejected and reported, so a translator's typo can't break your UI. Existing translations are kept unless `--overwrite`; `--dry-run` previews everything.
 
+A file names its language the way its tool writes it, so `import` reads that name as one of your locales: gettext's `pt_BR` (or a `PT-br`) fills the `pt-BR` you have. A file for a new language starts its catalog, under the tag's proper spelling, unless your config lists its `locales`: then a language outside that list is skipped with a warning and exit code 1, because the app would never load it. Add the locale to the list first, or pass `--locale`.
+
 ## 📱 Mobile resources
 
 The same catalogs can ship to a companion mobile app as drop-in native resources:
@@ -254,13 +258,13 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Setup             | `init` · types `Host` `InitOptions` `InitResult`                                                                                                                       |
 | Config & catalogs | `loadConfig` `resolveConfig` `targetLocales` `loadCatalogs` `readCatalog` `parseCatalog` `writeCatalog` `clientCatalogs` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                       |
-| Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` · type `SyncResult`                                                                                                                       |
+| Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` `watchTree` · types `SyncResult` `TreeOptions`                                                                                            |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · types `DtsOptions` `RuntimeModuleOptions`                                                                                                                                    |
 | Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |
-| The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `StructureIssue` `IssueSeverity`                                                                                                      |
+| The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `StructureIssue` `IssueSeverity`                                       |
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                            |
 | Draft review      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `DRAFTS_FILE` · type `Drafts`                                                                                                                                                   |
-| Translation       | `translateCatalogs` `resolveProvider` `formatTranslateFailures`                                                                                                                                                                          |
+| Translation       | `translateCatalogs` `mergeTranslations` `resolveProvider` `formatTranslateFailures`                                                                                                                                                      |
 | Diagnosis         | `doctor` `formatDoctorEntry` · types `DoctorResult` `DoctorEntry`                                                                                                                                                                        |
 | Onboarding        | `wrapProject` · types `WrapResult` `WrapEntry` `WrapSkip` `WrapBlocked` `WrapOptions`                                                                                                                                                                  |
 | Static rendering  | `renderSite` `formatRenderWarnings` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                       |

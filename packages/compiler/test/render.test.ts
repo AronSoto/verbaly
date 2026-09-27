@@ -304,6 +304,17 @@ describe('renderHtml', () => {
     expect(html).toContain('<a href="/a?b=&quot;c&quot;&amp;d=1">y</a>');
   });
 
+  // Proved able to fail by reading links[name] again: the build throws on Object's own valueOf.
+  it('treats a tag named like a member of Object as unknown, never as a link', () => {
+    const catalogs = { en: { m: 'Call <valueOf>it</valueOf> or <constructor>that</constructor>' } };
+    const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
+      locale: 'en',
+      catalogs,
+      richLinks: { docs: '/docs' },
+    });
+    expect(html).toContain('>Call it or that<');
+  });
+
   it('without a links map named tags still unwrap', () => {
     const catalogs = { en: { m: 'go to <docs>docs</docs>' } };
     const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
@@ -526,6 +537,20 @@ describe('the slice a page carries', () => {
     });
     expect(html).not.toContain('b </script> b');
     expect(slice(html)).toEqual({ m: 'a </script> b' });
+  });
+
+  // Proved able to fail by escaping </ only: the blob swallows the rest of the page in a browser.
+  it('escapes <!-- too, which in a script body stops the closing tag from closing', () => {
+    const catalogs = { en: { m: 'x' }, es: { m: 'Write <!-- and then <script> in your HTML' } };
+    const { html } = renderHtml('<html><head></head><body><p data-verbaly="m"></p></body></html>', {
+      locale: 'es',
+      catalogs,
+      sourceLocale: 'en',
+      inlineCatalog: true,
+    });
+    const blob = /<script data-verbaly-catalog[^>]*>(.*?)<\/script>/s.exec(html)![1]!;
+    expect(blob).not.toContain('<!--');
+    expect(slice(html)).toEqual({ m: 'Write <!-- and then <script> in your HTML' });
   });
 
   it("carries '' for a key that falls back, so the runtime knows the slice covered it", () => {

@@ -1,4 +1,4 @@
-import { parse, type MessageNode } from 'verbaly';
+import { parse, parseIcu, type MessageNode } from 'verbaly';
 import { PLURAL_CATEGORIES } from './validate';
 
 export type ParamType = 'number' | 'string' | 'date' | 'unknown';
@@ -8,7 +8,8 @@ const DATE_FORMATS = new Set(['date', 'time']);
 
 export function collectParams(message: string): Map<string, Set<ParamType>> {
   const out = new Map<string, Set<ParamType>>();
-  visit(parse(message), out);
+  // with no parser an ICU message is one text node, so its params would be typed as none at all
+  visit(parse(message, parseIcu), out);
   return out;
 }
 

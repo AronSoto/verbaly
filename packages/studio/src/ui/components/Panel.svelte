@@ -321,6 +321,7 @@
       <Overview
         health={rail}
         undefinedKeys={panel.undefined}
+        extraKeys={panel.extra}
         locales={panel.locales}
         total={panel.rows.length}
         checks={checks ? { ok: checks.entries.filter((e) => e.level === 'ok').length, total: checks.entries.length } : null}

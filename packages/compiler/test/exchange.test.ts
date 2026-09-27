@@ -286,6 +286,60 @@ describe('exportCatalogs: mobile formats', () => {
   });
 });
 
+describe('importCatalogs: the language of a file is one the project already has', () => {
+  const po = (language: string) =>
+    `msgid ""\nmsgstr ""\n"Language: ${language}\\n"\n\nmsgctxt "greet"\nmsgid "Hello"\nmsgstr "Olá"\n`;
+
+  // Proved able to fail by reading the tag as written: pt_BR becomes a second, empty Portuguese.
+  it('reads pt_BR, the way gettext writes it, as the pt-BR the project has', () => {
+    const config = cfg(['en', 'pt-BR']);
+    const catalogs: Catalogs = { en: { greet: 'Hello' }, 'pt-BR': { greet: '' } };
+    const result = importCatalogs(config, catalogs, [scratch('pt.po', po('pt_BR'))]);
+    expect(result.imported).toEqual({ 'pt-BR': ['greet'] });
+    expect(result.mapped).toEqual([expect.objectContaining({ from: 'pt_BR', to: 'pt-BR' })]);
+    expect(catalogs['pt-BR']!.greet).toBe('Olá');
+    expect(Object.keys(catalogs).sort()).toEqual(['en', 'pt-BR']);
+  });
+
+  it('writes nothing for a language the project does not have, and says which one it was', () => {
+    const config = cfg(['en', 'pt-BR']);
+    const catalogs: Catalogs = { en: { greet: 'Hello' }, 'pt-BR': { greet: '' } };
+    const result = importCatalogs(config, catalogs, [scratch('fr.po', po('fr'))]);
+    expect(result.imported).toEqual({});
+    expect(result.unmatched).toEqual([
+      expect.objectContaining({ locale: 'fr', reason: 'undeclared' }),
+    ]);
+    expect(catalogs.fr).toBeUndefined();
+  });
+
+  // with no list written down, the file is how a language arrives: under its right name
+  it('starts pt-BR from a pt_BR file when the project never declared its locales', () => {
+    const config = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+    });
+    const catalogs: Catalogs = { en: { greet: 'Hello' } };
+    const result = importCatalogs(config, catalogs, [scratch('pt.po', po('pt_BR'))]);
+    expect(result.imported).toEqual({ 'pt-BR': ['greet'] });
+    expect(result.mapped).toEqual([expect.objectContaining({ from: 'pt_BR', to: 'pt-BR' })]);
+    expect(catalogs['pt-BR']!.greet).toBe('Olá');
+    expect(catalogs.pt_BR).toBeUndefined();
+  });
+
+  it('never starts a catalog under a name Intl cannot read', () => {
+    const config = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+    });
+    const catalogs: Catalogs = { en: { greet: 'Hello' } };
+    const result = importCatalogs(config, catalogs, [scratch('odd.po', po('en-1'))]);
+    expect(result.unmatched).toEqual([
+      expect.objectContaining({ locale: 'en-1', reason: 'invalid' }),
+    ]);
+    expect(Object.keys(catalogs)).toEqual(['en']);
+  });
+});
+
 describe('importCatalogs', () => {
   const XLIFF = `<?xml version="1.0" encoding="UTF-8"?>
 <xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="es">

@@ -273,6 +273,49 @@ describe('formatCheckResult', () => {
   });
 });
 
+describe('a group named like a member of Object.prototype', () => {
+  function nestedWith(raw: string) {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-proto-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), '{"nav":{"home":"Home"}}');
+    writeFileSync(join(root, 'locales', 'es.json'), raw);
+    return resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
+  }
+
+  // Proved able to fail by restoring the plain {} groups: Object.prototype gains the key.
+  it('is written back as data and never reaches Object.prototype', () => {
+    const cfg = nestedWith('{"nav":{"home":"Inicio"},"__proto__":{"planted":"yes"}}');
+    writeCatalog(cfg, 'es', readCatalog(cfg, 'es'));
+    expect(({} as Record<string, unknown>).planted).toBeUndefined();
+    const written = JSON.parse(readFileSync(catalogPath(cfg, 'es'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(Object.hasOwn(written, '__proto__')).toBe(true);
+    expect(readCatalog(cfg, 'es')['__proto__.planted']).toBe('yes');
+  });
+
+  // Proved able to fail by going back to `in`: the inherited name reads as already written.
+  it('writes a new key named toString into a catalog a person ordered by hand', () => {
+    const cfg = nestedWith('{"nav":{"home":"Inicio"}}');
+    writeFileSync(catalogPath(cfg, 'es'), '{"b":"1","a":"2"}');
+    writeCatalog(cfg, 'es', { ...readCatalog(cfg, 'es'), toString: '3' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'es'), 'utf8'))).toEqual({
+      b: '1',
+      a: '2',
+      toString: '3',
+    });
+  });
+
+  it('keeps the file order of a group named constructor, since it was the file that had it', () => {
+    const cfg = nestedWith('{"nav":{"home":"Inicio"},"constructor":{"z":"1","a":"2"}}');
+    writeCatalog(cfg, 'es', { ...readCatalog(cfg, 'es'), 'constructor.b': '3' });
+    const text = readFileSync(catalogPath(cfg, 'es'), 'utf8');
+    expect(text.indexOf('"z"')).toBeLessThan(text.indexOf('"a"'));
+    expect(text.indexOf('"a"')).toBeLessThan(text.indexOf('"b"'));
+  });
+});
+
 describe('parseCatalog, the flat view of a catalog that is not on disk', () => {
   it('flattens groups the way the runtime does, so a revision reads like t() sees it', () => {
     expect(parseCatalog('{"nav":{"docs":"Docs"},"flat.key":"x"}')).toEqual({

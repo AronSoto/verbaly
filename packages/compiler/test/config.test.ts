@@ -175,6 +175,38 @@ describe('pruneCatalogs', () => {
     expect(catalogs.es).toEqual({ used: 'Usada' });
   });
 
+  it('keeps a key the code reads through a template literal with no holes', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{"used":"Usada","old":"Vieja"}');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'es' });
+    const catalogs = loadCatalogs(cfg);
+    const registry = new MessageRegistry();
+    registry.update('app.ts', analyze('t(`used`);', 'app.ts'));
+
+    expect(pruneCatalogs(cfg, catalogs, registry).es).toEqual(['old']);
+    expect(catalogs.es).toEqual({ used: 'Usada' });
+  });
+
+  // the fix doctor gives for a key only a translation has, so both halves of it are pinned
+  it('drops a key only a translation has, and keeps one the code reads', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'en.json'), '{"used":"Used"}');
+    writeFileSync(join(dir, 'es.json'), '{"used":"Usada","stray":"Sobra","read":"Leída"}');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'en' });
+    const catalogs = loadCatalogs(cfg);
+    const registry = new MessageRegistry();
+    registry.update('app.ts', analyze("t('used'); t('read');", 'app.ts'));
+
+    expect(pruneCatalogs(cfg, catalogs, registry).es).toEqual(['stray']);
+    expect(catalogs.es).toEqual({ used: 'Usada', read: 'Leída' });
+  });
+
   it('skips a configured locale that has no catalog object', () => {
     const root = makeRoot();
     const dir = join(root, 'locales');

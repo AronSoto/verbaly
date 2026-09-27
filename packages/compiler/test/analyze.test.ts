@@ -349,6 +349,38 @@ describe('analyze <Trans>', () => {
   });
 });
 
+// --prune deletes what the scanner cannot see, so a key spelled another way lost its translation
+describe('a key written as a literal in any spelling', () => {
+  // Proved able to fail by accepting StringLiteral only again: the four keys come back empty.
+  it('reads t(`key`), <Trans id={"x"}>, {`x`} and defineKeys backticks as used keys', () => {
+    const code = [
+      'const a = t(`nav.home`);',
+      'const b = <Trans id={"cta.buy"} />;',
+      'const c = <Trans id={`cta.sell`} />;',
+      'const keys = defineKeys({ title: `page.title`, nested: { body: `page.body` } });',
+    ].join('\n');
+    const { usedKeys } = analyze(code, 'App.tsx');
+    const keys = usedKeys.map((used) => used.key);
+    expect(keys.sort()).toEqual(['cta.buy', 'cta.sell', 'nav.home', 'page.body', 'page.title']);
+    // loose: prune keeps them, and the gate treats them as 0.64.0 did, which was not at all
+    expect(usedKeys.every((used) => used.loose)).toBe(true);
+    expect(analyze("t('quoted');", 'a.ts').usedKeys).toEqual([{ key: 'quoted', file: 'a.ts' }]);
+  });
+
+  it('never reads a template literal with a hole as a key, since the key is decided at runtime', () => {
+    const { usedKeys } = analyze('const a = t(`nav.${section}`);', 'app.ts');
+    expect(usedKeys).toEqual([]);
+  });
+
+  // extracting these would fail builds that passed on 0.64.0: that is the gate's own release
+  it('does not start extracting t.id(`key`)`…` or <Trans id={"x"}> with children', () => {
+    expect(analyze('const a = t.id(`hero.title`)`Welcome`;', 'app.ts').tagged).toEqual([]);
+    const trans = analyze('const A = () => <Trans id={"intro"}>Hello</Trans>;', 'App.tsx');
+    expect(trans.tagged).toEqual([]);
+    expect(trans.usedKeys).toEqual([{ key: 'intro', file: 'App.tsx', loose: true }]);
+  });
+});
+
 describe('stray imports', () => {
   it('records t imported from the core package', () => {
     const { strayImports } = analyze("import { t } from 'verbaly';", 'app.ts');

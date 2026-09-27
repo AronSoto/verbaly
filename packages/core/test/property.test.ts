@@ -52,6 +52,13 @@ const SYNTAX_SOUP = fc
       '&amp;',
       '&lt;',
       '&#xFFFFFFFF;',
+      'constructor',
+      'toString',
+      '__proto__',
+      '{n:constructor}',
+      '{n:__proto__}',
+      '<constructor>',
+      '</constructor>',
     ),
     { maxLength: 24 },
   )
@@ -74,6 +81,20 @@ const PARAM_VALUE = fc.oneof(
 const PARAMS = fc.dictionary(
   fc.constantFrom('name', 'count', 'n', 'v', 'd', 'x', '_0'),
   PARAM_VALUE,
+);
+
+// a locale arrives from a url, a cookie or a config typo, so the runtime cannot trust its spelling
+const LOCALE = fc.oneof(
+  fc.string(),
+  fc.constantFrom('pt_BR', 'EN_us', 'constructor', '__proto__', 'toString', '', 'x', 'zh-Hant-TW'),
+);
+
+// the values that throw on coercion, next to everything a param can be
+const TAGGED_VALUE = fc.oneof(
+  PARAM_VALUE,
+  fc.constant(Object.create(null) as object),
+  fc.constant(JSON.parse('{"toString":{}}') as object),
+  fc.constant(Symbol('s')),
 );
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -113,6 +134,27 @@ describe('parser properties (never crash)', () => {
         const v = createVerbaly({ locale: 'en', messages: { en: { m: message } } });
         const out = v.t('m', params as never);
         expect(typeof out).toBe('string');
+      }),
+    );
+  });
+
+  // every run reaches Intl: a random message with a random param only rarely would
+  it('t returns a string in any locale, a tag Intl cannot read included', () => {
+    const message = '{n:number} {n | one: # a | other: # b} {d:date} {d:time} {l:list} {n}';
+    fc.assert(
+      fc.property(LOCALE, fc.double(), (locale, n) => {
+        const v = createVerbaly({ locale, messages: { [locale]: { m: message } } });
+        const out = v.t('m', { n, d: new Date(0), l: ['a', 'b'] } as never);
+        expect(typeof out).toBe('string');
+      }),
+    );
+  });
+
+  it('the tagged template returns a string for any value', () => {
+    const v = createVerbaly({ locale: 'en' });
+    fc.assert(
+      fc.property(TAGGED_VALUE, (value) => {
+        expect(typeof v.t`a${value}b`).toBe('string');
       }),
     );
   });

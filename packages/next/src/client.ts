@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { VerbalyProvider as ReactVerbalyProvider, useVerbaly } from '@verbaly/react';
 import { switchLocale, type SwitchLocaleOptions } from 'verbaly';
-import { createInstance, requestOptions } from 'virtual:verbaly';
+import { createInstance, locales, requestOptions, routing, sourceLocale } from 'virtual:verbaly';
 import type { VerbalyProviderProps as SerializableProps } from './server';
 
 export { Trans, useLocale, useT, useVerbaly } from '@verbaly/react';
@@ -43,7 +43,7 @@ export function VerbalyProvider(props: VerbalyProviderProps): ReactElement {
   return createElement(ReactVerbalyProvider, { instance }, props.children);
 }
 
-// core switchLocale in whichever mode the app is in, with the app router as the navigation
+// core switchLocale in the project's own routing, with the app router as the navigation
 export function useSwitchLocale(): (
   locale: string,
   options?: SwitchLocaleOptions,
@@ -52,13 +52,18 @@ export function useSwitchLocale(): (
   const router = useRouter();
   return useCallback(
     async (locale, options) => {
-      const routed = options?.routing !== undefined && options.routing !== 'no-prefix';
-      await switchLocale(instance, locale, {
+      // the project's routing unless told otherwise: under a [locale] segment the url must change
+      const settings: SwitchLocaleOptions = {
         cookie: requestOptions?.cookie,
+        routing,
+        supported: locales,
+        sourceLocale,
         // a full load would throw away the react tree the app router exists to keep
         navigate: (path) => router.push(path),
         ...options,
-      });
+      };
+      const routed = settings.routing !== undefined && settings.routing !== 'no-prefix';
+      await switchLocale(instance, locale, settings);
       // the navigation already re-rendered the tree, so refreshing on top of it is a second render
       if (!routed) router.refresh();
     },

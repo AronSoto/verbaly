@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadDrafts, resolveConfig, type TranslateRequest } from '@verbaly/compiler';
 import { planTranslate, runExtract, startTranslate } from '../src/actions';
+import { writeMessage } from '../src/api';
 import { read, running } from '../src/jobs';
 
 const made: string[] = [];
@@ -128,6 +129,25 @@ describe('translate, the one action that spends money', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 600));
     expect(running()).toBeNull();
+  });
+
+  // Proved able to fail by writing the run's own copy back: the person's fix becomes a draft.
+  it('keeps a fix a person saved while the run was out, and never calls it a draft', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const cfg = project({
+      provider: async (request) => {
+        await gate;
+        return echo(request);
+      },
+    });
+    const job = await startTranslate(cfg);
+    writeMessage(cfg, 'es', 'bye', 'Adiós');
+    release();
+    await vi.waitFor(() => expect(read(job.id).state).toBe('done'));
+    expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).bye).toBe('Adiós');
+    expect(loadDrafts(cfg)).toEqual({});
+    expect(read(job.id)).toMatchObject({ written: 0, kept: 1 });
   });
 
   it('answers 404 for a job id it never handed out', () => {

@@ -33,10 +33,12 @@ export class MessageRegistry {
     return out;
   }
 
-  usedKeys(): Map<string, string[]> {
+  // strict leaves out the loose spellings, which the gate does not fail on yet
+  usedKeys(strict = false): Map<string, string[]> {
     const out = new Map<string, string[]>();
     for (const analysis of this.files.values()) {
       for (const used of analysis.usedKeys) {
+        if (strict && used.loose) continue;
         const files = out.get(used.key) ?? [];
         if (!files.includes(used.file)) files.push(used.file);
         out.set(used.key, files);

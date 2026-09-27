@@ -280,6 +280,11 @@ export function publicPath(rel: string): string {
   return path.length > 1 ? path.replace(/\/+$/, '') : path;
 }
 
+// own entries only: a tag named constructor in a message must not find the one on Object
+function linkFor(links: Record<string, RichLink> | undefined, name: string): RichLink | undefined {
+  return links && Object.hasOwn(links, name) ? links[name] : undefined;
+}
+
 // only the names this message actually renders: a global map has entries other messages use
 function usedLinks(
   nodes: TagNode[],
@@ -289,7 +294,8 @@ function usedLinks(
   const walk = (list: TagNode[]): void => {
     for (const node of list) {
       if (typeof node === 'string') continue;
-      if (links[node.name] !== undefined) out[node.name] = links[node.name]!;
+      const link = linkFor(links, node.name);
+      if (link !== undefined) out[node.name] = link;
       walk(node.children);
     }
   };
@@ -410,7 +416,8 @@ function injectAlternates(ms: MagicString, html: string, alternates: Alternate[]
 
 // inlines the slice this page needs, so a mirrored page fetches no catalog at all
 function injectCatalog(ms: MagicString, html: string, messages: Record<string, string>): void {
-  const json = JSON.stringify(messages).replace(/<\//g, '<\\/');
+  // <!-- opens a state where the closing </script> no longer closes, and JSON has no escape for it
+  const json = JSON.stringify(messages).replace(/<\//g, '<\\/').replace(/<!--/g, '\\u003c!--');
   const tag = `<script ${CATALOG_SCRIPT} type="application/json">${json}</script>`;
   const block = `${CATALOG_OPEN}${tag}${CATALOG_CLOSE}`;
   const from = html.indexOf(CATALOG_OPEN);
@@ -704,10 +711,11 @@ function richToHtml(
 ): string {
   let out = '';
   for (const node of nodes) {
+    const link = typeof node === 'string' ? undefined : linkFor(links, node.name);
     if (typeof node === 'string') {
       out += escapeHtml(node);
-    } else if (links?.[node.name] !== undefined) {
-      const { href, target, rel } = normalizeLink(links[node.name]!);
+    } else if (link !== undefined) {
+      const { href, target, rel } = normalizeLink(link);
       let attrs = href !== undefined ? ` href="${escapeAttr(href)}"` : '';
       if (target) attrs += ` target="${escapeAttr(target)}"`;
       if (rel) attrs += ` rel="${escapeAttr(rel)}"`;

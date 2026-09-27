@@ -318,7 +318,7 @@ const YEAR = 31536000;
 
 // the whole switch, both modes: the url decides which half runs, never the caller
 export async function switchLocale(
-  instance: Pick<Verbaly, 'loadLocale' | 'setLocale'>,
+  instance: Pick<Verbaly, 'loadLocale' | 'setLocale'> & Partial<Pick<Verbaly, 'locales'>>,
   locale: string,
   options: SwitchLocaleOptions = {},
 ): Promise<void> {
@@ -343,7 +343,8 @@ export async function switchLocale(
 
   if (!routed) return;
   const target = localePath(locale, {
-    supported: options.supported ?? [locale],
+    // the current segment has to be known to be stripped: /pt/docs must not become /es/pt/docs
+    supported: options.supported ?? instance.locales ?? [locale],
     sourceLocale: options.sourceLocale,
     base: options.base,
     routing: options.routing,

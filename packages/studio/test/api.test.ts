@@ -191,6 +191,20 @@ describe('buildState', () => {
     expect(state.check.unknown.map((entry) => entry.key)).toEqual(['nope']);
     expect(state.check.unknown[0]!.files).toEqual(['src/app.ts']);
   });
+
+  // Proved able to fail by relativizing unknown only: extra carries the absolute path through.
+  it('sends the files of a key only a translation has as project paths too', async () => {
+    const cfg = project();
+    writeFileSync(
+      join(cfg.dir, 'es.json'),
+      JSON.stringify({ hello: 'Hola', bye: 'Adios', solo: 'Solo' }),
+    );
+    mkdirSync(join(cfg.root, 'src'), { recursive: true });
+    writeFileSync(join(cfg.root, 'src', 'app.ts'), "export const a = t('solo');");
+
+    const state = await buildState(cfg);
+    expect(state.check.extra).toEqual([{ locale: 'es', key: 'solo', files: ['src/app.ts'] }]);
+  });
 });
 
 describe('the write gate is the gate, not half of it', () => {

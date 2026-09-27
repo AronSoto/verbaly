@@ -23,6 +23,18 @@ function makeProject() {
 
 const COMPILER_TIMEOUT = 30_000;
 
+// a loaded machine delays the sync's own follow-up refresh, so wait until the count stops moving
+async function quiet(count: () => number, window = 600, limit = 10_000): Promise<number> {
+  const until = Date.now() + limit;
+  let last = count();
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, window));
+    const now = count();
+    if (now === last || Date.now() > until) return now;
+    last = now;
+  }
+}
+
 describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
   it('re-extracts on a source change and regenerates the runtime modules', async () => {
     const cfg = makeProject();
@@ -107,17 +119,14 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
     startWatcher(counting, cfg, {});
     writeFileSync(join(cfg.root, 'src', 'a.tsx'), 'export const a = t`One`;\n');
     await vi.waitFor(() => expect(runs).toBeGreaterThan(0), { timeout: 5000 });
-    // let the sync's own catalog write finish its follow-up refresh first
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const settled = runs;
+    const settled = await quiet(() => runs);
     // .verbaly, .next, node_modules and .d.ts writes must never retrigger
     mkdirSync(join(cfg.root, '.next'), { recursive: true });
     writeFileSync(join(cfg.root, '.next', 'trace.js'), '');
     mkdirSync(join(cfg.root, 'node_modules', 'x'), { recursive: true });
     writeFileSync(join(cfg.root, 'node_modules', 'x', 'index.js'), '');
     writeFileSync(join(cfg.root, 'verbaly.d.ts'), 'declare const x: 1;\n');
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    expect(runs).toBe(settled);
+    expect(await quiet(() => runs)).toBe(settled);
   });
 
   it('a catalog edit triggers a refresh', async () => {

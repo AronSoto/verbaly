@@ -1,4 +1,5 @@
 // webpack/turbopack loader: async because @verbaly/compiler is ESM-only (dynamic import)
+
 // what withVerbaly passes: the scope extract reads, so the loader rewrites nothing outside it
 export interface LoaderOptions {
   root?: string;

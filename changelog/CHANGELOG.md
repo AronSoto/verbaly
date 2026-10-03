@@ -66,7 +66,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **1 555 tests under `pnpm test`, 33 new** (0.65.0: 1 522), and **1 556 under `pnpm coverage`**, which also collects the bench file. Core 370, compiler 711 plus the 20 of its DOM suite, Studio 189, Next 58, MCP 27, Vite 26. Coverage 96.7% of lines.
 - **Dependencies, all to their latest stable version**: `@sveltejs/kit` 3.0.0 and `preact` 11.0.0 (both dev-only, validated above), `@anthropic-ai/sdk` 0.131.0, `@modelcontextprotocol/sdk` 1.31.0, `next` 16.3.8, `vite` 8.3.2, `vitest` and `@vitest/coverage-v8` 5.0.3, `typescript-eslint` 8.71.0, `preact-render-to-string` 6.8.0 and `@types/node` 26.6.4. `pnpm outdated -r` is empty.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`/docs/reference/cli`**: `extract --prune` waits while a source file does not parse and names it; the build prints one line when `check` has warnings; `translate`'s default model is `claude-sonnet-5-5` (the snippet comment says `claude-sonnet-5`); `doctor` warns on `prefix-all` next to `render`, and on a catalog file that is JSON but not an object.
 - **`/docs/guide/translators`**: the default model, that any current Claude model works with `translate.model`, and that a batch the model declines goes to a fallback model.
@@ -75,6 +75,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **`/docs/guide/troubleshooting`**: "prune left a key I no longer use" (a file does not parse), and the build line `check has N warnings`.
 - **`src/constants/size.ts`**: unchanged, 3.31 and 6.09.
 - **`releases.ts` plus `changelog_rel.v0_66_0` in en, es and pt**, with six highlights.
+- **Executed:** the three dependencies at `^0.66.0` with `pnpm install` after the publish; the 0.66.0 block in `releases.ts` plus en, es and pt (69 releases); `/docs/reference/cli` (the snippet's default model, any current model plus the fallback in `p_translate`, the build line in `p_gate_warnings`, prune waiting in the prune callout, and the url mode against `render` in doctor's setup list); the Next section of `/docs/frameworks/react` (the loader's scope in `li_b4`, one download in the hydration callout); the `verbaly_extract` blurb in `tools.ts`; and a new troubleshooting section, "Prune left keys you no longer use". **Not touched on purpose:** `/docs/guide/translators` names no model and links its machine translation line to the CLI reference, which is where the model and the fallback now live, so saying it twice would be the duplicate this site avoids; and the build line sits with the other warnings in the CLI reference rather than in troubleshooting, because nothing is wrong when it prints. `size.ts` stays at 3.31 and 6.09, which `check-size` confirmed against the installed runtime.
 
 ## [0.65.0] · 2026-09-26
 

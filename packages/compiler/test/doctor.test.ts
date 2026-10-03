@@ -111,6 +111,40 @@ describe('doctor', () => {
     expect(entry(result.entries, 'locale pt')?.message).toContain('non-string value at "a"');
   });
 
+  // Proved able to fail with doctor's own JSON.parse back: the BOM read as corrupt JSON, exit 1.
+  it('reads a catalog with a byte order mark the way the gate does, so it is healthy', async () => {
+    const result = await doctor(
+      makeProject({ catalogs: { es: `\uFEFF${JSON.stringify({ [KEY]: 'Hola {name}' })}` } }),
+    );
+    expect(result.ok).toBe(true);
+    expect(entry(result.entries, 'catalogs')?.level).toBe('ok');
+  });
+
+  it('errors on a catalog that is JSON but not an object of messages', async () => {
+    const result = await doctor(
+      makeProject({ catalogs: { es: { [KEY]: 'Hola {name}' }, en: '["Hello"]' }, dts: true }),
+    );
+    expect(result.ok).toBe(false);
+    expect(entry(result.entries, 'locale en')?.message).toContain('not a JSON object of messages');
+  });
+
+  // Proved able to fail by validating against the inherited member: matchAll is not a function.
+  it('survives keys named like Object members in a translation, and lists them as extras', async () => {
+    const result = await doctor(
+      makeProject({
+        catalogs: {
+          es: { [KEY]: 'Hola {name}' },
+          // raw text: in an object literal __proto__ sets the prototype instead of making a key
+          en: `{"${KEY}":"Hi {name}","toString":"x","constructor":"y","__proto__":"z"}`,
+        },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    const extras = entry(result.entries, 'extras');
+    expect(extras?.level).toBe('warn');
+    expect(extras?.message).toContain('3 keys');
+  });
+
   it('accepts a nested catalog and names the path of a bad leaf', async () => {
     // rejecting nested trees made the docs site fail its own doctor while its build passed
     const nested = await doctor(
@@ -160,6 +194,18 @@ describe('doctor', () => {
     expect(e?.level).toBe('warn');
     expect(e?.message).toContain('vieja');
     expect(e?.fix).toContain('--prune');
+  });
+
+  // Proved able to fail with the old fix line: it pushed a prune that would delete their texts.
+  it('does not push a prune while a file it could not parse may still read those keys', async () => {
+    const cfg = makeProject({
+      catalogs: { es: { [KEY]: 'Hola {name}', vieja: 'Ya no' } },
+      dts: false,
+    });
+    writeFileSync(join(cfg.root, 'src', 'broken.ts'), "const v = t('vieja'); const a = ;");
+    const e = entry((await doctor(cfg)).entries, 'orphans');
+    expect(e?.level).toBe('warn');
+    expect(e?.fix).toContain('fix the files that do not parse first');
   });
 
   it('errors on unknown keys used in code', async () => {
@@ -350,6 +396,15 @@ describe('doctor: the url mode has a name now', () => {
     // a warn and not an error: it builds and it renders, it just disagrees with itself
     expect(entry?.level).toBe('warn');
     expect(entry?.message).toContain('render writes one url tree per locale');
+    expect(entry?.fix).toContain('prefix-except-source');
+  });
+
+  // Proved able to fail without the branch: prefix-all next to render read as a healthy mode.
+  it('names the contradiction between prefix-all and the tree render writes', async () => {
+    const base = makeProject();
+    const entry = await routingOf({ ...base, routing: 'prefix-all', render: { sitemap: true } });
+    expect(entry?.level).toBe('warn');
+    expect(entry?.message).toContain('keeps es at the root');
     expect(entry?.fix).toContain('prefix-except-source');
   });
 

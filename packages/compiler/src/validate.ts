@@ -218,7 +218,8 @@ function reachableCategories(locale: string, ordinal: boolean): string[] {
 
   let out: string[];
   try {
-    const rules = new Intl.PluralRules(locale, { type });
+    // pt_BR formats as pt-BR at runtime, so its plurals are pt-BR's here too
+    const rules = new Intl.PluralRules(locale.replace(/_/g, '-'), { type });
     const seen = new Set<string>();
     for (let n = 0; n <= COUNT_PROBE; n++) seen.add(rules.select(n));
     out = [...seen];

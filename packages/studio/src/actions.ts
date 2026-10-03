@@ -1,5 +1,6 @@
 import {
   collectOrigins,
+  counted,
   extractProject,
   loadCatalogs,
   mergeTranslations,
@@ -32,8 +33,8 @@ export async function runExtract(cfg: ResolvedConfig): Promise<ExtractResult> {
   const catalogs = loadCatalogs(cfg);
   const result = syncCatalogs(cfg, catalogs, registry);
   for (const locale of cfg.locales) writeCatalog(cfg, locale, catalogs[locale] ?? {});
-  // the types come from the source catalog, and cfg.dts false means the project opted out
-  if (cfg.dts !== false) writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
+  // the types come from the source catalog; writeDts skips them when the project set dts: false
+  writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
   const found = result.added[cfg.sourceLocale]?.length ?? 0;
   return { added: result.added, found, messages: registry.messages().size };
 }
@@ -82,11 +83,15 @@ export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): P
         kept += keys.length - landed.length;
       }
       saveDrafts(cfg, drafts);
-      finish(id, result.failed.length ? 'failed' : 'done', {
+      // on a failure the panel shows only this line, so it says what landed and what did not
+      const failed = result.failed[0];
+      finish(id, failed ? 'failed' : 'done', {
         result,
         written,
         kept,
-        message: result.failed.length ? `${result.failed.length} batches did not answer` : undefined,
+        message: failed
+          ? `${counted(written, 'message')} translated, but ${counted(result.failed.length, 'batch', 'batches')} did not answer (${failed.error}): run it again for the rest`
+          : undefined,
       });
     } catch (error) {
       finish(id, 'failed', { message: error instanceof Error ? error.message : String(error) });

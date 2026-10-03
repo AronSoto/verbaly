@@ -24,7 +24,11 @@ export interface VerbalyProviderProps extends SerializableProps {
 export function VerbalyProvider(props: VerbalyProviderProps): ReactElement {
   // getVerbalyProps omits them for the source locale, so messages here were passed on purpose
   const [instance] = useState(() => {
-    const created = createInstance({ locale: props.locale });
+    // the server already sent this catalog: marked as arrived, so the chunk is not fetched again
+    const created = createInstance({
+      locale: props.locale,
+      partial: props.messages ? [props.locale] : undefined,
+    });
     if (props.messages) created.addMessages(props.locale, props.messages);
     return created;
   });
@@ -33,7 +37,7 @@ export function VerbalyProvider(props: VerbalyProviderProps): ReactElement {
   useEffect(() => {
     if (props.locale === instance.locale) return;
     if (props.messages) {
-      instance.addMessages(props.locale, props.messages);
+      instance.addMessages(props.locale, props.messages, { partial: true });
       instance.setLocale(props.locale);
     } else {
       void instance.loadLocale(props.locale).then(() => instance.setLocale(props.locale));

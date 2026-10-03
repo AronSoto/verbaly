@@ -97,6 +97,14 @@ describe('translateCatalogs', () => {
     expect(provider.mock.calls[0]![0].origins).toEqual({ a: ['src/a.ts'] });
   });
 
+  // Proved able to fail by testing origins[key] bare: constructor sent Object to the provider.
+  it('sends a key named like a member of Object without an origin it does not have', async () => {
+    const provider = vi.fn(upper);
+    const en = JSON.parse('{"constructor":"Builder"}') as Record<string, string>;
+    await translateCatalogs(cfg(), { en, es: {} }, provider, { origins: { a: ['src/a.ts'] } });
+    expect(provider.mock.calls[0]![0].origins).toEqual({});
+  });
+
   it('omits origins when none are provided', async () => {
     const provider = vi.fn(upper);
     const catalogs: Catalogs = { en: { a: 'Hi' }, es: { a: '' } };

@@ -1,6 +1,10 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { resolveConfig } from '../src/config';
 import { stableKey } from '../src/key';
-import { transformSource } from '../src/plugin';
+import { runBuildGate, transformSource } from '../src/plugin';
 import { MessageRegistry } from '../src/registry';
 
 const KEY = stableKey('Hola {name}');
@@ -47,6 +51,36 @@ describe('transformSource', () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]![0]).toContain('src/unreadable.ts: could not be parsed');
     expect(registry.parseErrors()).toHaveLength(1);
+    warn.mockRestore();
+  });
+});
+
+describe('runBuildGate: what a build says about warnings', () => {
+  function project(es: string) {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-gate-'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), '{"a":"{n | one: # item | other: # items}"}');
+    writeFileSync(join(root, 'locales', 'es.json'), es);
+    return resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
+  }
+
+  // the dedupe is per process, so the quiet case runs before the one that prints
+  it('says nothing when check has nothing to say', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const es = '{"a":"{n | one: # cosa | other: # cosas}"}';
+    expect(() => runBuildGate(project(es), new MessageRegistry())).not.toThrow();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  // Proved able to fail without the line: a key only a translation has built in silence.
+  it('says in one line that check has warnings, and the build still passes', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const es = '{"a":"{n | one: # cosa | other: # cosas}","stray":"Sobra"}';
+    expect(() => runBuildGate(project(es), new MessageRegistry())).not.toThrow();
+    expect(warn.mock.calls.map(([text]) => String(text))).toEqual([
+      '[verbaly] check has 1 warning, and the build still passes: run `npx verbaly check` to read them',
+    ]);
     warn.mockRestore();
   });
 });

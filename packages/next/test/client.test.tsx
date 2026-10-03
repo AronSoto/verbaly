@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { useSwitchLocale, useT, VerbalyProvider } from '../src/client';
-import { setRouting } from './mocks/virtual-verbaly';
+import { fetched, setRouting } from './mocks/virtual-verbaly';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -94,6 +94,41 @@ describe('@verbaly/next/client', () => {
     });
     // no flash: the very first render is already translated
     expect(container.textContent).toBe('Hola');
+  });
+
+  // Proved able to fail without partial: the provider fetched the es chunk it had just been sent.
+  it('never fetches the catalog the server already sent, on mount or on a server switch', async () => {
+    fetched.length = 0;
+    await act(async () => {
+      root.render(
+        <VerbalyProvider locale="es" messages={{ greeting: 'Hola', farewell: 'Chau' }}>
+          <Greeting />
+        </VerbalyProvider>,
+      );
+      await Promise.resolve();
+    });
+    expect(container.textContent).toBe('Hola');
+    expect(fetched).toEqual([]);
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <VerbalyProvider locale="en">
+          <Greeting />
+        </VerbalyProvider>,
+      );
+    });
+    await act(async () => {
+      root.render(
+        <VerbalyProvider locale="es" messages={{ greeting: 'Hola', farewell: 'Chau' }}>
+          <Greeting />
+        </VerbalyProvider>,
+      );
+      await Promise.resolve();
+    });
+    expect(container.textContent).toBe('Hola');
+    expect(fetched).toEqual([]);
   });
 
   it('useSwitchLocale loads the catalog, persists and refreshes the router', async () => {

@@ -1,4 +1,5 @@
 import { isModuleNotFound } from '../config';
+import { counted } from '../text';
 import type { TranslateProvider, TranslateRequest } from '../translate';
 
 export interface ClaudeProviderOptions {
@@ -7,8 +8,24 @@ export interface ClaudeProviderOptions {
   maxTokens?: number;
 }
 
-// balanced default for translation
-const DEFAULT_MODEL = 'claude-sonnet-5';
+// balanced default for translation: the current Sonnet, at the price of the one before it
+const DEFAULT_MODEL = 'claude-sonnet-5-5';
+
+// the models that take fallbacks "default": a batch one declines is answered by another model
+const FALLBACK_MODELS = new Set([
+  'claude-sonnet-5-5',
+  'claude-opus-5-5',
+  'claude-opus-5',
+  'claude-fable-5-1',
+]);
+const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+
+// the least thinking each model takes: disabled is a 400 on the newest, and the oldest never think
+export function thinkingFor(model: string): { type: 'between_tools' | 'disabled' } | undefined {
+  if (model === 'claude-sonnet-5-5') return { type: 'between_tools' };
+  if (model === 'claude-sonnet-5' || model === 'claude-opus-5') return { type: 'disabled' };
+  return undefined;
+}
 
 const SYSTEM = `You translate UI strings for the Verbaly i18n library.
 Rules:
@@ -28,26 +45,31 @@ export function claudeProvider(options: ClaudeProviderOptions = {}): TranslatePr
     client ??= loadSdk().then(
       (Anthropic) => new Anthropic(options.apiKey ? { apiKey: options.apiKey } : {}),
     );
+    const model = options.model ?? DEFAULT_MODEL;
+    const thinking = thinkingFor(model);
     const response = await (
       await client
-    ).messages.create({
-      model: options.model ?? DEFAULT_MODEL,
+    ).beta.messages.create({
+      model,
       max_tokens: options.maxTokens ?? 16000,
-      thinking: { type: 'disabled' },
+      ...(thinking && { thinking }),
+      ...(FALLBACK_MODELS.has(model) && { betas: [FALLBACK_BETA], fallbacks: 'default' as const }),
       system: systemPrompt(request.instructions),
       messages: [{ role: 'user', content: buildPrompt(request) }],
       output_config: { format: batchFormat(request) },
     });
+    const batch = counted(Object.keys(request.messages).length, 'message');
     if (response.stop_reason === 'max_tokens') {
       throw new Error(
-        `[verbaly] the model ran out of output room on a batch of ${Object.keys(request.messages).length} messages: lower translate.batchSize (or raise maxTokens on the provider)`,
+        `[verbaly] the model ran out of output room on a batch of ${batch}: lower translate.batchSize (or raise maxTokens on the provider)`,
       );
     }
     // a decline is about the content, so asking again gets the same answer: a 400 is never retried
     if (response.stop_reason === 'refusal') {
+      const category = response.stop_details?.category;
       throw Object.assign(
         new Error(
-          `[verbaly] the model declined a batch of ${Object.keys(request.messages).length} messages, so they stay untranslated: translate them by hand or with another provider`,
+          `[verbaly] the model declined a batch of ${batch}${category ? ` (${category})` : ''}, so they stay untranslated: translate them by hand or with another provider`,
         ),
         { status: 400 },
       );

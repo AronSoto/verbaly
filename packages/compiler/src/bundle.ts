@@ -1,4 +1,4 @@
-import type { Catalog, Catalogs } from './catalog';
+import { emptyCatalog, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import type { MessageRegistry } from './registry';
 import { counted } from './text';
@@ -14,7 +14,7 @@ export function clientCatalogs(cfg: ResolvedConfig, catalogs: Catalogs): Catalog
   if (prefixes.length === 0) return catalogs;
   const out: Catalogs = {};
   for (const [locale, catalog] of Object.entries(catalogs)) {
-    const kept: Catalog = {};
+    const kept = emptyCatalog();
     for (const [key, message] of Object.entries(catalog)) {
       if (!isExcluded(key, prefixes)) kept[key] = message;
     }

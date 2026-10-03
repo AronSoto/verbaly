@@ -135,10 +135,21 @@ export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
     if (existsSync(path)) return loadTsConfig(path);
   }
   const jsonPath = join(root, 'verbaly.config.json');
-  if (existsSync(jsonPath)) {
-    return JSON.parse(readFileSync(jsonPath, 'utf8')) as VerbalyConfig;
-  }
+  if (existsSync(jsonPath)) return readJsonConfig(jsonPath);
   return {};
+}
+
+// same BOM rule as a catalog, and a parse error that names the file it came from
+function readJsonConfig(path: string): VerbalyConfig {
+  const content = readFileSync(path, 'utf8');
+  const body = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  try {
+    return JSON.parse(body) as VerbalyConfig;
+  } catch (error) {
+    throw new Error(`[verbaly] ${path} is not valid JSON: ${(error as Error).message}`, {
+      cause: error,
+    });
+  }
 }
 
 async function loadTsConfig(path: string): Promise<VerbalyConfig> {

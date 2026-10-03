@@ -1,5 +1,7 @@
 // default node environment: the server-side surface (no DOM)
-import type { Handle, Reroute } from '@sveltejs/kit';
+
+// kit 3 moved the hook types to /hooks with the same shape, and the shape is what is asserted
+import type { Handle, Reroute } from '@sveltejs/kit/hooks';
 import { describe, expect, it } from 'vitest';
 import { switchLocale, verbalyHandle, verbalyReroute, LOCALE_COOKIE } from '../src/index';
 

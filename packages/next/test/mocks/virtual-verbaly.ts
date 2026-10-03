@@ -17,6 +17,9 @@ const en = { greeting: 'Hello', farewell: 'Bye' };
 const es = { greeting: 'Hola', farewell: 'Chau' };
 const catalogs: Record<string, Record<string, string>> = { en, es };
 
+// every lazy catalog the client asks for, so a test can tell a fetch it should never have made
+export const fetched: string[] = [];
+
 export async function loadMessages(locale: string): Promise<Record<string, string>> {
   return catalogs[locale] ?? {};
 }
@@ -26,7 +29,12 @@ export function createInstance(options?: VerbalyOptions): Verbaly {
     locale: sourceLocale,
     fallback: sourceLocale,
     messages: { en },
-    loaders: { es: () => Promise.resolve({ default: es }) },
+    loaders: {
+      es: () => {
+        fetched.push('es');
+        return Promise.resolve({ default: es });
+      },
+    },
     ...options,
   });
 }

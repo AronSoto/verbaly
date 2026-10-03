@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Catalog } from './catalog';
-import { readCatalog, writeCatalog } from './catalog';
+import { emptyCatalog, readCatalog, writeCatalog } from './catalog';
 import type { ResolvedConfig } from './config';
 
 export interface MigrateBrace {
@@ -132,7 +132,7 @@ export function migrateCatalogs(cfg: ResolvedConfig, options: MigrateOptions = {
 
   for (const locale of cfg.locales) {
     const catalog = readCatalog(cfg, locale);
-    const out: Catalog = { ...catalog };
+    const out: Catalog = Object.assign(emptyCatalog(), catalog);
 
     for (const [key, value] of Object.entries(catalog)) {
       if (typeof value !== 'string') continue;

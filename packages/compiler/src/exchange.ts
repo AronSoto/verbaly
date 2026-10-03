@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
-import type { Catalog, Catalogs } from './catalog';
+import { emptyCatalog, own, type Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
 import { escapeXml, inlineToMessage, messageToInline, unescapeXml } from './inline';
 import { androidValuesDir, toAndroidXml, toIosStrings } from './mobile';
@@ -67,17 +67,19 @@ export function exportCatalogs(
   }
 
   const files: ExportedFile[] = [];
+  const origins = options.origins;
   mkdirSync(dir, { recursive: true });
   for (const locale of targets) {
-    const catalog = catalogs[locale] ?? {};
+    const catalog = catalogs[locale] ?? emptyCatalog();
     const all = Object.keys(source)
       .filter((key) => source[key])
       .sort()
       .map((key) => ({
         key,
         source: source[key]!,
-        target: catalog[key] ?? '',
-        location: options.origins?.[key],
+        target: own(catalog, key) ?? '',
+        // own entries: a key named constructor would find Object's function and crash the writer
+        location: origins && Object.hasOwn(origins, key) ? origins[key] : undefined,
       }));
     const untranslated = all.filter((entry) => !entry.target);
     const entries = options.missing ? untranslated : all;
@@ -117,7 +119,7 @@ function exportMobile(
   for (const locale of [cfg.sourceLocale, ...targets]) {
     const catalog = locale === cfg.sourceLocale ? source : (catalogs[locale] ?? {});
     const entries = keys
-      .map((key) => ({ key, text: catalog[key] ?? '' }))
+      .map((key) => ({ key, text: own(catalog, key) ?? '' }))
       .filter((entry) => entry.text);
     const relative =
       format === 'android-xml'
@@ -178,18 +180,19 @@ export function importCatalogs(
       continue;
     }
     if (locale !== detected) result.mapped.push({ file, from: detected, to: locale });
-    const catalog = (catalogs[locale] ??= Object.create(null) as Catalog);
+    const catalog = (catalogs[locale] ??= emptyCatalog());
     for (const [key, text] of Object.entries(parsed.entries)) {
       if (!text.trim()) continue;
-      if (!source[key]) {
+      const from = own(source, key);
+      if (!from) {
         (result.unknown[locale] ??= []).push(key);
         continue;
       }
-      if (catalog[key] && !options.overwrite) {
+      if (own(catalog, key) && !options.overwrite) {
         (result.skipped[locale] ??= []).push(key);
         continue;
       }
-      if (!structureMatches(source[key], text)) {
+      if (!structureMatches(from, text)) {
         (result.rejected[locale] ??= []).push(key);
         continue;
       }

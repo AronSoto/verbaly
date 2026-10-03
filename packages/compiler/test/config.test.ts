@@ -7,6 +7,7 @@ import { loadCatalogs } from '../src/catalog';
 import { loadConfig } from '../src/config';
 import { pruneCatalogs } from '../src/extract';
 import { MessageRegistry } from '../src/registry';
+import { analyzeFile } from '../src/sfc';
 import { resolveConfig } from '../src/config';
 
 function makeRoot() {
@@ -37,6 +38,19 @@ describe('loadConfig', () => {
     writeFileSync(join(root, 'verbaly.config.json'), '{"sourceLocale":"es"}');
     const cfg = await loadConfig(root, { sourceLocale: 'en' });
     expect(cfg.sourceLocale).toBe('en');
+  });
+
+  // Proved able to fail with the bare JSON.parse back: Unexpected token, and no file named.
+  it('reads a JSON config saved with a byte order mark, like a catalog', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.json'), '\uFEFF{"sourceLocale":"es"}');
+    expect((await loadConfig(root)).sourceLocale).toBe('es');
+  });
+
+  it('names the JSON config it could not read', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.json'), '{"sourceLocale":');
+    await expect(loadConfig(root)).rejects.toThrow(/verbaly\.config\.json is not valid JSON/);
   });
 
   it('defaults without a file', async () => {
@@ -205,6 +219,23 @@ describe('pruneCatalogs', () => {
 
     expect(pruneCatalogs(cfg, catalogs, registry).es).toEqual(['stray']);
     expect(catalogs.es).toEqual({ used: 'Usada', read: 'Leída' });
+  });
+
+  // Proved able to fail without the guard: the file that did not parse lost its only key.
+  it('prunes nothing while a source file does not parse, since that file may read any key', () => {
+    const root = makeRoot();
+    const dir = join(root, 'locales');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'es.json'), '{"used":"Usada","bye":"Adiós"}');
+
+    const cfg = resolveConfig({ root, sourceLocale: 'es' });
+    const catalogs = loadCatalogs(cfg);
+    const registry = new MessageRegistry();
+    registry.update('app.ts', analyze("t('used');", 'app.ts'));
+    registry.update('bye.ts', analyzeFile("t('bye'); const a = ;", 'bye.ts'));
+
+    expect(pruneCatalogs(cfg, catalogs, registry)).toEqual({});
+    expect(catalogs.es).toEqual({ used: 'Usada', bye: 'Adiós' });
   });
 
   it('skips a configured locale that has no catalog object', () => {

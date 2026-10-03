@@ -397,4 +397,17 @@ describe('a key only a translation has', () => {
     const result = check(cfg(), { en: {}, es: { [key]: 'Texto nuevo' } }, registry);
     expect(result.extra).toEqual([]);
   });
+
+  // Proved able to fail with the spread back: toString validated as Object's and the gate threw.
+  it('is a key like any other when it is named like a member of Object', () => {
+    const es = JSON.parse('{"kept":"Guardada","toString":"x","constructor":"y","__proto__":"z"}');
+    const result = check(cfg(), { en: { kept: 'Kept' }, es } as Catalogs, new MessageRegistry());
+    expect(result.ok).toBe(true);
+    expect(result.broken).toEqual([]);
+    expect(result.extra.map((entry) => entry.key).sort()).toEqual([
+      '__proto__',
+      'constructor',
+      'toString',
+    ]);
+  });
 });

@@ -463,4 +463,25 @@ describe('createVerbalyMcp: structured output', () => {
     expect(data.dryRun).toBe(false);
     expect(data.added.map((entry) => entry.locale).sort()).toEqual(['en', 'es']);
   });
+
+  // Proved able to fail without the guard: prune deleted bye, which only the broken file reads.
+  it('extract names the files it could not read, and prune waits for them', async () => {
+    const root = makeProject();
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), '{"bye":"Bye"}');
+    writeFileSync(join(root, 'locales', 'es.json'), '{"bye":"Adiós"}');
+    writeFileSync(join(root, 'src', 'bye.ts'), "export const b = t('bye'); const c = ;\n");
+    const client = await connect(root);
+    const result = await client.callTool({ name: 'verbaly_extract', arguments: { prune: true } });
+    const data = structured(result) as {
+      pruned: Array<{ locale: string; keys: string[] }>;
+      unparsed: Array<{ file: string; message: string }>;
+    };
+
+    expect(data.pruned).toEqual([]);
+    expect(data.unparsed.map((entry) => entry.file)).toEqual(['src/bye.ts']);
+    expect(resultText(result)).toContain('prune skipped');
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
+    expect(es).toHaveProperty('bye', 'Adiós');
+  });
 });

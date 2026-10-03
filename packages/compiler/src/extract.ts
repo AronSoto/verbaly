@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { glob } from 'tinyglobby';
-import type { Catalogs } from './catalog';
+import { emptyCatalog, own, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
@@ -25,7 +25,7 @@ export async function collectOrigins(
   reuse?: MessageRegistry,
 ): Promise<Record<string, string[]>> {
   const registry = reuse ?? (await extractProject(cfg));
-  const origins: Record<string, string[]> = {};
+  const origins: Record<string, string[]> = Object.create(null);
   for (const [key, files] of registry.origins()) {
     origins[key] = files.map((file) => relative(cfg.root, file).replaceAll('\\', '/'));
   }
@@ -43,10 +43,10 @@ export function syncCatalogs(
   registry: MessageRegistry,
 ): SyncResult {
   const added: Record<string, string[]> = {};
-  const source = (catalogs[cfg.sourceLocale] ??= {});
+  const source = (catalogs[cfg.sourceLocale] ??= emptyCatalog());
 
   for (const [key, msg] of registry.messages()) {
-    if (source[key] !== msg.message) {
+    if (own(source, key) !== msg.message) {
       source[key] = msg.message;
       (added[cfg.sourceLocale] ??= []).push(key);
     }
@@ -55,9 +55,9 @@ export function syncCatalogs(
   const needed = Object.keys(source);
   for (const locale of cfg.locales) {
     if (locale === cfg.sourceLocale) continue;
-    const catalog = (catalogs[locale] ??= {});
+    const catalog = (catalogs[locale] ??= emptyCatalog());
     for (const key of needed) {
-      if (catalog[key] === undefined) {
+      if (own(catalog, key) === undefined) {
         catalog[key] = '';
         (added[locale] ??= []).push(key);
       }
@@ -72,8 +72,10 @@ export function pruneCatalogs(
   catalogs: Catalogs,
   registry: MessageRegistry,
 ): Record<string, string[]> {
-  const keep = new Set([...registry.messages().keys(), ...registry.usedKeys().keys()]);
   const removed: Record<string, string[]> = {};
+  // a file the parser could not read still uses its keys, so pruning now deletes live translations
+  if (registry.parseErrors().length > 0) return removed;
+  const keep = new Set([...registry.messages().keys(), ...registry.usedKeys().keys()]);
   for (const locale of cfg.locales) {
     const catalog = catalogs[locale];
     if (!catalog) continue;

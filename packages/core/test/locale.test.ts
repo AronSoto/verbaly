@@ -561,6 +561,14 @@ describe('localeDirection', () => {
     expect(localeDirection('AR')).toBe('rtl');
     expect(localeDirection('ar-!!')).toBe('rtl');
   });
+
+  // Proved able to fail without the replace: Intl.Locale throws on ar_EG and the catch reads ltr.
+  it('reads a gettext tag the way the formatters do, so ar_EG is rtl like ar-EG', () => {
+    expect(localeDirection('ar_EG')).toBe('rtl');
+    expect(localeDirection('he_IL')).toBe('rtl');
+    expect(localeDirection('pa_Arab_PK')).toBe('rtl');
+    expect(localeDirection('pt_BR')).toBe('ltr');
+  });
 });
 
 describe('localeDirection without Intl textInfo (Firefox)', () => {
@@ -637,6 +645,21 @@ describe('localeName', () => {
   });
 });
 
+// a storage that is there and refuses every write, the way a full one answers
+function fullStorage(): () => void {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const store = {
+    getItem: () => null,
+    setItem: () => {
+      throw new DOMException('full', 'QuotaExceededError');
+    },
+  };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => store });
+  return () => {
+    if (original) Object.defineProperty(globalThis, 'localStorage', original);
+  };
+}
+
 describe('persistLocale', () => {
   it('stores the locale and syncs <html lang>', () => {
     persistLocale('es');
@@ -660,6 +683,17 @@ describe('persistLocale', () => {
     persistLocale('es', false);
     expect(localStorage.getItem('verbaly-locale')).toBeNull();
     expect(document.documentElement.lang).toBe('es');
+  });
+
+  // Proved able to fail without the try: the QuotaExceededError escaped and lang stayed behind.
+  it('still syncs <html lang> when a full storage refuses the write', () => {
+    const restore = fullStorage();
+    try {
+      expect(() => persistLocale('pt')).not.toThrow();
+      expect(document.documentElement.lang).toBe('pt');
+    } finally {
+      restore();
+    }
   });
 });
 
@@ -755,6 +789,24 @@ describe('switchLocale: one call, both modes', () => {
 
     // render's redirect reads storage: a cookie alone sends the visitor back on next load
     expect(localStorage.getItem('verbaly-locale')).toBe('pt');
+    expect(document.cookie).toContain('verbaly-locale=pt');
+  });
+
+  it('a storage that refuses the write never stops the navigation', async () => {
+    const { instance } = fake();
+    const went: string[] = [];
+    const restore = fullStorage();
+    try {
+      await switchLocale(instance, 'pt', {
+        routing: 'prefix-except-source',
+        supported: SUPPORTED,
+        sourceLocale: 'en',
+        navigate: (p) => void went.push(p),
+      });
+    } finally {
+      restore();
+    }
+    expect(went).toHaveLength(1);
     expect(document.cookie).toContain('verbaly-locale=pt');
   });
 

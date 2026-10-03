@@ -1,4 +1,11 @@
-import { readCatalog, writeCatalog, type Catalog, type Catalogs } from './catalog';
+import {
+  emptyCatalog,
+  own,
+  readCatalog,
+  writeCatalog,
+  type Catalog,
+  type Catalogs,
+} from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
 import { counted } from './text';
 import { validateMessage, validatePair } from './validate';
@@ -114,8 +121,8 @@ export async function translateCatalogs(
 
   const jobs: Batch[] = [];
   for (const locale of targets) {
-    const catalog = (catalogs[locale] ??= {});
-    const missing = Object.keys(source).filter((key) => source[key] && !catalog[key]);
+    const catalog = (catalogs[locale] ??= emptyCatalog());
+    const missing = Object.keys(source).filter((key) => source[key] && !own(catalog, key));
     if (missing.length === 0) continue;
 
     if (options.dryRun) {
@@ -136,7 +143,9 @@ export async function translateCatalogs(
     const messages = Object.fromEntries(keys.map((key) => [key, source[key]!]));
     const origins = options.origins
       ? Object.fromEntries(
-          keys.filter((key) => options.origins![key]).map((key) => [key, options.origins![key]!]),
+          keys
+            .filter((key) => Object.hasOwn(options.origins!, key))
+            .map((key) => [key, options.origins![key]!]),
         )
       : undefined;
 

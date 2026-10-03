@@ -1,8 +1,8 @@
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { generateDts, generateLocaleModule, generateRuntimeModule } from '../src/codegen';
+import { generateDts, generateLocaleModule, generateRuntimeModule, writeDts } from '../src/codegen';
 import { needsIcu, needsRelative } from '../src/catalog';
 import { resolveConfig } from '../src/config';
 import { collectParams, renderParamType } from '../src/params';
@@ -114,8 +114,52 @@ describe('generateRuntimeModule', () => {
 });
 
 describe('generateLocaleModule', () => {
+  // Proved able to fail with the plain literal: the module evaluated to an object with no key.
+  it('keeps a key named __proto__ as a key, which an object literal would read as the prototype', async () => {
+    const catalog = JSON.parse('{"a":"A","__proto__":"P","b":"B"}') as Record<string, string>;
+    const code = generateLocaleModule(catalog);
+    // the same object literal a bundler evaluates, run as a function body instead of a module
+    const evaluate = new Function(code.replace('export default', 'return')) as () => object;
+    const value = evaluate();
+    expect(Object.keys(value)).toEqual(['a', '__proto__', 'b']);
+    expect(Object.getPrototypeOf(value)).toBe(Object.prototype);
+    expect(generateLocaleModule({ a: '"__proto__":' })).toBe(
+      'export default {"a":"\\"__proto__\\":"};\n',
+    );
+  });
+
   it('emits a default export', () => {
     expect(generateLocaleModule({ a: 'A' })).toBe('export default {"a":"A"};\n');
+  });
+});
+
+describe('writeDts', () => {
+  const project = (dts?: string | false) =>
+    resolveConfig({ root: mkdtempSync(join(tmpdir(), 'verbaly-dts-')), dts });
+
+  it('writes verbaly.d.ts at the root when the config names no file', () => {
+    const cfg = project();
+    writeDts(cfg, { a: 'A' });
+    expect(readFileSync(join(cfg.root, 'verbaly.d.ts'), 'utf8')).toContain('"a": never;');
+  });
+
+  // Proved able to fail with the old default: @verbaly/next wrote the root file under dts false.
+  it('follows the config when a caller names no file: a path, or nothing at all for false', () => {
+    const placed = project('types/verbaly.d.ts');
+    writeDts(placed, { a: 'A' });
+    expect(existsSync(join(placed.root, 'types', 'verbaly.d.ts'))).toBe(true);
+    expect(existsSync(join(placed.root, 'verbaly.d.ts'))).toBe(false);
+
+    const off = project(false);
+    writeDts(off, { a: 'A' });
+    expect(existsSync(join(off.root, 'verbaly.d.ts'))).toBe(false);
+  });
+
+  it('writes where a caller says, since that caller already read the config', () => {
+    const cfg = project(false);
+    const file = join(cfg.root, '.nuxt', 'verbaly.d.ts');
+    writeDts(cfg, { a: 'A' }, file);
+    expect(existsSync(file)).toBe(true);
   });
 });
 

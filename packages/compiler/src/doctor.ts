@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { flatten, type MessageTree } from 'verbaly';
+import { flatten } from 'verbaly';
 import { auditBundle, formatBundleIssue } from './bundle';
-import { badLeaf, type Catalogs } from './catalog';
+import { badLeaf, isTree, parseTree, type Catalogs } from './catalog';
 import { check } from './check';
 import { generateDts } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
@@ -90,27 +90,37 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         );
         continue;
       }
-      try {
-        const parsed = JSON.parse(readFileSync(file, 'utf8')) as MessageTree;
-        // nested groups are a real shape: only a leaf that is not text is broken
-        const bad = badLeaf(parsed);
-        if (bad) {
-          catalogsHealthy = false;
-          error(
-            `locale ${locale}`,
-            `${rel(file)} has a non-string value at "${bad}"`,
-            'catalog values are text (groups of text are fine); fix the value',
-          );
-        } else {
-          catalogs[locale] = flatten(parsed);
-        }
-      } catch {
+      // the same reader the gate uses, so a BOM the build accepts is never an error here
+      const parsed = parseTree(readFileSync(file, 'utf8'));
+      if (parsed === undefined) {
         catalogsHealthy = false;
         error(
           `locale ${locale}`,
           `${rel(file)} is not valid JSON`,
           'repair the file (or delete it and run `npx verbaly extract`)',
         );
+        continue;
+      }
+      if (!isTree(parsed)) {
+        catalogsHealthy = false;
+        error(
+          `locale ${locale}`,
+          `${rel(file)} is not a JSON object of messages`,
+          'a catalog is an object of texts (groups of text are fine): fix the file',
+        );
+        continue;
+      }
+      // nested groups are a real shape: only a leaf that is not text is broken
+      const bad = badLeaf(parsed);
+      if (bad) {
+        catalogsHealthy = false;
+        error(
+          `locale ${locale}`,
+          `${rel(file)} has a non-string value at "${bad}"`,
+          'catalog values are text (groups of text are fine); fix the value',
+        );
+      } else {
+        catalogs[locale] = flatten(parsed);
       }
     }
     if (catalogsHealthy) {
@@ -151,6 +161,13 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       'routing',
       'routing is "no-prefix" but a render section is configured, and render writes one url tree per locale',
       'drop the render section, or set routing to "prefix-except-source" so the helpers agree with the urls',
+    );
+  } else if (cfg.routing === 'prefix-all' && mirrors) {
+    // render leaves the source tree at the root, so a helper that prefixes it points at no page
+    warn(
+      'routing',
+      `routing is "prefix-all" but render keeps ${cfg.sourceLocale} at the root, so its links point at a /${cfg.sourceLocale}/ tree nobody wrote`,
+      'set routing to "prefix-except-source", the url tree render writes',
     );
   } else {
     const named = configFile ? readRoutingChoice(cfg.root, configFile) : false;
@@ -229,11 +246,15 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     const extracted = registry.messages();
     const used = registry.usedKeys();
     const orphans = Object.keys(source).filter((key) => !extracted.has(key) && !used.has(key));
+    // a file that did not parse may be the one reading them, and prune waits until it does
+    const unread = registry.parseErrors().length > 0;
     if (orphans.length > 0) {
       warn(
         'orphans',
         `${counted(orphans.length, 'catalog key')} no longer referenced in code (${preview(orphans)})`,
-        'run `npx verbaly extract --prune` to drop them',
+        unread
+          ? 'fix the files that do not parse first, they may use these, and `npx verbaly extract --prune` leaves every key alone until then'
+          : 'run `npx verbaly extract --prune` to drop them',
       );
     } else {
       ok('orphans', 'no orphan keys');

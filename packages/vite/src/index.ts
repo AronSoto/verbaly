@@ -56,8 +56,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
   // cfg.dts is the merged option: @verbaly/astro fills its override before Vite resolves config
   function flushDts(): void {
-    if (cfg.dts === false) return;
-    writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
+    writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
   }
 
   function flushCatalogs(): void {
@@ -101,6 +100,8 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       const onCatalogFile = (file: string): void => {
         if (!file.startsWith(cfg.dir) || !file.endsWith('.json')) return;
         const locale = file.split(/[\\/]/).pop()!.slice(0, -5);
+        // a dotfile there is the drafts sidecar: it changes no message, so no tab has to reload
+        if (locale.startsWith('.')) return;
         const expected = selfWrites.get(locale);
         if (expected !== undefined) {
           selfWrites.delete(locale);

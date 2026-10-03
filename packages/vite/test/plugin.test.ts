@@ -207,6 +207,18 @@ describe('dev server', () => {
     expect(state.reloads).toBe(0);
   });
 
+  // Proved able to fail without the dotfile check: review --approve reloaded every open tab.
+  it('ignores the drafts sidecar, which sits next to the catalogs and renders nothing', async () => {
+    const root = makeProject({ es: {} });
+    const { configureServer } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    emit('change', join(root, 'locales', '.verbaly-drafts.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(0);
+  });
+
   it('dedupes its own catalog writes but not external edits', async () => {
     const root = makeProject({ es: {}, en: {} });
     const { configureServer, transform } = await setup(root, 'serve');

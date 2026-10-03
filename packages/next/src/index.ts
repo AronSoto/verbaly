@@ -8,6 +8,7 @@ import {
   type Compiler,
   type RequestOptions,
 } from './codegen';
+import type { LoaderOptions } from './loader';
 import { startWatcher } from './watch';
 
 export type { VerbalyConfig } from '@verbaly/compiler';
@@ -91,18 +92,21 @@ export function withVerbaly<C extends object>(
       startWatcher(compiler, cfg, requestOptions);
     }
 
-    return composeConfig(base, cfg.root);
+    // the loader rewrites exactly what extract reads: a file outside include keeps its t`…`
+    const scope: LoaderOptions = { root: cfg.root, include: cfg.include, exclude: cfg.exclude };
+    return composeConfig(base, cfg.root, scope);
   };
 }
 
-function composeConfig<C extends object>(base: C, root: string): C {
+function composeConfig<C extends object>(base: C, root: string, scope?: LoaderOptions): C {
   const runtimeModule = join(generatedDir(root), 'index.js');
   const { webpack: userWebpack, turbopack } = base as NextConfigLike;
+  const loader = scope ? { loader: LOADER, options: scope } : LOADER;
 
   const rules: Record<string, unknown> = { ...turbopack?.rules };
   const verbalyRule = {
     condition: { all: [{ not: 'foreign' }, { path: SOURCE_PATH_RE }] },
-    loaders: [LOADER],
+    loaders: [loader],
   };
   const existing = rules['*'];
   rules['*'] = existing
@@ -137,7 +141,7 @@ function composeConfig<C extends object>(base: C, root: string): C {
         test: SOURCE_PATH_RE,
         exclude: /node_modules/,
         enforce: 'pre',
-        use: [{ loader: LOADER }],
+        use: [typeof loader === 'string' ? { loader } : loader],
       });
       return userWebpack ? userWebpack(config, context as never) : config;
     },

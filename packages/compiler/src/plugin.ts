@@ -1,13 +1,21 @@
 import { relative } from 'node:path';
 import picomatch from 'picomatch';
 import { auditBundle, clientCatalogs, formatBundleIssue } from './bundle';
-import { loadCatalogs, needsIcu, needsRelative, type Catalog, type Catalogs } from './catalog';
+import {
+  emptyCatalog,
+  loadCatalogs,
+  needsIcu,
+  needsRelative,
+  type Catalog,
+  type Catalogs,
+} from './catalog';
 import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
 import { cliReachable } from './init';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
+import { counted } from './text';
 import { transformCode, type TransformResult } from './transform';
 import { warnOnce, warnParseError } from './warn';
 
@@ -67,7 +75,7 @@ export function transformSource(
   registry.update(id, analysis);
   if (analysis.parseError) warnParseError(id, analysis.parseError);
   // key → text for live extraction; first wins, mirroring the registry's collision rule
-  const messages: Catalog = {};
+  const messages = emptyCatalog();
   for (const msg of analysis.tagged) messages[msg.key] ??= msg.message;
   return { messages, result: transformCode(code, id, analysis) ?? null };
 }
@@ -84,6 +92,15 @@ export function runBuildGate(
     warnOnce(`${formatBundleIssue(issue)}\n  fix: ${issue.fix}`, `bundle:${issue.prefix}`);
   }
   const found = check(cfg, catalogs, registry);
+  // a warning never stops a build, so the build says they exist in one line and check reads them
+  const warnings =
+    found.broken.filter((entry) => entry.severity === 'warning').length + found.extra.length;
+  if (warnings > 0) {
+    warnOnce(
+      `check has ${counted(warnings, 'warning')}, and the build still passes: run \`npx verbaly check\` to read them`,
+      'gate:warnings',
+    );
+  }
   // false = build with untranslated strings, never with broken ones: those render wrong
   const result = failOnMissing === false ? { ...found, missing: [] } : found;
   if (gatePasses(result)) return;

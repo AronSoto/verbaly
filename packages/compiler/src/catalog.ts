@@ -6,6 +6,16 @@ import type { ResolvedConfig } from './config';
 export type Catalog = Record<string, string>;
 export type Catalogs = Record<string, Catalog>;
 
+// no prototype: a key is data, so toString or __proto__ must never answer from Object
+export function emptyCatalog(): Catalog {
+  return Object.create(null) as Catalog;
+}
+
+// a catalog handed in by a caller may be a plain object, and its prototype is not a message
+export function own(catalog: Catalog, key: string): string | undefined {
+  return Object.hasOwn(catalog, key) ? catalog[key] : undefined;
+}
+
 export function catalogPath(cfg: ResolvedConfig, locale: string): string {
   return join(cfg.dir, `${locale}.json`);
 }
@@ -45,26 +55,38 @@ function readTree(cfg: ResolvedConfig, locale: string): MessageTree {
     return {};
   }
   const parsed = parseTree(content);
-  if (parsed) return parsed;
-  throw new Error(
-    `[verbaly] ${catalogPath(cfg, locale)} is not valid JSON, fix or delete the file`,
-  );
+  if (parsed === undefined) {
+    throw new Error(
+      `[verbaly] ${catalogPath(cfg, locale)} is not valid JSON, fix or delete the file`,
+    );
+  }
+  // an array or a bare string reads as no messages, and the next extract would write over it
+  if (!isTree(parsed)) {
+    throw new Error(
+      `[verbaly] ${catalogPath(cfg, locale)} is not a JSON object of messages, fix or delete the file`,
+    );
+  }
+  return parsed;
 }
 
 // the flat view of a catalog that is not on disk: an old revision read out of git is text
 export function parseCatalog(content: string): Catalog | undefined {
   const tree = parseTree(content);
-  return tree === undefined ? undefined : flatten(tree);
+  return tree === undefined ? undefined : flatten(tree as MessageTree);
 }
 
 // a byte order mark is legal in the file and illegal to JSON.parse: drop it by code, never by regex
-function parseTree(content: string): MessageTree | undefined {
+export function parseTree(content: string): unknown {
   const body = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
   try {
-    return JSON.parse(body) as MessageTree;
+    return JSON.parse(body) as unknown;
   } catch {
     return undefined;
   }
+}
+
+export function isTree(value: unknown): value is MessageTree {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function loadCatalogs(cfg: ResolvedConfig): Catalogs {
@@ -160,7 +182,8 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
     mkdirSync(cfg.dir, { recursive: true });
   }
   // parsed once: the shape and the key order are two questions about the same previous file
-  const previous = existing === undefined ? undefined : parseTree(existing);
+  const parsed = existing === undefined ? undefined : parseTree(existing);
+  const previous = isTree(parsed) ? parsed : undefined;
   const serialized = serializeCatalog(catalog, wantsNesting(cfg, locale, existing, previous), previous);
   // identical writes are skipped: a rewrite retriggers whatever watches the catalog
   if (existing === serialized) return serialized;

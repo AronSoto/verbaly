@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import loader, { type LoaderContext } from '../src/loader';
+import loader, { type LoaderContext, type LoaderOptions } from '../src/loader';
 
 interface LoaderResult {
   code?: string;
   map?: unknown;
 }
 
-function run(source: string, resourcePath: string): Promise<LoaderResult> {
+function run(source: string, resourcePath: string, options?: LoaderOptions): Promise<LoaderResult> {
   return new Promise((resolve, reject) => {
     const context: LoaderContext = {
       resourcePath,
@@ -14,6 +14,7 @@ function run(source: string, resourcePath: string): Promise<LoaderResult> {
         if (error) reject(error instanceof Error ? error : new Error(String(error)));
         else resolve({ code, map });
       },
+      ...(options && { getOptions: () => options }),
     };
     loader.call(context, source);
   });
@@ -48,5 +49,22 @@ describe('@verbaly/next loader', { timeout: COMPILER_TIMEOUT }, () => {
     expect(code).toBe(source);
     expect(warn.mock.calls[0]![0]).toContain('broken.tsx: could not be parsed');
     warn.mockRestore();
+  });
+
+  // Proved able to fail without the scope: the docs snippet became a key extract never wrote.
+  it('rewrites only what extract reads, so a file outside include keeps its template', async () => {
+    const scope = { root: 'C:/app', include: ['src/**/*.tsx'], exclude: [] };
+    const inside = await run('const x = t`Hello`;', 'C:/app/src/page.tsx', scope);
+    expect(inside.code).toMatch(/t\("[A-Za-z0-9_-]{8}"\)/);
+    const outside = await run('const x = t`Hello`;', 'C:/app/docs/snippet.tsx', scope);
+    expect(outside.code).toBe('const x = t`Hello`;');
+  });
+
+  it('rewrites nothing when source scanning is off, the same as the vite plugin', async () => {
+    const { code } = await run('const x = t`Hello`;', 'C:/app/src/page.tsx', {
+      root: 'C:/app',
+      include: [],
+    });
+    expect(code).toBe('const x = t`Hello`;');
   });
 });

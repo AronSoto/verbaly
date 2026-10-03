@@ -266,7 +266,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
 
 // every key the page used, '' where the locale falls back: a short slice is not an empty message
 function pageSlice(v: Verbaly, locale: string, used: Set<string>): Record<string, string> {
-  const slice: Record<string, string> = {};
+  const slice: Record<string, string> = Object.create(null);
   for (const key of used) {
     const found = v.inspect(key);
     slice[key] = found?.from === locale ? found.source : '';

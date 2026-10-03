@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import fs, { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -155,6 +156,39 @@ describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
       },
       { timeout: 5000, interval: 100 },
     );
+  });
+
+  // Proved able to fail without the try: the ENOSPC escaped the watch callback, uncaught.
+  it('a directory it cannot watch is reported, and the rest keeps watching', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const real = fs.watch;
+    const limited = vi.spyOn(fs, 'watch').mockImplementation(((path: string, ...rest: never[]) => {
+      if (String(path).endsWith('blocked')) {
+        throw Object.assign(new Error('ENOSPC: System limit for number of file watchers reached'), {
+          code: 'ENOSPC',
+        });
+      }
+      return (real as (...args: unknown[]) => fs.FSWatcher)(path, ...rest);
+    }) as typeof fs.watch);
+    syncBuiltinESMExports();
+    try {
+      const { root, seen } = tree();
+      mkdirSync(join(root, 'blocked'));
+      await vi.waitFor(
+        () => {
+          writeFileSync(join(root, 'src', 'still.tsx'), String(Date.now()));
+          expect(seen).toContain('src/still.tsx');
+          expect(warn.mock.calls.map(([text]) => String(text))).toContain(
+            '[verbaly] could not watch blocked:',
+          );
+        },
+        { timeout: 5000, interval: 100 },
+      );
+    } finally {
+      limited.mockRestore();
+      syncBuiltinESMExports();
+      warn.mockRestore();
+    }
   });
 
   // Proved able to fail by keeping the first watcher: the src made again never reports.

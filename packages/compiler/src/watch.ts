@@ -1,4 +1,4 @@
-import { readdirSync, statSync, watch, type FSWatcher } from 'node:fs';
+import { lstatSync, readdirSync, watch, type FSWatcher } from 'node:fs';
 import { join, relative } from 'node:path';
 import type { ResolvedConfig } from './config';
 import { SOURCE_FILE_RE } from './plugin';
@@ -27,7 +27,7 @@ export function watchTree(
   const open = (
     name: string,
     recursive: boolean,
-    listener: (_event: string, file: string | null) => void,
+    listener: (event: string, file: string | null) => void,
   ): void => {
     const watcher = watch(
       join(root, name),
@@ -53,17 +53,22 @@ export function watchTree(
       close(name);
       if (name !== options.keep && (name === 'node_modules' || name.startsWith('.'))) return;
       try {
-        if (!statSync(join(root, name)).isDirectory()) return;
-      } catch {
-        return;
+        // lstat: a linked directory is not walked, the same as at startup and as native watching
+        if (!lstatSync(join(root, name)).isDirectory()) return;
+        open(name, true, (_event, file) => {
+          if (file) onFile(`${name}/${file}`);
+        });
+      } catch (error) {
+        // a throw in a watch callback ends the process: say a watch limit, not a vanished dir
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.warn(`[verbaly] could not watch ${name}:`, error);
+        }
       }
-      open(name, true, (_event, file) => {
-        if (file) onFile(`${name}/${file}`);
-      });
     };
-    open('', false, (_event, file) => {
+    open('', false, (event, file) => {
       if (!file) return;
-      sync(file);
+      // a change is the same directory touched, and reopening it would walk the whole tree again
+      if (event === 'rename') sync(file);
       onFile(file);
     });
     for (const entry of readdirSync(root, { withFileTypes: true })) {

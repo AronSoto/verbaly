@@ -131,7 +131,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       root: values.root,
       dir: values.dir,
       sourceLocale: values.source,
-      locales: values.locales?.split(','),
+      locales: csv(values.locales),
     });
     if (result.created.length) console.log(`[verbaly] created: ${result.created.join(', ')}`);
     if (result.skipped.length) console.log(`  kept (already there): ${result.skipped.join(', ')}`);
@@ -151,7 +151,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   const cfg = await loadConfig(values.root ?? process.cwd(), {
     dir: values.dir,
     sourceLocale: values.source,
-    locales: values.locales?.split(','),
+    locales: csv(values.locales),
   });
 
   if (command === 'doctor') {
@@ -187,6 +187,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       const catalogs = loadCatalogs(cfg);
       if (values.prune) {
         const removed = pruneCatalogs(cfg, catalogs, registry);
+        const unread = registry.parseErrors().length;
+        if (unread > 0) {
+          console.warn(
+            `  prune skipped: an unparsed file may read any key (${counted(unread, 'file')} below), so it waits until every file parses`,
+          );
+        }
         for (const [locale, keys] of Object.entries(removed)) {
           console.log(
             dryRun
@@ -200,7 +206,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         for (const locale of cfg.locales) {
           writeCatalog(cfg, locale, catalogs[locale] ?? {});
         }
-        if (cfg.dts !== false) writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
+        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
       }
       const total = registry.messages().size;
       console.log(
@@ -349,7 +355,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const catalogs = loadCatalogs(cfg);
     const provider = await resolveProvider(cfg, values.model);
     const result = await translateCatalogs(cfg, catalogs, provider, {
-      locales: values.locales?.split(','),
+      locales: csv(values.locales),
       batchSize: cfg.translate.batchSize,
       concurrency: cfg.translate.concurrency,
       retries: cfg.translate.retries,
@@ -451,7 +457,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
     const result = exportCatalogs(cfg, loadCatalogs(cfg), {
-      locales: values.locales?.split(','),
+      locales: csv(values.locales),
       format,
       out: values.out,
       missing: values.missing,
@@ -544,7 +550,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   if (command === 'render') {
     const result = await renderSite(cfg, {
       site: values.site,
-      locales: values.locales?.split(','),
+      locales: csv(values.locales),
       attribute: values.attribute,
       base: values.base,
       baseUrl: values['base-url'],
@@ -570,6 +576,14 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   console.error(`[verbaly] unknown command "${command}"\n${HELP}`);
   process.exitCode = 1;
+}
+
+// "es, pt" is how a person types a list: a space must not become part of a locale
+function csv(value: string | undefined): string[] | undefined {
+  return value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 // a translate run is minutes of network: say what landed as it lands, never only at the end

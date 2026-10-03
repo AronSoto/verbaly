@@ -99,6 +99,19 @@ describe('exportCatalogs', () => {
     expect(es).toContain('a,Hello,,src/App.tsx; src/pages/home.vue');
   });
 
+  // Proved able to fail by reading origins[key] bare: constructor found Object, and .map threw.
+  it('exports a key named like a member of Object with no origin of its own', () => {
+    const config = cfg();
+    const en = JSON.parse('{"constructor":"Builder","toString":"Text"}') as Record<string, string>;
+    const catalogs: Catalogs = { en, es: {} };
+    const result = exportCatalogs(config, catalogs, { origins: { other: ['src/a.ts'] } });
+    const xlf = readFileSync(result.files[0]!.path, 'utf8');
+    expect(xlf).toContain('id="constructor"');
+    expect(xlf).not.toContain('category="location"');
+    const csv = exportCatalogs(config, catalogs, { format: 'csv', origins: {} });
+    expect(readFileSync(csv.files[0]!.path, 'utf8')).toContain('constructor,Builder,,');
+  });
+
   it('round-trips an xliff with location notes through import', () => {
     const config = cfg();
     const catalogs: Catalogs = { en: { a: 'Hello' }, es: { a: '' } };

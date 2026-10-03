@@ -28,6 +28,7 @@ It also serves two **resources**, which is how you read the project without spen
 
 - **Keys are generated** (hash of the message). To reference one in code, keep writing the `` t`…` `` template; the build transform turns it into `t('<key>', params)`. Use `` t.id('my.key')`…` `` only when a stable human key is required.
 - **`""` in a catalog means untranslated** (falls back to the source language). Intentional empty text is `' '`.
+- **`extract --prune` waits while any source file does not parse**: such a file may read any key, so pruning then would delete live translations. Fix the file it names first (`verbaly_extract` returns them as `unparsed`), then prune.
 - **Two message features are weight the compiler decides for you**: the ICU parser (544 B) and the relative-time formatter (364 B) ship only when a catalog actually uses them. Never hand-wire either. If messages reach the app after the build (a CMS, a fetched catalog) and may use them, set `icu: true` or `relative: true` in the config; otherwise such a message degrades with a warning that names what is missing.
 - **Params and tags must survive translation**: `{name}` placeholders and `<em>…</em>` tags stay verbatim in every locale, or the entry is rejected.
 - **Rich text is whitelisted**: messages may carry phrasing tags (`<em>`, `<strong>`, `<code>`…); links go through named tags plus a links map, never literal `<a href>` in a message.

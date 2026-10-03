@@ -63,6 +63,16 @@ describe('catalogs', () => {
     expect(() => readCatalog(cfg, 'es')).toThrow(/not valid JSON/);
   });
 
+  // Proved able to fail by trusting JSON.parse: the array read as no messages, then was rewritten.
+  it('JSON that is not an object of messages fails loudly too, and the file stays as it was', () => {
+    const cfg = makeProject({ es: {} });
+    for (const raw of ['["Hola", "Adiós"]', '"Hola"', 'null', '42']) {
+      writeFileSync(join(cfg.dir, 'es.json'), raw);
+      expect(() => loadCatalogs(cfg)).toThrow(/not a JSON object of messages/);
+      expect(readFileSync(catalogPath(cfg, 'es'), 'utf8')).toBe(raw);
+    }
+  });
+
   it('a value that is not text fails loudly, naming its path', () => {
     // the runtime skips it with a warn; a build tool that skipped it would write the skip back
     const cfg = makeProject({ es: {} });

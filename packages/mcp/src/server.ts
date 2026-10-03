@@ -30,6 +30,7 @@ import {
   type ResolvedConfig,
 } from '@verbaly/compiler';
 import { createRequire } from 'node:module';
+import { relative } from 'node:path';
 import { z } from 'zod';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -299,15 +300,30 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         dryRun: z.boolean(),
         added: perLocale,
         pruned: perLocale,
+        unparsed: z
+          .array(z.object({ file: z.string(), message: z.string() }))
+          .describe(
+            'Source files the parser could not read: their messages are not extracted, and prune drops nothing until they parse',
+          ),
       },
     },
     guarded(async ({ root, prune, dryRun }) => {
       const cfg = await config(root);
       const registry = await extractProject(cfg);
       const catalogs = loadCatalogs(cfg);
+      // an agent sees no terminal, so what the CLI prints about these has to be in the answer
+      const unparsed = registry.parseErrors().map(({ file, message }) => ({
+        file: relative(cfg.root, file).replaceAll('\\', '/'),
+        message,
+      }));
 
       const lines: string[] = [];
       const pruned = prune ? byLocale(pruneCatalogs(cfg, catalogs, registry)) : [];
+      if (prune && unparsed.length > 0) {
+        lines.push(
+          'prune skipped: an unparsed file may read any key, so it waits until every file parses',
+        );
+      }
       for (const { locale, keys } of pruned) {
         lines.push(
           dryRun
@@ -320,7 +336,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         for (const locale of cfg.locales) {
           writeCatalog(cfg, locale, catalogs[locale] ?? {});
         }
-        if (cfg.dts !== false) writeDts(cfg, catalogs[cfg.sourceLocale] ?? {}, cfg.dts);
+        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
       }
       const messages = registry.messages().size;
       lines.unshift(
@@ -329,12 +345,16 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       for (const { locale, keys } of added) {
         lines.push(`${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length} added`}`);
       }
+      for (const { file, message } of unparsed) {
+        lines.push(`${file}: could not be parsed (${message}), its messages were not extracted`);
+      }
       return reply(lines.join('\n'), {
         messages,
         locales: cfg.locales,
         dryRun: dryRun === true,
         added,
         pruned,
+        unparsed,
       });
     }),
   );

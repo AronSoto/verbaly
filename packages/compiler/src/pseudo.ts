@@ -1,4 +1,4 @@
-import type { Catalog, Catalogs } from './catalog';
+import { emptyCatalog, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 
 export const PSEUDO_LOCALE = 'en-XA';
@@ -126,7 +126,7 @@ export function pseudoCatalogs(
   locale: string = PSEUDO_LOCALE,
 ): string[] {
   const source = catalogs[cfg.sourceLocale] ?? {};
-  const target: Catalog = {};
+  const target = emptyCatalog();
   for (const [key, msg] of Object.entries(source)) {
     target[key] = msg ? pseudoLocalize(msg) : '';
   }

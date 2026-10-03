@@ -150,6 +150,23 @@ describe('translate, the one action that spends money', () => {
     expect(read(job.id)).toMatchObject({ written: 0, kept: 1 });
   });
 
+  // Proved able to fail with the old line: the panel said "1 batches did not answer" and no more.
+  it('says what landed as well as what did not when a batch fails', async () => {
+    const cfg = wide({
+      provider: async (request) => {
+        if (request.targetLocale === 'pt') {
+          throw Object.assign(new Error('the api refused it'), { status: 400 });
+        }
+        return echo(request);
+      },
+    });
+    const job = await startTranslate(cfg);
+    await vi.waitFor(() => expect(read(job.id).state).toBe('failed'));
+    expect(read(job.id).message).toBe(
+      '6 messages translated, but 1 batch did not answer (the api refused it): run it again for the rest',
+    );
+  });
+
   it('answers 404 for a job id it never handed out', () => {
     expect(() => read('translate-does-not-exist')).toThrow(/no job called/);
   });

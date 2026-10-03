@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Catalogs } from './catalog';
+import { own, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 
 export const DRAFTS_FILE = '.verbaly-drafts.json';
@@ -70,7 +70,7 @@ export function effectiveDrafts(drafts: Drafts, catalogs: Catalogs): Drafts {
   const out: Drafts = {};
   for (const [locale, keys] of Object.entries(drafts)) {
     const catalog = catalogs[locale] ?? {};
-    const live = keys.filter((key) => catalog[key]);
+    const live = keys.filter((key) => own(catalog, key));
     if (live.length) out[locale] = live;
   }
   return out;

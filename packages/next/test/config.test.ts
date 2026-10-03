@@ -39,9 +39,19 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     expect(alias['virtual:verbaly']).toBe('./.verbaly/index.js');
     const rules = config.turbopack?.rules as Record<
       string,
-      { loaders: string[]; condition: unknown }
+      { loaders: unknown[]; condition: unknown }
     >;
-    expect(rules['*']?.loaders).toEqual(['@verbaly/next/loader']);
+    // the scope rides with the loader, so it rewrites exactly the files extract reads
+    expect(rules['*']?.loaders).toEqual([
+      {
+        loader: '@verbaly/next/loader',
+        options: {
+          root,
+          include: ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}'],
+          exclude: ['**/node_modules/**', '**/dist/**'],
+        },
+      },
+    ]);
     // guards against Turbopack's App Router entry (a bare glob matches it and panics)
     expect(rules['*']?.condition).toEqual({
       all: [{ not: 'foreign' }, { path: /\.[cm]?[jt]sx?$/ }],
@@ -53,6 +63,9 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
       join(root, '.verbaly', 'index.js'),
     );
     expect(webpackConfig.module?.rules).toHaveLength(1);
+    // webpack gets the same scope, so the two bundlers never rewrite a different set of files
+    const [rule] = webpackConfig.module!.rules as Array<{ use: Array<{ options?: object }> }>;
+    expect(rule!.use[0]!.options).toEqual((rules['*']!.loaders[0] as { options: object }).options);
   });
 
   it('preserves user turbopack config and composes the user webpack fn', async () => {
@@ -79,10 +92,12 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     const rules = config.turbopack?.rules as Record<string, unknown>;
     expect(rules['*.svg']).toEqual({ loaders: ['@svgr/webpack'] });
     // a user '*' rule is kept: ours joins it as an array entry
-    const star = rules['*'] as Array<{ loaders: string[] }>;
+    const star = rules['*'] as Array<{ loaders: Array<string | { loader: string }> }>;
     expect(star).toHaveLength(2);
     expect(star[0]?.loaders).toEqual(['user-loader']);
-    expect(star[1]?.loaders).toEqual(['@verbaly/next/loader']);
+    expect(star[1]?.loaders.map((entry) => (entry as { loader: string }).loader)).toEqual([
+      '@verbaly/next/loader',
+    ]);
 
     const webpackConfig: WebpackConfigLike = {};
     (config.webpack as (c: WebpackConfigLike, ctx: unknown) => unknown)(webpackConfig, {});
@@ -177,10 +192,10 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     };
     const config = await withVerbaly(user, { root, ...inline })(BUILD);
     const star = (config.turbopack?.rules as Record<string, unknown>)['*'] as Array<{
-      loaders: string[];
+      loaders: Array<{ loader: string }>;
     }>;
     expect(star).toHaveLength(3);
-    expect(star[2]?.loaders).toEqual(['@verbaly/next/loader']);
+    expect(star[2]?.loaders.map((entry) => entry.loader)).toEqual(['@verbaly/next/loader']);
   });
 
   it('other phases only compose config: no filesystem work', async () => {

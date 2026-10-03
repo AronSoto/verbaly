@@ -26,7 +26,7 @@ npx verbaly wrap           # onboarding codemod: report plain JSX text, --write 
 npx verbaly migrate        # port catalogs from another i18n library (--write applies, --plurals merges)
 npx verbaly extract        # sync catalogs + types
 npx verbaly extract --watch  # keep extracting as you code (dev loop)
-npx verbaly extract --prune  # drop orphaned keys
+npx verbaly extract --prune  # drop orphaned keys (waits while any source file does not parse)
 npx verbaly status         # coverage per locale, plus unreviewed and broken counts
 npx verbaly check          # exit 1 if anything is missing or broken (CI)
 npx verbaly translate      # fill missing translations via Claude (or your provider), as drafts
@@ -59,6 +59,8 @@ Two more are reported as **warnings** and keep the exit code at 0, because the t
 
 A third warning is a key that **only a translation has**. It never fails the build either, and the report says which case it is: your code reads it, so the source language shows the raw key there, or nothing reads it and it is dead weight in that language's download (`extract --prune` drops it).
 
+The bundler plugins run the same gate on `build`, and when `check` has warnings the build prints one line saying how many, then passes: `npx verbaly check` reads them out.
+
 ```bash
 npx verbaly check                     # text report
 npx verbaly check --reporter github   # ::error and ::warning annotations on the PR, at the source line
@@ -69,7 +71,7 @@ Hand-edited catalogs get the same treatment as imported files: the gate does not
 
 ## 🤖 Machine translation
 
-`verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK; install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Placeholders, variants and tags are validated after translation: anything not preserved verbatim stays `""` so `check` keeps failing.
+`verbaly translate` fills the `""` holes `check` reports. The default provider uses Claude via the official SDK; install it as a dev dependency (translation is a build-time step, not an app runtime dependency): `pnpm add -D @anthropic-ai/sdk` (or `npm i -D`), plus `ANTHROPIC_API_KEY`. Default model is `claude-sonnet-5-5` (balanced quality/cost); override with `translate.model` in config or `--model <id>`. Each model is asked for the least thinking it accepts, so any current Claude model works there, and on the models that support it a batch the model declines is answered by Anthropic's recommended fallback model instead of coming back untranslated. Placeholders, variants and tags are validated after translation: anything not preserved verbatim stays `""` so `check` keeps failing.
 
 Long runs survive the network. Batches go out in parallel (`translate.concurrency`, default 4), a transient failure is retried (`translate.retries`, default 2), and a batch that still does not answer is reported with its keys while every batch that did answer is written: re-running asks only for what is left.
 
@@ -140,7 +142,7 @@ Under a prefix mode that goes to `/es/…`, which is already rendered in Spanish
 await switchLocale('es', { navigate: (path) => router.push(path) });
 ```
 
-`npx verbaly doctor` names the mode you are in, and says so when `no-prefix` sits next to a `render` section that writes one URL tree per locale.
+`npx verbaly doctor` names the mode you are in, and says so when the mode and a `render` section disagree: `render` keeps the source language at the root and writes every other language under its own prefix, which is `prefix-except-source`.
 
 ## 🧪 What the runtime carries, and what it does not
 

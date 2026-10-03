@@ -142,7 +142,9 @@ ${options.extraExports ?? ''}`;
 }
 
 export function generateLocaleModule(catalog: Catalog): string {
-  return `export default ${JSON.stringify(catalog)};\n`;
+  // "__proto__": in an object literal sets the prototype; computed, it stays a key like any other
+  const json = JSON.stringify(catalog).replace(/([{,])"__proto__":/, '$1["__proto__"]:');
+  return `export default ${json};\n`;
 }
 
 export interface DtsOptions {
@@ -232,8 +234,11 @@ declare module 'virtual:verbaly/locale/*' {
 }
 
 // unchanged writes are skipped: a rewritten verbaly.d.ts churns the consumer's TS server
-export function writeDts(cfg: ResolvedConfig, catalog: Catalog, file?: string): void {
-  file ??= join(cfg.root, 'verbaly.d.ts');
+export function writeDts(cfg: ResolvedConfig, catalog: Catalog, file?: string | false): void {
+  // the config decides unless a caller names a file: dts false means no file anywhere
+  const target = file === undefined ? cfg.dts : file;
+  if (target === false) return;
+  file = target ?? join(cfg.root, 'verbaly.d.ts');
   const content = generateDts(catalog, { inlineCatalog: cfg.render.inlineCatalog === true });
   try {
     if (readFileSync(file, 'utf8') === content) return;

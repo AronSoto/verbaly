@@ -22,8 +22,10 @@ const SHAPES = [
 const CONFIG = JSON.stringify({ dir: 'locales', sourceLocale: 'es', locales: ['es'] });
 const SOURCE = 'export const greet = (name) => t`Hola ${name}`;\n';
 
+// one string: a shell joins args without quoting them, and a user folder can hold a space
 function run(cmd, args, cwd) {
-  return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe', shell: true });
+  const line = [cmd, ...args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg))].join(' ');
+  return execFileSync(line, { cwd, encoding: 'utf8', stdio: 'pipe', shell: true });
 }
 
 function tryRun(cmd, args, cwd) {

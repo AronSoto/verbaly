@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildPrompt, claudeProvider, loadSdk, systemPrompt } from '../src/providers/claude';
+import {
+  buildPrompt,
+  claudeProvider,
+  loadSdk,
+  systemPrompt,
+  thinkingFor,
+} from '../src/providers/claude';
 import type { TranslateRequest } from '../src/translate';
 
 const request: TranslateRequest = {
@@ -14,7 +20,7 @@ const ctor = vi.fn();
 function mockSdk(): void {
   vi.doMock('@anthropic-ai/sdk', () => ({
     default: class {
-      messages = { create };
+      beta = { messages: { create } };
       constructor(options: unknown) {
         ctor(options);
       }
@@ -38,8 +44,12 @@ describe('claudeProvider', () => {
     expect(out).toEqual({ greet: 'Hola {name}', bye: 'Chau' });
     expect(ctor).toHaveBeenCalledWith({});
     const call = create.mock.calls[0]![0];
-    expect(call.model).toBe('claude-sonnet-5');
+    expect(call.model).toBe('claude-sonnet-5-5');
     expect(call.max_tokens).toBe(16000);
+    // the current Sonnet refuses thinking disabled with a 400: between_tools is its lowest setting
+    expect(call.thinking).toEqual({ type: 'between_tools' });
+    expect(call.fallbacks).toBe('default');
+    expect(call.betas).toEqual(['server-side-fallback-2026-07-01']);
     expect(call.system).toContain('Verbaly');
     expect(call.messages).toEqual([{ role: 'user', content: expect.stringContaining('"en"') }]);
     expect(call.output_config.format.schema.required).toEqual(['greet', 'bye']);
@@ -53,6 +63,21 @@ describe('claudeProvider', () => {
     const call = create.mock.calls[0]![0];
     expect(call.model).toBe('claude-opus-4-8');
     expect(call.max_tokens).toBe(500);
+    // it never thinks unasked and takes no fallbacks: both fields stay out of its request
+    expect(call).not.toHaveProperty('thinking');
+    expect(call).not.toHaveProperty('fallbacks');
+    expect(call).not.toHaveProperty('betas');
+  });
+
+  // Proved able to fail with thinking disabled sent to every model, which the API answers with 400.
+  it('asks each model for the least thinking it accepts', () => {
+    expect(thinkingFor('claude-sonnet-5-5')).toEqual({ type: 'between_tools' });
+    expect(thinkingFor('claude-sonnet-5')).toEqual({ type: 'disabled' });
+    expect(thinkingFor('claude-opus-5')).toEqual({ type: 'disabled' });
+    // these two cannot turn thinking off at all, so the request leaves it to the model
+    expect(thinkingFor('claude-opus-5-5')).toBeUndefined();
+    expect(thinkingFor('claude-fable-5-1')).toBeUndefined();
+    expect(thinkingFor('claude-haiku-4-5')).toBeUndefined();
   });
 
   it('falls back to {} when no text block comes back', async () => {
@@ -75,10 +100,14 @@ describe('claudeProvider: an answer that is not one', () => {
   // Proved able to fail by dropping the refusal branch: it reads as {} and every key is "rejected".
   it('names a decline as a decline, and marks it as one a retry cannot change', async () => {
     mockSdk();
-    create.mockResolvedValue({ stop_reason: 'refusal', content: [] });
+    create.mockResolvedValue({
+      stop_reason: 'refusal',
+      stop_details: { type: 'refusal', category: 'cyber', explanation: null },
+      content: [],
+    });
     const error = await claudeProvider()(request).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('the model declined a batch of 2 messages');
+    expect((error as Error).message).toContain('the model declined a batch of 2 messages (cyber)');
     expect((error as { status?: number }).status).toBe(400);
   });
 

@@ -13,7 +13,7 @@
 
 Server Components render already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and Client Components hydrate with the **same locale and the same catalog**: no flash of untranslated text, no hydration mismatch. Each request gets its **own instance** (React `cache()`): no locale leaking between concurrent users.
 
-Works with **Turbopack** (the Next 16 default) and webpack: the config wrapper generates the runtime module as real files and wires the `t`-template compiler as a loader for both.
+Works with **Turbopack** (the Next 16 default) and webpack: the config wrapper generates the runtime module as real files and wires the `t`-template compiler as a loader for both. The loader rewrites exactly the files `verbaly extract` reads (your config's `include` and `exclude`), so a code sample in a file outside them keeps its `` t`…` `` as written.
 
 ## 🚀 Install
 

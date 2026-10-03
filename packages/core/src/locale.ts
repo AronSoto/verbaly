@@ -41,7 +41,8 @@ interface TextInfoLocale extends Intl.Locale {
 
 export function localeDirection(locale: string): 'ltr' | 'rtl' {
   try {
-    const loc = new Intl.Locale(locale) as TextInfoLocale;
+    // ar_EG is how gettext writes ar-EG, and Intl.Locale throws on it: the fallback read it ltr
+    const loc = new Intl.Locale(locale.replace(/_/g, '-')) as TextInfoLocale;
     const direction = (loc.getTextInfo?.() ?? loc.textInfo)?.direction;
     if (direction === 'rtl' || direction === 'ltr') return direction;
     const script = loc.script ?? loc.maximize().script;
@@ -361,7 +362,11 @@ export function persistLocale(
   locale: string,
   storageKey: string | false = LOCALE_STORAGE_KEY,
 ): void {
-  if (storageKey) getStorage()?.setItem(storageKey, locale);
+  try {
+    if (storageKey) getStorage()?.setItem(storageKey, locale);
+  } catch {
+    // a full storage throws on write, and a switch must still reach <html lang> and the navigation
+  }
   if (typeof document !== 'undefined') {
     document.documentElement.lang = locale;
     document.documentElement.dir = localeDirection(locale);

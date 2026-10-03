@@ -32,6 +32,13 @@ describe('validateMessage', () => {
     expect(warnings(issues)[0]).toContain('many');
   });
 
+  // Proved able to fail without the replace: Intl.PluralRules threw on pl_PL and nothing was said.
+  it('reads a gettext locale the way the runtime formats it, so pl_PL gets the pl advice', () => {
+    const issues = validateMessage('{count | one: 1 element | other: # elementow}', 'pl_PL');
+    expect(warnings(issues)).toHaveLength(1);
+    expect(warnings(issues)[0]).toContain('few');
+  });
+
   it('says nothing when the locale needs exactly what the message has', () => {
     expect(validateMessage('{count | one: uno | other: # varios}', 'es')).toEqual([]);
   });

@@ -49,6 +49,27 @@ describe('the state of a cell, which is what the whole screen is coloured by', (
     expect(cell('bye', 'es').state).toBe('missing');
   });
 
+  // Proved able to fail with bare lookups: constructor read as done with Object's own text.
+  it('reads a key named like a member of Object as a key, in every map it looks in', () => {
+    const odd = toPanel(
+      raw({
+        catalogs: JSON.parse(
+          '{"en":{"constructor":"Builder","__proto__":"Proto"},"es":{},"pt":{"__proto__":"Proto pt"}}',
+        ),
+        origins: {},
+        triage: {},
+      }),
+    );
+    const named = (key: string) => odd.rows.find((r) => r.key === key)!;
+    expect(odd.rows.map((r) => r.key).sort()).toEqual(['__proto__', 'constructor']);
+    expect(named('constructor').origins).toEqual([]);
+    expect(named('constructor').cells.map((c) => [c.text, c.state])).toEqual([
+      ['', 'missing'],
+      ['', 'missing'],
+    ]);
+    expect(named('__proto__').cells.find((c) => c.locale === 'pt')?.text).toBe('Proto pt');
+  });
+
   // Proved able to fail by checking drafts first; effectiveDrafts only guards the server path.
   it('calls a machine translation a draft only when there is text', () => {
     expect(cell('bye', 'pt').state).toBe('draft');

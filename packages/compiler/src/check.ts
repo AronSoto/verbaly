@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
-import type { Catalog, Catalogs } from './catalog';
+import { emptyCatalog, type Catalog, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { CLI_INSTALL_FIX } from './init';
 import type { MessageRegistry } from './registry';
@@ -96,7 +96,7 @@ export function check(
   };
 
   // a key can be used in code before it reaches the catalog: validate that text too
-  const sourceText: Catalog = { ...source };
+  const sourceText: Catalog = Object.assign(emptyCatalog(), source);
   for (const [key, entry] of extracted) {
     if (!sourceText[key]) sourceText[key] = entry.message;
   }

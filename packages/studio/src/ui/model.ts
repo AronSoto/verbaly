@@ -76,8 +76,17 @@ export interface RawState {
   problems: { scope: string; message: string }[];
 }
 
+// the state is parsed JSON: a key named constructor must not find the member every object has
+function own<T>(map: Record<string, T> | undefined, key: string): T | undefined {
+  return map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
+}
+
 // a catalog arrives in the shape its file has, so the panel flattens it to read
-function flatten(tree: Record<string, unknown>, prefix = '', out: Record<string, string> = {}) {
+function flatten(
+  tree: Record<string, unknown>,
+  prefix = '',
+  out: Record<string, string> = Object.create(null),
+) {
   for (const [key, value] of Object.entries(tree)) {
     const path = prefix ? `${prefix}.${key}` : key;
     if (typeof value === 'string') out[path] = value;
@@ -106,9 +115,9 @@ export function toPanel(raw: RawState): Panel {
   const rows: Row[] = Object.keys(source).map((key) => ({
     key,
     source: source[key] ?? '',
-    origins: raw.origins[key] ?? [],
+    origins: own(raw.origins, key) ?? [],
     cells: targets.map((locale) => {
-      const text = flat[locale]?.[key] ?? '';
+      const text = own(flat[locale], key) ?? '';
       const issue = broken.get(`${locale}\u0000${key}`);
       const state: MessageState = issue
         ? 'broken'
@@ -117,7 +126,7 @@ export function toPanel(raw: RawState): Panel {
           : drafts.get(locale)?.has(key)
             ? 'draft'
             : 'done';
-      const reasons = raw.triage?.[locale]?.[key] ?? [];
+      const reasons = own(raw.triage?.[locale], key) ?? [];
       return { locale, text, state, issue, reasons };
     }),
   }));

@@ -356,6 +356,29 @@ describe('runCli: extract', () => {
     expect(es).not.toHaveProperty('orphan');
   });
 
+  // Proved able to fail without the guard in pruneCatalogs: bye left en.json and es.json both.
+  it('--prune keeps every key while a file does not parse, and says why', async () => {
+    const root = makeProject(
+      { en: { used: 'Used', bye: 'Bye' }, es: { used: 'Usada', bye: 'Adiós' } },
+      "export const a = t('used');\n",
+    );
+    writeFileSync(join(root, 'src', 'bye.ts'), "export const b = t('bye'); const c = ;\n");
+    await runCli(['extract', '--root', root, '--prune']);
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
+    expect(es).toEqual({ used: 'Usada', bye: 'Adiós' });
+    expect(output(warn)).toContain(
+      'prune skipped: an unparsed file may read any key (1 file below)',
+    );
+    expect(output(warn)).toContain('src/bye.ts: could not be parsed');
+  });
+
+  it('reads --locales the way a person types it, with spaces after the commas', async () => {
+    const root = makeProject({ en: { a: 'A' }, es: { a: 'A es' }, pt: { a: 'A pt' } });
+    await runCli(['status', '--root', root, '--locales', 'es, pt', '--json']);
+    const status = JSON.parse(String(log.mock.calls[0]![0])) as { locales: { locale: string }[] };
+    expect(status.locales.map((entry) => entry.locale)).toEqual(['es', 'pt']);
+  });
+
   it('warns when a tagged template escaped a block instead of formatting it', async () => {
     const root = makeProject(
       { en: {}, es: {} },

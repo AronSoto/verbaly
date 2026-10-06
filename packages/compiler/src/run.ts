@@ -4,8 +4,10 @@ import { loadCatalogs, writeCatalog } from './catalog';
 import {
   check,
   checkNextSteps,
+  collisionEntries,
   formatCheckResult,
   formatCheckWarnings,
+  formatCollision,
   githubCheckAnnotations,
 } from './check';
 import { writeDts } from './codegen';
@@ -18,7 +20,16 @@ import { init } from './init';
 import { migrateCatalogs } from './migrate';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { formatRenderWarnings, renderSite } from './render';
+import { createLocator } from './location';
 import type { MessageRegistry } from './registry';
+import {
+  acceptOutdated,
+  loadState,
+  outdatedTranslations,
+  saveState,
+  updateState,
+  type State,
+} from './state';
 import { formatStatusResult, status } from './status';
 import { counted } from './text';
 import {
@@ -43,7 +54,7 @@ Usage:
   verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
-  verbaly review     list machine translations awaiting review (--approve marks them reviewed)
+  verbaly review     list translations awaiting review: machine drafts and outdated ones (--approve accepts them)
   verbaly export     write translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
   verbaly import <files…>  fill catalogs back from translated XLIFF/CSV/PO files
   verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
@@ -60,6 +71,7 @@ Options:
   --plurals          also merge _one/_other into one message with variants (migrate)
   --json             machine-readable output (status)
   --drafts           also fail on unreviewed machine translations (check)
+  --outdated         also fail on translations written for an older source text (check)
   --approve          mark listed drafts as reviewed (review)
   --reporter <name>  failure format: text (default) or github annotations (check)
   --model <id>       model override for the claude provider (translate)
@@ -68,6 +80,7 @@ Options:
   --out <path>       export directory (export, default: verbaly-export)
   --missing          export only untranslated entries (export)
   --overwrite        replace existing translations on import (import)
+  --draft            mark what the files bring as drafts a person still has to review (import)
   --locale <id>      pseudo-locale id (pseudo) / one locale only (review, import)
   --site <path>      built site directory (render, default: dist)
   --attribute <name> base data attribute (render, default: data-verbaly)
@@ -95,6 +108,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       write: { type: 'boolean' },
       json: { type: 'boolean' },
       drafts: { type: 'boolean' },
+      outdated: { type: 'boolean' },
+      draft: { type: 'boolean' },
       approve: { type: 'boolean' },
       reporter: { type: 'string' },
       model: { type: 'string' },
@@ -201,12 +216,14 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
           );
         }
       }
-      const { added } = syncCatalogs(cfg, catalogs, registry);
+      const { added, replaced } = syncCatalogs(cfg, catalogs, registry);
       if (!dryRun) {
         for (const locale of cfg.locales) {
           writeCatalog(cfg, locale, catalogs[locale] ?? {});
         }
         writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+        // drafts and fingerprints follow the catalogs, so a pruned key takes its draft with it
+        updateState(cfg, catalogs);
       }
       const total = registry.messages().size;
       console.log(
@@ -215,8 +232,12 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const [locale, keys] of Object.entries(added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
       }
+      reportReplaced(cfg, registry, replaced, dryRun);
+      for (const entry of collisionEntries(registry)) console.warn(formatCollision(entry, cfg.root));
       reportParseErrors(cfg, registry);
       reportEscapedSyntax(cfg, registry);
+      reportMissed(cfg, registry);
+      reportPositional(cfg, registry);
     }
 
     await runExtract();
@@ -299,7 +320,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'status') {
     const registry = await extractProject(cfg);
-    const result = status(cfg, loadCatalogs(cfg), registry, loadDrafts(cfg));
+    const state = loadState(cfg);
+    const result = status(cfg, loadCatalogs(cfg), registry, state.drafts, state.fingerprints);
     console.log(values.json ? JSON.stringify(result) : formatStatusResult(result));
     return;
   }
@@ -313,30 +335,35 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     }
     const registry = await extractProject(cfg);
     const catalogs = loadCatalogs(cfg);
-    const result = check(cfg, catalogs, registry);
-    // opt-in: unreviewed machine translations block the merge too
-    const unreviewed = values.drafts ? effectiveDrafts(loadDrafts(cfg), catalogs) : {};
+    const state = checkState(cfg, values.drafts === true || values.outdated === true);
+    const result = check(cfg, catalogs, registry, state.fingerprints);
+    // opt-in: unreviewed machine translations and outdated ones block the merge too
+    const unreviewed = values.drafts ? effectiveDrafts(state.drafts, catalogs) : {};
     const draftKeys = Object.entries(unreviewed);
+    const outdated = values.outdated ? result.outdated : [];
     // the annotations carry both severities, so they print whether the gate passes or not
     if (reporter === 'github') {
       for (const line of githubCheckAnnotations(result, registry, cfg.root)) {
         console.error(line);
       }
     } else {
-      const warnings = formatCheckWarnings(result);
+      const warnings = formatCheckWarnings(result, cfg.root);
       if (warnings) console.warn(`[verbaly] warnings (the gate still passes)\n${warnings}`);
     }
 
-    if (result.ok && draftKeys.length === 0) {
+    if (result.ok && draftKeys.length === 0 && outdated.length === 0) {
       console.log('[verbaly] all translations complete ✓');
       return;
     }
-    if (result.ok && draftKeys.length > 0) {
+    if (result.ok) {
       for (const [locale, keys] of draftKeys) {
         console.error(`  [${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
       }
+      for (const [locale, keys] of byLocale(outdated)) {
+        console.error(`  [${locale}] ${keys.length} outdated: ${keys.join(', ')}`);
+      }
       console.error(
-        '[verbaly] check failed: machine translations awaiting review (run verbaly review --approve)',
+        '[verbaly] check failed: translations awaiting review (run verbaly review, then --approve what holds)',
       );
       process.exitCode = 1;
       return;
@@ -408,34 +435,53 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'review') {
     const catalogs = loadCatalogs(cfg);
-    const drafts = loadDrafts(cfg);
-    const live = effectiveDrafts(drafts, catalogs);
+    const state = loadState(cfg);
+    const live = effectiveDrafts(state.drafts, catalogs);
     const targets = values.locale ? { [values.locale]: live[values.locale] ?? [] } : live;
     const entries = Object.entries(targets).filter(([, keys]) => keys.length);
+    const outdated = outdatedTranslations(cfg, catalogs, state.fingerprints).filter(
+      (entry) => !values.locale || entry.locale === values.locale,
+    );
 
-    if (entries.length === 0) {
-      console.log('[verbaly] no machine translations awaiting review ✓');
+    if (entries.length === 0 && outdated.length === 0) {
+      console.log('[verbaly] nothing awaiting review ✓');
       return;
     }
 
     if (values.approve) {
       let count = 0;
       for (const [locale, keys] of entries) {
-        clearDrafts(drafts, locale, keys);
+        clearDrafts(state.drafts, locale, keys);
         count += keys.length;
         console.log(`  ${locale}: ${keys.length} approved`);
       }
-      saveDrafts(cfg, drafts);
+      // a person read the old translation against the new source and kept it
+      acceptOutdated(cfg, catalogs, state.fingerprints, outdated);
+      for (const [locale, keys] of byLocale(outdated)) {
+        console.log(`  ${locale}: ${keys.length} kept for the new source text`);
+        count += keys.length;
+      }
+      saveState(cfg, state);
       console.log(`[verbaly] ${counted(count, 'translation')} marked reviewed ✓`);
       return;
     }
 
-    const total = entries.reduce((sum, [, keys]) => sum + keys.length, 0);
-    console.log(
-      `[verbaly] ${counted(total, 'machine translation')} awaiting review (--approve to accept)`,
-    );
-    for (const [locale, keys] of entries) {
-      console.log(`  ${locale}: ${keys.join(', ')}`);
+    if (entries.length > 0) {
+      const total = entries.reduce((sum, [, keys]) => sum + keys.length, 0);
+      console.log(
+        `[verbaly] ${counted(total, 'machine translation')} awaiting review (--approve to accept)`,
+      );
+      for (const [locale, keys] of entries) {
+        console.log(`  ${locale}: ${keys.join(', ')}`);
+      }
+    }
+    if (outdated.length > 0) {
+      console.log(
+        `[verbaly] ${counted(outdated.length, 'translation')} written for an older source text (update them, or --approve keeps them)`,
+      );
+      for (const [locale, keys] of byLocale(outdated)) {
+        console.log(`  ${locale}: ${keys.join(', ')}`);
+      }
     }
     return;
   }
@@ -513,17 +559,18 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       }
       process.exitCode = 1;
     }
-    // a human file clears the machine-draft flag: the imported text is reviewed
+    // a person's file clears the draft flag, unless --draft says nobody has read it yet
     const drafts = loadDrafts(cfg);
     let draftsChanged = false;
     for (const [locale, keys] of Object.entries(result.imported)) {
       if (!values['dry-run']) {
         writeCatalog(cfg, locale, catalogs[locale] ?? {});
-        clearDrafts(drafts, locale, keys);
+        if (values.draft) markDrafts(drafts, locale, keys);
+        else clearDrafts(drafts, locale, keys);
         draftsChanged = true;
       }
       const verb = values['dry-run'] ? 'would import' : 'imported';
-      console.log(`  ${locale}: +${keys.length} ${verb}`);
+      console.log(`  ${locale}: +${keys.length} ${verb}${values.draft ? ' (draft)' : ''}`);
     }
     if (draftsChanged) saveDrafts(cfg, drafts);
     for (const [locale, keys] of Object.entries(result.skipped)) {
@@ -607,6 +654,70 @@ function reportParseErrors(cfg: ResolvedConfig, registry: MessageRegistry): void
   }
 }
 
+// a text the code owns was edited in the catalog: say whose it is instead of erasing it quietly
+function reportReplaced(
+  cfg: ResolvedConfig,
+  registry: MessageRegistry,
+  replaced: string[],
+  dryRun: boolean | undefined,
+): void {
+  if (replaced.length === 0) return;
+  const messages = registry.messages();
+  const locate = createLocator();
+  const verb = dryRun ? 'would get' : 'got';
+  for (const key of replaced) {
+    const msg = messages.get(key);
+    if (!msg) continue;
+    const line = locate(msg.file, msg.start);
+    const place = `${relative(cfg.root, msg.file).replaceAll('\\', '/')}${line ? `:${line}` : ''}`;
+    console.warn(
+      `  ${cfg.sourceLocale}: ${key} ${verb} the text written in ${place}, the code owns it: edit it there`,
+    );
+  }
+}
+
+// a t under another name runs fine and never translates: the scanner only reads calls named t
+function reportMissed(cfg: ResolvedConfig, registry: MessageRegistry): void {
+  const locate = createLocator();
+  for (const { name, file, start } of registry.missed()) {
+    const line = locate(file, start);
+    const place = `${relative(cfg.root, file).replaceAll('\\', '/')}${line ? `:${line}` : ''}`;
+    console.warn(
+      `  ${place}: ${name}\`…\` is never extracted, so it stays in the source language: name it t`,
+    );
+  }
+}
+
+// a translator who reads {_0} cannot know what goes there
+function reportPositional(cfg: ResolvedConfig, registry: MessageRegistry): void {
+  for (const msg of registry.messages().values()) {
+    const nameless = msg.params.filter((param) => /^_\d+$/.test(param.name));
+    if (nameless.length === 0) continue;
+    const file = relative(cfg.root, msg.file).replaceAll('\\', '/');
+    const names = nameless.map((param) => `{${param.name}}`).join(', ');
+    console.warn(
+      `  ${file}: ${names} in "${msg.message}" reaches the translator without a name, put the value in a named variable first`,
+    );
+  }
+}
+
+// check reads the state for its warnings, and it only has to be readable when a flag gates on it
+function checkState(cfg: ResolvedConfig, gating: boolean): State {
+  try {
+    return loadState(cfg);
+  } catch (error) {
+    if (gating) throw error;
+    console.warn(`${formatCliError(error)}, so outdated translations are not reported`);
+    return { drafts: {}, fingerprints: {} };
+  }
+}
+
+function byLocale(entries: { locale: string; key: string }[]): [string, string[]][] {
+  const out = new Map<string, string[]>();
+  for (const { locale, key } of entries) out.set(locale, [...(out.get(locale) ?? []), key]);
+  return [...out];
+}
+
 // a block inside a tagged template ships as literal braces, and nothing else in the cycle sees it
 function reportEscapedSyntax(cfg: ResolvedConfig, registry: MessageRegistry): void {
   for (const msg of registry.messages().values()) {
@@ -627,11 +738,11 @@ export const COMMAND_FLAGS: Record<string, string[]> = {
   wrap: ['write'],
   migrate: ['write', 'plurals'],
   status: ['json'],
-  check: ['reporter', 'drafts'],
+  check: ['reporter', 'drafts', 'outdated'],
   translate: ['model', 'dry-run'],
   review: ['approve', 'locale'],
   export: ['format', 'out', 'missing'],
-  import: ['locale', 'overwrite', 'dry-run'],
+  import: ['locale', 'overwrite', 'dry-run', 'draft'],
   pseudo: ['locale'],
   render: ['site', 'attribute', 'base', 'base-url', 'sitemap', 'redirect', 'clean'],
 };

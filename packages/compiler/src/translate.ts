@@ -7,6 +7,7 @@ import {
   type Catalogs,
 } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
+import { loadDrafts, markDrafts, saveDrafts } from './drafts';
 import { counted } from './text';
 import { validateMessage, validatePair } from './validate';
 
@@ -213,6 +214,53 @@ export function mergeTranslations(
   }
   if (written.length > 0) writeCatalog(cfg, locale, current);
   return written;
+}
+
+export interface DraftEntry {
+  key: string;
+  text: string;
+}
+
+export interface WriteDraftsResult {
+  written: string[];
+  kept: string[];
+  invalid: string[];
+  unknown: string[];
+}
+
+// an agent's own translation lands like a provider's: checked, written and marked unreviewed
+export function writeDrafts(
+  cfg: ResolvedConfig,
+  locale: string,
+  entries: DraftEntry[],
+  options: { overwrite?: boolean } = {},
+): WriteDraftsResult {
+  const targets = targetLocales(cfg);
+  if (!targets.includes(locale)) {
+    throw new Error(
+      `[verbaly] "${locale}" is not a language this project translates into (${targets.join(', ') || 'none yet'})`,
+    );
+  }
+  const source = readCatalog(cfg, cfg.sourceLocale);
+  const current = readCatalog(cfg, locale);
+  const result: WriteDraftsResult = { written: [], kept: [], invalid: [], unknown: [] };
+  for (const { key, text } of entries) {
+    const from = own(source, key);
+    if (!from) result.unknown.push(key);
+    else if (!text.trim() || !structureMatches(from, text)) result.invalid.push(key);
+    else if (own(current, key) && !options.overwrite) result.kept.push(key);
+    else {
+      current[key] = text;
+      result.written.push(key);
+    }
+  }
+  if (result.written.length > 0) {
+    writeCatalog(cfg, locale, current);
+    const drafts = loadDrafts(cfg);
+    markDrafts(drafts, locale, result.written);
+    saveDrafts(cfg, drafts);
+  }
+  return result;
 }
 
 // the same reason repeats across batches: say it once and name every key it cost

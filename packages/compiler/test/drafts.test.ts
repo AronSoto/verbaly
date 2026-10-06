@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveConfig } from '../src/config';
 import {
   clearDrafts,
-  DRAFTS_FILE,
+  STATE_FILE,
   effectiveDrafts,
   loadDrafts,
   markDrafts,
@@ -24,15 +24,15 @@ describe('drafts sidecar', () => {
     const c = cfg();
     const drafts: Drafts = { es: ['b', 'a', 'a'] };
     saveDrafts(c, drafts);
-    const raw = readFileSync(join(c.dir, DRAFTS_FILE), 'utf8');
-    expect(raw).toBe('{\n  "es": [\n    "a",\n    "b"\n  ]\n}\n');
+    const raw = readFileSync(join(c.dir, STATE_FILE), 'utf8');
+    expect(raw).toBe('{\n  "drafts": {\n    "es": [\n      "a",\n      "b"\n    ]\n  }\n}\n');
     expect(loadDrafts(c)).toEqual({ es: ['a', 'b'] });
   });
 
   it('missing file loads as no drafts; a corrupt file throws', () => {
     const c = cfg();
     expect(loadDrafts(c)).toEqual({});
-    writeFileSync(join(c.dir, DRAFTS_FILE), '{not json');
+    writeFileSync(join(c.dir, STATE_FILE), '{not json');
     expect(() => loadDrafts(c)).toThrow(/not valid JSON/);
   });
 
@@ -64,7 +64,7 @@ describe('drafts sidecar', () => {
   it('save is content-compared: an identical write is a no-op', () => {
     const c = cfg();
     saveDrafts(c, { es: ['a'] });
-    const path = join(c.dir, DRAFTS_FILE);
+    const path = join(c.dir, STATE_FILE);
     const before = readFileSync(path, 'utf8');
     saveDrafts(c, { es: ['a'] });
     expect(readFileSync(path, 'utf8')).toBe(before);

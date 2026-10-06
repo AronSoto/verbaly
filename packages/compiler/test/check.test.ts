@@ -10,11 +10,13 @@ import {
   formatCheckWarnings,
   gatePasses,
   githubCheckAnnotations,
+  warningCount,
 } from '../src/check';
 import type { CheckResult } from '../src/check';
 import type { Catalogs } from '../src/catalog';
 import { resolveConfig } from '../src/config';
 import { MessageRegistry } from '../src/registry';
+import { refreshFingerprints } from '../src/state';
 
 function cfg(locales: string[] = ['en', 'es']) {
   return resolveConfig({
@@ -179,6 +181,12 @@ describe('formatCheckResult', () => {
       unknown: [{ key: 'ghost', files: ['src/a.ts'] }],
       broken: [],
       extra: [],
+
+      collisions: [],
+
+      divergent: [],
+
+      outdated: [],
     };
     const text = formatCheckResult(result);
     expect(text).toContain('  [es] greet: "Hello there"');
@@ -195,6 +203,12 @@ describe('formatCheckResult', () => {
       unknown: [],
       broken: [],
       extra: [],
+
+      collisions: [],
+
+      divergent: [],
+
+      outdated: [],
     });
     expect(text).toContain('…"');
     expect(text).not.toContain(long);
@@ -208,6 +222,12 @@ describe('checkNextSteps', () => {
     unknown: [],
     broken: [],
     extra: [],
+
+    collisions: [],
+
+    divergent: [],
+
+    outdated: [],
     ...patch,
   });
 
@@ -303,6 +323,12 @@ describe('githubCheckAnnotations', () => {
       unknown: [],
       broken: [],
       extra: [],
+
+      collisions: [],
+
+      divergent: [],
+
+      outdated: [],
     };
     const [line] = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(line).toContain('100%25 off%0Areally, now: go');
@@ -318,6 +344,12 @@ describe('githubCheckAnnotations', () => {
         { key: 'orphan', files: [] },
       ],
       extra: [],
+
+      collisions: [],
+
+      divergent: [],
+
+      outdated: [],
     };
     const lines = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(lines).toContain('::error file=src/a.ts::unknown key "used" (not in any catalog)');
@@ -344,6 +376,12 @@ describe('githubCheckAnnotations', () => {
       unknown: [],
       broken: [{ locale: 'pl', key: 'items', severity: 'warning', issue: 'pl also needs few' }],
       extra: [],
+
+      collisions: [],
+
+      divergent: [],
+
+      outdated: [],
     };
     const [line] = githubCheckAnnotations(result, new MessageRegistry(), '/root');
     expect(line).toBe('::warning::[pl] items: pl also needs few');
@@ -409,5 +447,87 @@ describe('a key only a translation has', () => {
       'constructor',
       'toString',
     ]);
+  });
+});
+
+describe('what check says and never fails on (0.67.0)', () => {
+  function files(sources: Record<string, string>) {
+    const config = cfg();
+    mkdirSync(join(config.root, 'src'));
+    const registry = new MessageRegistry();
+    for (const [name, code] of Object.entries(sources)) {
+      const file = join(config.root, 'src', name);
+      writeFileSync(file, code);
+      registry.update(file, analyze(code, file));
+    }
+    return { config, registry };
+  }
+
+  it('checks a translation against the text in the code, and names the catalog that disagrees', () => {
+    const { config, registry } = files({ 'a.ts': "export const x = t.id('greet')`Hi ${name}`;\n" });
+    // the catalog was edited to drop the param; the code still passes it, and the code ships
+    const catalogs: Catalogs = {
+      en: { greet: 'Hello there' },
+      es: { greet: 'Hola {name}' },
+    };
+    const result = check(config, catalogs, registry);
+    expect(result.broken.filter((entry) => entry.severity === 'error')).toEqual([]);
+    expect(result.divergent).toEqual([
+      {
+        key: 'greet',
+        catalog: 'Hello there',
+        code: { file: join(config.root, 'src', 'a.ts'), line: 1, message: 'Hi {name}' },
+      },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('reports one key written with two texts at both places, with their lines', () => {
+    const { config, registry } = files({
+      'a.ts': "\nexport const a = t.id('dup')`First`;\n",
+      'b.ts': "\n\nexport const b = t.id('dup')`Second`;\n",
+    });
+    const result = check(config, { en: { dup: 'First' }, es: { dup: 'Primero' } }, registry);
+    expect(result.collisions).toEqual([
+      {
+        key: 'dup',
+        sites: [
+          { file: join(config.root, 'src', 'a.ts'), line: 2, message: 'First' },
+          { file: join(config.root, 'src', 'b.ts'), line: 3, message: 'Second' },
+        ],
+      },
+    ]);
+    // a warning, by the 2026-09-26 rule: the gate's own release decides what fails
+    expect(result.ok).toBe(true);
+    const text = formatCheckWarnings(result, config.root);
+    expect(text).toContain('dup: one key with 2 texts, and every place shows "First" (src/a.ts:2)');
+    expect(text).toContain('never "Second" (src/b.ts:3)');
+    const annotations = githubCheckAnnotations(result, registry, config.root);
+    expect(annotations).toContain(
+      '::warning file=src/b.ts,line=3::"dup" has 2 texts, and every place shows the first one',
+    );
+  });
+
+  it('lists a translation written for an older source text, given the fingerprints', () => {
+    const config = cfg();
+    const before: Catalogs = { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } };
+    const stamped = refreshFingerprints(config, before, {});
+    const moved: Catalogs = { en: { bio: 'I write software' }, es: { bio: 'Escribo código' } };
+    const result = check(config, moved, new MessageRegistry(), stamped);
+    expect(result.outdated).toEqual([{ locale: 'es', key: 'bio' }]);
+    expect(result.ok).toBe(true);
+    expect(formatCheckWarnings(result)).toContain('[es] bio: translated from an older source text');
+    // without the fingerprints there is nothing to compare against, so nothing is claimed
+    expect(check(config, moved, new MessageRegistry()).outdated).toEqual([]);
+  });
+
+  it('counts every warning list in the one number the build prints', () => {
+    const { config, registry } = files({
+      'a.ts': "t.id('dup')`First`; t.id('dup')`Second`;",
+    });
+    const result = check(config, { en: { dup: 'Other' }, es: { dup: 'Otro' } }, registry);
+    expect(result.collisions).toHaveLength(1);
+    expect(result.divergent).toHaveLength(1);
+    expect(warningCount(result)).toBe(2);
   });
 });

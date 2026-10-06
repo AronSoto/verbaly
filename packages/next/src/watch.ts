@@ -1,6 +1,7 @@
 import type { ResolvedConfig } from '@verbaly/compiler';
-import { relative } from 'node:path';
+import { basename, relative } from 'node:path';
 import { GENERATED_DIR, syncAndWrite, type Compiler, type RequestOptions } from './codegen';
+import type { CodeTexts } from './report';
 
 // one watcher per project root: next.config can be evaluated more than once
 const active = new Map<string, () => void>();
@@ -9,6 +10,7 @@ export function startWatcher(
   compiler: Compiler,
   cfg: ResolvedConfig,
   requestOptions: RequestOptions,
+  startTexts?: CodeTexts,
 ): () => void {
   const existing = active.get(cfg.root);
   if (existing) return existing;
@@ -17,6 +19,7 @@ export function startWatcher(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running = false;
   let queued = false;
+  let texts = startTexts;
 
   async function refresh(): Promise<void> {
     if (running) {
@@ -27,7 +30,7 @@ export function startWatcher(
     try {
       const catalogs = compiler.loadCatalogs(cfg);
       const registry = await compiler.extractProject(cfg);
-      syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
+      texts = syncAndWrite(compiler, cfg, catalogs, registry, requestOptions, texts);
     } catch (error) {
       console.warn('[verbaly] live extraction failed:', error);
     } finally {
@@ -56,7 +59,9 @@ export function startWatcher(
     ) {
       return;
     }
-    const isCatalog = file.startsWith(`${catalogDir}/`) && file.endsWith('.json');
+    // a dotfile there is the state sidecar this pipeline writes: it changes no message
+    const isCatalog =
+      file.startsWith(`${catalogDir}/`) && file.endsWith('.json') && !basename(file).startsWith('.');
     if (isCatalog || compiler.SOURCE_FILE_RE.test(file)) schedule();
   });
 

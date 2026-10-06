@@ -38,10 +38,18 @@ export interface StrayImport {
   file: string;
 }
 
+// a tagged template on t under another name: never extracted, never rewritten, never translated
+export interface MissedCall {
+  name: string;
+  file: string;
+  start: number;
+}
+
 export interface Analysis {
   tagged: TaggedMessage[];
   usedKeys: UsedKey[];
   strayImports: StrayImport[];
+  missed?: MissedCall[];
   parseError?: string;
 }
 
@@ -81,6 +89,8 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
   const tagged: TaggedMessage[] = [];
   const usedKeys: UsedKey[] = [];
   const strayImports: StrayImport[] = [];
+  const missed: MissedCall[] = [];
+  const renamed = renamedBindings(ast.program as unknown as AstNode, names);
 
   walk(ast.program as unknown as AstNode, (node) => {
     if (node.type === 'ImportDeclaration') {
@@ -88,7 +98,11 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
     } else if (node.type === 'TaggedTemplateExpression') {
       const tag = node.tag as AstNode;
       const explicit = explicitId(tag, names);
-      if (!explicit && !isTReference(tag, names)) return;
+      if (!explicit && !isTReference(tag, names)) {
+        const name = renamedTag(tag, renamed);
+        if (name) missed.push({ name, file, start: node.start });
+        return;
+      }
       const quasi = node.quasi as AstNode;
       const message = buildMessage(code, quasi, names);
       if (!message) return;
@@ -109,7 +123,12 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
         collectDeclaredKeys(args[0], file, usedKeys);
         return;
       }
-      if (!isTReference(callee, names)) return;
+      if (!isTReference(callee, names)) {
+        // a key read under another name is in use: loose, so prune keeps it and no gate fails
+        const key = renamed.has(identifierName(callee)) ? staticString(args[0]) : undefined;
+        if (key !== undefined) usedKeys.push({ key, file, loose: true });
+        return;
+      }
       const key = staticString(args[0]);
       if (key !== undefined) usedKeys.push(usedKey(key, file, args[0]));
     } else if (node.type === 'JSXElement') {
@@ -117,7 +136,60 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
     }
   });
 
-  return { tagged, usedKeys, strayImports };
+  return { tagged, usedKeys, strayImports, ...(missed.length > 0 && { missed }) };
+}
+
+// what hands out a t: useT(), await getT(), { t: x } and t as x from virtual:verbaly
+function renamedBindings(program: AstNode, names: ReadonlySet<string>): Set<string> {
+  const out = new Set<string>();
+  const add = (node: AstNode | null | undefined): void => {
+    const name = identifierName(node);
+    if (name && !names.has(name)) out.add(name);
+  };
+  walk(program, (node) => {
+    if (node.type === 'ImportDeclaration') {
+      if ((node.source as { value?: unknown }).value !== 'virtual:verbaly') return;
+      for (const spec of node.specifiers as AstNode[]) {
+        if (spec.type === 'ImportSpecifier' && identifierName(spec.imported as AstNode) === 't') {
+          add(spec.local as AstNode);
+        }
+      }
+    } else if (node.type === 'VariableDeclarator') {
+      const id = node.id as AstNode;
+      const init = node.init as AstNode | null;
+      if (id.type === 'Identifier' && init && handsOutT(init)) add(id);
+      if (id.type !== 'ObjectPattern') return;
+      for (const property of id.properties as AstNode[]) {
+        if (property.type !== 'ObjectProperty' || property.computed) continue;
+        if (identifierName(property.key as AstNode) === 't') add(property.value as AstNode);
+      }
+    }
+  });
+  return out;
+}
+
+function handsOutT(init: AstNode): boolean {
+  const call = init.type === 'AwaitExpression' ? (init.argument as AstNode) : init;
+  if (call.type !== 'CallExpression') return false;
+  const callee = identifierName(call.callee as AstNode);
+  return init.type === 'AwaitExpression' ? callee === 'getT' : callee === 'useT';
+}
+
+function identifierName(node: AstNode | null | undefined): string {
+  return node?.type === 'Identifier' ? (node.name as string) : '';
+}
+
+// x`…` or x.id('…')`…` where x is a renamed t
+function renamedTag(tag: AstNode, renamed: ReadonlySet<string>): string | undefined {
+  if (renamed.size === 0) return undefined;
+  const name = identifierName(tag);
+  if (renamed.has(name)) return name;
+  if (tag.type !== 'CallExpression') return undefined;
+  const callee = tag.callee as AstNode;
+  if (callee.type !== 'MemberExpression' || callee.computed) return undefined;
+  if (identifierName(callee.property as AstNode) !== 'id') return undefined;
+  const object = identifierName(callee.object as AstNode);
+  return renamed.has(object) ? object : undefined;
 }
 
 // every string leaf is a key: the call is the author saying so, and '' still means untranslated

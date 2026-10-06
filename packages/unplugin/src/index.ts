@@ -2,12 +2,14 @@ import {
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
   createSourceFilter,
+  extractProject,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
   loadVirtualModule,
   resolveVirtualId,
   runBuildGate,
+  syncCatalogs,
   transformSource,
   type Catalogs,
   type PluginOptions,
@@ -28,6 +30,8 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
     cfg = await loadConfig(options.root ?? process.cwd(), options);
     catalogs = loadCatalogs(cfg);
     included = createSourceFilter(cfg);
+    // the code's text ships: a text it owns that was edited in the catalog never reaches the bundle
+    syncCatalogs(cfg, catalogs, await extractProject(cfg));
   })();
 
   return {

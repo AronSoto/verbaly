@@ -149,3 +149,13 @@ describe('framework wrappers', () => {
     expect(typeof verbaly.vite).toBe('function');
   });
 });
+
+describe('the code owns the texts it writes (0.67.0)', () => {
+  it('emits the text in the code, not a catalog edit of it', async () => {
+    const root = makeProject({ es: { greet: 'Editado a mano' }, en: { greet: 'Hello' } });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'app.ts'), "export const s = t.id('greet')`Hola`;\n");
+    const p = await setup(root);
+    expect(p.load('\0virtual:verbaly/locale/es')).toBe('export default {"greet":"Hola"};\n');
+  });
+});

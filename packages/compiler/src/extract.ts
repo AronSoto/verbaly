@@ -34,19 +34,23 @@ export async function collectOrigins(
 
 export interface SyncResult {
   added: Record<string, string[]>;
+  replaced: string[];
 }
 
-// fills source texts + '' placeholders
+// fills source texts + '' placeholders; a text written in the code always wins over the catalog
 export function syncCatalogs(
   cfg: ResolvedConfig,
   catalogs: Catalogs,
   registry: MessageRegistry,
 ): SyncResult {
   const added: Record<string, string[]> = {};
+  const replaced: string[] = [];
   const source = (catalogs[cfg.sourceLocale] ??= emptyCatalog());
 
   for (const [key, msg] of registry.messages()) {
-    if (own(source, key) !== msg.message) {
+    const before = own(source, key);
+    if (before !== msg.message) {
+      if (before) replaced.push(key);
       source[key] = msg.message;
       (added[cfg.sourceLocale] ??= []).push(key);
     }
@@ -63,7 +67,7 @@ export function syncCatalogs(
       }
     }
   }
-  return { added };
+  return { added, replaced };
 }
 
 // drops keys no longer referenced

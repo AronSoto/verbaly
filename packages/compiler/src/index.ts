@@ -57,7 +57,19 @@ export { transformCode } from './transform';
 export type { TransformResult } from './transform';
 
 export { check, formatCheckResult, formatCheckWarnings } from './check';
-export type { BrokenEntry, CheckResult, ExtraEntry, MissingEntry, UnknownEntry } from './check';
+// both are public because the Next and Vite dev servers say what extract says about a collision
+export { collisionEntries, formatCollision } from './check';
+export type {
+  BrokenEntry,
+  CheckResult,
+  CollisionEntry,
+  DivergentEntry,
+  ExtraEntry,
+  MissingEntry,
+  OutdatedEntry,
+  SourceSite,
+  UnknownEntry,
+} from './check';
 // both are public because Studio has to run the same two checks the gate runs before it writes
 export { validateMessage, validatePair } from './validate';
 // StructureIssue is what those two return, so typed code cannot hold a result without it
@@ -71,8 +83,10 @@ export { counted } from './text';
 export { formatCliError } from './run';
 
 // clearDrafts is public because @verbaly/studio is where a person approves what a machine wrote.
-export { clearDrafts, DRAFTS_FILE, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
-export type { Drafts } from './drafts';
+export { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
+// the state follows the catalogs wherever they are written: the CLI, the MCP server and dev servers
+export { loadState, outdatedTranslations, STATE_FILE, updateState } from './state';
+export type { Drafts, Fingerprints, State } from './state';
 
 // mergeTranslations is public because the CLI, the MCP server and Studio all write a finished run
 export {
@@ -80,7 +94,9 @@ export {
   mergeTranslations,
   resolveProvider,
   translateCatalogs,
+  writeDrafts,
 } from './translate';
+export type { DraftEntry, WriteDraftsResult } from './translate';
 
 // watchTree is public because @verbaly/next watches its dev tree with the same walk the CLI uses
 export { watchTree } from './watch';

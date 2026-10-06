@@ -35,6 +35,8 @@ function Inbox() {
 }
 ```
 
+`useT()` hands out a new `t` whenever the language changes or a catalog arrives, so a `useMemo`, `useCallback` or effect keyed on `t` runs again in the new language. While nothing changes it stays the same function.
+
 ### ✨ Rich text: `<Trans>`
 
 Write the source text in place and the compiler extracts it (key, catalogs, props):

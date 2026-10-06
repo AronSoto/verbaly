@@ -9,12 +9,13 @@ import {
   type Catalog,
   type Catalogs,
 } from './catalog';
-import { check, checkNextSteps, formatCheckResult, gatePasses } from './check';
+import { check, checkNextSteps, formatCheckResult, gatePasses, warningCount } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
 import { cliReachable } from './init';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
+import { loadState, type Fingerprints } from './state';
 import { counted } from './text';
 import { transformCode, type TransformResult } from './transform';
 import { warnOnce, warnParseError } from './warn';
@@ -91,10 +92,9 @@ export function runBuildGate(
   for (const issue of auditBundle(cfg, catalogs, registry)) {
     warnOnce(`${formatBundleIssue(issue)}\n  fix: ${issue.fix}`, `bundle:${issue.prefix}`);
   }
-  const found = check(cfg, catalogs, registry);
+  const found = check(cfg, catalogs, registry, buildFingerprints(cfg));
   // a warning never stops a build, so the build says they exist in one line and check reads them
-  const warnings =
-    found.broken.filter((entry) => entry.severity === 'warning').length + found.extra.length;
+  const warnings = warningCount(found);
   if (warnings > 0) {
     warnOnce(
       `check has ${counted(warnings, 'warning')}, and the build still passes: run \`npx verbaly check\` to read them`,
@@ -107,4 +107,15 @@ export function runBuildGate(
   throw new Error(
     `[verbaly] build blocked\n${formatCheckResult(result, cfg.root)}\n${checkNextSteps(result, cliReachable(cfg.root))}`,
   );
+}
+
+// the state only feeds a warning, so a sidecar nobody can parse must not be what stops a build
+function buildFingerprints(cfg: ResolvedConfig): Fingerprints {
+  try {
+    return loadState(cfg).fingerprints;
+  } catch (error) {
+    const reason = (error as Error).message.replace(/^\[verbaly\] /, '');
+    warnOnce(`${reason}, so outdated translations are not reported`, 'gate:state');
+    return {};
+  }
 }

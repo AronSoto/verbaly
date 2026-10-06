@@ -4,6 +4,7 @@ import {
   createElement,
   Fragment,
   useContext,
+  useMemo,
   useSyncExternalStore,
   type ReactElement,
   type ReactNode,
@@ -48,8 +49,16 @@ export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verba
 
 export function useT<D extends DictionaryInput = DictionaryInput>(): TFunction<D> {
   const instance = useVerbaly<D>();
-  useVersion(instance);
-  return instance.t;
+  const version = useVersion(instance);
+  // a new t per locale or catalog: a memo or an effect keyed on t would keep the old language
+  return useMemo(() => bound(instance.t), [instance, version]);
+}
+
+function bound<D extends DictionaryInput>(t: TFunction<D>): TFunction<D> {
+  const call = t as unknown as (...args: unknown[]) => string;
+  const fresh = ((...args: unknown[]) => call(...args)) as unknown as TFunction<D>;
+  fresh.id = t.id;
+  return fresh;
 }
 
 export function useLocale(): [string, (locale: string) => void] {
@@ -58,8 +67,8 @@ export function useLocale(): [string, (locale: string) => void] {
   return [instance.locale, instance.setLocale];
 }
 
-function useVersion<D extends DictionaryInput>(instance: Verbaly<D>): void {
-  useSyncExternalStore(
+function useVersion<D extends DictionaryInput>(instance: Verbaly<D>): number {
+  return useSyncExternalStore(
     instance.subscribe,
     () => instance.version,
     () => instance.version,

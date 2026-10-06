@@ -1,8 +1,10 @@
 import type { Catalogs, ResolvedConfig } from '@verbaly/compiler';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { reportDev, type CodeTexts } from './report';
 
 export type Compiler = typeof import('@verbaly/compiler');
+export type Registry = Awaited<ReturnType<Compiler['extractProject']>>;
 
 export interface RequestOptions {
   cookie?: string | false;
@@ -26,20 +28,34 @@ function writeIfChanged(file: string, content: string): boolean {
   return true;
 }
 
-// dev pipeline shared by withVerbaly and the watcher: catalogs, dts, runtime modules
+let stateWarned = false;
+
+// dev pipeline shared by withVerbaly and the watcher: catalogs, dts, runtime modules, state
 export function syncAndWrite(
   compiler: Compiler,
   cfg: ResolvedConfig,
   catalogs: Catalogs,
-  registry: Awaited<ReturnType<Compiler['extractProject']>>,
+  registry: Registry,
   requestOptions: RequestOptions,
-): void {
-  const { added } = compiler.syncCatalogs(cfg, catalogs, registry);
+  previous?: CodeTexts,
+): CodeTexts {
+  const { added, replaced } = compiler.syncCatalogs(cfg, catalogs, registry);
   for (const locale of Object.keys(added)) {
     compiler.writeCatalog(cfg, locale, catalogs[locale] ?? {});
   }
   compiler.writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
   writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
+  let outdated: { locale: string; key: string }[] = [];
+  try {
+    // a pruned key takes its draft along, and an edited source text marks its translations
+    const state = compiler.updateState(cfg, catalogs);
+    outdated = compiler.outdatedTranslations(cfg, catalogs, state.fingerprints);
+  } catch (error) {
+    // a broken sidecar must not stop next dev: say it once and keep serving
+    if (!stateWarned) console.warn(`${compiler.formatCliError(error)}, so drafts are not tracked`);
+    stateWarned = true;
+  }
+  return reportDev(compiler, cfg, registry, replaced, previous, outdated);
 }
 
 // real-file replacement for virtual:verbaly: Turbopack has no virtual modules

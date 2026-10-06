@@ -173,6 +173,7 @@ describe('status', () => {
       total: 2,
       drafts: 0,
       broken: 0,
+      outdated: 0,
     });
     expect(result.locales).toContainEqual({
       locale: 'pt',
@@ -180,6 +181,7 @@ describe('status', () => {
       total: 2,
       drafts: 0,
       broken: 0,
+      outdated: 0,
     });
   });
 

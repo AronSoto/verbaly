@@ -206,3 +206,84 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     expect(alias['virtual:verbaly']).toBe('./.verbaly/index.js');
   });
 });
+
+describe('withVerbaly: the gate belongs to the build, not to whoever loads the config (0.67.0)', {
+  timeout: COMPILER_TIMEOUT,
+}, () => {
+  const ANALYZE = 'phase-analyze';
+
+  // a next that runs compiler.runAfterProductionCompile ships this file, from 15.4 on
+  function withHook(root: string): string {
+    const next = join(root, 'node_modules', 'next');
+    mkdirSync(join(next, 'dist', 'build'), { recursive: true });
+    writeFileSync(join(next, 'package.json'), '{"name":"next","version":"16.3.8"}');
+    writeFileSync(join(next, 'dist', 'build', 'after-production-compile.js'), '');
+    return root;
+  }
+
+  it('loads past missing translations, so next typegen works, and blocks after the compile', async () => {
+    const root = withHook(makeProject({ source: 'export const s = t`Hello`;' }));
+    const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
+    const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;
+    await expect(hook()).rejects.toThrow(/build blocked/);
+  });
+
+  it("runs the user's own hook first and keeps the rest of their compiler options", async () => {
+    const root = withHook(makeProject());
+    const calls: string[] = [];
+    const user = {
+      compiler: {
+        removeConsole: true,
+        runAfterProductionCompile: async () => {
+          calls.push('user');
+        },
+      },
+    };
+    const config = await withVerbaly(user, { root, ...inline })(BUILD);
+    const compilerConfig = config.compiler as typeof user.compiler;
+    expect(compilerConfig.removeConsole).toBe(true);
+    await compilerConfig.runAfterProductionCompile();
+    expect(calls).toEqual(['user']);
+  });
+
+  it('leaves a compiler option alone when there is no gate to run', async () => {
+    const root = withHook(makeProject());
+    const config = await withVerbaly(
+      { compiler: { removeConsole: true } },
+      { root, ...inline, failOnMissing: false },
+    )(DEV).finally(() => stopWatcher(root));
+    expect(config.compiler).toEqual({ removeConsole: true });
+  });
+
+  it('writes the generated modules in the analyze phase, which compiles the app too', async () => {
+    const root = makeProject({ catalogs: { en: { x: 'X' }, es: { x: 'EQUIS' } } });
+    await withVerbaly({}, { root, ...inline })(ANALYZE);
+    expect(existsSync(join(root, '.verbaly', 'index.js'))).toBe(true);
+  });
+
+  it("ships the code's text over a catalog that was edited by hand, like dev does", async () => {
+    const root = makeProject({
+      source: "export const s = t.id('greet')`Hello`;",
+      catalogs: { en: { greet: 'Edited by hand' }, es: { greet: 'Hola' } },
+    });
+    await withVerbaly({}, { root, ...inline })(BUILD);
+    expect(readFileSync(join(root, '.verbaly', 'locale', 'en.js'), 'utf8')).toBe(
+      'export default {"greet":"Hello"};\n',
+    );
+    // the catalog on disk is the author's file: a build never writes it
+    expect(readFileSync(join(root, 'locales', 'en.json'), 'utf8')).toContain('Edited by hand');
+  });
+
+  it('dev drops the draft of a key that is gone from the state file', async () => {
+    const root = makeProject({ catalogs: { en: { a: 'A' }, es: { a: 'A es' } } });
+    writeFileSync(join(root, 'locales', '.verbaly-drafts.json'), JSON.stringify({ es: ['a', 'gone'] }));
+    try {
+      await withVerbaly({}, { root, ...inline })(DEV);
+    } finally {
+      stopWatcher(root);
+    }
+    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    expect(state.drafts).toEqual({ es: ['a'] });
+    expect(Object.keys(state.fingerprints.es)).toEqual(['a']);
+  });
+});

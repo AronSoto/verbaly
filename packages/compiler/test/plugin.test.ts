@@ -84,3 +84,20 @@ describe('runBuildGate: what a build says about warnings', () => {
     warn.mockRestore();
   });
 });
+
+describe('runBuildGate: the state file only feeds warnings', () => {
+  it('builds past a state file nobody can read, and says once what it cannot report', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-gate-state-'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), '{"a":"A"}');
+    writeFileSync(join(root, 'locales', 'es.json'), '{"a":"A es"}');
+    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '{broken');
+    const cfg = resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
+    expect(() => runBuildGate(cfg, new MessageRegistry())).not.toThrow();
+    const said = warn.mock.calls.map(([text]) => String(text));
+    expect(said.filter((text) => text.includes('outdated translations are not reported'))).toHaveLength(1);
+    expect(said[0]).not.toContain('[verbaly] [verbaly]');
+    warn.mockRestore();
+  });
+});

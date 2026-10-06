@@ -1,5 +1,6 @@
 import type { PluginOptions } from '@verbaly/compiler';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
   GENERATED_DIR,
   generatedDir,
@@ -41,9 +42,15 @@ export interface TurbopackLike {
   rules?: Record<string, unknown>;
 }
 
+// metadata is `never` for the same reason as the webpack context: Next's own type stays assignable
+export interface CompilerLike {
+  runAfterProductionCompile?: (metadata: never) => Promise<void>;
+}
+
 export interface NextConfigLike {
   webpack?: WebpackFn | null;
   turbopack?: TurbopackLike;
+  compiler?: CompilerLike;
 }
 
 // constraint is object, not NextConfigLike: an all-optional target rejects by weak-type
@@ -53,6 +60,8 @@ export type NextConfigInput<C extends object> =
 // next/constants values: literal to keep this module import-free of next
 const DEV_PHASE = 'phase-development-server';
 const BUILD_PHASE = 'phase-production-build';
+// next experimental-analyze compiles the app as well, so it needs the generated modules on disk
+const ANALYZE_PHASE = 'phase-analyze';
 
 const LOADER = '@verbaly/next/loader';
 // matched via condition.path: a bare extension glob also hits Next's App Router entry
@@ -73,7 +82,7 @@ export function withVerbaly<C extends object>(
     const root = verbalyConfig.root ?? process.cwd();
 
     // production server / export: everything is bundled, so no FS work, config only
-    if (phase !== DEV_PHASE && phase !== BUILD_PHASE) {
+    if (phase !== DEV_PHASE && phase !== BUILD_PHASE && phase !== ANALYZE_PHASE) {
       return composeConfig(base, root);
     }
 
@@ -83,24 +92,48 @@ export function withVerbaly<C extends object>(
     const cfg = await compiler.loadConfig(root, verbalyConfig);
     const catalogs = compiler.loadCatalogs(cfg);
     const registry = await compiler.extractProject(cfg);
+    let gate: (() => void) | undefined;
 
-    if (phase === BUILD_PHASE) {
-      compiler.runBuildGate(cfg, registry, failOnMissing);
-      writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
+    if (phase === DEV_PHASE) {
+      const texts = syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
+      startWatcher(compiler, cfg, requestOptions, texts);
     } else {
-      syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
-      startWatcher(compiler, cfg, requestOptions);
+      // the code's text ships, as it does in dev: a catalog edit of a text it owns never wins
+      compiler.syncCatalogs(cfg, catalogs, registry);
+      writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
+      if (phase === BUILD_PHASE) {
+        const runGate = (): void => compiler.runBuildGate(cfg, registry, failOnMissing);
+        // typegen loads this config in the build phase too, and only a real build runs the hook
+        if (hasAfterCompileHook(cfg.root)) gate = runGate;
+        else runGate();
+      }
     }
 
     // the loader rewrites exactly what extract reads: a file outside include keeps its t`…`
     const scope: LoaderOptions = { root: cfg.root, include: cfg.include, exclude: cfg.exclude };
-    return composeConfig(base, cfg.root, scope);
+    return composeConfig(base, cfg.root, scope, gate);
   };
 }
 
-function composeConfig<C extends object>(base: C, root: string, scope?: LoaderOptions): C {
+// next build calls compiler.runAfterProductionCompile since 15.4; NODE_PATH may name another next
+function hasAfterCompileHook(root: string): boolean {
+  for (let dir = root; ; dir = dirname(dir)) {
+    const next = join(dir, 'node_modules', 'next');
+    if (existsSync(join(next, 'package.json'))) {
+      return existsSync(join(next, 'dist', 'build', 'after-production-compile.js'));
+    }
+    if (dirname(dir) === dir) return false;
+  }
+}
+
+function composeConfig<C extends object>(
+  base: C,
+  root: string,
+  scope?: LoaderOptions,
+  gate?: () => void,
+): C {
   const runtimeModule = join(generatedDir(root), 'index.js');
-  const { webpack: userWebpack, turbopack } = base as NextConfigLike;
+  const { webpack: userWebpack, turbopack, compiler: userCompiler } = base as NextConfigLike;
   const loader = scope ? { loader: LOADER, options: scope } : LOADER;
 
   const rules: Record<string, unknown> = { ...turbopack?.rules };
@@ -115,6 +148,16 @@ function composeConfig<C extends object>(base: C, root: string, scope?: LoaderOp
 
   return {
     ...base,
+    ...(gate && {
+      compiler: {
+        ...userCompiler,
+        // after the compile, so next typegen, which loads this config too, never meets the gate
+        async runAfterProductionCompile(metadata: never) {
+          await userCompiler?.runAfterProductionCompile?.(metadata);
+          gate();
+        },
+      },
+    }),
     turbopack: {
       ...turbopack,
       resolveAlias: {

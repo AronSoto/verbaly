@@ -2,7 +2,10 @@ import {
   LOCALE_MODULE_PREFIX,
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
+  collisionEntries,
   createSourceFilter,
+  extractProject,
+  formatCollision,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -11,6 +14,7 @@ import {
   runBuildGate,
   syncCatalogs,
   transformSource,
+  updateState,
   writeCatalog,
   writeDts,
   type Catalogs,
@@ -18,6 +22,7 @@ import {
   type ResolvedConfig,
 } from '@verbaly/compiler';
 import { readFileSync } from 'node:fs';
+import { relative } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 
 function safeRead(file: string): string | undefined {
@@ -30,6 +35,15 @@ function safeRead(file: string): string | undefined {
 
 export type { VerbalyConfig } from '@verbaly/compiler';
 export type ViteVerbalyOptions = PluginOptions;
+
+// a dev server re-runs per keystroke: keyed on what it is about, never on the text being typed
+const said = new Set<string>();
+
+function once(id: string, line: string): void {
+  if (said.has(id)) return;
+  said.add(id);
+  console.warn(`[verbaly] ${line}`);
+}
 
 export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let cfg: ResolvedConfig;
@@ -66,6 +80,15 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       selfWrites.set(locale, serialized);
     }
     flushDts();
+    try {
+      // a pruned key takes its draft along, and an edited source text marks its translations
+      updateState(cfg, catalogs);
+    } catch (error) {
+      once('state', `${(error as Error).message.replace(/^\[verbaly\] /, '')}, so drafts are not tracked`);
+    }
+    for (const entry of collisionEntries(registry)) {
+      once(`collision:${entry.key}`, formatCollision(entry, cfg.root).trim());
+    }
     invalidateVirtual();
   }
 
@@ -77,7 +100,18 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   async function reloadFromDisk(): Promise<void> {
     cfg = await loadConfig(cfg.root, options);
     catalogs = loadCatalogs(cfg);
-    invalidateVirtual();
+    // the code owns the texts it writes, as in a build: a hand edit of one is replaced, and said
+    const { added, replaced } = syncCatalogs(cfg, catalogs, registry);
+    const messages = registry.messages();
+    for (const key of replaced) {
+      const file = messages.get(key)?.file;
+      if (!file) continue;
+      const place = relative(cfg.root, file).replaceAll('\\', '/');
+      once(`replaced:${key}`, `${cfg.sourceLocale}.json: your edit of "${key}" was replaced, its text lives in ${place}: change it there`);
+    }
+    // the flush writes the code's texts back and reloads the tabs itself: one reload, not two
+    if (Object.keys(added).length > 0) flushCatalogs();
+    else invalidateVirtual();
   }
 
   return {
@@ -118,6 +152,12 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
           scheduleFlush();
         }
       });
+    },
+
+    // the code's text ships, as in dev: the whole scan runs before any module is emitted
+    async buildStart() {
+      if (!isBuild) return;
+      syncCatalogs(cfg, catalogs, await extractProject(cfg));
     },
 
     resolveId(id) {

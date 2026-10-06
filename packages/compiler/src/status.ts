@@ -1,6 +1,7 @@
 import type { Catalog, Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { effectiveDrafts, type Drafts } from './drafts';
+import { outdatedTranslations, type Fingerprints } from './state';
 import { flatten, type MessageTree } from 'verbaly';
 import type { MessageRegistry } from './registry';
 import { counted } from './text';
@@ -12,6 +13,7 @@ export interface LocaleStatus {
   total: number;
   drafts: number;
   broken: number;
+  outdated: number;
 }
 
 export interface StatusResult {
@@ -26,6 +28,7 @@ export function status(
   catalogs: Catalogs,
   registry: MessageRegistry,
   drafts: Drafts = {},
+  fingerprints: Fingerprints = {},
 ): StatusResult {
   const extracted = registry.messages();
 
@@ -37,6 +40,7 @@ export function status(
   const source = flat[cfg.sourceLocale] ?? {};
   const needed = new Set<string>([...extracted.keys(), ...Object.keys(source)]);
   const live = effectiveDrafts(drafts, flat);
+  const outdated = outdatedTranslations(cfg, flat, fingerprints);
 
   const locales: LocaleStatus[] = [];
   for (const locale of cfg.locales) {
@@ -59,6 +63,7 @@ export function status(
       total: needed.size,
       drafts: live[locale]?.length ?? 0,
       broken,
+      outdated: outdated.filter((entry) => entry.locale === locale).length,
     });
   }
   return { messages: needed.size, source: cfg.sourceLocale, locales };
@@ -70,12 +75,13 @@ export function formatStatusResult(result: StatusResult): string {
     lines.push('  no target locales (add locales to your config)');
     return lines.join('\n');
   }
-  for (const { locale, translated, total, drafts, broken } of result.locales) {
+  for (const { locale, translated, total, drafts, broken, outdated } of result.locales) {
     const pct = total === 0 ? 100 : Math.floor((translated / total) * 100);
-    const mark = translated === total && broken === 0 ? ' ✓' : '';
+    const mark = translated === total && broken === 0 && outdated === 0 ? ' ✓' : '';
     const notes = [
       drafts > 0 ? `${drafts} unreviewed` : '',
       broken > 0 ? `${broken} broken` : '',
+      outdated > 0 ? `${outdated} outdated` : '',
     ].filter(Boolean);
     const note = notes.length > 0 ? `, ${notes.join(', ')}` : '';
     lines.push(`  ${locale}: ${translated}/${total} translated (${pct}%${note})${mark}`);

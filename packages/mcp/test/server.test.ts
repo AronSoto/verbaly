@@ -61,6 +61,7 @@ describe('createVerbalyMcp', () => {
       'verbaly_status',
       'verbaly_translate',
       'verbaly_wrap',
+      'verbaly_write_drafts',
     ]);
     // an agent that has to regex the text is an agent one wording change away from breaking
     expect(tools.every((tool) => tool.outputSchema !== undefined)).toBe(true);
@@ -85,6 +86,7 @@ describe('createVerbalyMcp', () => {
       'verbaly_status',
       'verbaly_missing',
       'verbaly_translate',
+      'verbaly_write_drafts',
       'verbaly_drafts',
     ]);
   });
@@ -267,10 +269,10 @@ describe('createVerbalyMcp', () => {
       string
     >;
     expect(Object.values(es)).toEqual(['ES Hello {name}']);
-    const drafts = JSON.parse(
-      readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'),
-    ) as Record<string, string[]>;
-    expect(drafts.es).toHaveLength(1);
+    const state = JSON.parse(
+      readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'),
+    ) as { drafts: Record<string, string[]> };
+    expect(state.drafts.es).toHaveLength(1);
 
     // the draft shows up in status and in the opt-in missing view
     expect(resultText(await client.callTool({ name: 'verbaly_status', arguments: {} }))).toContain(
@@ -301,7 +303,7 @@ describe('createVerbalyMcp', () => {
     };
     expect(data.translated).toEqual([]);
     expect(data.kept).toEqual([{ locale: 'es', keys: Object.keys(es) }]);
-    expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(false);
+    expect(existsSync(join(root, 'locales', '.verbaly-state.json'))).toBe(false);
   });
 
   it('translate dryRun lists pending entries without calling any provider', async () => {
@@ -430,7 +432,9 @@ describe('createVerbalyMcp: structured output', () => {
 
     expect(data.messages).toBe(1);
     expect(data.source).toBe('en');
-    expect(data.locales).toEqual([{ locale: 'es', translated: 0, total: 1, drafts: 0, broken: 0 }]);
+    expect(data.locales).toEqual([
+      { locale: 'es', translated: 0, total: 1, drafts: 0, broken: 0, outdated: 0 },
+    ]);
   });
 
   it('missing answers with the entries the gate found', async () => {
@@ -483,5 +487,98 @@ describe('createVerbalyMcp: structured output', () => {
     expect(resultText(result)).toContain('prune skipped');
     const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
     expect(es).toHaveProperty('bye', 'Adiós');
+  });
+});
+
+describe('createVerbalyMcp: an agent never edits a catalog or the state by hand (0.67.0)', () => {
+  function keyed(): string {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-mcp-'));
+    tempDirs.push(root);
+    mkdirSync(join(root, 'src'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'src', 'app.ts'), "t('greet'); t('bye');\n");
+    writeFileSync(join(root, 'verbaly.config.mjs'), "export default { locales: ['en', 'es'] };\n");
+    writeFileSync(
+      join(root, 'locales', 'en.json'),
+      JSON.stringify({ greet: 'Hello {name}', bye: 'Bye' }),
+    );
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ greet: '', bye: 'Adiós' }));
+    return root;
+  }
+
+  it('write_drafts saves what the agent wrote, checked, and marks it unreviewed', async () => {
+    const root = keyed();
+    const client = await connect(root);
+    const result = await client.callTool({
+      name: 'verbaly_write_drafts',
+      arguments: {
+        locale: 'es',
+        entries: [
+          { key: 'greet', text: 'Hola {name}' },
+          { key: 'bye', text: 'Chao' },
+          { key: 'ghost', text: 'Fantasma' },
+        ],
+      },
+    });
+    expect(structured(result)).toEqual({
+      written: ['greet'],
+      kept: ['bye'],
+      invalid: [],
+      unknown: ['ghost'],
+    });
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
+    expect(es).toEqual({ bye: 'Adiós', greet: 'Hola {name}' });
+    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    expect(state.drafts).toEqual({ es: ['greet'] });
+    expect(resultText(result)).toContain('saved as drafts, awaiting human review');
+  });
+
+  it('write_drafts rejects a translation that loses a param, and overwrite redoes one', async () => {
+    const root = keyed();
+    const client = await connect(root);
+    const lost = await client.callTool({
+      name: 'verbaly_write_drafts',
+      arguments: { locale: 'es', entries: [{ key: 'greet', text: 'Hola' }] },
+    });
+    expect((structured(lost) as { invalid: string[] }).invalid).toEqual(['greet']);
+    const redo = await client.callTool({
+      name: 'verbaly_write_drafts',
+      arguments: { locale: 'es', entries: [{ key: 'bye', text: 'Chao' }], overwrite: true },
+    });
+    expect((structured(redo) as { written: string[] }).written).toEqual(['bye']);
+  });
+
+  it('write_drafts refuses the source locale with a message, not a stack', async () => {
+    const client = await connect(keyed());
+    const result = await client.callTool({
+      name: 'verbaly_write_drafts',
+      arguments: { locale: 'en', entries: [{ key: 'bye', text: 'Bye!' }] },
+    });
+    expect(result.isError).toBe(true);
+    expect(resultText(result)).toContain('"en" is not a language this project translates into');
+  });
+
+  it('missing lists an outdated translation, and extract names a collision', async () => {
+    const root = keyed();
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    writeFileSync(
+      join(root, 'locales', 'en.json'),
+      JSON.stringify({ greet: 'Hello {name}', bye: 'Goodbye' }),
+    );
+    const missing = structured(await client.callTool({ name: 'verbaly_missing', arguments: {} }));
+    expect((missing as { outdated: unknown }).outdated).toEqual([{ locale: 'es', key: 'bye' }]);
+
+    writeFileSync(join(root, 'src', 'dup.ts'), "t.id('dup')`One`;\nt.id('dup')`Two`;\n");
+    const extract = structured(await client.callTool({ name: 'verbaly_extract', arguments: {} }));
+    expect((extract as { collisions: unknown }).collisions).toEqual([
+      {
+        key: 'dup',
+        sites: [
+          { file: 'src/dup.ts', line: 1, message: 'One' },
+          { file: 'src/dup.ts', line: 2, message: 'Two' },
+        ],
+      },
+    ]);
   });
 });

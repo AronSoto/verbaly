@@ -359,3 +359,40 @@ describe('build check', () => {
     expect(JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'))).toEqual({});
   });
 });
+
+describe('the code owns the texts it writes, in build and in dev (0.67.0)', () => {
+  it('a build emits the text in the code, not a catalog edit of it', async () => {
+    const root = makeProject({ es: { greet: 'Editado a mano' }, en: { greet: 'Hello' } });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'app.ts'), "export const s = t.id('greet')`Hola`;\n");
+    const { plugin, load } = await setup(root, 'build');
+    await hook<() => Promise<void>>(plugin.buildStart)();
+    expect(load('\0virtual:verbaly/locale/es')).toBe('export default {"greet":"Hola"};\n');
+    // the author's file stays as it was: a build never writes a catalog
+    expect(readFileSync(join(root, 'locales', 'es.json'), 'utf8')).toContain('Editado a mano');
+  });
+
+  it('dev puts the code text back over a hand edit of it, and says where it lives', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+    const warned: string[] = [];
+    const original = console.warn;
+    console.warn = (line: unknown) => void warned.push(String(line));
+    try {
+      // its own key: the dedupe is per process, and an earlier test already replaced KEY
+      transform("const s = t.id('owned')`Hola tuyo`;", join(root, 'src', 'app.ts'));
+      await sleep(150);
+      writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ owned: 'Hola editado' }));
+      emit('change', join(root, 'locales', 'es.json'));
+      await sleep(100);
+    } finally {
+      console.warn = original;
+    }
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
+    expect(es).toEqual({ owned: 'Hola tuyo' });
+    expect(warned.some((line) => line.includes('your edit of "owned" was replaced'))).toBe(true);
+    expect(state.reloads).toBe(2);
+  });
+});

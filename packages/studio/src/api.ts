@@ -8,6 +8,7 @@ import {
   effectiveDrafts,
   extractProject,
   loadDrafts,
+  loadState,
   markDrafts,
   readCatalog,
   saveDrafts,
@@ -17,13 +18,14 @@ import {
   validatePair,
   writeCatalog,
 } from '@verbaly/compiler';
-import { DRAFTS_FILE } from '@verbaly/compiler';
+import { STATE_FILE } from '@verbaly/compiler';
 import type {
   Catalog,
   Catalogs,
   CheckResult,
   DoctorResult,
   Drafts,
+  Fingerprints,
   ResolvedConfig,
   StatusResult,
 } from '@verbaly/compiler';
@@ -74,12 +76,16 @@ function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioPro
 }
 
 // A sidecar nobody can parse is the other file Studio exists to fix, so it degrades like a catalog.
-function readDrafts(cfg: ResolvedConfig): { drafts: Drafts; problems: StudioProblem[] } {
+function readState(cfg: ResolvedConfig): {
+  drafts: Drafts;
+  fingerprints: Fingerprints;
+  problems: StudioProblem[];
+} {
   try {
-    return { drafts: loadDrafts(cfg), problems: [] };
+    return { ...loadState(cfg), problems: [] };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { drafts: {}, problems: [{ scope: DRAFTS_FILE, message }] };
+    return { drafts: {}, fingerprints: {}, problems: [{ scope: STATE_FILE, message }] };
   }
 }
 
@@ -90,6 +96,14 @@ function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
     ...result,
     unknown: result.unknown.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
     extra: result.extra.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
+    collisions: result.collisions.map((entry) => ({
+      ...entry,
+      sites: entry.sites.map((at) => ({ ...at, file: rel(at.file) })),
+    })),
+    divergent: result.divergent.map((entry) => ({
+      ...entry,
+      code: { ...entry.code, file: rel(entry.code.file) },
+    })),
   };
 }
 
@@ -97,7 +111,7 @@ function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
 export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const { catalogs, problems } = readAll(cfg);
   const registry = await extractProject(cfg);
-  const sidecar = readDrafts(cfg);
+  const sidecar = readState(cfg);
   problems.push(...sidecar.problems);
   const live = effectiveDrafts(sidecar.drafts, catalogs);
   const source = (catalogs[cfg.sourceLocale] ?? {}) as Catalog;
@@ -128,8 +142,8 @@ export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
     scanning: cfg.include.length > 0,
     catalogs,
     origins: await collectOrigins(cfg, registry),
-    status: status(cfg, catalogs, registry, live),
-    check: relativize(cfg, check(cfg, catalogs, registry)),
+    status: status(cfg, catalogs, registry, live, sidecar.fingerprints),
+    check: relativize(cfg, check(cfg, catalogs, registry, sidecar.fingerprints)),
     drafts: live,
     triage: perLocale,
     problems,

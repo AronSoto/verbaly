@@ -24,7 +24,7 @@ describe('status', () => {
     expect(result).toEqual({
       messages: 2,
       source: 'en',
-      locales: [{ locale: 'es', translated: 1, total: 2, drafts: 0, broken: 0 }],
+      locales: [{ locale: 'es', translated: 1, total: 2, drafts: 0, broken: 0, outdated: 0 }],
     });
   });
 
@@ -45,6 +45,7 @@ describe('status', () => {
       total: 2,
       drafts: 0,
       broken: 0,
+      outdated: 0,
     });
   });
 
@@ -52,7 +53,7 @@ describe('status', () => {
     const result = status(cfg(['en', 'es']), {}, new MessageRegistry());
     expect(result.messages).toBe(0);
     expect(result.locales).toEqual([
-      { locale: 'es', translated: 0, total: 0, drafts: 0, broken: 0 },
+      { locale: 'es', translated: 0, total: 0, drafts: 0, broken: 0, outdated: 0 },
     ]);
   });
 
@@ -107,8 +108,8 @@ describe('formatStatusResult', () => {
       messages: 2,
       source: 'en',
       locales: [
-        { locale: 'es', translated: 1, total: 2, drafts: 0, broken: 0 },
-        { locale: 'pt', translated: 2, total: 2, drafts: 0, broken: 0 },
+        { locale: 'es', translated: 1, total: 2, drafts: 0, broken: 0, outdated: 0 },
+        { locale: 'pt', translated: 2, total: 2, drafts: 0, broken: 0, outdated: 0 },
       ],
     });
     expect(text).toContain('es: 1/2 translated (50%)');
@@ -119,7 +120,7 @@ describe('formatStatusResult', () => {
     const text = formatStatusResult({
       messages: 0,
       source: 'en',
-      locales: [{ locale: 'es', translated: 0, total: 0, drafts: 0, broken: 0 }],
+      locales: [{ locale: 'es', translated: 0, total: 0, drafts: 0, broken: 0, outdated: 0 }],
     });
     expect(text).toContain('es: 0/0 translated (100%) ✓');
   });
@@ -128,7 +129,7 @@ describe('formatStatusResult', () => {
     const text = formatStatusResult({
       messages: 2,
       source: 'en',
-      locales: [{ locale: 'es', translated: 2, total: 2, drafts: 1, broken: 0 }],
+      locales: [{ locale: 'es', translated: 2, total: 2, drafts: 1, broken: 0, outdated: 0 }],
     });
     expect(text).toContain('es: 2/2 translated (100%, 1 unreviewed) ✓');
   });
@@ -137,7 +138,7 @@ describe('formatStatusResult', () => {
     const text = formatStatusResult({
       messages: 2,
       source: 'en',
-      locales: [{ locale: 'es', translated: 2, total: 2, drafts: 1, broken: 2 }],
+      locales: [{ locale: 'es', translated: 2, total: 2, drafts: 1, broken: 2, outdated: 0 }],
     });
     expect(text).toContain('es: 2/2 translated (100%, 1 unreviewed, 2 broken)');
     expect(text).not.toContain('✓');

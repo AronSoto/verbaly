@@ -402,3 +402,31 @@ describe('stray imports', () => {
     expect(analyze(code, 'app.ts').strayImports).toEqual([]);
   });
 });
+
+describe('a t under another name', () => {
+  const names = (code: string, file = 'app.tsx') =>
+    (analyze(code, file).missed ?? []).map((call) => call.name);
+
+  it('reports a tagged template on a binding of useT, getT, a destructured t or a renamed import', () => {
+    expect(names('const tr = useT(); tr`Hola`;')).toEqual(['tr']);
+    expect(names('async function f() { const tr = await getT(); return tr`Hola`; }')).toEqual(['tr']);
+    expect(names('const { t: tr } = useVerbaly(); tr.id("k")`Hola`;')).toEqual(['tr']);
+    expect(names("import { t as tr } from 'virtual:verbaly'; tr`Hola`;")).toEqual(['tr']);
+  });
+
+  it('extracts nothing from it, since rewriting it would be a new reason for a build to fail', () => {
+    expect(analyze('const tr = useT(); tr`Hola`;', 'app.tsx').tagged).toEqual([]);
+  });
+
+  it('still reads its keys, loose, so prune keeps their translations and no gate fails', () => {
+    const { usedKeys } = analyze("const tr = useT(); tr('about.bio');", 'app.tsx');
+    expect(usedKeys).toEqual([{ key: 'about.bio', file: 'app.tsx', loose: true }]);
+  });
+
+  it('says nothing about a binding named t, or one that never becomes a tag', () => {
+    expect(names('const t = useT(); t`Hola`;')).toEqual([]);
+    expect(names('const tr = useT(); render(tr);')).toEqual([]);
+    expect(names('const tr = translate(); tr`Hola`;')).toEqual([]);
+    expect(analyze('const t = useT(); t`Hola`;', 'app.tsx').missed).toBeUndefined();
+  });
+});

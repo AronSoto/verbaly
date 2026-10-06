@@ -126,6 +126,8 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
     mkdirSync(join(cfg.root, 'node_modules', 'x'), { recursive: true });
     writeFileSync(join(cfg.root, 'node_modules', 'x', 'index.js'), '');
     writeFileSync(join(cfg.root, 'verbaly.d.ts'), 'declare const x: 1;\n');
+    // the state sidecar this pipeline writes sits in the catalog directory and changes no message
+    writeFileSync(join(cfg.root, 'locales', '.verbaly-state.json'), '{"drafts":{}}');
     expect(await quiet(() => runs)).toBe(settled);
   });
 

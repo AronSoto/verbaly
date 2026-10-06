@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react';
+import { act, useMemo } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createVerbaly } from 'verbaly';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -335,5 +335,54 @@ describe('@verbaly/react <Trans>', () => {
       );
     });
     expect(container.innerHTML).toBe('a b c');
+  });
+});
+
+describe('useT hands out a new t when the language changes (0.67.0)', () => {
+  function Memoized() {
+    const t = useT();
+    // the exact code the report wrote: keyed on t, it kept the old language forever
+    const label = useMemo(() => t('hello', { name: 'Aron' }), [t]);
+    return <p>{label}</p>;
+  }
+
+  it('a memo keyed on t follows setLocale', () => {
+    const v = makeInstance();
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Memoized />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Hola Aron');
+    act(() => v.setLocale('en'));
+    expect(container.textContent).toBe('Hello Aron');
+  });
+
+  it('keeps t.id and the same t while nothing changes', () => {
+    const seen: unknown[] = [];
+    function Spy() {
+      const t = useT();
+      seen.push(t);
+      return <p>{typeof t.id}</p>;
+    }
+    const v = makeInstance();
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Spy />
+        </VerbalyProvider>,
+      );
+    });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Spy />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('function');
+    expect(seen[0]).toBe(seen[1]);
   });
 });

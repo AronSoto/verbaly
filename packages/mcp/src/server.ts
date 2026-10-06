@@ -2,6 +2,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   check,
+  collisionEntries,
   collectOrigins,
   counted,
   doctor,
@@ -16,6 +17,7 @@ import {
   loadCatalogs,
   loadConfig,
   loadDrafts,
+  loadState,
   markDrafts,
   mergeTranslations,
   pruneCatalogs,
@@ -24,11 +26,14 @@ import {
   status,
   syncCatalogs,
   translateCatalogs,
+  updateState,
   wrapProject,
   writeCatalog,
+  writeDrafts,
   writeDts,
   type ResolvedConfig,
 } from '@verbaly/compiler';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { relative } from 'node:path';
 import { z } from 'zod';
@@ -52,9 +57,20 @@ const rootInput = z
 
 const perLocale = z.array(z.object({ locale: z.string(), keys: z.array(z.string()) }));
 
+const perLocaleEntries = z.array(z.object({ locale: z.string(), key: z.string() }));
+
 // a locale-keyed record is a dynamic schema an agent cannot read ahead: lists enumerate
 const byLocale = (record: Record<string, string[]>): Array<{ locale: string; keys: string[] }> =>
   Object.entries(record).map(([locale, keys]) => ({ locale, keys }));
+
+// a line number from the source the scan read; a file gone since then has none
+function lineOf(file: string, offset: number): number | undefined {
+  try {
+    return readFileSync(file, 'utf8').slice(0, offset).split('\n').length;
+  } catch {
+    return undefined;
+  }
+}
 
 export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
   const server = new McpServer({ name: 'verbaly', version });
@@ -305,6 +321,16 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .describe(
             'Source files the parser could not read: their messages are not extracted, and prune drops nothing until they parse',
           ),
+        collisions: z
+          .array(z.object({ key: z.string(), sites: z.array(z.object({ file: z.string(), line: z.number().optional(), message: z.string() })) }))
+          .describe(
+            'Keys written with more than one text: every place shows the text of the first site, so give each text its own key',
+          ),
+        renamed: z
+          .array(z.object({ file: z.string(), line: z.number().optional(), name: z.string() }))
+          .describe(
+            'Tagged templates on t under another name (const tr = useT()): never extracted, so they stay in the source language until the binding is named t',
+          ),
       },
     },
     guarded(async ({ root, prune, dryRun }) => {
@@ -337,7 +363,19 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           writeCatalog(cfg, locale, catalogs[locale] ?? {});
         }
         writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+        // a pruned key takes its draft with it, so nobody has to clean the state file by hand
+        updateState(cfg, catalogs);
       }
+      const rel = (file: string): string => relative(cfg.root, file).replaceAll('\\', '/');
+      const collisions = collisionEntries(registry).map(({ key, sites }) => ({
+        key,
+        sites: sites.map((at) => ({ ...at, file: rel(at.file) })),
+      }));
+      const renamed = registry.missed().map(({ name, file, start }) => ({
+        file: rel(file),
+        line: lineOf(file, start),
+        name,
+      }));
       const messages = registry.messages().size;
       lines.unshift(
         `${counted(messages, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
@@ -348,6 +386,13 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       for (const { file, message } of unparsed) {
         lines.push(`${file}: could not be parsed (${message}), its messages were not extracted`);
       }
+      for (const { key, sites } of collisions) {
+        const where = sites.map((at) => (at.line ? `${at.file}:${at.line}` : at.file)).join(', ');
+        lines.push(`${key}: one key with ${counted(sites.length, 'text')} (${where}), every place shows the first`);
+      }
+      for (const { file, line, name } of renamed) {
+        lines.push(`${file}${line ? `:${line}` : ''}: ${name}\`…\` is never extracted, name the binding t`);
+      }
       return reply(lines.join('\n'), {
         messages,
         locales: cfg.locales,
@@ -355,6 +400,8 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         added,
         pruned,
         unparsed,
+        collisions,
+        renamed,
       });
     }),
   );
@@ -364,7 +411,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Translation coverage',
       description:
-        'Translation coverage of the Verbaly project: total messages, translated count per locale and machine translations awaiting review (drafts). Read-only.',
+        'Translation coverage of the Verbaly project: total messages, translated count per locale, machine translations awaiting review (drafts) and translations written for an older source text (outdated). Read-only.',
       inputSchema: { root: rootInput },
       outputSchema: {
         messages: z.number().describe('Messages the project has, source catalog plus code'),
@@ -376,6 +423,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
             total: z.number(),
             drafts: z.number().describe('Machine translations awaiting human review'),
             broken: z.number().describe('Present but not rendering what the source renders'),
+            outdated: z
+              .number()
+              .describe('Translated from an older source text: update them, or a human keeps them'),
           }),
         ),
       },
@@ -384,7 +434,8 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     guarded(async ({ root }) => {
       const cfg = await config(root);
       const registry = await extractProject(cfg);
-      const result = status(cfg, loadCatalogs(cfg), registry, loadDrafts(cfg));
+      const state = loadState(cfg);
+      const result = status(cfg, loadCatalogs(cfg), registry, state.drafts, state.fingerprints);
       return reply(formatStatusResult(result), { ...result });
     }),
   );
@@ -394,7 +445,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Missing and broken translations',
       description:
-        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings such as an incomplete plural set for the locale are listed too and do not fail the gate, and so are keys a translation carries that the source catalog does not (extra). Optionally also lists machine translations awaiting review. Read-only.',
+        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings never fail the gate and are listed too: an incomplete plural set for the locale, keys a translation carries that the source catalog does not (extra), keys written with two texts (collisions), texts the code and the source catalog disagree on (divergent, the text in the code ships) and translations written for an older source text (outdated). Optionally also lists machine translations awaiting review. Read-only.',
       inputSchema: {
         root: rootInput,
         drafts: z
@@ -421,6 +472,17 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .describe(
             'Keys only a translation has; files are where the code reads one, which the source language then shows as the key itself. Never fails the gate',
           ),
+        collisions: z
+          .array(z.object({ key: z.string(), sites: z.array(z.object({ file: z.string(), line: z.number().optional(), message: z.string() })) }))
+          .describe('One key, several texts: every place shows the first site. Never fails the gate'),
+        divergent: z
+          .array(z.object({ key: z.string(), catalog: z.string(), code: z.object({ file: z.string(), line: z.number().optional(), message: z.string() }) }))
+          .describe(
+            "The source catalog says one text and the code another: the code's text ships. Never fails the gate",
+          ),
+        outdated: perLocaleEntries.describe(
+          'Translations written for an older source text: rewrite them, or a human keeps them with verbaly review --approve. Never fails the gate',
+        ),
         unreviewed: perLocale,
       },
       annotations: { readOnlyHint: true },
@@ -429,12 +491,13 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       const cfg = await config(root);
       const registry = await extractProject(cfg);
       const catalogs = loadCatalogs(cfg);
-      const result = check(cfg, catalogs, registry);
-      const unreviewed = drafts ? byLocale(effectiveDrafts(loadDrafts(cfg), catalogs)) : [];
+      const state = loadState(cfg);
+      const result = check(cfg, catalogs, registry, state.fingerprints);
+      const unreviewed = drafts ? byLocale(effectiveDrafts(state.drafts, catalogs)) : [];
 
       const lines: string[] = [];
       if (!result.ok) lines.push(formatCheckResult(result, cfg.root));
-      const warnings = formatCheckWarnings(result);
+      const warnings = formatCheckWarnings(result, cfg.root);
       if (warnings) lines.push(`warnings (the gate still passes):\n${warnings}`);
       for (const { locale, keys } of unreviewed) {
         if (keys.length) lines.push(`[${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
@@ -536,6 +599,58 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       return reply(lines.join('\n'), data);
     }),
   );
+  server.registerTool(
+    'verbaly_write_drafts',
+    {
+      title: 'Save translations an agent wrote',
+      description:
+        "Save translations you wrote yourself, so neither a catalog nor the state file is ever edited by hand. Each one is checked the way `verbaly translate` checks a provider (params, rich tags and plural cases must survive), written only for keys the source catalog has, and marked as a draft awaiting human review. Existing translations are kept unless overwrite is set, which is how an outdated one gets rewritten. Approving is not a tool here: a human runs `verbaly review --approve`.",
+      inputSchema: {
+        root: rootInput,
+        locale: z.string().describe("Target locale, one of the project's non-source locales"),
+        entries: z
+          .array(z.object({ key: z.string(), text: z.string() }))
+          .describe('The translations, by catalog key'),
+        overwrite: z
+          .boolean()
+          .optional()
+          .describe('Replace translations that already exist, for example outdated ones'),
+      },
+      outputSchema: {
+        written: z.array(z.string()).describe('Saved as drafts, a human still has to approve them'),
+        kept: z
+          .array(z.string())
+          .describe('Already translated, left as they were (overwrite replaces them)'),
+        invalid: z
+          .array(z.string())
+          .describe('Rejected: empty, or the params, tags or plural cases were not preserved'),
+        unknown: z.array(z.string()).describe('Not in the source catalog, so nothing was written'),
+      },
+    },
+    guarded(async ({ root, locale, entries, overwrite }) => {
+      const cfg = await config(root);
+      const result = writeDrafts(cfg, locale, entries, { overwrite });
+      const lines: string[] = [];
+      if (result.written.length > 0) {
+        lines.push(`${locale}: +${result.written.length} saved as drafts, awaiting human review`);
+      }
+      if (result.kept.length > 0) {
+        lines.push(`${locale}: ${result.kept.length} already translated, kept: ${result.kept.join(', ')}`);
+      }
+      if (result.invalid.length > 0) {
+        lines.push(
+          `${locale}: ${result.invalid.length} rejected (params/tags not preserved): ${result.invalid.join(', ')}`,
+        );
+      }
+      if (result.unknown.length > 0) {
+        lines.push(
+          `${locale}: ${counted(result.unknown.length, 'unknown key')} not in the source catalog: ${result.unknown.join(', ')}`,
+        );
+      }
+      return reply(lines.length > 0 ? lines.join('\n') : 'nothing to save', { ...result });
+    }),
+  );
+
   server.registerTool(
     'verbaly_drafts',
     {

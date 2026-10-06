@@ -1,5 +1,11 @@
-import type { Analysis, StrayImport, TaggedMessage } from './analyze';
-import { warnOnce } from './warn';
+import type { Analysis, MissedCall, StrayImport, TaggedMessage } from './analyze';
+
+// one key, two texts: the first one wins everywhere, so the others render somebody else's text
+export interface Collision {
+  key: string;
+  kept: TaggedMessage;
+  dropped: TaggedMessage[];
+}
 
 export class MessageRegistry {
   private files = new Map<string, Analysis>();
@@ -12,25 +18,33 @@ export class MessageRegistry {
     this.files.delete(file);
   }
 
+  // first wins; whoever reports runs collisions(), which knows where both texts were written
   messages(): Map<string, TaggedMessage> {
     const out = new Map<string, TaggedMessage>();
     for (const analysis of this.files.values()) {
       for (const msg of analysis.tagged) {
-        const existing = out.get(msg.key);
-        if (existing) {
-          if (existing.message !== msg.message) {
-            warnOnce(
-              `key collision "${msg.key}": ` +
-                `${JSON.stringify(existing.message)} vs ${JSON.stringify(msg.message)}, second dropped`,
-              `collision:${msg.key}`,
-            );
-          }
-          continue;
-        }
-        out.set(msg.key, msg);
+        if (!out.has(msg.key)) out.set(msg.key, msg);
       }
     }
     return out;
+  }
+
+  collisions(): Collision[] {
+    const seen = new Map<string, Collision>();
+    for (const analysis of this.files.values()) {
+      for (const msg of analysis.tagged) {
+        const found = seen.get(msg.key);
+        if (!found) {
+          seen.set(msg.key, { key: msg.key, kept: msg, dropped: [] });
+        } else if (
+          msg.message !== found.kept.message &&
+          !found.dropped.some((other) => other.message === msg.message)
+        ) {
+          found.dropped.push(msg);
+        }
+      }
+    }
+    return [...seen.values()].filter((entry) => entry.dropped.length > 0);
   }
 
   // strict leaves out the loose spellings, which the gate does not fail on yet
@@ -49,6 +63,11 @@ export class MessageRegistry {
 
   strayImports(): StrayImport[] {
     return [...this.files.values()].flatMap((analysis) => analysis.strayImports);
+  }
+
+  // a t under another name: its texts are neither extracted nor rewritten, so they never translate
+  missed(): MissedCall[] {
+    return [...this.files.values()].flatMap((analysis) => analysis.missed ?? []);
   }
 
   // files the parser could not read: they contributed no messages and nothing else can tell

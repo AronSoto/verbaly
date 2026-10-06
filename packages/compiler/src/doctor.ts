@@ -3,13 +3,16 @@ import { join, relative } from 'node:path';
 import { flatten } from 'verbaly';
 import { auditBundle, formatBundleIssue } from './bundle';
 import { badLeaf, isTree, parseTree, type Catalogs } from './catalog';
-import { check } from './check';
+import { check, sourcePlace } from './check';
 import { generateDts } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
 import { CLI_INSTALL_FIX, cliReachable, detectHost, readDependencies, WIRING_PACKAGES } from './init';
 import { counted } from './text';
 import { isLocaleTag, suggestTag } from './tag';
+import { createLocator } from './location';
+import { effectiveDrafts } from './drafts';
+import { loadState, STATE_FILE, type State } from './state';
 import { escapedSyntax } from './validate';
 
 export interface DoctorEntry {
@@ -231,6 +234,30 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         't comes from your instance (React: const t = useT()) or from virtual:verbaly',
       );
     }
+    // a t under another name reads fine at runtime, and its texts stay in the source language
+    const missed = registry.missed();
+    if (missed.length > 0) {
+      const locate = createLocator();
+      const first = missed[0]!;
+      const line = locate(first.file, first.start);
+      warn(
+        'sources',
+        `a t under another name keeps ${counted(missed.length, 'text')} out of extraction (${rel(first.file)}${line ? `:${line}` : ''}: ${first.name}\`…\`)`,
+        'name it t (const t = useT()), the only name verbaly reads, or use t(key) with the key in the catalog',
+      );
+    }
+    // a translator who sees {_0} cannot know what goes there
+    const positional = [...registry.messages().values()].filter((msg) =>
+      msg.params.some((param) => /^_\d+$/.test(param.name)),
+    );
+    if (positional.length > 0) {
+      const first = positional[0]!;
+      warn(
+        'messages',
+        `a translator gets a nameless value like {_0} in ${counted(positional.length, 'message')} (${rel(first.file)}: "${first.message}")`,
+        'put the value in a named variable first (const date = formatDate(d)), so the message says {date}',
+      );
+    }
     const escaped = [...registry.messages().values()]
       .map((msg) => ({ file: rel(msg.file), slice: escapedSyntax(msg.message) }))
       .filter((entry) => entry.slice !== undefined);
@@ -273,8 +300,33 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     }
   }
 
+  // the sidecar only feeds warnings, so a broken one is reported here and never stops a build
+  let state: State = { drafts: {}, fingerprints: {} };
+  try {
+    state = loadState(cfg);
+  } catch (error) {
+    warn(
+      'state',
+      (error as Error).message.replace(/^\[verbaly\] /, ''),
+      `delete ${STATE_FILE}: drafts and outdated tracking start again from the catalogs`,
+    );
+  }
   if (catalogsHealthy) {
-    const result = check(cfg, catalogs, registry);
+    const stale = Object.entries(state.drafts).flatMap(([locale, keys]) => {
+      const live = new Set(effectiveDrafts({ [locale]: keys }, catalogs)[locale] ?? []);
+      return keys.filter((key) => !live.has(key)).map((key) => `${locale}: ${key}`);
+    });
+    if (stale.length > 0) {
+      warn(
+        'drafts',
+        `${STATE_FILE} lists ${counted(stale.length, 'draft')} whose translation is gone (${preview(stale)})`,
+        'run `npx verbaly extract`, which drops them',
+      );
+    }
+  }
+
+  if (catalogsHealthy) {
+    const result = check(cfg, catalogs, registry, state.fingerprints);
     if (result.unknown.length > 0) {
       error(
         'keys',
@@ -316,6 +368,30 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         'translations',
         `${counted(warnings.length, 'structural warning')} (plural forms a language asks for)`,
         'run `npx verbaly check` to read them, they never fail the build',
+      );
+    }
+    if (result.collisions.length > 0) {
+      const first = result.collisions[0]!;
+      warn(
+        'keys',
+        `${counted(result.collisions.length, 'key')} written with more than one text, and every place shows the first (${first.key}: ${first.sites.map((at) => sourcePlace(at, cfg.root)).join(', ')})`,
+        'give each text its own key (`npx verbaly check` lists every place)',
+      );
+    }
+    if (result.divergent.length > 0) {
+      const first = result.divergent[0]!;
+      warn(
+        'source texts',
+        `the code and ${cfg.sourceLocale}.json disagree on ${counted(result.divergent.length, 'text')}, and the code's text ships (${first.key}, ${sourcePlace(first.code, cfg.root)})`,
+        'edit those texts in the code; `npx verbaly extract` writes them into the catalog',
+      );
+    }
+    if (result.outdated.length > 0) {
+      const shown = result.outdated.map((entry) => `${entry.locale}: ${entry.key}`);
+      warn(
+        'outdated',
+        `${counted(result.outdated.length, 'translation')} written for an older source text (${preview(shown)})`,
+        'update them, or keep them with `npx verbaly review --approve`',
       );
     }
     if (result.ok) ok('translations', 'all translations complete');

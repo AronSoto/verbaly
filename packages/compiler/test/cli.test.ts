@@ -127,7 +127,7 @@ describe('runCli: status', () => {
     expect(parsed).toEqual({
       messages: 1,
       source: 'en',
-      locales: [{ locale: 'es', translated: 0, total: 1, drafts: 0, broken: 0 }],
+      locales: [{ locale: 'es', translated: 0, total: 1, drafts: 0, broken: 0, outdated: 0 }],
     });
     expect(process.exitCode).toBeUndefined();
   });
@@ -658,8 +658,8 @@ describe('runCli: translate', () => {
     expect(es).toEqual({ hi: '[es] Hi', bye: 'Adiós' });
     expect(output(log)).toContain('es: +1 translated (draft)');
     expect(output(log)).toContain('es: 1 message kept as written while this ran');
-    const drafts = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'));
-    expect(drafts).toEqual({ es: ['hi'] });
+    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    expect(state).toEqual({ drafts: { es: ['hi'] } });
   });
 
   it('--dry-run lists the missing keys without writing', async () => {
@@ -697,8 +697,8 @@ describe('runCli: translate + review drafts', () => {
     withProvider(root);
     await runCli(['translate', '--root', root]);
     expect(output(log)).toContain('es: +1 translated (draft)');
-    const drafts = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'));
-    expect(drafts).toEqual({ es: ['hi'] });
+    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    expect(state).toEqual({ drafts: { es: ['hi'] } });
 
     log.mockClear();
     await runCli(['review', '--root', root]);
@@ -709,10 +709,8 @@ describe('runCli: translate + review drafts', () => {
     await runCli(['review', '--root', root, '--approve']);
     expect(output(log)).toContain('es: 1 approved');
     expect(output(log)).toContain('1 translation marked reviewed');
-    expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(true);
-    expect(JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'))).toEqual(
-      {},
-    );
+    // nothing left to remember, so the state file goes instead of staying as an empty object
+    expect(existsSync(join(root, 'locales', '.verbaly-state.json'))).toBe(false);
   });
 
   it('review --locale narrows to one locale, the flag the help now documents', async () => {
@@ -728,7 +726,7 @@ describe('runCli: translate + review drafts', () => {
   it('review says so when nothing is awaiting review', async () => {
     const root = makeProject({ en: { hi: 'Hi' }, es: { hi: 'Hola' } });
     await runCli(['review', '--root', root]);
-    expect(output(log)).toContain('no machine translations awaiting review');
+    expect(output(log)).toContain('nothing awaiting review');
   });
 
   it('status counts unreviewed drafts', async () => {
@@ -838,11 +836,21 @@ describe('runCli: export and import', () => {
 
   it('clears the draft flag for imported keys (a human reviewed the file)', async () => {
     const root = makeProject({ en: { greet: 'Hello' }, es: { greet: 'borrador' } });
+    // the sidecar as 0.66.0 wrote it: read once, and the next save leaves only the new file
     writeFileSync(join(root, 'locales', '.verbaly-drafts.json'), JSON.stringify({ es: ['greet'] }));
     writeFileSync(join(root, 'es.csv'), 'key,source,target\r\ngreet,Hello,Hola\r\n');
     await runCli(['import', join(root, 'es.csv'), '--root', root, '--overwrite']);
-    const drafts = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-drafts.json'), 'utf8'));
-    expect(drafts).toEqual({});
+    expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(false);
+    expect(existsSync(join(root, 'locales', '.verbaly-state.json'))).toBe(false);
+  });
+
+  it('--draft keeps what the files bring as drafts a person still has to review', async () => {
+    const root = makeProject({ en: { greet: 'Hello' }, es: { greet: '' } });
+    writeFileSync(join(root, 'es.csv'), 'key,source,target\r\ngreet,Hello,Hola\r\n');
+    await runCli(['import', join(root, 'es.csv'), '--root', root, '--draft']);
+    expect(output(log)).toContain('es: +1 imported (draft)');
+    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    expect(state).toEqual({ drafts: { es: ['greet'] } });
   });
 });
 
@@ -911,5 +919,120 @@ describe('the commands the tool tells people to run', () => {
     for (const [command, file] of named) {
       expect(Object.keys(COMMAND_FLAGS), `${file} names "verbaly ${command}"`).toContain(command);
     }
+  });
+});
+
+describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
+  const state = (root: string): unknown =>
+    JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+
+  it('extract --prune takes the drafts of the keys it drops along', async () => {
+    const root = makeProject(
+      { en: { 'nav.home': 'Home', 'nav.docs': 'Docs' }, es: { 'nav.home': 'Inicio', 'nav.docs': 'Docs' } },
+      "export const x = t('nav.docs');\n",
+    );
+    writeFileSync(
+      join(root, 'locales', '.verbaly-drafts.json'),
+      JSON.stringify({ es: ['nav.docs', 'nav.home'] }),
+    );
+    await runCli(['extract', '--root', root, '--prune']);
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
+    expect(es).toEqual({ 'nav.docs': 'Docs' });
+    expect(state(root)).toMatchObject({ drafts: { es: ['nav.docs'] } });
+    expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(false);
+  });
+
+  it('extract says where each text of a collision is written', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      "export const a = t.id('dup')`First`;\nexport const b = t.id('dup')`Second`;\n",
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).toContain(
+      'dup: one key with 2 texts, and every place shows "First" (src/app.ts:1), never "Second" (src/app.ts:2)',
+    );
+  });
+
+  it('extract names a t under another name, and a nameless value the translator would see', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      'const tr = useT();\nexport const a = tr`Hidden`;\nexport const b = t`Updated ${format(date)}`;\n',
+    );
+    await runCli(['extract', '--root', root]);
+    const said = output(warn);
+    expect(said).toContain('src/app.ts:2: tr`…` is never extracted, so it stays in the source language: name it t');
+    expect(said).toContain('src/app.ts: {_0} in "Updated {_0}" reaches the translator without a name');
+  });
+
+  it('extract says which catalog text the code wrote over, and where that text lives', async () => {
+    const root = makeProject(
+      { en: { greet: 'Edited by hand' }, es: { greet: 'Hola' } },
+      "\nexport const a = t.id('greet')`Hello`;\n",
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).toContain(
+      'en: greet got the text written in src/app.ts:2, the code owns it: edit it there',
+    );
+    const en = JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')) as object;
+    expect(en).toEqual({ greet: 'Hello' });
+  });
+
+  it('check warns about an outdated translation, and --outdated makes it fail', async () => {
+    const root = makeProject(
+      { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } },
+      "export const x = t('bio');\n",
+    );
+    await runCli(['extract', '--root', root]);
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ bio: 'I write software' }));
+
+    await runCli(['check', '--root', root]);
+    expect(process.exitCode).toBeUndefined();
+    expect(output(warn)).toContain('[es] bio: translated from an older source text');
+
+    await runCli(['check', '--root', root, '--outdated']);
+    expect(process.exitCode).toBe(1);
+    expect(output(error)).toContain('[es] 1 outdated: bio');
+  });
+
+  it('review lists an outdated translation, and --approve keeps it for the new source', async () => {
+    const root = makeProject(
+      { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } },
+      "export const x = t('bio');\n",
+    );
+    await runCli(['extract', '--root', root]);
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ bio: 'I write code.' }));
+
+    await runCli(['review', '--root', root]);
+    expect(output(log)).toContain('1 translation written for an older source text');
+    expect(output(log)).toContain('es: bio');
+
+    log.mockClear();
+    await runCli(['review', '--root', root, '--approve']);
+    expect(output(log)).toContain('es: 1 kept for the new source text');
+    log.mockClear();
+    await runCli(['review', '--root', root]);
+    expect(output(log)).toContain('nothing awaiting review');
+  });
+
+  it('status counts outdated translations and drops the check mark', async () => {
+    const root = makeProject(
+      { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } },
+      "export const x = t('bio');\n",
+    );
+    await runCli(['extract', '--root', root]);
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ bio: 'I write software' }));
+    log.mockClear();
+    await runCli(['status', '--root', root]);
+    expect(output(log)).toContain('es: 1/1 translated (100%, 1 outdated)');
+    expect(output(log)).not.toContain('✓');
+  });
+
+  it('a state file nobody can read never stops plain check, only the flags that gate on it', async () => {
+    const root = makeProject({ en: { a: 'A' }, es: { a: 'A es' } }, "export const x = t('a');\n");
+    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '{broken');
+    await runCli(['check', '--root', root]);
+    expect(process.exitCode).toBeUndefined();
+    expect(output(warn)).toContain('so outdated translations are not reported');
+    await expect(runCli(['check', '--root', root, '--drafts'])).rejects.toThrow(/not valid JSON/);
   });
 });

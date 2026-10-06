@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.66.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.67.0" alt="Socket supply chain security" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/verbaly#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <img src="https://img.shields.io/badge/gzip-3.31KB-3fb950" alt="3.31KB gzip runtime" />
@@ -136,13 +136,13 @@ Plain HTML, no framework? Bind by attribute:
 
 Verbaly ships first-class support for AI coding agents:
 
-- **MCP server**: give your agent the whole cycle as tools (`verbaly_init`, `verbaly_doctor`, `verbaly_wrap`, `verbaly_extract`, `verbaly_status`, `verbaly_missing`, `verbaly_translate`, `verbaly_drafts`), each answering with structured output as well as text, plus resources that let it read your config and your catalogs without spending a call:
+- **MCP server**: give your agent the whole cycle as tools (`verbaly_init`, `verbaly_doctor`, `verbaly_wrap`, `verbaly_extract`, `verbaly_status`, `verbaly_missing`, `verbaly_translate`, `verbaly_write_drafts`, `verbaly_drafts`), each answering with structured output as well as text, plus resources that let it read your config and your catalogs without spending a call:
 
   ```bash
   claude mcp add verbaly -- npx -y @verbaly/mcp
   ```
 
-  Machine translations stay drafts until a human approves them (`verbaly review --approve`, or the local review server below), so an agent can fill gaps without silently shipping unreviewed text. Approving is deliberately not a tool.
+  Machine translations stay drafts until a human approves them (`verbaly review --approve`, or the local review server below), so an agent can fill gaps without silently shipping unreviewed text. An agent that translates on its own saves its work with `verbaly_write_drafts`, checked and marked as a draft the same way. Approving is deliberately not a tool.
 
 - **Agent Skill**: [`skills/verbaly`](skills/verbaly/SKILL.md) teaches an agent the write → extract → check → translate cycle and the rules that keep it safe. Install it into a project:
 

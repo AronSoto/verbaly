@@ -444,3 +444,68 @@ describe('doctor: what the runtime would degrade on, said before it does', () =>
     expect(result.ok).toBe(true);
   });
 });
+
+describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', () => {
+  const readable = { es: { bio: 'Escribo código' }, en: { bio: 'I write code' } };
+
+  it('names translations written for an older source text', async () => {
+    const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
+    const stamp = `${stableKey('Escribía código')}.${stableKey('I write code')}`;
+    writeFileSync(
+      join(cfg.dir, '.verbaly-state.json'),
+      JSON.stringify({ fingerprints: { en: { bio: stamp } } }),
+    );
+    const result = await doctor(cfg);
+    const e = entry(result.entries, 'outdated');
+    expect(e?.level).toBe('warn');
+    expect(e?.message).toContain('1 translation written for an older source text (en: bio)');
+    expect(e?.fix).toContain('npx verbaly review --approve');
+    expect(result.ok).toBe(true);
+  });
+
+  it('names drafts whose translation is gone, which extract drops', async () => {
+    const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
+    writeFileSync(
+      join(cfg.dir, '.verbaly-state.json'),
+      JSON.stringify({ drafts: { en: ['bio', 'nav.home'] } }),
+    );
+    const e = entry((await doctor(cfg)).entries, 'drafts');
+    expect(e?.level).toBe('warn');
+    expect(e?.message).toContain('lists 1 draft whose translation is gone (en: nav.home)');
+  });
+
+  it('warns about a state file it cannot read and still calls the setup healthy', async () => {
+    const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
+    writeFileSync(join(cfg.dir, '.verbaly-state.json'), '{broken');
+    const result = await doctor(cfg);
+    expect(entry(result.entries, 'state')?.level).toBe('warn');
+    expect(result.ok).toBe(true);
+  });
+
+  it('names a key written with two texts, a text the catalog contradicts and a renamed t', async () => {
+    const code =
+      "export const a = t.id('dup')`Uno`;\nexport const b = t.id('dup')`Dos`;\n" +
+      "export const c = t.id('bio')`Escribo software`;\nconst tr = useT();\ntr`Oculto`;\n";
+    const cfg = makeProject({
+      catalogs: { es: { dup: 'Uno', bio: 'Escribo código' }, en: { dup: 'One', bio: 'I write code' } },
+      code,
+      dts: false,
+    });
+    const result = await doctor(cfg);
+    expect(entry(result.entries, 'keys')?.message).toContain(
+      'dup: src/app.ts:1, src/app.ts:2',
+    );
+    expect(entry(result.entries, 'source texts')?.message).toContain(
+      "the code and es.json disagree on 1 text, and the code's text ships (bio, src/app.ts:3)",
+    );
+    const sources = result.entries.filter((e) => e.check === 'sources');
+    expect(sources.some((e) => e.message.includes('tr`…`') && e.message.includes('src/app.ts:5'))).toBe(true);
+    expect(result.ok).toBe(true);
+  });
+
+  it('names a nameless value a translator would read as {_0}', async () => {
+    const cfg = makeProject({ code: 'export const a = t`Visto ${fecha(d)}`;\n', dts: false });
+    const messages = (await doctor(cfg)).entries.filter((e) => e.check === 'messages');
+    expect(messages.some((e) => e.message.includes('{_0}'))).toBe(true);
+  });
+});

@@ -225,13 +225,13 @@ describe('the write gate is the gate, not half of it', () => {
 
 describe('buildState degrades on every file it reads, not just the catalogs', () => {
   // Proved able to fail by calling loadDrafts directly: it throws and the whole panel 500s.
-  it('reports a drafts sidecar it cannot parse instead of throwing', async () => {
+  it('reports a state sidecar it cannot parse instead of throwing', async () => {
     const cfg = project();
-    writeFileSync(join(cfg.dir, '.verbaly-drafts.json'), '{ not json');
+    writeFileSync(join(cfg.dir, '.verbaly-state.json'), '{ not json');
 
     const state = await buildState(cfg);
     expect(state.drafts).toEqual({});
-    expect(state.problems.map((p) => p.scope)).toContain('.verbaly-drafts.json');
+    expect(state.problems.map((p) => p.scope)).toContain('.verbaly-state.json');
   });
 
   // Proved able to fail by pushing the file registry.parseErrors() reports, which is absolute.
@@ -271,14 +271,14 @@ describe('undo, because the flag records who wrote the text', () => {
     const cfg = project({ es: ['hello', 'bye'], de: ['hello'] });
     // saveDrafts sorts and dedupes, so the baseline is what it writes, not what the fixture wrote
     approve(cfg, 'de', []);
-    const before = readFileSync(join(cfg.dir, '.verbaly-drafts.json'), 'utf8');
+    const before = readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8');
 
     const done = approve(cfg, 'es');
     expect(loadDrafts(cfg)).toEqual({ de: ['hello'] });
 
     unapprove(cfg, 'es', done.keys);
     expect(loadDrafts(cfg)).toEqual({ de: ['hello'], es: ['bye', 'hello'] });
-    expect(readFileSync(join(cfg.dir, '.verbaly-drafts.json'), 'utf8')).toBe(before);
+    expect(readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8')).toBe(before);
   });
 
   it('refuses a locale the project does not declare', () => {

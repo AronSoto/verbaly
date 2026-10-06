@@ -27,10 +27,11 @@ npx verbaly migrate        # port catalogs from another i18n library (--write ap
 npx verbaly extract        # sync catalogs + types
 npx verbaly extract --watch  # keep extracting as you code (dev loop)
 npx verbaly extract --prune  # drop orphaned keys (waits while any source file does not parse)
-npx verbaly status         # coverage per locale, plus unreviewed and broken counts
+npx verbaly extract --dry-run  # say what extract would add and prune, write nothing
+npx verbaly status         # coverage per locale, plus unreviewed, broken and outdated counts
 npx verbaly check          # exit 1 if anything is missing or broken (CI)
 npx verbaly translate      # fill missing translations via Claude (or your provider), as drafts
-npx verbaly review         # list machine drafts, --approve accepts them
+npx verbaly review         # list drafts and outdated translations, --approve accepts them
 npx verbaly-studio         # the same catalogs on localhost (@verbaly/studio, separate package)
 npx verbaly export         # translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
 npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV/PO files
@@ -59,15 +60,53 @@ Two more are reported as **warnings** and keep the exit code at 0, because the t
 
 A third warning is a key that **only a translation has**. It never fails the build either, and the report says which case it is: your code reads it, so the source language shows the raw key there, or nothing reads it and it is dead weight in that language's download (`extract --prune` drops it).
 
+Three more warnings name things that used to happen in silence, each with the file and line to go to:
+
+- **One key, two texts.** Two `` t.id('k')`…` `` with different texts both render the first one. The report lists every place.
+- **The catalog and the code disagree.** A text written in your code is the code's: the build ships it, and the source catalog only mirrors it (see [where a text lives](#-where-a-text-lives)).
+- **An outdated translation.** The source text changed after the translation was written, and nobody has looked at the translation since.
+
 The bundler plugins run the same gate on `build`, and when `check` has warnings the build prints one line saying how many, then passes: `npx verbaly check` reads them out.
 
 ```bash
 npx verbaly check                     # text report
 npx verbaly check --reporter github   # ::error and ::warning annotations on the PR, at the source line
 npx verbaly check --drafts            # also fail while machine translations await review
+npx verbaly check --outdated          # also fail while a translation is older than its source text
 ```
 
 Hand-edited catalogs get the same treatment as imported files: the gate does not care where a translation came from.
+
+## 🧭 Where a text lives
+
+A message keeps its text in exactly one place, and that place is where you edit it:
+
+| You write                                 | The text lives in                  | You change it in        |
+| ----------------------------------------- | ---------------------------------- | ----------------------- |
+| `` t`Save changes` ``                     | the code (the key is a hash of it) | the code                |
+| `` t.id('settings.save')`Save changes` `` | the code, under a key you chose    | the code                |
+| `t('settings.save')`                      | the source catalog                 | `locales/<source>.json` |
+
+**The code wins over the catalog for the texts it writes.** `extract`, the dev servers and the build all use the text in the code, so a hand edit of one in the source catalog is replaced, and Verbaly tells you and points at the line where the text lives.
+
+**Keys first** is the third row: the text lives only in the catalog, and a literal `t('settings.save')` counts as a use, so `--prune` keeps it. When a key comes from data instead of a literal, declare the keys with `defineKeys`, so the compiler sees them and TypeScript checks them where you write them:
+
+```ts
+import { defineKeys } from 'virtual:verbaly';
+
+const titles = defineKeys({ verbaly: 'project.verbaly.title', blog: 'project.blog.title' });
+t(titles[slug]);
+```
+
+`defineKeys` is detected by name, like `t`. It comes from `virtual:verbaly`, the module generated for your project, which is the one the framework provider already loads.
+
+**A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `.verbaly-state.json`, next to your catalogs. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
+
+Three details that catch people out:
+
+- **Name it `t`.** The compiler reads calls named `t`. `const tr = useT()` works at runtime, but `` tr`…` `` is never extracted, so that text stays in the source language. `extract` and `doctor` name every such call.
+- **A number param is formatted for the language.** `{year}` with `2026` renders `2,026` in English, the same as ICU. Pass `String(year)` when the value is a label, not a quantity.
+- **Literal braces are doubled in a catalog.** `{{` shows `{`. `extract` does it for you from code; a catalog written by hand has to do it itself.
 
 ## 🤖 Machine translation
 
@@ -90,7 +129,7 @@ export default {
 
 Only the terms a batch actually contains are sent, so a glossary of hundreds never becomes the prompt.
 
-**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-drafts.json` (commit it, never edit it by hand). `verbaly review` lists the drafts, `--approve` accepts them, and importing a translator's file clears the flag because a human already reviewed it. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing.
+**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-state.json`, the file that also holds the fingerprints above: commit it, and never edit it by hand. `verbaly review` lists the drafts, `--approve` accepts them, and importing a translator's file clears the flag because a human already reviewed it. `import --draft` keeps them as drafts instead, for a file nobody has read yet. An agent that translates on its own saves its work through the MCP tool `verbaly_write_drafts`, which checks it like a provider's and marks it as a draft. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing. `extract` keeps the file in step with the catalogs, so a pruned key takes its draft with it, and the file disappears when there is nothing left in it.
 
 Plug your own provider in `verbaly.config.ts`. In TypeScript, `TranslateProvider` types it for you:
 
@@ -263,10 +302,10 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` `watchTree` · types `SyncResult` `TreeOptions`                                                                                            |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · types `DtsOptions` `RuntimeModuleOptions`                                                                                                                                    |
 | Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |
-| The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `StructureIssue` `IssueSeverity`                                       |
+| The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` `collisionEntries` `formatCollision` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `CollisionEntry` `DivergentEntry` `OutdatedEntry` `SourceSite` `StructureIssue` `IssueSeverity` |
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                            |
-| Draft review      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `DRAFTS_FILE` · type `Drafts`                                                                                                                                                   |
-| Translation       | `translateCatalogs` `mergeTranslations` `resolveProvider` `formatTranslateFailures`                                                                                                                                                      |
+| Review state      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `loadState` `updateState` `outdatedTranslations` `STATE_FILE` · types `Drafts` `State` `Fingerprints`                                                            |
+| Translation       | `translateCatalogs` `mergeTranslations` `writeDrafts` `resolveProvider` `formatTranslateFailures` · types `DraftEntry` `WriteDraftsResult`                                                                                               |
 | Diagnosis         | `doctor` `formatDoctorEntry` · types `DoctorResult` `DoctorEntry`                                                                                                                                                                        |
 | Onboarding        | `wrapProject` · types `WrapResult` `WrapEntry` `WrapSkip` `WrapBlocked` `WrapOptions`                                                                                                                                                                  |
 | Static rendering  | `renderSite` `formatRenderWarnings` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                       |

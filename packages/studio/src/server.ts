@@ -124,7 +124,7 @@ export function createStudioApp(cfg: ResolvedConfig, port: number, token: string
         const key = segment(rest.slice(1).join('/'), 'key');
         const body = await readJson(req);
         if (typeof body.text !== 'string') throw badRequest('body needs a "text" string');
-        send(res, 200, writeMessage(cfg, locale, key, body.text));
+        send(res, 200, await writeMessage(cfg, locale, key, body.text));
         return;
       }
       if (req.method === 'POST' && url.pathname === '/api/approve') {

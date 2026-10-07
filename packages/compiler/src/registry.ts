@@ -1,6 +1,6 @@
 import type { Analysis, MissedCall, StrayImport, TaggedMessage } from './analyze';
 
-// one key, two texts: the first one wins everywhere, so the others render somebody else's text
+// one key, several texts: the earliest one wins everywhere, so the others render its words
 export interface Collision {
   key: string;
   kept: TaggedMessage;
@@ -18,39 +18,39 @@ export class MessageRegistry {
     this.files.delete(file);
   }
 
-  // first wins; whoever reports runs collisions(), which knows where both texts were written
+  // the earliest site wins, by file then position, so no scan or load order ever picks the text
   messages(): Map<string, TaggedMessage> {
     const out = new Map<string, TaggedMessage>();
-    for (const analysis of this.files.values()) {
+    for (const analysis of this.inOrder()) {
       for (const msg of analysis.tagged) {
-        if (!out.has(msg.key)) out.set(msg.key, msg);
+        const held = out.get(msg.key);
+        if (!held || earlier(msg, held)) out.set(msg.key, msg);
       }
     }
     return out;
   }
 
+  // every place whose text differs from the one that wins, so fixing one never hides the next
   collisions(): Collision[] {
-    const seen = new Map<string, Collision>();
-    for (const analysis of this.files.values()) {
+    const winners = this.messages();
+    const dropped = new Map<string, TaggedMessage[]>();
+    for (const analysis of this.inOrder()) {
       for (const msg of analysis.tagged) {
-        const found = seen.get(msg.key);
-        if (!found) {
-          seen.set(msg.key, { key: msg.key, kept: msg, dropped: [] });
-        } else if (
-          msg.message !== found.kept.message &&
-          !found.dropped.some((other) => other.message === msg.message)
-        ) {
-          found.dropped.push(msg);
-        }
+        if (msg.message === winners.get(msg.key)!.message) continue;
+        dropped.set(msg.key, [...(dropped.get(msg.key) ?? []), msg]);
       }
     }
-    return [...seen.values()].filter((entry) => entry.dropped.length > 0);
+    return [...dropped].map(([key, others]) => ({
+      key,
+      kept: winners.get(key)!,
+      dropped: others.sort((a, b) => (earlier(a, b) ? -1 : 1)),
+    }));
   }
 
   // strict leaves out the loose spellings, which the gate does not fail on yet
   usedKeys(strict = false): Map<string, string[]> {
     const out = new Map<string, string[]>();
-    for (const analysis of this.files.values()) {
+    for (const analysis of this.inOrder()) {
       for (const used of analysis.usedKeys) {
         if (strict && used.loose) continue;
         const files = out.get(used.key) ?? [];
@@ -62,19 +62,20 @@ export class MessageRegistry {
   }
 
   strayImports(): StrayImport[] {
-    return [...this.files.values()].flatMap((analysis) => analysis.strayImports);
+    return this.inOrder().flatMap((analysis) => analysis.strayImports);
   }
 
   // a t under another name: its texts are neither extracted nor rewritten, so they never translate
   missed(): MissedCall[] {
-    return [...this.files.values()].flatMap((analysis) => analysis.missed ?? []);
+    return this.inOrder().flatMap((analysis) => analysis.missed);
   }
 
   // files the parser could not read: they contributed no messages and nothing else can tell
   parseErrors(): { file: string; message: string }[] {
     const out: { file: string; message: string }[] = [];
-    for (const [file, analysis] of this.files) {
-      if (analysis.parseError) out.push({ file, message: analysis.parseError });
+    for (const file of [...this.files.keys()].sort()) {
+      const { parseError } = this.files.get(file)!;
+      if (parseError) out.push({ file, message: parseError });
     }
     return out;
   }
@@ -82,7 +83,7 @@ export class MessageRegistry {
   // key → every source file that writes or uses it (translator context)
   origins(): Map<string, string[]> {
     const out = this.usedKeys();
-    for (const analysis of this.files.values()) {
+    for (const analysis of this.inOrder()) {
       for (const msg of analysis.tagged) {
         const files = out.get(msg.key) ?? [];
         if (!files.includes(msg.file)) files.push(msg.file);
@@ -91,4 +92,13 @@ export class MessageRegistry {
     }
     return out;
   }
+
+  // by path: a dev server registers files in load order, and every report must read the same
+  private inOrder(): Analysis[] {
+    return [...this.files.keys()].sort().map((file) => this.files.get(file)!);
+  }
+}
+
+function earlier(a: TaggedMessage, b: TaggedMessage): boolean {
+  return a.file === b.file ? a.start < b.start : a.file < b.file;
 }

@@ -1,6 +1,7 @@
 import type { Catalog, Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { effectiveDrafts, type Drafts } from './drafts';
+import { shippedCatalogs } from './extract';
 import { outdatedTranslations, type Fingerprints } from './state';
 import { flatten, type MessageTree } from 'verbaly';
 import type { MessageRegistry } from './registry';
@@ -40,7 +41,10 @@ export function status(
   const source = flat[cfg.sourceLocale] ?? {};
   const needed = new Set<string>([...extracted.keys(), ...Object.keys(source)]);
   const live = effectiveDrafts(drafts, flat);
-  const outdated = outdatedTranslations(cfg, flat, fingerprints);
+  // the text that ships, as check reads it, so status and check never disagree
+  const shipped = shippedCatalogs(cfg, flat, registry);
+  const sourceText = shipped[cfg.sourceLocale]!;
+  const outdated = outdatedTranslations(cfg, shipped, fingerprints);
 
   const locales: LocaleStatus[] = [];
   for (const locale of cfg.locales) {
@@ -53,7 +57,7 @@ export function status(
     let broken = 0;
     for (const [key, text] of Object.entries(catalog)) {
       if (!text) continue;
-      const from = source[key] ?? extracted.get(key)?.message;
+      const from = sourceText[key];
       const issues = [...validateMessage(text, locale), ...(from ? validatePair(from, text) : [])];
       if (issues.some((issue) => issue.severity === 'error')) broken += 1;
     }

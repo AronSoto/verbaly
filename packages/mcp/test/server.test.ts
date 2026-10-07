@@ -582,3 +582,96 @@ describe('createVerbalyMcp: an agent never edits a catalog or the state by hand 
     ]);
   });
 });
+
+describe('createVerbalyMcp: the same pipeline and the same answers as the CLI (0.68.0)', () => {
+  function owned(): string {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-mcp-'));
+    tempDirs.push(root);
+    mkdirSync(join(root, 'src'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'verbaly.config.mjs'), "export default { locales: ['en', 'es'] };\n");
+    writeFileSync(
+      join(root, 'src', 'app.ts'),
+      "export const a = t.id('greet')`Hello ${name}`;\nexport const b = t`Updated ${format(d)}`;\n",
+    );
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ greet: 'Hello' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ greet: '' }));
+    return root;
+  }
+
+  // Proved able to fail with the 0.67.0 extract: a hand edit the code undid was never mentioned.
+  it('extract hands an agent what the CLI prints: replaced texts and nameless values', async () => {
+    const client = await connect(owned());
+    const result = await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    const data = structured(result) as {
+      replaced: unknown;
+      positional: Array<{ params: string[]; code: { file: string; line?: number } }>;
+    };
+    expect(data.replaced).toEqual([
+      {
+        key: 'greet',
+        before: 'Hello',
+        code: { file: 'src/app.ts', line: 1, message: 'Hello {name}' },
+      },
+    ]);
+    expect(
+      data.positional.map((entry) => [entry.params, entry.code.file, entry.code.line]),
+    ).toEqual([[['_0'], 'src/app.ts', 2]]);
+    expect(resultText(result)).toContain('en: greet follows the code (src/app.ts:1)');
+  });
+
+  // Proved able to fail by validating against the catalog: the agent's draft passed, check failed.
+  it('write_drafts checks an agent against the text that ships, the one missing reads', async () => {
+    const client = await connect(owned());
+    const lost = await client.callTool({
+      name: 'verbaly_write_drafts',
+      arguments: { locale: 'es', entries: [{ key: 'greet', text: 'Hola' }] },
+    });
+    expect((structured(lost) as { invalid: string[] }).invalid).toEqual(['greet']);
+  });
+
+  // Proved able to fail by reading the state strictly: the call errored with drafts never asked.
+  it('missing still answers when the state file is broken and drafts were not asked for', async () => {
+    const root = owned();
+    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    const client = await connect(root);
+    const result = await client.callTool({ name: 'verbaly_missing', arguments: {} });
+    expect(result.isError).toBeFalsy();
+    expect((structured(result) as { stateProblem?: string }).stateProblem).toMatch(
+      /not valid JSON/,
+    );
+    const asked = await client.callTool({ name: 'verbaly_missing', arguments: { drafts: true } });
+    expect(asked.isError).toBe(true);
+    const status = await client.callTool({ name: 'verbaly_status', arguments: {} });
+    expect(status.isError).toBeFalsy();
+  });
+
+  // Proved able to fail by letting updateState throw: the catalogs were written, the call errored.
+  it('extract writes the catalogs and reports a broken state file instead of failing', async () => {
+    const root = owned();
+    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    const client = await connect(root);
+    const result = await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    expect(result.isError).toBeFalsy();
+    expect((structured(result) as { stateProblem?: string }).stateProblem).toMatch(
+      /not valid JSON/,
+    );
+    expect(JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')).greet).toBe(
+      'Hello {name}',
+    );
+  });
+
+  it('missing names files relative to the project, as extract does', async () => {
+    const root = owned();
+    writeFileSync(join(root, 'src', 'dup.ts'), "t.id('dup')`One`;\nt.id('dup')`Two`;\n");
+    const client = await connect(root);
+    const missing = structured(
+      await client.callTool({ name: 'verbaly_missing', arguments: {} }),
+    ) as {
+      collisions: Array<{ sites: Array<{ file: string }> }>;
+      divergent: Array<{ code: { file: string } }>;
+    };
+    expect(missing.collisions[0]?.sites.map((at) => at.file)).toEqual(['src/dup.ts', 'src/dup.ts']);
+    expect(missing.divergent[0]?.code.file).toBe('src/app.ts');
+  });
+});

@@ -34,6 +34,11 @@ export { clientCatalogs } from './bundle';
 
 export { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
 export type { SyncResult } from './extract';
+// shippedCatalogs is public because Studio and the MCP server read the text a build ships
+export { shippedCatalogs } from './extract';
+// the one path from the code to the catalogs: the CLI, the MCP server, Studio and next dev
+export { syncProject } from './project';
+export type { SyncProjectResult } from './project';
 export { MessageRegistry } from './registry';
 export { stableKey } from './key';
 
@@ -57,8 +62,9 @@ export { transformCode } from './transform';
 export type { TransformResult } from './transform';
 
 export { check, formatCheckResult, formatCheckWarnings } from './check';
-// both are public because the Next and Vite dev servers say what extract says about a collision
-export { collisionEntries, formatCollision } from './check';
+// public because the dev servers and the MCP server word every finding the way extract does
+export { collisionEntries, createDevReporter, formatCollision, formatFinding } from './findings';
+export type { DevReporter, Finding } from './findings';
 export type {
   BrokenEntry,
   CheckResult,
@@ -86,7 +92,9 @@ export { formatCliError } from './run';
 export { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 // the state follows the catalogs wherever they are written: the CLI, the MCP server and dev servers
 export { loadState, outdatedTranslations, STATE_FILE, updateState } from './state';
-export type { Drafts, Fingerprints, State } from './state';
+// read tolerantly where it only feeds warnings, and recorded wherever a translation is written
+export { readState, recordTranslations } from './state';
+export type { Drafts, Fingerprints, State, TranslationWrite } from './state';
 
 // mergeTranslations is public because the CLI, the MCP server and Studio all write a finished run
 export {

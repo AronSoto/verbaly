@@ -57,67 +57,109 @@ afterEach(() => {
 });
 
 describe('writeMessage', () => {
-  it('clears the draft flag, because a human wrote it', () => {
+  it('clears the draft flag, because a human wrote it', async () => {
     const cfg = project({ es: ['hello', 'bye'] });
-    const result = writeMessage(cfg, 'es', 'hello', 'Buenas');
+    const result = await writeMessage(cfg, 'es', 'hello', 'Buenas');
 
     expect(result.clearedDraft).toBe(true);
     expect(loadDrafts(cfg)).toEqual({ es: ['bye'] });
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).hello).toBe('Buenas');
   });
 
-  it('refuses to touch the source locale', () => {
+  it('refuses to touch the source locale', async () => {
     const cfg = project();
-    expect(() => writeMessage(cfg, 'en', 'hello', 'Hi')).toThrow(/source text lives in your code/);
+    await expect(writeMessage(cfg, 'en', 'hello', 'Hi')).rejects.toThrow(
+      /source text lives in your code/,
+    );
   });
 
-  it('refuses a locale the project does not declare', () => {
+  it('refuses a locale the project does not declare', async () => {
     const cfg = project();
-    expect(() => writeMessage(cfg, 'fr', 'hello', 'Salut')).toThrow(/not one of this project/);
+    await expect(writeMessage(cfg, 'fr', 'hello', 'Salut')).rejects.toThrow(
+      /not one of this project/,
+    );
   });
 
   // A key is born from your code, so accepting one the source never had would invent it.
-  it('refuses a key the source catalog does not have', () => {
+  it('refuses a key the source catalog does not have', async () => {
     const cfg = project();
-    expect(() => writeMessage(cfg, 'es', 'made.up', 'Algo')).toThrow(/will not create it/);
+    await expect(writeMessage(cfg, 'es', 'made.up', 'Algo')).rejects.toThrow(/will not create it/);
   });
 
   // Every other write path is gated by structure, so the one a person types cannot skip it.
-  it('refuses a translation that lost a param the source has', () => {
+  it('refuses a translation that lost a param the source has', async () => {
     const cfg = params();
-    expect(() => writeMessage(cfg, 'es', 'greet', 'Hola')).toThrow(/name/);
+    await expect(writeMessage(cfg, 'es', 'greet', 'Hola')).rejects.toThrow(/name/);
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('Hola {name}');
   });
 
-  it('accepts the same translation once the param is back', () => {
+  it('accepts the same translation once the param is back', async () => {
     const cfg = params();
-    writeMessage(cfg, 'es', 'greet', 'Que tal, {name}');
+    await writeMessage(cfg, 'es', 'greet', 'Que tal, {name}');
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('Que tal, {name}');
   });
 
   // Proved able to fail by using `key in source`, which walks Object.prototype and lets these in.
-  it('refuses a key that only the prototype has', () => {
+  it('refuses a key that only the prototype has', async () => {
     const cfg = project();
     for (const key of ['__proto__', 'toString', 'constructor']) {
-      expect(() => writeMessage(cfg, 'es', key, 'Algo')).toThrow(/will not create it/);
+      await expect(writeMessage(cfg, 'es', key, 'Algo')).rejects.toThrow(/will not create it/);
     }
   });
 
   // '' means untranslated across the whole cycle, so clearing a field is a real action.
-  it('accepts an empty string and stops counting the key as a draft', () => {
+  it('accepts an empty string and stops counting the key as a draft', async () => {
     const cfg = project({ es: ['hello'] });
-    writeMessage(cfg, 'es', 'hello', '');
+    await writeMessage(cfg, 'es', 'hello', '');
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).hello).toBe('');
     expect(loadDrafts(cfg)).toEqual({});
   });
 
   // writeCatalog gives the file its shape back, so a dotted key lands inside its group.
-  it('keeps a nested catalog nested', () => {
+  it('keeps a nested catalog nested', async () => {
     const cfg = nested();
-    writeMessage(cfg, 'es', 'nav.docs', 'Documentacion');
+    await writeMessage(cfg, 'es', 'nav.docs', 'Documentacion');
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8'))).toEqual({
       nav: { docs: 'Documentacion', home: 'Inicio' },
     });
+  });
+});
+
+describe('writeMessage reads the text that ships (0.68.0)', () => {
+  function owned(): ResolvedConfig {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-studio-owned-'));
+    made.push(root);
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    // the code moved to a text with a param, and nobody has run extract since
+    writeFileSync(join(root, 'src', 'app.ts'), "export const x = t.id('greet')`Hello ${name}`;\n");
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ greet: 'Hello' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ greet: '' }));
+    return resolveConfig({ root, dir: 'locales', sourceLocale: 'en', locales: ['en', 'es'] });
+  }
+
+  // Proved able to fail by validating against the catalog: Studio saved what check calls broken.
+  it('refuses a translation that cannot say what the code says', async () => {
+    const cfg = owned();
+    await expect(writeMessage(cfg, 'es', 'greet', 'Hola')).rejects.toThrow(/name/);
+    await writeMessage(cfg, 'es', 'greet', 'Hola {name}');
+    expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('Hola {name}');
+  });
+
+  // Proved able to fail by leaving the stamp to the next extract: it took the newer source.
+  it('stamps what a person saves for the text that ships, as it saves it', async () => {
+    const cfg = owned();
+    await writeMessage(cfg, 'es', 'greet', 'Hola {name}');
+    const state = JSON.parse(readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8'));
+    expect(Object.keys(state.fingerprints.es)).toEqual(['greet']);
+    expect(state.drafts).toBeUndefined();
+  });
+
+  it('saves nothing when the state cannot be read, since the draft flag would be lost', async () => {
+    const cfg = owned();
+    writeFileSync(join(cfg.dir, '.verbaly-state.json'), '<<<<<<< HEAD');
+    await expect(writeMessage(cfg, 'es', 'greet', 'Hola {name}')).rejects.toThrow(/not valid JSON/);
+    expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('');
   });
 });
 
@@ -209,16 +251,18 @@ describe('buildState', () => {
 
 describe('the write gate is the gate, not half of it', () => {
   // Proved able to fail by dropping validateMessage: check() rejects what Studio had accepted.
-  it('refuses a plural block with no other case, which validatePair alone cannot see', () => {
+  it('refuses a plural block with no other case, which validatePair alone cannot see', async () => {
     const cfg = plural();
-    expect(() => writeMessage(cfg, 'es', 'n', '{n | one: un archivo}')).toThrow(/"other" case/);
+    await expect(writeMessage(cfg, 'es', 'n', '{n | one: un archivo}')).rejects.toThrow(
+      /"other" case/,
+    );
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).n).toContain('archivos');
   });
 
   // Proved able to fail by validating `text` instead of the trimmed value.
-  it('stores whitespace as the untranslated empty string, never as a translation', () => {
+  it('stores whitespace as the untranslated empty string, never as a translation', async () => {
     const cfg = params();
-    writeMessage(cfg, 'es', 'greet', '   ');
+    await writeMessage(cfg, 'es', 'greet', '   ');
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('');
   });
 });

@@ -11,7 +11,10 @@ import {
   loadState,
   markDrafts,
   readCatalog,
+  readState,
+  recordTranslations,
   saveDrafts,
+  shippedCatalogs,
   status,
   targetLocales,
   validateMessage,
@@ -25,7 +28,6 @@ import type {
   CheckResult,
   DoctorResult,
   Drafts,
-  Fingerprints,
   ResolvedConfig,
   StatusResult,
 } from '@verbaly/compiler';
@@ -75,19 +77,6 @@ function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioPro
   return { catalogs, problems };
 }
 
-// A sidecar nobody can parse is the other file Studio exists to fix, so it degrades like a catalog.
-function readState(cfg: ResolvedConfig): {
-  drafts: Drafts;
-  fingerprints: Fingerprints;
-  problems: StudioProblem[];
-} {
-  try {
-    return { ...loadState(cfg), problems: [] };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { drafts: {}, fingerprints: {}, problems: [{ scope: STATE_FILE, message }] };
-  }
-}
 
 // check() reports the files a key was used in as absolute paths, origins already do not.
 function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
@@ -111,8 +100,9 @@ function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
 export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const { catalogs, problems } = readAll(cfg);
   const registry = await extractProject(cfg);
-  const sidecar = readState(cfg);
-  problems.push(...sidecar.problems);
+  // a sidecar nobody can parse is the other file Studio is there to fix: it degrades like a catalog
+  const { state: sidecar, problem } = readState(cfg);
+  if (problem) problems.push({ scope: STATE_FILE, message: problem });
   const live = effectiveDrafts(sidecar.drafts, catalogs);
   const source = (catalogs[cfg.sourceLocale] ?? {}) as Catalog;
   const targets = targetLocales(cfg);
@@ -160,20 +150,25 @@ export interface WriteMessageResult {
   clearedDraft: boolean;
 }
 
-// A human wrote it, so it is reviewed: the rule import already applies in run.ts:447.
-export function writeMessage(
+// A human wrote it, so it is reviewed and stamped for the text that ships, as import does.
+export async function writeMessage(
   cfg: ResolvedConfig,
   locale: string,
   key: string,
   text: string,
-): WriteMessageResult {
+): Promise<WriteMessageResult> {
   if (locale === cfg.sourceLocale) {
     throw badRequest('the source text lives in your code, Studio never edits it');
   }
   if (!cfg.locales.includes(locale)) {
     throw badRequest(`${locale} is not one of this project's locales`);
   }
-  const source = readCatalog(cfg, cfg.sourceLocale);
+  // the review state is written after the catalog: an unreadable one stops the save before it
+  const before = loadState(cfg);
+  const catalogs = { [cfg.sourceLocale]: readCatalog(cfg, cfg.sourceLocale) };
+  const registry = await extractProject(cfg);
+  // checked against the text that ships, the one check reads every translation against
+  const source = shippedCatalogs(cfg, catalogs, registry, { newKeys: false })[cfg.sourceLocale]!;
   // hasOwn, not `in`: `in` walks the prototype, so toString and __proto__ would pass this guard
   if (!Object.hasOwn(source, key)) {
     throw badRequest(`"${key}" is not in the source catalog, so Studio will not create it`);
@@ -192,10 +187,8 @@ export function writeMessage(
   const catalog = { ...readCatalog(cfg, locale), [key]: value };
   writeCatalog(cfg, locale, catalog);
 
-  const drafts = loadDrafts(cfg);
-  const clearedDraft = (drafts[locale] ?? []).includes(key);
-  clearDrafts(drafts, locale, [key]);
-  saveDrafts(cfg, drafts);
+  const clearedDraft = (before.drafts[locale] ?? []).includes(key);
+  recordTranslations(cfg, source, [{ locale, entries: [{ key, text: value }], draft: false }]);
   return { locale, key, clearedDraft };
 }
 

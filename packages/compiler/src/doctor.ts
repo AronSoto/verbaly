@@ -3,16 +3,15 @@ import { join, relative } from 'node:path';
 import { flatten } from 'verbaly';
 import { auditBundle, formatBundleIssue } from './bundle';
 import { badLeaf, isTree, parseTree, type Catalogs } from './catalog';
-import { check, sourcePlace } from './check';
+import { check } from './check';
 import { generateDts } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
+import { sourcePlace } from './findings';
 import { CLI_INSTALL_FIX, cliReachable, detectHost, readDependencies, WIRING_PACKAGES } from './init';
 import { counted } from './text';
 import { isLocaleTag, suggestTag } from './tag';
-import { createLocator } from './location';
-import { effectiveDrafts } from './drafts';
-import { loadState, STATE_FILE, type State } from './state';
+import { effectiveDrafts, readState, STATE_FILE } from './state';
 import { escapedSyntax } from './validate';
 
 export interface DoctorEntry {
@@ -237,12 +236,10 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     // a t under another name reads fine at runtime, and its texts stay in the source language
     const missed = registry.missed();
     if (missed.length > 0) {
-      const locate = createLocator();
       const first = missed[0]!;
-      const line = locate(first.file, first.start);
       warn(
         'sources',
-        `a t under another name keeps ${counted(missed.length, 'text')} out of extraction (${rel(first.file)}${line ? `:${line}` : ''}: ${first.name}\`…\`)`,
+        `a t under another name keeps ${counted(missed.length, 'text')} out of extraction (${sourcePlace(first, cfg.root)}: ${first.name}\`…\`)`,
         'name it t (const t = useT()), the only name verbaly reads, or use t(key) with the key in the catalog',
       );
     }
@@ -254,7 +251,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       const first = positional[0]!;
       warn(
         'messages',
-        `a translator gets a nameless value like {_0} in ${counted(positional.length, 'message')} (${rel(first.file)}: "${first.message}")`,
+        `a translator gets a nameless value like {_0} in ${counted(positional.length, 'message')} (${sourcePlace(first, cfg.root)}: "${first.message}")`,
         'put the value in a named variable first (const date = formatDate(d)), so the message says {date}',
       );
     }
@@ -301,14 +298,12 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   }
 
   // the sidecar only feeds warnings, so a broken one is reported here and never stops a build
-  let state: State = { drafts: {}, fingerprints: {} };
-  try {
-    state = loadState(cfg);
-  } catch (error) {
+  const { state, problem } = readState(cfg);
+  if (problem) {
     warn(
       'state',
-      (error as Error).message.replace(/^\[verbaly\] /, ''),
-      `delete ${STATE_FILE}: drafts and outdated tracking start again from the catalogs`,
+      problem,
+      `restore ${STATE_FILE} from git: deleting it would mark every machine draft as reviewed`,
     );
   }
   if (catalogsHealthy) {

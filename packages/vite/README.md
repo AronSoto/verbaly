@@ -33,7 +33,7 @@ export default {
 import { t, setLocale } from 'virtual:verbaly';
 ```
 
-- **Live extraction** with debounced catalog writes + HMR, from `.js/.ts/.jsx/.tsx` and `.svelte`/`.vue` files (script and markup).
+- **Live extraction** with debounced catalog writes + HMR, from `.js/.ts/.jsx/.tsx` and `.svelte`/`.vue` files (script and markup). Every write starts from the files on disk, so a checkout or an `extract` run in another terminal is never undone with an older text, and a catalog saved half-typed is reported in one line while the server keeps running. The terminal says what `next dev` says, once each: a hand edit of a text your code owns, a key with two texts, a `t` under another name, a translation older than its source.
 - **Per-locale code-splitting**: `setLocale` lazy-loads only what's used.
 - **Build gate**: missing translations stop the build (same as `verbaly check`); `failOnMissing: false` opts out.
 

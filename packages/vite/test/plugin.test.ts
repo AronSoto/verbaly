@@ -9,6 +9,13 @@ const KEY = stableKey('Hola {name}');
 const CODE = 'const s = t`Hola ${name}`;';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// a dev server transforms a file that is on disk, and every write-back re-reads it first
+function save(root: string, code: string, path = join(root, 'src', 'app.ts')): string {
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, code);
+  return path;
+}
+
 function hook<T>(value: unknown): T {
   return (
     typeof value === 'object' && value !== null && 'handler' in value
@@ -118,7 +125,7 @@ describe('dev transform', () => {
     const root = makeProject({ es: {}, en: {} });
     const { transform, load } = await setup(root, 'serve');
 
-    const result = transform(CODE, join(root, 'src', 'app.ts'));
+    const result = transform(CODE, save(root, CODE));
     expect(result?.code).toBe(`const s = t(${JSON.stringify(KEY)}, { "name": name });`);
     expect(load('\0virtual:verbaly/locale/es')).toContain('Hola {name}');
 
@@ -225,7 +232,7 @@ describe('dev server', () => {
     const { server, state, emit } = fakeServer();
     configureServer(server);
 
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     await sleep(150); // flush wrote catalogs + reloaded once
     expect(state.reloads).toBe(1);
 
@@ -247,7 +254,7 @@ describe('dev server', () => {
     const { server, state, emit } = fakeServer();
     configureServer(server);
 
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     await sleep(150); // records the self-write and writes es.json
     expect(state.reloads).toBe(1);
 
@@ -264,7 +271,7 @@ describe('dev server', () => {
     const { server, state, emit } = fakeServer();
     configureServer(server);
 
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     await sleep(150);
     expect(state.reloads).toBe(1);
 
@@ -307,7 +314,7 @@ describe('build check', () => {
   it('blocks the build on missing translations', async () => {
     const root = makeProject({ es: {}, en: {} });
     const { transform, buildEnd } = await setup(root, 'build');
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     expect(() => buildEnd()).toThrowError(/missing translations/);
   });
 
@@ -317,7 +324,7 @@ describe('build check', () => {
       en: { [KEY]: 'Hello {name}' },
     });
     const { transform, buildEnd } = await setup(root, 'build');
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     expect(() => buildEnd()).not.toThrow();
   });
 
@@ -331,7 +338,7 @@ describe('build check', () => {
   it('failOnMissing: false waives untranslated strings', async () => {
     const root = makeProject({ es: {}, en: {} });
     const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     expect(() => buildEnd()).not.toThrow();
   });
 
@@ -339,14 +346,14 @@ describe('build check', () => {
     // opting out is about untranslated strings: a missing one falls back, a broken one does not
     const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
     const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     expect(() => buildEnd()).toThrowError(/broken translations/);
   });
 
   it('names the remedy that matches the failure', async () => {
     const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
     const { transform, buildEnd } = await setup(root, 'build');
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     // a broken translation is not repaired by extract, which is all it used to say
     expect(() => buildEnd()).toThrowError(/params, tags and plural cases/);
   });
@@ -354,9 +361,105 @@ describe('build check', () => {
   it('does not write catalogs during build', async () => {
     const root = makeProject({ es: {} });
     const { transform } = await setup(root, 'build');
-    transform(CODE, join(root, 'src', 'app.ts'));
+    transform(CODE, save(root, CODE));
     await sleep(150);
     expect(JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'))).toEqual({});
+  });
+});
+
+describe('dev writes back from the disk (0.68.0)', () => {
+  // Proved able to fail by syncing against the registry as it was: the old text came back.
+  it('never writes back a text the code on disk no longer has, after a checkout', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server, emit } = fakeServer();
+    configureServer(server);
+    transform("const s = t.id('home')`Hola`;", save(root, "const s = t.id('home')`Hola`;"));
+    await sleep(150);
+    // a checkout moves the code and the catalog together, and the module is not loaded again
+    save(root, "const s = t.id('home')`Bienvenido`;");
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ home: 'Bienvenido' }));
+    emit('change', join(root, 'locales', 'es.json'));
+    await sleep(150);
+    expect(JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'))).toEqual({
+      home: 'Bienvenido',
+    });
+  });
+
+  // Proved able to fail by letting the rejection escape: a half-typed catalog ended the process.
+  it('survives a catalog saved with broken JSON, and says why', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { configureServer } = await setup(root, 'serve');
+    const { server, emit } = fakeServer();
+    configureServer(server);
+    const warned: string[] = [];
+    const original = console.warn;
+    console.warn = (line: unknown) => void warned.push(String(line));
+    try {
+      writeFileSync(join(root, 'locales', 'es.json'), '{ "home": ');
+      emit('change', join(root, 'locales', 'es.json'));
+      await sleep(150);
+    } finally {
+      console.warn = original;
+    }
+    expect(warned.some((line) => line.includes('es.json is not valid JSON'))).toBe(true);
+  });
+
+  // Proved able to fail by keeping a text vite saw before: two plugins overwrote each other.
+  it('two plugin instances on one catalog settle instead of overwriting each other', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const first = await setup(root, 'serve');
+    const second = await setup(root, 'serve');
+    const a = fakeServer();
+    const b = fakeServer();
+    first.configureServer(a.server);
+    second.configureServer(b.server);
+    first.transform("const s = t.id('home')`Viejo`;", save(root, "const s = t.id('home')`Viejo`;"));
+    await sleep(150);
+    // the second instance loads the module after it changed on disk
+    second.transform(
+      "const s = t.id('home')`Nuevo`;",
+      save(root, "const s = t.id('home')`Nuevo`;"),
+    );
+    await sleep(150);
+    for (let round = 0; round < 3; round += 1) {
+      a.emit('change', join(root, 'locales', 'es.json'));
+      b.emit('change', join(root, 'locales', 'es.json'));
+      await sleep(120);
+    }
+    expect(JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'))).toEqual({
+      home: 'Nuevo',
+    });
+    const writes = a.state.reloads + b.state.reloads;
+    expect(writes).toBeLessThan(8);
+  });
+
+  it('says an outdated translation in dev, like next dev', async () => {
+    const root = makeProject({ es: { bio: 'Escribo software' }, en: { bio: 'I write code' } });
+    writeFileSync(
+      join(root, 'locales', '.verbaly-state.json'),
+      JSON.stringify({
+        fingerprints: {
+          en: { bio: `${stableKey('Escribo código')}.${stableKey('I write code')}` },
+        },
+      }),
+    );
+    const { configureServer, transform } = await setup(root, 'serve');
+    const { server } = fakeServer();
+    configureServer(server);
+    const warned: string[] = [];
+    const original = console.warn;
+    console.warn = (line: unknown) => void warned.push(String(line));
+    try {
+      transform("const s = t('bio');", save(root, "const s = t('bio');"));
+      transform(CODE, save(root, CODE, join(root, 'src', 'other.ts')));
+      await sleep(150);
+    } finally {
+      console.warn = original;
+    }
+    expect(warned).toContain(
+      '[verbaly] [en] bio: translated from an older source text, update it or keep it with `npx verbaly review --approve`',
+    );
   });
 });
 
@@ -382,7 +485,10 @@ describe('the code owns the texts it writes, in build and in dev (0.67.0)', () =
     console.warn = (line: unknown) => void warned.push(String(line));
     try {
       // its own key: the dedupe is per process, and an earlier test already replaced KEY
-      transform("const s = t.id('owned')`Hola tuyo`;", join(root, 'src', 'app.ts'));
+      transform(
+        "const s = t.id('owned')`Hola tuyo`;",
+        save(root, "const s = t.id('owned')`Hola tuyo`;"),
+      );
       await sleep(150);
       writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ owned: 'Hola editado' }));
       emit('change', join(root, 'locales', 'es.json'));

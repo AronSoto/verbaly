@@ -52,7 +52,8 @@ describe('MessageRegistry', () => {
     spy.mockRestore();
   });
 
-  it('lists a third text once, and the same text twice is no collision', () => {
+  // Proved able to fail by deduping by text again: c.ts was never named, so fixing b revealed it.
+  it('names every place a different text is written, and the same text twice is no collision', () => {
     const registry = new MessageRegistry();
     registry.update('a.ts', analyze("t.id('k')`Hola`;", 'a.ts'));
     registry.update('b.ts', analyze("t.id('k')`Chau`;", 'b.ts'));
@@ -62,7 +63,29 @@ describe('MessageRegistry', () => {
 
     const collisions = registry.collisions();
     expect(collisions.map((entry) => entry.key)).toEqual(['k']);
-    expect(collisions[0]?.dropped.map((msg) => msg.file)).toEqual(['b.ts']);
+    expect(collisions[0]?.dropped.map((msg) => msg.file)).toEqual(['b.ts', 'c.ts']);
+  });
+
+  // Proved able to fail by keeping the first file registered: z.ts won when it loaded first.
+  it('picks the same winner whatever order the files arrive in, the earliest path first', () => {
+    const forward = new MessageRegistry();
+    forward.update('/p/a.ts', analyze("t.id('k')`From a`;", '/p/a.ts'));
+    forward.update('/p/z.ts', analyze("t.id('k')`From z`;", '/p/z.ts'));
+    const backward = new MessageRegistry();
+    backward.update('/p/z.ts', analyze("t.id('k')`From z`;", '/p/z.ts'));
+    backward.update('/p/a.ts', analyze("t.id('k')`From a`;", '/p/a.ts'));
+
+    expect(forward.messages().get('k')?.message).toBe('From a');
+    expect(backward.messages().get('k')?.message).toBe('From a');
+    expect(backward.collisions()[0]?.kept.file).toBe('/p/a.ts');
+    expect([...backward.messages().keys()]).toEqual([...forward.messages().keys()]);
+  });
+
+  it('within one file, the first place written wins', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze("t.id('k')`One`;\nt.id('k')`Two`;", 'a.ts'));
+    expect(registry.messages().get('k')?.message).toBe('One');
+    expect(registry.collisions()[0]?.dropped.map((msg) => msg.line)).toEqual([2]);
   });
 
   it('dedupes usedKeys per file and lists every file', () => {

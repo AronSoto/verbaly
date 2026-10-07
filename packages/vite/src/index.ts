@@ -2,27 +2,29 @@ import {
   LOCALE_MODULE_PREFIX,
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
-  collisionEntries,
+  createDevReporter,
   createSourceFilter,
   extractProject,
-  formatCollision,
+  formatCliError,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
   loadVirtualModule,
+  outdatedTranslations,
   resolveVirtualId,
   runBuildGate,
   syncCatalogs,
+  syncProject,
   transformSource,
-  updateState,
-  writeCatalog,
   writeDts,
   type Catalogs,
+  type DevReporter,
+  type Finding,
   type PluginOptions,
   type ResolvedConfig,
+  type SyncProjectResult,
 } from '@verbaly/compiler';
 import { readFileSync } from 'node:fs';
-import { relative } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 
 function safeRead(file: string): string | undefined {
@@ -36,15 +38,6 @@ function safeRead(file: string): string | undefined {
 export type { VerbalyConfig } from '@verbaly/compiler';
 export type ViteVerbalyOptions = PluginOptions;
 
-// a dev server re-runs per keystroke: keyed on what it is about, never on the text being typed
-const said = new Set<string>();
-
-function once(id: string, line: string): void {
-  if (said.has(id)) return;
-  said.add(id);
-  console.warn(`[verbaly] ${line}`);
-}
-
 export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let cfg: ResolvedConfig;
   let catalogs: Catalogs;
@@ -52,6 +45,10 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let server: ViteDevServer | undefined;
   let writeTimer: ReturnType<typeof setTimeout> | undefined;
   let included: (id: string) => boolean;
+  let reporter: DevReporter | undefined;
+  let stateBroken = false;
+  // one write-back at a time: a save and a catalog edit landing together must not interleave
+  let writing: Promise<void> = Promise.resolve();
   const registry = new MessageRegistry();
   const selfWrites = new Map<string, string>();
 
@@ -73,45 +70,59 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
     writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
   }
 
-  function flushCatalogs(): void {
-    syncCatalogs(cfg, catalogs, registry);
-    for (const locale of cfg.locales) {
-      const serialized = writeCatalog(cfg, locale, catalogs[locale] ?? {});
+  // what the dev server says, through the same reporter and wording as next dev
+  function report(result: SyncProjectResult, catalogEdit: boolean): void {
+    reporter ??= createDevReporter(cfg.root);
+    const replaced: Finding[] = [];
+    const code: Finding[] = [];
+    for (const finding of result.findings) {
+      if (finding.kind === 'collision' || finding.kind === 'renamed') code.push(finding);
+      // a change to the catalog that the code undid was a person's edit; one to the code is not
+      else if (finding.kind === 'replaced' && catalogEdit)
+        replaced.push({ ...finding, edited: true });
+    }
+    reporter.report('replaced', replaced);
+    reporter.report('code', code);
+    const outdated = result.state
+      ? outdatedTranslations(cfg, result.catalogs, result.state.fingerprints)
+      : [];
+    reporter.report(
+      'outdated',
+      outdated.map((entry): Finding => ({ kind: 'outdated', ...entry })),
+    );
+    if (result.stateProblem && !stateBroken) {
+      console.warn(`[verbaly] ${result.stateProblem}, so drafts are not tracked`);
+    }
+    stateBroken = Boolean(result.stateProblem);
+  }
+
+  // every write in dev starts from the disk, and re-reads the files behind each text that changes
+  async function writeBack(catalogEdit: boolean): Promise<void> {
+    if (catalogEdit) cfg = await loadConfig(cfg.root, options);
+    const result = await syncProject(cfg, {
+      registry,
+      catalogs: loadCatalogs(cfg),
+      confirm: true,
+      write: 'changed',
+    });
+    catalogs = result.catalogs;
+    for (const [locale, serialized] of Object.entries(result.written)) {
       selfWrites.set(locale, serialized);
     }
-    flushDts();
-    try {
-      // a pruned key takes its draft along, and an edited source text marks its translations
-      updateState(cfg, catalogs);
-    } catch (error) {
-      once('state', `${(error as Error).message.replace(/^\[verbaly\] /, '')}, so drafts are not tracked`);
-    }
-    for (const entry of collisionEntries(registry)) {
-      once(`collision:${entry.key}`, formatCollision(entry, cfg.root).trim());
-    }
+    report(result, catalogEdit);
     invalidateVirtual();
+  }
+
+  function queueWriteBack(catalogEdit: boolean): void {
+    // a catalog saved half-typed is broken JSON for a moment, and that must never end the server
+    writing = writing
+      .then(() => writeBack(catalogEdit))
+      .catch((error: unknown) => console.warn(formatCliError(error)));
   }
 
   function scheduleFlush(): void {
     clearTimeout(writeTimer);
-    writeTimer = setTimeout(flushCatalogs, 50);
-  }
-
-  async function reloadFromDisk(): Promise<void> {
-    cfg = await loadConfig(cfg.root, options);
-    catalogs = loadCatalogs(cfg);
-    // the code owns the texts it writes, as in a build: a hand edit of one is replaced, and said
-    const { added, replaced } = syncCatalogs(cfg, catalogs, registry);
-    const messages = registry.messages();
-    for (const key of replaced) {
-      const file = messages.get(key)?.file;
-      if (!file) continue;
-      const place = relative(cfg.root, file).replaceAll('\\', '/');
-      once(`replaced:${key}`, `${cfg.sourceLocale}.json: your edit of "${key}" was replaced, its text lives in ${place}: change it there`);
-    }
-    // the flush writes the code's texts back and reloads the tabs itself: one reload, not two
-    if (Object.keys(added).length > 0) flushCatalogs();
-    else invalidateVirtual();
+    writeTimer = setTimeout(() => queueWriteBack(false), 50);
   }
 
   return {
@@ -134,7 +145,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       const onCatalogFile = (file: string): void => {
         if (!file.startsWith(cfg.dir) || !file.endsWith('.json')) return;
         const locale = file.split(/[\\/]/).pop()!.slice(0, -5);
-        // a dotfile there is the drafts sidecar: it changes no message, so no tab has to reload
+        // a dotfile there is the state sidecar: it changes no message, so no tab has to reload
         if (locale.startsWith('.')) return;
         const expected = selfWrites.get(locale);
         if (expected !== undefined) {
@@ -142,7 +153,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
           // content compare: a stale entry must not swallow an external edit
           if (safeRead(file) === expected) return;
         }
-        void reloadFromDisk();
+        queueWriteBack(true);
       };
       devServer.watcher.on('change', onCatalogFile);
       devServer.watcher.on('add', onCatalogFile);

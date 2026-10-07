@@ -7,7 +7,9 @@ import {
   type Catalogs,
 } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
-import { loadDrafts, markDrafts, saveDrafts } from './drafts';
+import { shippedCatalogs } from './extract';
+import type { MessageRegistry } from './registry';
+import { loadState, recordTranslations } from './state';
 import { counted } from './text';
 import { validateMessage, validatePair } from './validate';
 
@@ -228,12 +230,18 @@ export interface WriteDraftsResult {
   unknown: string[];
 }
 
+// A batch of drafts is a batch of translations, so it can be written and marked as unreviewed
+export interface WriteDraftsOptions {
+  overwrite?: boolean;
+  registry?: MessageRegistry;
+}
+
 // an agent's own translation lands like a provider's: checked, written and marked unreviewed
 export function writeDrafts(
   cfg: ResolvedConfig,
   locale: string,
   entries: DraftEntry[],
-  options: { overwrite?: boolean } = {},
+  options: WriteDraftsOptions = {},
 ): WriteDraftsResult {
   const targets = targetLocales(cfg);
   if (!targets.includes(locale)) {
@@ -241,7 +249,12 @@ export function writeDrafts(
       `[verbaly] "${locale}" is not a language this project translates into (${targets.join(', ') || 'none yet'})`,
     );
   }
-  const source = readCatalog(cfg, cfg.sourceLocale);
+  // the draft flag is what keeps it from passing as reviewed: an unreadable state writes nothing
+  loadState(cfg);
+  const catalogs: Catalogs = { [cfg.sourceLocale]: readCatalog(cfg, cfg.sourceLocale) };
+  const source = options.registry
+    ? shippedCatalogs(cfg, catalogs, options.registry, { newKeys: false })[cfg.sourceLocale]!
+    : catalogs[cfg.sourceLocale]!;
   const current = readCatalog(cfg, locale);
   const result: WriteDraftsResult = { written: [], kept: [], invalid: [], unknown: [] };
   for (const { key, text } of entries) {
@@ -256,9 +269,8 @@ export function writeDrafts(
   }
   if (result.written.length > 0) {
     writeCatalog(cfg, locale, current);
-    const drafts = loadDrafts(cfg);
-    markDrafts(drafts, locale, result.written);
-    saveDrafts(cfg, drafts);
+    const written = result.written.map((key) => ({ key, text: current[key]! }));
+    recordTranslations(cfg, source, [{ locale, entries: written, draft: true }]);
   }
   return result;
 }

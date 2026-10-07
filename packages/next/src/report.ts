@@ -1,15 +1,9 @@
-import type { ResolvedConfig } from '@verbaly/compiler';
-import { relative } from 'node:path';
-import type { Compiler, Registry } from './codegen';
+import type { DevReporter, Finding, ResolvedConfig, SyncProjectResult } from '@verbaly/compiler';
+import type { Compiler } from './codegen';
 
-// a dev server re-runs per keystroke: keyed on what it is about, never on the text being typed
-const said = new Set<string>();
-
-function once(id: string, line: string): void {
-  if (said.has(id)) return;
-  said.add(id);
-  console.warn(`[verbaly] ${line}`);
-}
+// one per project: next.config can be evaluated more than once, and the watcher outlives it
+const reporters = new Map<string, DevReporter>();
+const brokenState = new Set<string>();
 
 // the code texts of the last run tell an edit in the code from an edit in the catalog
 export type CodeTexts = Map<string, string>;
@@ -17,43 +11,45 @@ export type CodeTexts = Map<string, string>;
 export function reportDev(
   compiler: Compiler,
   cfg: ResolvedConfig,
-  registry: Registry,
-  replaced: string[],
+  result: SyncProjectResult,
   previous: CodeTexts | undefined,
-  outdated: { locale: string; key: string }[],
 ): CodeTexts {
-  const messages = registry.messages();
-  const rel = (file: string): string => relative(cfg.root, file).replaceAll('\\', '/');
-  for (const key of replaced) {
-    const msg = messages.get(key);
+  let reporter = reporters.get(cfg.root);
+  if (!reporter) {
+    reporter = compiler.createDevReporter(cfg.root);
+    reporters.set(cfg.root, reporter);
+  }
+  const replaced: Finding[] = [];
+  const code: Finding[] = [];
+  for (const finding of result.findings) {
+    if (finding.kind === 'collision' || finding.kind === 'renamed') code.push(finding);
+    if (finding.kind !== 'replaced') continue;
     // the code changed this text since the last run, which is how a text it owns is edited
-    if (!msg || (previous && previous.get(key) !== msg.message)) continue;
-    once(
-      `replaced:${key}`,
-      previous
-        ? `${cfg.sourceLocale}.json: your edit of "${key}" was replaced, its text lives in ${rel(msg.file)}: change it there`
-        : `${cfg.sourceLocale}.json: "${key}" took the text written in ${rel(msg.file)}, the code owns it`,
-    );
+    if (previous && previous.get(finding.key) !== finding.site.message) continue;
+    replaced.push({ ...finding, edited: previous !== undefined });
   }
-  for (const entry of compiler.collisionEntries(registry)) {
-    once(`collision:${entry.key}`, compiler.formatCollision(entry, cfg.root).trim());
+  reporter.report('replaced', replaced);
+  reporter.report('code', code);
+  const outdated = result.state
+    ? compiler.outdatedTranslations(cfg, result.catalogs, result.state.fingerprints)
+    : [];
+  reporter.report(
+    'outdated',
+    outdated.map((entry): Finding => ({ kind: 'outdated', ...entry })),
+  );
+
+  // a broken sidecar must not stop next dev: said once, and again if it breaks after a fix
+  if (result.stateProblem && !brokenState.has(cfg.root)) {
+    console.warn(`[verbaly] ${result.stateProblem}, so drafts are not tracked`);
   }
-  for (const { name, file } of registry.missed()) {
-    once(
-      `missed:${file}:${name}`,
-      `${rel(file)}: ${name}\`…\` is never extracted, so it stays in the source language: name it t`,
-    );
-  }
-  for (const { locale, key } of outdated) {
-    once(
-      `outdated:${locale}:${key}`,
-      `${locale}: "${key}" was translated from an older source text, update it or approve it`,
-    );
-  }
-  return new Map([...messages].map(([key, msg]) => [key, msg.message]));
+  if (result.stateProblem) brokenState.add(cfg.root);
+  else brokenState.delete(cfg.root);
+
+  return new Map([...result.registry.messages()].map(([key, msg]) => [key, msg.message]));
 }
 
-// test hook: the set is module state, and each test starts from a server that said nothing
+// test hook: each test starts from a server that said nothing
 export function resetReported(): void {
-  said.clear();
+  reporters.clear();
+  brokenState.clear();
 }

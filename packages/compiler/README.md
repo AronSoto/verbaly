@@ -31,7 +31,7 @@ npx verbaly extract --dry-run  # say what extract would add and prune, write not
 npx verbaly status         # coverage per locale, plus unreviewed, broken and outdated counts
 npx verbaly check          # exit 1 if anything is missing or broken (CI)
 npx verbaly translate      # fill missing translations via Claude (or your provider), as drafts
-npx verbaly review         # list drafts and outdated translations, --approve accepts them
+npx verbaly review [keys]  # drafts and outdated translations with their texts, --approve accepts them
 npx verbaly-studio         # the same catalogs on localhost (@verbaly/studio, separate package)
 npx verbaly export         # translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
 npx verbaly import <files> # fill catalogs back from translated XLIFF/CSV/PO files
@@ -62,9 +62,9 @@ A third warning is a key that **only a translation has**. It never fails the bui
 
 Three more warnings name things that used to happen in silence, each with the file and line to go to:
 
-- **One key, two texts.** Two `` t.id('k')`…` `` with different texts both render the first one. The report lists every place.
+- **One key, two texts.** Two `` t.id('k')`…` `` with different texts both render the one written first, by file path, so the order your files load never picks it. The report lists every place that disagrees.
 - **The catalog and the code disagree.** A text written in your code is the code's: the build ships it, and the source catalog only mirrors it (see [where a text lives](#-where-a-text-lives)).
-- **An outdated translation.** The source text changed after the translation was written, and nobody has looked at the translation since.
+- **An outdated translation.** The source text changed after the translation was written, and nobody has looked at the translation since. It is read against the text that ships, the one in your code, so it is caught even before `extract` runs.
 
 The bundler plugins run the same gate on `build`, and when `check` has warnings the build prints one line saying how many, then passes: `npx verbaly check` reads them out.
 
@@ -74,6 +74,8 @@ npx verbaly check --reporter github   # ::error and ::warning annotations on the
 npx verbaly check --drafts            # also fail while machine translations await review
 npx verbaly check --outdated          # also fail while a translation is older than its source text
 ```
+
+Under `--outdated` those translations are printed with the failures, and the GitHub reporter marks them as `::error` on the catalog file, since they are what fails the job.
 
 Hand-edited catalogs get the same treatment as imported files: the gate does not care where a translation came from.
 
@@ -87,7 +89,7 @@ A message keeps its text in exactly one place, and that place is where you edit 
 | `` t.id('settings.save')`Save changes` `` | the code, under a key you chose    | the code                |
 | `t('settings.save')`                      | the source catalog                 | `locales/<source>.json` |
 
-**The code wins over the catalog for the texts it writes.** `extract`, the dev servers and the build all use the text in the code, so a hand edit of one in the source catalog is replaced, and Verbaly tells you and points at the line where the text lives.
+**The code wins over the catalog for the texts it writes.** `extract`, the dev servers and the build all use the text in the code, so a hand edit of one in the source catalog is replaced, and Verbaly tells you and points at the line where the text lives. `extract` prints one line per text that followed the code, with the text it had before: an edit you made in the code reads as a change, and one made in the catalog shows exactly what it undid. Every command that reads a source text reads that same one, the text that ships: `check`, `status`, `review`, `translate`, `export`, `import`, Studio and the MCP server.
 
 **Keys first** is the third row: the text lives only in the catalog, and a literal `t('settings.save')` counts as a use, so `--prune` keeps it. When a key comes from data instead of a literal, declare the keys with `defineKeys`, so the compiler sees them and TypeScript checks them where you write them:
 
@@ -100,11 +102,11 @@ t(titles[slug]);
 
 `defineKeys` is detected by name, like `t`. It comes from `virtual:verbaly`, the module generated for your project, which is the one the framework provider already loads.
 
-**A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `.verbaly-state.json`, next to your catalogs. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
+**A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `.verbaly-state.json`, next to your catalogs. It is taken the moment the translation is written, by `translate`, `import`, Studio or an agent, so a source that changes right after is still caught; `import` takes it from the source text the translator's file carries, so a file made for an older text reads as outdated at once. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it with both texts, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
 
 Three details that catch people out:
 
-- **Name it `t`.** The compiler reads calls named `t`. `const tr = useT()` works at runtime, but `` tr`…` `` is never extracted, so that text stays in the source language. `extract` and `doctor` name every such call.
+- **Name it `t`.** The compiler reads calls named `t`. `const tr = useT()` works at runtime, but `` tr`…` `` is never extracted, so that text stays in the source language. `extract`, `doctor` and the dev servers name every such call with its file and line, in `.vue`, `.svelte` and `.astro` files too, and `--prune` keeps the translations it reads until it is renamed. Only a `useT` or `getT` from a Verbaly package (or auto-imported, as Nuxt does) counts, so a `t` from another library is left alone.
 - **A number param is formatted for the language.** `{year}` with `2026` renders `2,026` in English, the same as ICU. Pass `String(year)` when the value is a label, not a quantity.
 - **Literal braces are doubled in a catalog.** `{{` shows `{`. `extract` does it for you from code; a catalog written by hand has to do it itself.
 
@@ -129,7 +131,7 @@ export default {
 
 Only the terms a batch actually contains are sent, so a glossary of hundreds never becomes the prompt.
 
-**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-state.json`, the file that also holds the fingerprints above: commit it, and never edit it by hand. `verbaly review` lists the drafts, `--approve` accepts them, and importing a translator's file clears the flag because a human already reviewed it. `import --draft` keeps them as drafts instead, for a file nobody has read yet. An agent that translates on its own saves its work through the MCP tool `verbaly_write_drafts`, which checks it like a provider's and marks it as a draft. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing. `extract` keeps the file in step with the catalogs, so a pruned key takes its draft with it, and the file disappears when there is nothing left in it.
+**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-state.json`, the file that also holds the fingerprints above: commit it, and never edit it by hand. `verbaly review` lists the drafts with the source text and the translation side by side, `--approve` accepts them (`verbaly review home.title --approve` accepts only the keys you name), and importing a translator's file clears the flag because a human already reviewed it. `import --draft` keeps them as drafts instead, for a file nobody has read yet. An agent that translates on its own saves its work through the MCP tool `verbaly_write_drafts`, which checks it like a provider's and marks it as a draft. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing. `extract` keeps the file in step with the catalogs, so a pruned key takes its draft with it, and the file disappears when there is nothing left in it. It only ever touches the languages it read: `extract --locales es` leaves every other language's drafts and fingerprints as they were. If the file cannot be read, say after a merge conflict, the commands that only read it warn and go on, and the ones that would write drafts stop before writing anything: restore it from git, because deleting it would mark every draft as reviewed.
 
 Plug your own provider in `verbaly.config.ts`. In TypeScript, `TranslateProvider` types it for you:
 
@@ -299,12 +301,12 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Setup             | `init` · types `Host` `InitOptions` `InitResult`                                                                                                                       |
 | Config & catalogs | `loadConfig` `resolveConfig` `targetLocales` `loadCatalogs` `readCatalog` `parseCatalog` `writeCatalog` `clientCatalogs` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                       |
-| Extraction        | `extractProject` `collectOrigins` `syncCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` `watchTree` · types `SyncResult` `TreeOptions`                                                                                            |
+| Extraction        | `syncProject` `extractProject` `collectOrigins` `syncCatalogs` `shippedCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` `watchTree` · types `SyncProjectResult` `SyncResult` `TreeOptions`                                                                                            |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · types `DtsOptions` `RuntimeModuleOptions`                                                                                                                                    |
 | Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |
-| The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` `collisionEntries` `formatCollision` · types `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `CollisionEntry` `DivergentEntry` `OutdatedEntry` `SourceSite` `StructureIssue` `IssueSeverity` |
+| The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` `collisionEntries` `formatCollision` `formatFinding` `createDevReporter` · types `Finding` `DevReporter` `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `CollisionEntry` `DivergentEntry` `OutdatedEntry` `SourceSite` `StructureIssue` `IssueSeverity` |
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                            |
-| Review state      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `loadState` `updateState` `outdatedTranslations` `STATE_FILE` · types `Drafts` `State` `Fingerprints`                                                            |
+| Review state      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `loadState` `readState` `updateState` `recordTranslations` `outdatedTranslations` `STATE_FILE` · types `Drafts` `State` `Fingerprints` `TranslationWrite`                                                            |
 | Translation       | `translateCatalogs` `mergeTranslations` `writeDrafts` `resolveProvider` `formatTranslateFailures` · types `DraftEntry` `WriteDraftsResult`                                                                                               |
 | Diagnosis         | `doctor` `formatDoctorEntry` · types `DoctorResult` `DoctorEntry`                                                                                                                                                                        |
 | Onboarding        | `wrapProject` · types `WrapResult` `WrapEntry` `WrapSkip` `WrapBlocked` `WrapOptions`                                                                                                                                                                  |
@@ -332,6 +334,8 @@ const { messages, result } = transformSource(code, id, registry);
 // at the end of the build: throws with the reason and the remedy
 runBuildGate(cfg, registry);
 ```
+
+A dev server that writes the catalogs goes through `syncProject`, the same path `extract`, the MCP server and Studio take: it scans (or takes the registry you hold), syncs, writes the catalogs and the types, and keeps `.verbaly-state.json` in step, in that order. Pass `confirm: true` when your registry is built file by file, so a file that changed on disk unseen is read again before its text is written back. `createDevReporter` then says each of its findings once, says it again if it goes away and comes back, and keeps a long list to a few lines.
 
 ## License
 

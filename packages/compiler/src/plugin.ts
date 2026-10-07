@@ -15,7 +15,7 @@ import type { ResolvedConfig, VerbalyConfig } from './config';
 import { cliReachable } from './init';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
-import { loadState, type Fingerprints } from './state';
+import { readState, type Fingerprints } from './state';
 import { counted } from './text';
 import { transformCode, type TransformResult } from './transform';
 import { warnOnce, warnParseError } from './warn';
@@ -111,11 +111,7 @@ export function runBuildGate(
 
 // the state only feeds a warning, so a sidecar nobody can parse must not be what stops a build
 function buildFingerprints(cfg: ResolvedConfig): Fingerprints {
-  try {
-    return loadState(cfg).fingerprints;
-  } catch (error) {
-    const reason = (error as Error).message.replace(/^\[verbaly\] /, '');
-    warnOnce(`${reason}, so outdated translations are not reported`, 'gate:state');
-    return {};
-  }
+  const { state, problem } = readState(cfg);
+  if (problem) warnOnce(`${problem}, so outdated translations are not reported`, 'gate:state');
+  return state.fingerprints;
 }

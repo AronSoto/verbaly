@@ -79,12 +79,27 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
     await vi.waitFor(
       () =>
         expect(warn.mock.calls.map((c) => c.join(' ')).join('\n')).toContain(
-          'live extraction failed',
+          'live extraction paused: boom',
         ),
       { timeout: 5000 },
     );
     writeFileSync(join(cfg.root, 'src', 'b.tsx'), 'export const b = t`Two`;\n');
     await vi.waitFor(() => expect(calls).toBeGreaterThan(1), { timeout: 5000 });
+  });
+
+  // Proved able to fail with the old warn: it printed the Error with a stack and a code frame.
+  it('says in one line why a catalog saved with broken JSON paused it', async () => {
+    const cfg = makeProject();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    startWatcher(compiler, cfg, {});
+    writeFileSync(join(cfg.root, 'locales', 'en.json'), '{ "half": ');
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled(), { timeout: 5000 });
+    const [line, ...rest] = warn.mock.calls[0]!;
+    expect(rest).toEqual([]);
+    expect(String(line)).toMatch(
+      /^\[verbaly\] live extraction paused: .*en\.json is not valid JSON/,
+    );
+    expect(String(line)).not.toContain('\n');
   });
 
   it('queues a change landing mid-run instead of dropping it', async () => {

@@ -1,13 +1,20 @@
 import { relative } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
-import type { TaggedMessage } from './analyze';
-import { emptyCatalog, type Catalog, type Catalogs } from './catalog';
+import { catalogPath, type Catalog, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
+import { shippedCatalogs } from './extract';
+import {
+  collisionEntries,
+  formatFinding,
+  siteOf,
+  sourcePlace,
+  type CollisionEntry,
+  type SourceSite,
+} from './findings';
 import { CLI_INSTALL_FIX } from './init';
-import { createLocator } from './location';
 import type { MessageRegistry } from './registry';
 import { outdatedTranslations, type Fingerprints, type OutdatedEntry } from './state';
-import { counted } from './text';
+import { counted, truncate } from './text';
 import { validateMessage, validatePair, type IssueSeverity, type StructureIssue } from './validate';
 
 export interface MissingEntry {
@@ -34,24 +41,13 @@ export interface ExtraEntry {
   files: string[];
 }
 
-// where a text is written in the code: an absolute file, like every path check reports
-export interface SourceSite {
-  file: string;
-  line?: number;
-  message: string;
-}
-
-export interface CollisionEntry {
-  key: string;
-  sites: SourceSite[];
-}
-
 export interface DivergentEntry {
   key: string;
   catalog: string;
   code: SourceSite;
 }
 
+export type { CollisionEntry, SourceSite } from './findings';
 export type { OutdatedEntry } from './state';
 
 export interface CheckResult {
@@ -91,12 +87,6 @@ export function check(
   fingerprints: Fingerprints = {},
 ): CheckResult {
   const extracted = registry.messages();
-  const locate = createLocator();
-  const site = (msg: TaggedMessage): SourceSite => ({
-    file: msg.file,
-    line: locate(msg.file, msg.start),
-    message: msg.message,
-  });
 
   // one flat view per locale: the shape t() sees, so nested catalogs compare leaf by leaf
   const flat: Record<string, Catalog> = {};
@@ -104,6 +94,9 @@ export function check(
     flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);
   }
   const source = flat[cfg.sourceLocale] ?? {};
+  // the code's text is the one that ships, so every translation is read against it
+  const shipped = shippedCatalogs(cfg, flat, registry);
+  const sourceText = shipped[cfg.sourceLocale]!;
 
   const used = registry.usedKeys();
   const unknown: UnknownEntry[] = [];
@@ -139,15 +132,12 @@ export function check(
     }
   };
 
-  // the code's text is the one that ships, so a translation is checked against it, not the catalog
-  const sourceText: Catalog = Object.assign(emptyCatalog(), source);
   const divergent: DivergentEntry[] = [];
   for (const [key, entry] of extracted) {
-    const written = sourceText[key];
+    const written = source[key];
     if (written && written !== entry.message) {
-      divergent.push({ key, catalog: written, code: site(entry) });
+      divergent.push({ key, catalog: written, code: siteOf(entry) });
     }
-    sourceText[key] = entry.message;
   }
   for (const [key, text] of Object.entries(sourceText)) {
     add(cfg.sourceLocale, key, validateMessage(text, cfg.sourceLocale));
@@ -172,18 +162,15 @@ export function check(
     }
   }
 
-  const collisions = collisionEntries(registry, locate);
-  const outdated = outdatedTranslations(cfg, flat, fingerprints);
-
   return {
     ok: gatePasses({ missing, unknown, broken }),
     missing,
     unknown,
     broken,
     extra,
-    collisions,
+    collisions: collisionEntries(registry),
     divergent,
-    outdated,
+    outdated: outdatedTranslations(cfg, shipped, fingerprints),
   };
 }
 
@@ -237,41 +224,17 @@ export function checkNextSteps(result: CheckResult, cliReachable = true): string
   return steps.join('\n');
 }
 
-export function collisionEntries(
-  registry: MessageRegistry,
-  locate = createLocator(),
-): CollisionEntry[] {
-  return registry.collisions().map(({ key, kept, dropped }) => ({
-    key,
-    sites: [kept, ...dropped].map((msg) => ({
-      file: msg.file,
-      line: locate(msg.file, msg.start),
-      message: msg.message,
-    })),
-  }));
-}
-
-// file:line, so the editor and the terminal can jump to where the text is written
-export function sourcePlace(at: SourceSite, root?: string): string {
-  const file = root ? relative(root, at.file).replaceAll('\\', '/') : at.file;
-  return at.line ? `${file}:${at.line}` : file;
-}
-
-function quoted(at: SourceSite, root?: string): string {
-  return `"${truncate(at.message, 40)}" (${sourcePlace(at, root)})`;
-}
-
-// the one wording of a collision, shared by extract and check
-export function formatCollision({ key, sites }: CollisionEntry, root?: string): string {
-  const [kept, ...others] = sites as [SourceSite, ...SourceSite[]];
-  return (
-    `  ${key}: one key with ${counted(sites.length, 'text')}, and every place shows ${quoted(kept, root)}, ` +
-    `never ${others.map((at) => quoted(at, root)).join(' or ')}: give each text its own key`
-  );
+export interface CheckReportOptions {
+  // check --outdated fails on them, so they are printed with the failures, not as warnings
+  outdatedFails?: boolean;
 }
 
 // warnings never fail the gate, so they print on their own
-export function formatCheckWarnings(result: CheckResult, root?: string): string {
+export function formatCheckWarnings(
+  result: CheckResult,
+  root?: string,
+  options: CheckReportOptions = {},
+): string {
   const lines = result.broken
     .filter((entry) => entry.severity === 'warning')
     .map((entry) => `  [${entry.locale}] ${entry.key}: ${entry.issue}`);
@@ -282,35 +245,34 @@ export function formatCheckWarnings(result: CheckResult, root?: string): string 
         : `  [${entry.locale}] ${entry.key}: only this translation has it, and no code reads it`,
     );
   }
-  for (const entry of result.collisions) lines.push(formatCollision(entry, root));
+  for (const entry of result.collisions) {
+    lines.push(`  ${formatFinding({ kind: 'collision', ...entry }, root)}`);
+  }
   for (const { key, catalog, code } of result.divergent) {
     lines.push(
-      `  ${key}: the source catalog says "${truncate(catalog, 40)}" and the code says ${quoted(code, root)}: ` +
+      `  ${key}: the source catalog says "${truncate(catalog, 40)}" and the code says ` +
+        `"${truncate(code.message, 40)}" (${sourcePlace(code, root)}): ` +
         'the code wins, so edit the text there (extract writes it into the catalog)',
     );
   }
-  for (const { locale, key } of result.outdated) {
-    lines.push(
-      `  [${locale}] ${key}: translated from an older source text, ` +
-        'update it or keep it with `npx verbaly review --approve`',
-    );
+  if (!options.outdatedFails) {
+    for (const entry of result.outdated) {
+      lines.push(`  ${formatFinding({ kind: 'outdated', ...entry }, root)}`);
+    }
   }
   return lines.join('\n');
-}
-
-function truncate(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max - 1) + '…' : text;
 }
 
 // GitHub workflow commands: every failure becomes a clickable ::error annotation on the PR
 export function githubCheckAnnotations(
   result: CheckResult,
   registry: MessageRegistry,
-  root: string,
+  cfg: ResolvedConfig,
+  options: CheckReportOptions = {},
 ): string[] {
   const messages = registry.messages();
-  const locate = createLocator();
-  const rel = (file: string): string => escapeProperty(relative(root, file).replaceAll('\\', '/'));
+  const rel = (file: string): string =>
+    escapeProperty(relative(cfg.root, file).replaceAll('\\', '/'));
   const at = (file: string, line: number | undefined): string =>
     `file=${rel(file)}${line ? `,line=${line}` : ''}`;
 
@@ -329,7 +291,7 @@ export function githubCheckAnnotations(
     const hint = entry.source ? `: "${truncate(entry.source, 60)}"` : '';
     const text = escapeData(`missing [${entry.locales.join(', ')}] ${entry.key}${hint}`);
     if (origin) {
-      lines.push(`::error ${at(origin.file, locate(origin.file, origin.start))}::${text}`);
+      lines.push(`::error ${at(origin.file, origin.line)}::${text}`);
     } else {
       lines.push(`::error::${text}`);
     }
@@ -350,7 +312,7 @@ export function githubCheckAnnotations(
       lines.push(`::${command}::${text}`);
       continue;
     }
-    lines.push(`::${command} ${at(origin.file, locate(origin.file, origin.start))}::${text}`);
+    lines.push(`::${command} ${at(origin.file, origin.line)}::${text}`);
   }
 
   for (const entry of result.extra) {
@@ -361,8 +323,9 @@ export function githubCheckAnnotations(
 
   // one per place a colliding text is written, so the PR shows every one of them
   for (const { key, sites } of result.collisions) {
+    const texts = new Set(sites.map((place) => place.message)).size;
     const text = escapeData(
-      `"${key}" has ${counted(sites.length, 'text')}, and every place shows the first one`,
+      `"${key}" has ${counted(texts, 'text')}, and every place shows the first one`,
     );
     for (const place of sites) lines.push(`::warning ${at(place.file, place.line)}::${text}`);
   }
@@ -370,9 +333,11 @@ export function githubCheckAnnotations(
     const text = escapeData(`"${key}": the source catalog has another text, the code's one ships`);
     lines.push(`::warning ${at(code.file, code.line)}::${text}`);
   }
+  // the translation lives in its catalog, and under --outdated it is what fails the job
+  const outdated = options.outdatedFails ? 'error' : 'warning';
   for (const { locale, key } of result.outdated) {
     const text = escapeData(`[${locale}] ${key}: translated from an older source text`);
-    lines.push(`::warning::${text}`);
+    lines.push(`::${outdated} file=${rel(catalogPath(cfg, locale))}::${text}`);
   }
   return lines;
 }

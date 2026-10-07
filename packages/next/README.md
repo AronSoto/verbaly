@@ -135,7 +135,9 @@ export default async function LocaleLayout({ children, params }) {
 Without `setRequestLocale`, Verbaly negotiates from the cookie and `Accept-Language`, and that read
 is what makes the route dynamic. With it, no header is read at all.
 
-That's it. `next dev` extracts your messages live (catalogs + `verbaly.d.ts` stay fresh) and says in the terminal what it would otherwise do quietly: a hand edit of a text your code owns, a key written with two texts, a translation that is now older than its source. `next build` blocks on missing translations once it has compiled, so `next typegen`, which loads the same config, never meets the gate. Dev and build show the same words: a text written in the code wins over the catalog in both.
+That's it. `next dev` extracts your messages live (catalogs + `verbaly.d.ts` stay fresh) and says in the terminal what it would otherwise do quietly: a hand edit of a text your code owns, a key written with two texts, a translation that is now older than its source. Each one is said once, and again if it goes away and comes back; a long list stays a few lines, and a catalog saved half-typed pauses live extraction with a one-line reason instead of stopping the server. `next build` blocks on missing translations once it has compiled, so `next typegen`, which loads the same config, never meets the gate, with Yarn PnP too. The report prints once, above Next's own failure line. Dev and build show the same words: a text written in the code wins over the catalog in both.
+
+The gate rides on `compiler.runAfterProductionCompile`, and `withVerbaly` keeps any hook of your own there (yours runs first). A wrapper applied **outside** `withVerbaly` that replaces that hook instead of calling the one it got would switch the gate off, so keep `withVerbaly` outermost or compose the hook.
 
 ## 📖 Options
 

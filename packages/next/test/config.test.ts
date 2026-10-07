@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { withVerbaly, type NextConfigLike, type WebpackConfigLike } from '../src/index';
 import { stopWatcher } from '../src/watch';
 
@@ -226,6 +226,23 @@ describe('withVerbaly: the gate belongs to the build, not to whoever loads the c
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
     const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;
     await expect(hook()).rejects.toThrow(/build blocked/);
+  });
+
+  // Proved able to fail by rethrowing the gate's error: Next printed the whole list twice.
+  it('prints the report once and throws a short line, as Next prints a failed hook twice', async () => {
+    const root = withHook(makeProject({ source: 'export const s = t`Hello`;' }));
+    const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;
+      const short = /^\[verbaly\] build blocked, the reason is printed above$/;
+      await expect(hook()).rejects.toThrow(short);
+      const printed = error.mock.calls.map(([line]: unknown[]) => String(line));
+      expect(printed).toHaveLength(1);
+      expect(printed[0]).toContain('missing translations:');
+    } finally {
+      error.mockRestore();
+    }
   });
 
   it("runs the user's own hook first and keeps the rest of their compiler options", async () => {

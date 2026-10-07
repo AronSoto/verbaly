@@ -1,11 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { emptyCatalog, own, type Catalogs } from './catalog';
+import { flatten, type MessageTree } from 'verbaly';
+import { catalogPath, emptyCatalog, own, type Catalog, type Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
 import { stableKey } from './key';
 
 export const STATE_FILE = '.verbaly-state.json';
-// before 0.67.0 the sidecar held only the drafts: read once, so an upgrade loses none of them
+// before 0.67.0 the sidecar held only the drafts, and a teammate on 0.66.0 still writes it
 const LEGACY_DRAFTS_FILE = '.verbaly-drafts.json';
 
 export type Drafts = Record<string, string[]>;
@@ -23,20 +24,54 @@ export interface OutdatedEntry {
   key: string;
 }
 
+// what a read-only path gets: the state, or nothing plus the reason it could not be read
+export interface StateRead {
+  state: State;
+  problem?: string;
+}
+
+// a translation just written, and the source text it was written for when that is not today's
+export interface WrittenTranslation {
+  key: string;
+  text: string;
+  source?: string;
+}
+
+export interface TranslationWrite {
+  locale: string;
+  entries: WrittenTranslation[];
+  draft?: boolean;
+}
+
 function statePath(cfg: ResolvedConfig, file = STATE_FILE): string {
   return join(cfg.dir, file);
 }
 
 export function loadState(cfg: ResolvedConfig): State {
   const current = readJson(statePath(cfg));
-  if (current !== undefined) {
-    if (!isObject(current)) throw corrupt(statePath(cfg));
-    return { drafts: readDrafts(current.drafts), fingerprints: readFingerprints(current.fingerprints) };
-  }
+  if (current !== undefined && !isObject(current)) throw corrupt(statePath(cfg));
   const legacy = readJson(statePath(cfg, LEGACY_DRAFTS_FILE));
-  if (legacy === undefined) return { drafts: {}, fingerprints: {} };
-  if (!isObject(legacy)) throw corrupt(statePath(cfg, LEGACY_DRAFTS_FILE));
-  return { drafts: readDrafts(legacy), fingerprints: {} };
+  if (legacy !== undefined && !isObject(legacy)) throw corrupt(statePath(cfg, LEGACY_DRAFTS_FILE));
+  const state: State = isObject(current)
+    ? { drafts: readDrafts(current.drafts), fingerprints: readFingerprints(current.fingerprints) }
+    : { drafts: {}, fingerprints: {} };
+  // drafts the old file still lists join the new ones, and the next save removes that file
+  if (legacy !== undefined) {
+    for (const [locale, keys] of Object.entries(readDrafts(legacy))) {
+      markDrafts(state.drafts, locale, keys);
+    }
+  }
+  return state;
+}
+
+// read-only paths go on without the state: it only feeds warnings, never a gate they run
+export function readState(cfg: ResolvedConfig): StateRead {
+  try {
+    return { state: loadState(cfg) };
+  } catch (error) {
+    const problem = (error as Error).message.replace(/^\[verbaly\] /, '');
+    return { state: { drafts: {}, fingerprints: {} }, problem };
+  }
 }
 
 // content-compared like a catalog, and gone when there is nothing left to remember
@@ -59,15 +94,89 @@ export function saveState(cfg: ResolvedConfig, state: State): void {
   if (existsSync(legacy)) rmSync(legacy);
 }
 
-// the state follows the catalogs: drafts whose text is gone and fingerprints of dropped keys leave
+// the state follows the catalogs it is shown; a locale whose catalog was not read stays as it was
 export function updateState(cfg: ResolvedConfig, catalogs: Catalogs): State {
-  const state = loadState(cfg);
-  const next: State = {
-    drafts: effectiveDrafts(state.drafts, catalogs),
-    fingerprints: refreshFingerprints(cfg, catalogs, state.fingerprints),
-  };
+  const next = refreshState(cfg, catalogs, loadState(cfg));
   saveState(cfg, next);
   return next;
+}
+
+function refreshState(cfg: ResolvedConfig, catalogs: Catalogs, previous: State): State {
+  const flat = flatCatalogs(catalogs);
+  const source = flat[cfg.sourceLocale] ?? {};
+  // a narrowed --locales run, or a catalog missing mid-checkout, must never erase what it held
+  const shown = new Set(
+    targetLocales(cfg).filter(
+      (locale) => Object.hasOwn(flat, locale) && existsSync(catalogPath(cfg, locale)),
+    ),
+  );
+  const drafts: Drafts = {};
+  for (const [locale, keys] of Object.entries(previous.drafts)) {
+    if (!shown.has(locale)) {
+      drafts[locale] = keys;
+      continue;
+    }
+    // a draft counts only while its translation is present: a pruned key is missing, not a draft
+    const live = keys.filter((key) => own(flat[locale]!, key));
+    if (live.length) drafts[locale] = live;
+  }
+  const fingerprints: Fingerprints = {};
+  for (const [locale, stamps] of Object.entries(previous.fingerprints)) {
+    if (!shown.has(locale)) fingerprints[locale] = stamps;
+  }
+  for (const locale of shown) {
+    const stamps = refreshStamps(source, flat[locale]!, previous.fingerprints[locale] ?? {});
+    if (Object.keys(stamps).length) fingerprints[locale] = stamps;
+  }
+  return { drafts, fingerprints };
+}
+
+// a stamp lives as long as its translation: kept while the translation is unchanged
+function refreshStamps(
+  source: Catalog,
+  catalog: Catalog,
+  before: Record<string, string>,
+): Record<string, string> {
+  const after: Record<string, string> = emptyCatalog();
+  for (const key of new Set([...Object.keys(before), ...Object.keys(source)])) {
+    const translated = own(catalog, key);
+    if (!translated) continue;
+    const was = own(before, key);
+    if (was !== undefined && translationOf(was) === fingerprint(translated)) {
+      after[key] = was;
+      continue;
+    }
+    const text = own(source, key);
+    // a new or edited translation was written for the source as it reads now
+    if (text && tracked(key, text)) after[key] = stamp(text, translated);
+    // edited while its source is empty: the old stamp waits until there is a source again
+    else if (was !== undefined) after[key] = was;
+  }
+  return after;
+}
+
+// a translation written now was written for a known source: stamped and flagged in one save
+export function recordTranslations(
+  cfg: ResolvedConfig,
+  source: Catalog,
+  writes: TranslationWrite[],
+): State {
+  const state = loadState(cfg);
+  for (const { locale, entries, draft } of writes) {
+    if (entries.length === 0) continue;
+    const stamps = (state.fingerprints[locale] ??= emptyCatalog());
+    for (const entry of entries) {
+      const from = entry.source || own(source, entry.key);
+      if (from && entry.text && tracked(entry.key, from)) {
+        stamps[entry.key] = stamp(from, entry.text);
+      }
+    }
+    const keys = entries.map((entry) => entry.key);
+    if (draft === true) markDrafts(state.drafts, locale, keys);
+    else if (draft === false) clearDrafts(state.drafts, locale, keys);
+  }
+  saveState(cfg, state);
+  return state;
 }
 
 // a draft counts only while its translation is present: a pruned key is missing, not a draft
@@ -81,6 +190,23 @@ export function effectiveDrafts(drafts: Drafts, catalogs: Catalogs): Drafts {
   return out;
 }
 
+export function markDrafts(drafts: Drafts, locale: string, keys: string[]): void {
+  if (!keys.length) return;
+  drafts[locale] = [...new Set([...(drafts[locale] ?? []), ...keys])];
+}
+
+// clears specific keys, or the whole locale when keys is omitted (approve everything)
+export function clearDrafts(drafts: Drafts, locale: string, keys?: string[]): void {
+  if (!drafts[locale]) return;
+  if (!keys) {
+    delete drafts[locale];
+    return;
+  }
+  const drop = new Set(keys);
+  drafts[locale] = drafts[locale].filter((key) => !drop.has(key));
+  if (!drafts[locale].length) delete drafts[locale];
+}
+
 export function fingerprint(text: string): string {
   return stableKey(text);
 }
@@ -92,31 +218,6 @@ function tracked(key: string, text: string): boolean {
 
 function stamp(source: string, translated: string): string {
   return `${fingerprint(source)}.${fingerprint(translated)}`;
-}
-
-// kept while only the source moves, which is the outdated signal; a new translation re-stamps it
-export function refreshFingerprints(
-  cfg: ResolvedConfig,
-  catalogs: Catalogs,
-  previous: Fingerprints,
-): Fingerprints {
-  const source = catalogs[cfg.sourceLocale] ?? {};
-  const out: Fingerprints = {};
-  for (const locale of targetLocales(cfg)) {
-    const catalog = catalogs[locale] ?? {};
-    const before = previous[locale] ?? {};
-    const after: Record<string, string> = emptyCatalog();
-    for (const [key, text] of Object.entries(source)) {
-      const translated = own(catalog, key);
-      if (!text || !translated || !tracked(key, text)) continue;
-      const was = own(before, key);
-      after[key] = was !== undefined && translationOf(was) === fingerprint(translated)
-        ? was
-        : stamp(text, translated);
-    }
-    if (Object.keys(after).length) out[locale] = after;
-  }
-  return out;
 }
 
 export function outdatedTranslations(
@@ -164,6 +265,15 @@ function translationOf(stamped: string): string {
   return stamped.slice(stamped.indexOf('.') + 1);
 }
 
+// a caller may hand nested groups, and every key here is the dotted one t() reads
+function flatCatalogs(catalogs: Catalogs): Catalogs {
+  const out: Catalogs = {};
+  for (const [locale, catalog] of Object.entries(catalogs)) {
+    out[locale] = flatten(catalog as unknown as MessageTree);
+  }
+  return out;
+}
+
 function serializeState(state: State): string | undefined {
   const drafts: Drafts = {};
   for (const locale of Object.keys(state.drafts).sort()) {
@@ -199,8 +309,12 @@ function readJson(path: string): unknown {
   }
 }
 
+// deleting it is the one fix that is not safe: every draft it listed would read as reviewed
 function corrupt(path: string, cause?: unknown): Error {
-  return new Error(`[verbaly] ${path} is not valid JSON, fix or delete the file`, { cause });
+  return new Error(
+    `[verbaly] ${path} is not valid JSON: restore it from git or fix it (deleting it approves every draft)`,
+    { cause },
+  );
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

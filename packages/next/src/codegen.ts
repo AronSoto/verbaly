@@ -28,34 +28,19 @@ function writeIfChanged(file: string, content: string): boolean {
   return true;
 }
 
-let stateWarned = false;
-
-// dev pipeline shared by withVerbaly and the watcher: catalogs, dts, runtime modules, state
-export function syncAndWrite(
+// dev pipeline shared by withVerbaly and the watcher: the compiler's sync, then the runtime modules
+export async function syncAndWrite(
   compiler: Compiler,
   cfg: ResolvedConfig,
   catalogs: Catalogs,
   registry: Registry,
   requestOptions: RequestOptions,
   previous?: CodeTexts,
-): CodeTexts {
-  const { added, replaced } = compiler.syncCatalogs(cfg, catalogs, registry);
-  for (const locale of Object.keys(added)) {
-    compiler.writeCatalog(cfg, locale, catalogs[locale] ?? {});
-  }
-  compiler.writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
-  writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
-  let outdated: { locale: string; key: string }[] = [];
-  try {
-    // a pruned key takes its draft along, and an edited source text marks its translations
-    const state = compiler.updateState(cfg, catalogs);
-    outdated = compiler.outdatedTranslations(cfg, catalogs, state.fingerprints);
-  } catch (error) {
-    // a broken sidecar must not stop next dev: say it once and keep serving
-    if (!stateWarned) console.warn(`${compiler.formatCliError(error)}, so drafts are not tracked`);
-    stateWarned = true;
-  }
-  return reportDev(compiler, cfg, registry, replaced, previous, outdated);
+): Promise<CodeTexts> {
+  // 'changed': a catalog nothing happened to keeps the formatting its author gave it
+  const result = await compiler.syncProject(cfg, { registry, catalogs, write: 'changed' });
+  writeGeneratedModules(compiler, cfg, result.catalogs, requestOptions);
+  return reportDev(compiler, cfg, result, previous);
 }
 
 // real-file replacement for virtual:verbaly: Turbopack has no virtual modules

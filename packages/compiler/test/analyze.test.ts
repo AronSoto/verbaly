@@ -427,6 +427,44 @@ describe('a t under another name', () => {
     expect(names('const t = useT(); t`Hola`;')).toEqual([]);
     expect(names('const tr = useT(); render(tr);')).toEqual([]);
     expect(names('const tr = translate(); tr`Hola`;')).toEqual([]);
-    expect(analyze('const t = useT(); t`Hola`;', 'app.tsx').missed).toBeUndefined();
+    expect(analyze('const t = useT(); t`Hola`;', 'app.tsx').missed).toEqual([]);
+  });
+
+  // Proved able to fail by accepting any useT and any { t: x }: all three were reported.
+  it('follows only what verbaly hands out, judged by where the name was imported from', () => {
+    expect(names("import { useT } from './hooks'; const tr = useT(); tr`Hola`;")).toEqual([]);
+    expect(names("import { useT } from '@verbaly/react'; const tr = useT(); tr`Hola`;")).toEqual([
+      'tr',
+    ]);
+    expect(
+      names("import { useT as useCopy } from '@verbaly/react'; const tr = useCopy(); tr`Hola`;"),
+    ).toEqual(['tr']);
+    const i18next = analyze(
+      "import { useTranslation } from 'react-i18next'; const { t: tc } = useTranslation(); tc('save'); tc`Hola`;",
+      'app.tsx',
+    );
+    expect(i18next.missed).toEqual([]);
+    expect(i18next.usedKeys).toEqual([]);
+    expect(
+      names("import { getT } from '@verbaly/next/server'; const tr = await getT(); tr`Hola`;"),
+    ).toEqual(['tr']);
+  });
+
+  // Proved able to fail by recording no key for the tag: prune deleted home.title and its hash.
+  it('keeps the key behind each tag it reports, so prune never deletes its translations', () => {
+    const { usedKeys } = analyze(
+      "const tr = useT(); tr.id('home.title')`Hola`; tr`Adiós ${name}`;",
+      'app.tsx',
+    );
+    expect(usedKeys).toEqual([
+      { key: 'home.title', file: 'app.tsx', loose: true },
+      { key: stableKey('Adiós {name}'), file: 'app.tsx', loose: true },
+    ]);
+  });
+
+  it('gives each report and each message the line it is written on', () => {
+    const analysis = analyze("\nconst tr = useT();\n\ntr`Hola`;\nt.id('k')`Chau`;", 'app.tsx');
+    expect(analysis.missed.map((call) => call.line)).toEqual([4]);
+    expect(analysis.tagged.map((msg) => msg.line)).toEqual([5]);
   });
 });

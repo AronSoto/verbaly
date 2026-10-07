@@ -84,6 +84,29 @@ describe('extract, which is local and free and answers in the request', () => {
     );
     expect(existsSync(join(cfg.root, 'verbaly.d.ts'))).toBe(true);
   });
+
+  // Proved able to fail by syncing without updateState: the draft of a gone translation stayed.
+  it('keeps the review state in step with the catalogs, like the CLI does', async () => {
+    const cfg = project({ scan: true });
+    writeFileSync(
+      join(cfg.dir, '.verbaly-state.json'),
+      JSON.stringify({ drafts: { es: ['bye', 'hi'] } }),
+    );
+    const result = await runExtract(cfg);
+    // bye has no translation, so it is missing, not a draft; hi keeps its flag
+    expect(JSON.parse(readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8')).drafts).toEqual({
+      es: ['hi'],
+    });
+    expect(result.stateProblem).toBeUndefined();
+  });
+
+  it('says when a hand edit of a text the code owns was put back', async () => {
+    const cfg = project({ scan: true });
+    writeFileSync(join(cfg.root, 'src', 'app.ts'), "export const a = t.id('hi')`Hi there`;\n");
+    const result = await runExtract(cfg);
+    expect(result.replaced).toBe(1);
+    expect(JSON.parse(readFileSync(join(cfg.dir, 'en.json'), 'utf8')).hi).toBe('Hi there');
+  });
 });
 
 describe('translate, the one action that spends money', () => {
@@ -142,7 +165,7 @@ describe('translate, the one action that spends money', () => {
       },
     });
     const job = await startTranslate(cfg);
-    writeMessage(cfg, 'es', 'bye', 'Adiós');
+    await writeMessage(cfg, 'es', 'bye', 'Adiós');
     release();
     await vi.waitFor(() => expect(read(job.id).state).toBe('done'));
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).bye).toBe('Adiós');

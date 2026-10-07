@@ -18,6 +18,7 @@ export interface TaggedMessage {
   params: TaggedParam[];
   start: number;
   end: number;
+  line: number;
   tagStart: number;
   tagEnd: number;
   file: string;
@@ -43,13 +44,14 @@ export interface MissedCall {
   name: string;
   file: string;
   start: number;
+  line: number;
 }
 
 export interface Analysis {
   tagged: TaggedMessage[];
   usedKeys: UsedKey[];
   strayImports: StrayImport[];
-  missed?: MissedCall[];
+  missed: MissedCall[];
   parseError?: string;
 }
 
@@ -70,6 +72,7 @@ const SKIP_KEYS = new Set(['loc', 'leadingComments', 'trailingComments', 'innerC
 
 export interface AnalyzeOptions {
   tNames?: readonly string[];
+  renamed?: readonly string[];
 }
 
 const DEFAULT_T_NAMES: readonly string[] = ['t'];
@@ -79,6 +82,18 @@ const JSX_FILE_RE = /\.(?:[cm]?jsx?|tsx)$/;
 const DEFINE_KEYS = 'defineKeys';
 
 export function analyze(code: string, file: string, options: AnalyzeOptions = {}): Analysis {
+  return analyzeScript(code, file, options).analysis;
+}
+
+// a tagged template or a call on a name other than t, judged once every binding is known
+type Candidate = { kind: 'tag'; node: AstNode } | { kind: 'call'; name: string; key: string };
+
+// the analysis plus the names t was renamed to, which an SFC hands on to its markup
+export function analyzeScript(
+  code: string,
+  file: string,
+  options: AnalyzeOptions = {},
+): { analysis: Analysis; renamed: string[] } {
   const names = new Set(options.tNames ?? DEFAULT_T_NAMES);
   const ast = parse(code, {
     sourceType: 'module',
@@ -89,18 +104,20 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
   const tagged: TaggedMessage[] = [];
   const usedKeys: UsedKey[] = [];
   const strayImports: StrayImport[] = [];
-  const missed: MissedCall[] = [];
-  const renamed = renamedBindings(ast.program as unknown as AstNode, names);
+  const bindings = new Bindings(names);
+  const candidates: Candidate[] = [];
 
   walk(ast.program as unknown as AstNode, (node) => {
     if (node.type === 'ImportDeclaration') {
       collectStrayImports(node, file, strayImports);
+      bindings.addImport(node);
+    } else if (node.type === 'VariableDeclarator') {
+      bindings.addDeclarator(node);
     } else if (node.type === 'TaggedTemplateExpression') {
       const tag = node.tag as AstNode;
       const explicit = explicitId(tag, names);
       if (!explicit && !isTReference(tag, names)) {
-        const name = renamedTag(tag, renamed);
-        if (name) missed.push({ name, file, start: node.start });
+        candidates.push({ kind: 'tag', node });
         return;
       }
       const quasi = node.quasi as AstNode;
@@ -112,6 +129,7 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
         params: message.params,
         start: node.start,
         end: node.end,
+        line: lineOf(node),
         tagStart: explicit ? explicit.refStart : tag.start,
         tagEnd: explicit ? explicit.refEnd : tag.end,
         file,
@@ -124,9 +142,8 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
         return;
       }
       if (!isTReference(callee, names)) {
-        // a key read under another name is in use: loose, so prune keeps it and no gate fails
-        const key = renamed.has(identifierName(callee)) ? staticString(args[0]) : undefined;
-        if (key !== undefined) usedKeys.push({ key, file, loose: true });
+        const key = callee.type === 'Identifier' ? staticString(args[0]) : undefined;
+        if (key !== undefined) candidates.push({ kind: 'call', name: callee.name as string, key });
         return;
       }
       const key = staticString(args[0]);
@@ -136,43 +153,128 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
     }
   });
 
-  return { tagged, usedKeys, strayImports, ...(missed.length > 0 && { missed }) };
-}
-
-// what hands out a t: useT(), await getT(), { t: x } and t as x from virtual:verbaly
-function renamedBindings(program: AstNode, names: ReadonlySet<string>): Set<string> {
-  const out = new Set<string>();
-  const add = (node: AstNode | null | undefined): void => {
-    const name = identifierName(node);
-    if (name && !names.has(name)) out.add(name);
-  };
-  walk(program, (node) => {
-    if (node.type === 'ImportDeclaration') {
-      if ((node.source as { value?: unknown }).value !== 'virtual:verbaly') return;
-      for (const spec of node.specifiers as AstNode[]) {
-        if (spec.type === 'ImportSpecifier' && identifierName(spec.imported as AstNode) === 't') {
-          add(spec.local as AstNode);
-        }
-      }
-    } else if (node.type === 'VariableDeclarator') {
-      const id = node.id as AstNode;
-      const init = node.init as AstNode | null;
-      if (id.type === 'Identifier' && init && handsOutT(init)) add(id);
-      if (id.type !== 'ObjectPattern') return;
-      for (const property of id.properties as AstNode[]) {
-        if (property.type !== 'ObjectProperty' || property.computed) continue;
-        if (identifierName(property.key as AstNode) === 't') add(property.value as AstNode);
-      }
+  const renamed = bindings.renamed(options.renamed);
+  const missed: MissedCall[] = [];
+  for (const candidate of candidates) {
+    // a key read under another name is in use: loose, so prune keeps it and no gate fails
+    if (candidate.kind === 'call') {
+      if (renamed.has(candidate.name)) usedKeys.push({ key: candidate.key, file, loose: true });
+      continue;
     }
-  });
-  return out;
+    const { node } = candidate;
+    const name = renamedTag(node.tag as AstNode, renamed);
+    if (!name) continue;
+    missed.push({ name, file, start: node.start, line: lineOf(node) });
+    // never extracted, yet its translation has to outlive prune until the binding is named t
+    const key = missedKey(code, node, names);
+    if (key !== undefined) usedKeys.push({ key, file, loose: true });
+  }
+
+  return { analysis: { tagged, usedKeys, strayImports, missed }, renamed: [...renamed] };
 }
 
-function handsOutT(init: AstNode): boolean {
-  const call = init.type === 'AwaitExpression' ? (init.argument as AstNode) : init;
-  if (call.type !== 'CallExpression') return false;
-  const callee = identifierName(call.callee as AstNode);
-  return init.type === 'AwaitExpression' ? callee === 'getT' : callee === 'useT';
+function lineOf(node: AstNode): number {
+  return (node.loc as { start: { line: number } } | undefined)?.start.line ?? 1;
+}
+
+// a module whose exports hand out verbaly's t: the core, every adapter and virtual:verbaly
+const VERBALY_SOURCE = /^(?:verbaly|virtual:verbaly|@verbaly\/[\w-]+(?:\/[\w-]+)*)$/;
+
+// how each factory hands out t: useT() returns it, getT() resolves to it
+const T_FACTORIES = new Map([
+  ['useT', 'call'],
+  ['getT', 'await'],
+]);
+
+// instance factories whose result carries t, for const { t: x } = useVerbaly() with no import
+const INSTANCE_FACTORIES = new Set(['useVerbaly', 'getVerbaly']);
+
+// what hands out a t in this file, judged by where each name was imported from
+class Bindings {
+  private imports = new Map<string, { source: string; imported: string }>();
+  private direct = new Set<string>();
+  private declared: { name: string; init: AstNode }[] = [];
+  private destructured: { name: string; init: AstNode }[] = [];
+
+  constructor(private names: ReadonlySet<string>) {}
+
+  addImport(node: AstNode): void {
+    const source = (node.source as { value?: unknown }).value;
+    if (typeof source !== 'string') return;
+    for (const spec of node.specifiers as AstNode[]) {
+      const local = identifierName(spec.local as AstNode);
+      if (!local) continue;
+      const imported =
+        spec.type === 'ImportSpecifier' ? importedName(spec.imported as AstNode) : spec.type;
+      this.imports.set(local, { source, imported });
+      if (source === 'virtual:verbaly' && imported === 't') this.direct.add(local);
+    }
+  }
+
+  addDeclarator(node: AstNode): void {
+    const id = node.id as AstNode;
+    const init = node.init as AstNode | null;
+    if (!init) return;
+    if (id.type === 'Identifier') {
+      this.declared.push({ name: id.name as string, init });
+      return;
+    }
+    if (id.type !== 'ObjectPattern') return;
+    for (const property of id.properties as AstNode[]) {
+      if (property.type !== 'ObjectProperty' || property.computed) continue;
+      if (identifierName(property.key as AstNode) !== 't') continue;
+      const value = property.value as AstNode;
+      // { t: x = fallback } binds x all the same
+      const target = value.type === 'AssignmentPattern' ? (value.left as AstNode) : value;
+      const name = identifierName(target);
+      if (name) this.destructured.push({ name, init });
+    }
+  }
+
+  renamed(seed: readonly string[] = []): Set<string> {
+    const out = new Set(seed);
+    const add = (name: string): void => {
+      if (this.names.has(name)) return;
+      out.add(name);
+      // a svelte store is read as $name, the way t itself is read as $t
+      if (this.names.has('$t')) out.add(`$${name}`);
+    };
+    for (const name of this.direct) add(name);
+    for (const { name, init } of this.declared) if (this.handsOutT(init)) add(name);
+    for (const { name, init } of this.destructured) if (this.carriesT(init)) add(name);
+    return out;
+  }
+
+  // useT() or await getT(), imported from verbaly or not imported at all (a Nuxt auto-import)
+  private handsOutT(init: AstNode): boolean {
+    const awaited = init.type === 'AwaitExpression';
+    const call = awaited ? (init.argument as AstNode) : init;
+    if (call.type !== 'CallExpression') return false;
+    const origin = this.origin(identifierName(call.callee as AstNode));
+    if (origin.verbaly === false) return false;
+    const how = T_FACTORIES.get(origin.imported);
+    return how !== undefined && (how === 'await') === awaited;
+  }
+
+  // { t: x } reads from something verbaly handed out, or from an auto-imported instance factory
+  private carriesT(init: AstNode): boolean {
+    const inner = init.type === 'AwaitExpression' ? (init.argument as AstNode) : init;
+    const read = inner.type === 'CallExpression' ? (inner.callee as AstNode) : inner;
+    const name = identifierName(read);
+    if (!name) return false;
+    const origin = this.origin(name);
+    return origin.verbaly ?? INSTANCE_FACTORIES.has(name);
+  }
+
+  private origin(local: string): { verbaly: boolean | undefined; imported: string } {
+    const found = this.imports.get(local);
+    if (!found) return { verbaly: undefined, imported: local };
+    return { verbaly: VERBALY_SOURCE.test(found.source), imported: found.imported };
+  }
+}
+
+function importedName(node: AstNode): string {
+  return node.type === 'StringLiteral' ? (node.value as string) : identifierName(node);
 }
 
 function identifierName(node: AstNode | null | undefined): string {
@@ -190,6 +292,20 @@ function renamedTag(tag: AstNode, renamed: ReadonlySet<string>): string | undefi
   if (identifierName(callee.property as AstNode) !== 'id') return undefined;
   const object = identifierName(callee.object as AstNode);
   return renamed.has(object) ? object : undefined;
+}
+
+// the key a tagged template on a renamed t would have had: its quoted id, or its text's hash
+function missedKey(code: string, node: AstNode, names: ReadonlySet<string>): string | undefined {
+  const tag = node.tag as AstNode;
+  if (tag.type === 'CallExpression') {
+    const args = tag.arguments as AstNode[];
+    const first = args[0];
+    return args.length === 1 && first?.type === 'StringLiteral'
+      ? (first.value as string)
+      : undefined;
+  }
+  const message = buildMessage(code, node.quasi as AstNode, names);
+  return message ? stableKey(message.text) : undefined;
 }
 
 // every string leaf is a key: the call is the author saying so, and '' still means untranslated
@@ -260,6 +376,7 @@ function handleTrans(
       params: built.params,
       start: node.start,
       end: node.end,
+      line: lineOf(node),
       tagStart: nameNode.start,
       tagEnd: nameNode.end,
       file,

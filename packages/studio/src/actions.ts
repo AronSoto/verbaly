@@ -3,17 +3,15 @@ import {
   counted,
   extractProject,
   loadCatalogs,
+  loadState,
   mergeTranslations,
+  recordTranslations,
   resolveProvider,
-  syncCatalogs,
+  shippedCatalogs,
+  syncProject,
   translateCatalogs,
-  writeCatalog,
-  writeDts,
-  markDrafts,
-  loadDrafts,
-  saveDrafts,
 } from '@verbaly/compiler';
-import type { ResolvedConfig } from '@verbaly/compiler';
+import type { ResolvedConfig, TranslationWrite } from '@verbaly/compiler';
 import { badRequest } from './http';
 import { advance, finish, start, type Job } from './jobs';
 
@@ -21,7 +19,11 @@ export interface ExtractResult {
   added: Record<string, string[]>;
   // only the source locale counts as new text: a target gains a blank for every gap it had
   found: number;
+  // source texts the code wrote over, a hand edit in the catalog among them
+  replaced: number;
   messages: number;
+  // the sidecar could not be read or written: the catalogs were, its drafts and stamps were not
+  stateProblem?: string;
 }
 
 // Local, fast and free, so it answers in the same request instead of becoming a job.
@@ -29,14 +31,15 @@ export async function runExtract(cfg: ResolvedConfig): Promise<ExtractResult> {
   if (!cfg.include.length) {
     throw badRequest('source scanning is off (include: []), so there is nothing to extract');
   }
-  const registry = await extractProject(cfg);
-  const catalogs = loadCatalogs(cfg);
-  const result = syncCatalogs(cfg, catalogs, registry);
-  for (const locale of cfg.locales) writeCatalog(cfg, locale, catalogs[locale] ?? {});
-  // the types come from the source catalog; writeDts skips them when the project set dts: false
-  writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
-  const found = result.added[cfg.sourceLocale]?.length ?? 0;
-  return { added: result.added, found, messages: registry.messages().size };
+  // the same path as the CLI: catalogs, types and the review state move together
+  const result = await syncProject(cfg);
+  return {
+    added: result.added,
+    found: result.added[cfg.sourceLocale]?.length ?? 0,
+    replaced: result.replaced.length,
+    messages: result.registry.messages().size,
+    ...(result.stateProblem && { stateProblem: result.stateProblem }),
+  };
 }
 
 export interface Plan {
@@ -54,6 +57,8 @@ export async function planTranslate(cfg: ResolvedConfig, locales?: string[]): Pr
 }
 
 export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): Promise<Job> {
+  // a machine translation that lost its draft flag passes as reviewed: read the state first
+  loadState(cfg);
   const provider = await resolveProvider(cfg);
   // the job carries its own denominator, so progress reads the same whether or not you asked first
   const plan = await planTranslate(cfg, locales);
@@ -63,26 +68,33 @@ export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): P
   // the run outlives this request on purpose: the client asks the job how it is going
   void (async () => {
     try {
-      const catalogs = loadCatalogs(cfg);
+      const registry = await extractProject(cfg);
+      // the provider reads the text that ships, which is the text its answer has to match
+      const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
       const result = await translateCatalogs(cfg, catalogs, provider, {
         locales,
         batchSize: cfg.translate.batchSize,
         concurrency: cfg.translate.concurrency,
         retries: cfg.translate.retries,
-        origins: await collectOrigins(cfg),
+        origins: await collectOrigins(cfg, registry),
         onProgress: (p) => advance(id, p.keys, p.locale, p.error),
       });
       // what a machine wrote stays a draft: the panel does not get to change that rule
-      const drafts = loadDrafts(cfg);
+      const writes: TranslationWrite[] = [];
       let written = 0;
       let kept = 0;
       for (const [locale, keys] of Object.entries(result.translated)) {
-        const landed = mergeTranslations(cfg, locale, catalogs[locale] ?? {}, keys);
-        markDrafts(drafts, locale, landed);
+        const catalog = catalogs[locale] ?? {};
+        const landed = mergeTranslations(cfg, locale, catalog, keys);
+        writes.push({
+          locale,
+          draft: true,
+          entries: landed.map((key) => ({ key, text: catalog[key]! })),
+        });
         written += landed.length;
         kept += keys.length - landed.length;
       }
-      saveDrafts(cfg, drafts);
+      recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
       // on a failure the panel shows only this line, so it says what landed and what did not
       const failed = result.failed[0];
       finish(id, failed ? 'failed' : 'done', {

@@ -50,6 +50,7 @@ export interface ImportResult {
   unknown: Record<string, string[]>;
   unmatched: { file: string; locale: string; reason: 'undeclared' | 'invalid' }[];
   mapped: { file: string; from: string; to: string }[];
+  sources: Record<string, Record<string, string>>;
 }
 
 // One file per target locale: source text + current translation
@@ -153,6 +154,7 @@ export function importCatalogs(
     unknown: {},
     unmatched: [],
     mapped: [],
+    sources: {},
   };
 
   for (const file of files) {
@@ -198,6 +200,8 @@ export function importCatalogs(
       }
       if (!options.dryRun) catalog[key] = text;
       (result.imported[locale] ??= []).push(key);
+      const seen = parsed.sources[key];
+      if (seen) (result.sources[locale] ??= {})[key] = seen;
     }
   }
   return result;
@@ -213,6 +217,8 @@ interface ExchangeEntry {
 interface ParsedFile {
   locale: string;
   entries: Record<string, string>;
+  // the source text the translator saw, when the format carries one
+  sources: Record<string, string>;
 }
 
 export function parseExchangeFile(file: string, localeOverride?: string): ParsedFile {
@@ -223,16 +229,16 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
     if (!locale) {
       throw new Error(`[verbaly] ${file} has no trgLang/target-language, pass --locale <id>.`);
     }
-    return { locale, entries: parsed.entries };
+    return { locale, entries: parsed.entries, sources: parsed.sources };
   }
   if (/\.csv$/i.test(file)) {
     const locale = localeOverride ?? basename(file).replace(/\.csv$/i, '');
-    return { locale, entries: parseCsv(content) };
+    return { locale, ...parseCsv(content) };
   }
   if (/\.po$/i.test(file)) {
     const parsed = parsePo(content);
     const locale = localeOverride ?? parsed.locale ?? basename(file).replace(/\.po$/i, '');
-    return { locale, entries: parsed.entries };
+    return { locale, entries: parsed.entries, sources: parsed.sources };
   }
   throw new Error(`[verbaly] ${file}: unsupported format, expected .xlf, .xliff, .csv or .po.`);
 }
@@ -277,19 +283,26 @@ function newLocale(cfg: ResolvedConfig, detected: string): string | undefined {
   return isLocaleTag(detected) ? detected : suggestTag(detected);
 }
 
-function parseXliff(content: string): { locale?: string; entries: Record<string, string> } {
+function parseXliff(content: string): {
+  locale?: string;
+  entries: Record<string, string>;
+  sources: Record<string, string>;
+} {
   const locale =
     /\btrgLang\s*=\s*"([^"]+)"/.exec(content)?.[1] ??
     /\btarget-language\s*=\s*"([^"]+)"/.exec(content)?.[1];
   const entries = Object.create(null) as Record<string, string>;
+  const sources = Object.create(null) as Record<string, string>;
   const UNIT = /<(?:trans-)?unit\b([^>]*)>([\s\S]*?)<\/(?:trans-)?unit>/g;
   for (const match of content.matchAll(UNIT)) {
     const id = /\bid\s*=\s*"([^"]*)"/.exec(match[1]!)?.[1];
     if (!id) continue;
     const target = /<target\b[^>]*>([\s\S]*?)<\/target>/.exec(match[2]!)?.[1];
     entries[unescapeXml(id)] = target === undefined ? '' : inlineToMessage(stripCdata(target));
+    const source = /<source\b[^>]*>([\s\S]*?)<\/source>/.exec(match[2]!)?.[1];
+    if (source !== undefined) sources[unescapeXml(id)] = inlineToMessage(stripCdata(source));
   }
-  return { locale, entries };
+  return { locale, entries, sources };
 }
 
 function stripCdata(text: string): string {
@@ -309,20 +322,28 @@ function csvField(text: string): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function parseCsv(content: string): Record<string, string> {
+function parseCsv(content: string): {
+  entries: Record<string, string>;
+  sources: Record<string, string>;
+} {
   const rows = csvRows(content);
   const header = rows[0]?.map((cell) => cell.trim().toLowerCase()) ?? [];
   const keyCol = header.indexOf('key');
   const targetCol = header.indexOf('target');
+  const sourceCol = header.indexOf('source');
   if (keyCol === -1 || targetCol === -1) {
     throw new Error('[verbaly] CSV needs a header row with "key" and "target" columns.');
   }
   const entries = Object.create(null) as Record<string, string>;
+  const sources = Object.create(null) as Record<string, string>;
   for (const row of rows.slice(1)) {
     const key = row[keyCol];
-    if (key) entries[key] = row[targetCol] ?? '';
+    if (!key) continue;
+    entries[key] = row[targetCol] ?? '';
+    const source = sourceCol === -1 ? undefined : row[sourceCol];
+    if (source) sources[key] = source;
   }
-  return entries;
+  return { entries, sources };
 }
 
 function csvRows(content: string): string[][] {

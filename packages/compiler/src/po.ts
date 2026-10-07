@@ -29,8 +29,13 @@ export function toPo(sourceLocale: string, locale: string, entries: PoEntry[]): 
   return [header, ...blocks, ''].join('\n\n');
 }
 
-export function parsePo(content: string): { locale?: string; entries: Record<string, string> } {
+export function parsePo(content: string): {
+  locale?: string;
+  entries: Record<string, string>;
+  sources: Record<string, string>;
+} {
   const entries = Object.create(null) as Record<string, string>;
+  const sources = Object.create(null) as Record<string, string>;
   let locale: string | undefined;
 
   let msgctxt: string | undefined;
@@ -45,6 +50,7 @@ export function parsePo(content: string): { locale?: string; entries: Record<str
       if (lang) locale = lang;
     } else if (msgctxt !== undefined && msgid !== undefined) {
       entries[msgctxt] = fuzzy ? '' : (msgstr ?? '');
+      sources[msgctxt] = msgid;
     }
     msgctxt = msgid = msgstr = field = undefined;
     fuzzy = false;
@@ -88,7 +94,7 @@ export function parsePo(content: string): { locale?: string; entries: Record<str
     else msgstr = (msgstr ?? '') + continuation;
   }
   finish();
-  return { locale, entries };
+  return { locale, entries, sources };
 }
 
 function poString(text: string): string {

@@ -1,5 +1,6 @@
 import type { PluginOptions } from '@verbaly/compiler';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import {
   GENERATED_DIR,
@@ -95,7 +96,7 @@ export function withVerbaly<C extends object>(
     let gate: (() => void) | undefined;
 
     if (phase === DEV_PHASE) {
-      const texts = syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
+      const texts = await syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
       startWatcher(compiler, cfg, requestOptions, texts);
     } else {
       // the code's text ships, as it does in dev: a catalog edit of a text it owns never wins
@@ -115,14 +116,23 @@ export function withVerbaly<C extends object>(
   };
 }
 
+const HOOK_FILE = 'next/dist/build/after-production-compile.js';
+
 // next build calls compiler.runAfterProductionCompile since 15.4; NODE_PATH may name another next
 function hasAfterCompileHook(root: string): boolean {
   for (let dir = root; ; dir = dirname(dir)) {
     const next = join(dir, 'node_modules', 'next');
-    if (existsSync(join(next, 'package.json'))) {
-      return existsSync(join(next, 'dist', 'build', 'after-production-compile.js'));
-    }
-    if (dirname(dir) === dir) return false;
+    if (existsSync(join(next, 'package.json')))
+      return existsSync(join(dir, 'node_modules', HOOK_FILE));
+    if (dirname(dir) === dir) break;
+  }
+  // Yarn PnP has no node_modules, and its resolver finds the project's own next, never NODE_PATH's
+  if (!process.versions.pnp) return false;
+  try {
+    createRequire(join(root, 'package.json')).resolve(HOOK_FILE);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -154,7 +164,14 @@ function composeConfig<C extends object>(
         // after the compile, so next typegen, which loads this config too, never meets the gate
         async runAfterProductionCompile(metadata: never) {
           await userCompiler?.runAfterProductionCompile?.(metadata);
-          gate();
+          try {
+            gate();
+          } catch (error) {
+            // Next prints a failed hook twice: the report goes out once, and the throw stays short
+            console.error((error as Error).message);
+            // eslint-disable-next-line preserve-caught-error -- a cause would print the report again
+            throw new Error('[verbaly] build blocked, the reason is printed above');
+          }
         },
       },
     }),

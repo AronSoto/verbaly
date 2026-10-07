@@ -347,3 +347,56 @@ describe('transformCode on SFCs', () => {
     expect(transformCode('<p>hola</p>', 'App.svelte')).toBeNull();
   });
 });
+
+describe('a t under another name in a component (0.68.0)', () => {
+  // Proved able to fail by merging script blocks without their missed calls: nothing reported.
+  it('reports a vue script tag on a renamed t, at its line in the file', () => {
+    const code = [
+      '<script setup>',
+      "import { useT } from '@verbaly/vue';",
+      'const tr = useT();',
+      'const label = tr`Hola`;',
+      '</script>',
+    ].join('\n');
+    const { missed } = analyzeSfc(code, 'App.vue');
+    expect(missed.map((call) => [call.name, call.line])).toEqual([['tr', 4]]);
+  });
+
+  // Proved able to fail by scanning the markup for t alone: prune deleted home.title.
+  it('reads the markup with the script bindings, so its keys outlive prune', () => {
+    const vue = analyzeSfc(
+      '<script setup>\nconst tr = useT();\n</script>\n<template><p>{{ tr(\'home.title\') }}</p>\n<p :title="tr`Hola`"></p></template>',
+      'App.vue',
+    );
+    expect(vue.usedKeys).toContainEqual({ key: 'home.title', file: 'App.vue', loose: true });
+    expect(vue.missed.map((call) => [call.name, call.line])).toEqual([['tr', 5]]);
+    expect(vue.tagged).toEqual([]);
+  });
+
+  it('follows a svelte store read as $name, the way t is read as $t', () => {
+    const svelte = analyzeSfc(
+      "<script>\nimport { useT } from '@verbaly/svelte';\nconst tr = useT();\n</script>\n<p>{$tr('home.title')}</p>\n<p>{$tr`Hola`}</p>",
+      'App.svelte',
+    );
+    expect(svelte.usedKeys).toContainEqual({ key: 'home.title', file: 'App.svelte', loose: true });
+    expect(svelte.missed.map((call) => [call.name, call.line])).toEqual([['$tr', 6]]);
+    expect(svelte.usedKeys).toContainEqual({
+      key: stableKey('Hola'),
+      file: 'App.svelte',
+      loose: true,
+    });
+  });
+
+  it('reads an astro frontmatter import of t under another name', () => {
+    const astro = analyzeSfc(
+      "---\nimport { t as tr } from 'virtual:verbaly';\n---\n<h1>{tr`Hola`}</h1>",
+      'Page.astro',
+    );
+    expect(astro.missed.map((call) => [call.name, call.line])).toEqual([['tr', 4]]);
+  });
+
+  it('gives a markup message the line it is written on', () => {
+    const { tagged } = analyzeSfc('<p>one</p>\n\n<p>{t`Hola`}</p>', 'App.svelte');
+    expect(tagged.map((msg) => msg.line)).toEqual([3]);
+  });
+});

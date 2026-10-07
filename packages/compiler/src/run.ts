@@ -1,37 +1,36 @@
-import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
 import {
   check,
   checkNextSteps,
-  collisionEntries,
   formatCheckResult,
   formatCheckWarnings,
-  formatCollision,
   githubCheckAnnotations,
 } from './check';
-import { writeDts } from './codegen';
 import { loadConfig, type ResolvedConfig } from './config';
 import { doctor, formatDoctorEntry } from './doctor';
-import { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './drafts';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
-import { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './extract';
+import { collectOrigins, extractProject, shippedCatalogs } from './extract';
+import { createDevReporter, formatFinding } from './findings';
 import { init } from './init';
 import { migrateCatalogs } from './migrate';
+import { syncProject } from './project';
 import { PSEUDO_LOCALE, pseudoCatalogs } from './pseudo';
 import { formatRenderWarnings, renderSite } from './render';
-import { createLocator } from './location';
-import type { MessageRegistry } from './registry';
 import {
   acceptOutdated,
+  clearDrafts,
+  effectiveDrafts,
   loadState,
   outdatedTranslations,
+  readState,
+  recordTranslations,
   saveState,
-  updateState,
   type State,
+  type TranslationWrite,
 } from './state';
 import { formatStatusResult, status } from './status';
-import { counted } from './text';
+import { counted, truncate } from './text';
 import {
   formatTranslateFailures,
   mergeTranslations,
@@ -39,7 +38,6 @@ import {
   translateCatalogs,
   type TranslateProgress,
 } from './translate';
-import { escapedSyntax } from './validate';
 import { watchProject } from './watch';
 import { wrapProject } from './wrap';
 
@@ -54,7 +52,7 @@ Usage:
   verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
-  verbaly review     list translations awaiting review: machine drafts and outdated ones (--approve accepts them)
+  verbaly review [keys…]  list translations awaiting review: machine drafts and outdated ones (--approve accepts them)
   verbaly export     write translator files (XLIFF 2.0, CSV, gettext PO) or mobile resources (Android, iOS)
   verbaly import <files…>  fill catalogs back from translated XLIFF/CSV/PO files
   verbaly pseudo     generate a pseudo-locale catalog for i18n QA (default: en-XA)
@@ -72,7 +70,7 @@ Options:
   --json             machine-readable output (status)
   --drafts           also fail on unreviewed machine translations (check)
   --outdated         also fail on translations written for an older source text (check)
-  --approve          mark listed drafts as reviewed (review)
+  --approve          accept what review lists, drafts and outdated, or only the keys given (review)
   --reporter <name>  failure format: text (default) or github annotations (check)
   --model <id>       model override for the claude provider (translate)
   --dry-run          list what would happen, write nothing (translate, import, extract)
@@ -197,47 +195,46 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
 
+    // a watch run says each warning once, and again only after it went away and came back
+    const reporter = values.watch
+      ? createDevReporter(cfg.root, (line) => console.warn(`  ${line}`))
+      : undefined;
+
     async function runExtract(): Promise<void> {
-      const registry = await extractProject(cfg);
-      const catalogs = loadCatalogs(cfg);
-      if (values.prune) {
-        const removed = pruneCatalogs(cfg, catalogs, registry);
-        const unread = registry.parseErrors().length;
-        if (unread > 0) {
-          console.warn(
-            `  prune skipped: an unparsed file may read any key (${counted(unread, 'file')} below), so it waits until every file parses`,
-          );
-        }
-        for (const [locale, keys] of Object.entries(removed)) {
-          console.log(
-            dryRun
-              ? `  ${locale}: would prune ${keys.length}: ${keys.join(', ')}`
-              : `  ${locale}: -${keys.length} pruned`,
-          );
-        }
+      const result = await syncProject(cfg, { prune: values.prune, dryRun });
+      if (result.pruneBlocked) {
+        const unread = result.registry.parseErrors().length;
+        console.warn(
+          `  prune skipped: an unparsed file may read any key (${counted(unread, 'file')} below), so it waits until every file parses`,
+        );
       }
-      const { added, replaced } = syncCatalogs(cfg, catalogs, registry);
-      if (!dryRun) {
-        for (const locale of cfg.locales) {
-          writeCatalog(cfg, locale, catalogs[locale] ?? {});
-        }
-        writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
-        // drafts and fingerprints follow the catalogs, so a pruned key takes its draft with it
-        updateState(cfg, catalogs);
+      for (const [locale, keys] of Object.entries(result.pruned)) {
+        console.log(
+          dryRun
+            ? `  ${locale}: would prune ${keys.length}: ${keys.join(', ')}`
+            : `  ${locale}: -${keys.length} pruned`,
+        );
       }
-      const total = registry.messages().size;
+      const total = result.registry.messages().size;
       console.log(
         `[verbaly] ${counted(total, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
       );
-      for (const [locale, keys] of Object.entries(added)) {
+      for (const [locale, keys] of Object.entries(result.added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
       }
-      reportReplaced(cfg, registry, replaced, dryRun);
-      for (const entry of collisionEntries(registry)) console.warn(formatCollision(entry, cfg.root));
-      reportParseErrors(cfg, registry);
-      reportEscapedSyntax(cfg, registry);
-      reportMissed(cfg, registry);
-      reportPositional(cfg, registry);
+      // news either way: an edit made in the code, or one the code undid in the catalog
+      const warnings = result.findings.filter((finding) => {
+        if (finding.kind !== 'replaced') return true;
+        console.log(`  ${formatFinding(finding, cfg.root)}`);
+        return false;
+      });
+      if (reporter) reporter.report('extract', warnings);
+      else for (const finding of warnings) console.warn(`  ${formatFinding(finding, cfg.root)}`);
+      if (result.stateProblem) {
+        console.warn(
+          `  ${result.stateProblem}, so drafts and outdated translations were not updated`,
+        );
+      }
     }
 
     await runExtract();
@@ -320,7 +317,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   if (command === 'status') {
     const registry = await extractProject(cfg);
-    const state = loadState(cfg);
+    const { state, problem } = readState(cfg);
+    if (problem) {
+      console.warn(`[verbaly] ${problem}, so drafts and outdated translations are not counted`);
+    }
     const result = status(cfg, loadCatalogs(cfg), registry, state.drafts, state.fingerprints);
     console.log(values.json ? JSON.stringify(result) : formatStatusResult(result));
     return;
@@ -339,47 +339,55 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const result = check(cfg, catalogs, registry, state.fingerprints);
     // opt-in: unreviewed machine translations and outdated ones block the merge too
     const unreviewed = values.drafts ? effectiveDrafts(state.drafts, catalogs) : {};
-    const draftKeys = Object.entries(unreviewed);
     const outdated = values.outdated ? result.outdated : [];
+    const gated = { outdatedFails: values.outdated === true };
     // the annotations carry both severities, so they print whether the gate passes or not
     if (reporter === 'github') {
-      for (const line of githubCheckAnnotations(result, registry, cfg.root)) {
+      for (const line of githubCheckAnnotations(result, registry, cfg, gated)) {
         console.error(line);
       }
     } else {
-      const warnings = formatCheckWarnings(result, cfg.root);
+      const warnings = formatCheckWarnings(result, cfg.root, gated);
       if (warnings) console.warn(`[verbaly] warnings (the gate still passes)\n${warnings}`);
     }
 
-    if (result.ok && draftKeys.length === 0 && outdated.length === 0) {
+    const awaiting = [
+      ...Object.entries(unreviewed).map(
+        ([locale, keys]) => `  [${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`,
+      ),
+      ...byLocale(outdated).map(
+        ([locale, keys]) => `  [${locale}] ${keys.length} outdated: ${keys.join(', ')}`,
+      ),
+    ];
+    if (result.ok && awaiting.length === 0) {
       console.log('[verbaly] all translations complete ✓');
       return;
     }
-    if (result.ok) {
-      for (const [locale, keys] of draftKeys) {
-        console.error(`  [${locale}] ${keys.length} unreviewed: ${keys.join(', ')}`);
-      }
-      for (const [locale, keys] of byLocale(outdated)) {
-        console.error(`  [${locale}] ${keys.length} outdated: ${keys.join(', ')}`);
-      }
+    if (!result.ok) {
+      const brokenCount = result.broken.filter((entry) => entry.severity === 'error').length;
+      const report =
+        reporter === 'github'
+          ? `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`
+          : `[verbaly] check failed\n${formatCheckResult(result, cfg.root)}`;
+      console.error(`${report}\n${checkNextSteps(result)}`);
+    }
+    // printed whether or not the gate failed too: a flag that fails the run names what it found
+    if (awaiting.length > 0) {
+      for (const line of awaiting) console.error(line);
       console.error(
         '[verbaly] check failed: translations awaiting review (run verbaly review, then --approve what holds)',
       );
-      process.exitCode = 1;
-      return;
     }
-    const brokenCount = result.broken.filter((entry) => entry.severity === 'error').length;
-    const report =
-      reporter === 'github'
-        ? `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`
-        : `[verbaly] check failed\n${formatCheckResult(result, cfg.root)}`;
-    console.error(`${report}\n${checkNextSteps(result)}`);
     process.exitCode = 1;
     return;
   }
 
   if (command === 'translate') {
-    const catalogs = loadCatalogs(cfg);
+    // a machine translation that lost its draft flag passes as reviewed: read the state first
+    if (!values['dry-run']) loadState(cfg);
+    const registry = await extractProject(cfg);
+    // the provider reads the text that ships, which is the text its answer has to match
+    const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
     const provider = await resolveProvider(cfg, values.model);
     const result = await translateCatalogs(cfg, catalogs, provider, {
       locales: csv(values.locales),
@@ -387,8 +395,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       concurrency: cfg.translate.concurrency,
       retries: cfg.translate.retries,
       dryRun: values['dry-run'],
-      // dry-run never calls the provider: skip the full extract origins need
-      origins: values['dry-run'] ? undefined : await collectOrigins(cfg),
+      // dry-run never calls the provider, so it sends no origins either
+      origins: values['dry-run'] ? undefined : await collectOrigins(cfg, registry),
       onProgress: values['dry-run'] ? undefined : reportProgress,
     });
 
@@ -404,18 +412,24 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
 
-    // machine output is a draft until a human reviews it (verbaly review / import)
-    const drafts = loadDrafts(cfg);
+    // machine output is a draft until a human reviews it, stamped with the text it was made for
+    const source = catalogs[cfg.sourceLocale] ?? {};
+    const writes: TranslationWrite[] = [];
     for (const [locale, keys] of Object.entries(result.translated)) {
-      const written = mergeTranslations(cfg, locale, catalogs[locale] ?? {}, keys);
-      markDrafts(drafts, locale, written);
+      const catalog = catalogs[locale] ?? {};
+      const written = mergeTranslations(cfg, locale, catalog, keys);
+      writes.push({
+        locale,
+        draft: true,
+        entries: written.map((key) => ({ key, text: catalog[key]! })),
+      });
       console.log(`  ${locale}: +${written.length} translated (draft)`);
       const kept = keys.length - written.length;
       if (kept > 0) {
         console.log(`  ${locale}: ${counted(kept, 'message')} kept as written while this ran`);
       }
     }
-    if (Object.keys(result.translated).length > 0) saveDrafts(cfg, drafts);
+    if (writes.length > 0) recordTranslations(cfg, source, writes);
     for (const [locale, keys] of Object.entries(result.invalid)) {
       console.warn(
         `  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,
@@ -434,54 +448,65 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   }
 
   if (command === 'review') {
+    const registry = await extractProject(cfg);
     const catalogs = loadCatalogs(cfg);
+    // outdated against the text that ships, the one status and check count it against
+    const shipped = shippedCatalogs(cfg, catalogs, registry);
     const state = loadState(cfg);
-    const live = effectiveDrafts(state.drafts, catalogs);
-    const targets = values.locale ? { [values.locale]: live[values.locale] ?? [] } : live;
-    const entries = Object.entries(targets).filter(([, keys]) => keys.length);
-    const outdated = outdatedTranslations(cfg, catalogs, state.fingerprints).filter(
-      (entry) => !values.locale || entry.locale === values.locale,
-    );
+    const only = new Set(positionals.slice(1));
+    const wanted = ({ locale, key }: { locale: string; key: string }): boolean =>
+      (!values.locale || locale === values.locale) && (only.size === 0 || only.has(key));
+    const drafts = Object.entries(effectiveDrafts(state.drafts, catalogs))
+      .flatMap(([locale, keys]) => keys.map((key) => ({ locale, key })))
+      .filter(wanted);
+    const outdated = outdatedTranslations(cfg, shipped, state.fingerprints).filter(wanted);
 
-    if (entries.length === 0 && outdated.length === 0) {
+    if (drafts.length === 0 && outdated.length === 0) {
       console.log('[verbaly] nothing awaiting review ✓');
       return;
     }
 
     if (values.approve) {
-      let count = 0;
-      for (const [locale, keys] of entries) {
+      for (const [locale, keys] of byLocale(drafts)) {
         clearDrafts(state.drafts, locale, keys);
-        count += keys.length;
         console.log(`  ${locale}: ${keys.length} approved`);
       }
       // a person read the old translation against the new source and kept it
-      acceptOutdated(cfg, catalogs, state.fingerprints, outdated);
+      acceptOutdated(cfg, shipped, state.fingerprints, outdated);
       for (const [locale, keys] of byLocale(outdated)) {
         console.log(`  ${locale}: ${keys.length} kept for the new source text`);
-        count += keys.length;
       }
       saveState(cfg, state);
-      console.log(`[verbaly] ${counted(count, 'translation')} marked reviewed ✓`);
+      // a draft can be outdated as well, and it is still one translation reviewed
+      const reviewed = new Set(
+        [...drafts, ...outdated].map(({ locale, key }) => `${locale}:${key}`),
+      );
+      console.log(`[verbaly] ${counted(reviewed.size, 'translation')} marked reviewed ✓`);
       return;
     }
 
-    if (entries.length > 0) {
-      const total = entries.reduce((sum, [, keys]) => sum + keys.length, 0);
-      console.log(
-        `[verbaly] ${counted(total, 'machine translation')} awaiting review (--approve to accept)`,
-      );
-      for (const [locale, keys] of entries) {
-        console.log(`  ${locale}: ${keys.join(', ')}`);
+    // a key alone cannot be judged: each line shows the text that ships and its translation
+    const source = shipped[cfg.sourceLocale] ?? {};
+    const show = (locale: string, keys: string[]): void => {
+      console.log(`  ${locale}:`);
+      for (const key of keys) {
+        const translated = catalogs[locale]?.[key] ?? '';
+        console.log(
+          `    ${key}: "${truncate(source[key] ?? '', 60)}" → "${truncate(translated, 60)}"`,
+        );
       }
+    };
+    if (drafts.length > 0) {
+      console.log(
+        `[verbaly] ${counted(drafts.length, 'machine translation')} awaiting review (--approve to accept)`,
+      );
+      for (const [locale, keys] of byLocale(drafts)) show(locale, keys);
     }
     if (outdated.length > 0) {
       console.log(
         `[verbaly] ${counted(outdated.length, 'translation')} written for an older source text (update them, or --approve keeps them)`,
       );
-      for (const [locale, keys] of byLocale(outdated)) {
-        console.log(`  ${locale}: ${keys.join(', ')}`);
-      }
+      for (const [locale, keys] of byLocale(outdated)) show(locale, keys);
     }
     return;
   }
@@ -502,13 +527,16 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       process.exitCode = 1;
       return;
     }
-    const result = exportCatalogs(cfg, loadCatalogs(cfg), {
+    const registry = await extractProject(cfg);
+    // a translator gets the text that ships, never a catalog the code has since moved past
+    const shipped = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
+    const result = exportCatalogs(cfg, shipped, {
       locales: csv(values.locales),
       format,
       out: values.out,
       missing: values.missing,
-      // mobile formats are delivery-only: no translator reads them, skip the scan
-      origins: isMobileFormat(format) ? undefined : await collectOrigins(cfg),
+      // mobile formats are delivery-only: no translator reads where a text lives
+      origins: isMobileFormat(format) ? undefined : await collectOrigins(cfg, registry),
     });
     if (result.files.length === 0) {
       console.log('[verbaly] no target locales to export (add locales to your config)');
@@ -535,7 +563,11 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       process.exitCode = 1;
       return;
     }
-    const catalogs = loadCatalogs(cfg);
+    // the draft flags are written after the catalogs: an unreadable state writes neither
+    if (!values['dry-run']) loadState(cfg);
+    const registry = await extractProject(cfg);
+    // checked against the text that ships, like check reads every translation
+    const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
     const result = importCatalogs(cfg, catalogs, files, {
       locale: values.locale,
       overwrite: values.overwrite,
@@ -559,20 +591,20 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       }
       process.exitCode = 1;
     }
-    // a person's file clears the draft flag, unless --draft says nobody has read it yet
-    const drafts = loadDrafts(cfg);
-    let draftsChanged = false;
+    // a person's file clears the draft flag unless --draft, stamped with the source it carried
+    const writes: TranslationWrite[] = [];
     for (const [locale, keys] of Object.entries(result.imported)) {
       if (!values['dry-run']) {
-        writeCatalog(cfg, locale, catalogs[locale] ?? {});
-        if (values.draft) markDrafts(drafts, locale, keys);
-        else clearDrafts(drafts, locale, keys);
-        draftsChanged = true;
+        const catalog = catalogs[locale] ?? {};
+        writeCatalog(cfg, locale, catalog);
+        const seen = result.sources[locale] ?? {};
+        const entries = keys.map((key) => ({ key, text: catalog[key]!, source: seen[key] }));
+        writes.push({ locale, entries, draft: values.draft === true });
       }
       const verb = values['dry-run'] ? 'would import' : 'imported';
       console.log(`  ${locale}: +${keys.length} ${verb}${values.draft ? ' (draft)' : ''}`);
     }
-    if (draftsChanged) saveDrafts(cfg, drafts);
+    if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
     for (const [locale, keys] of Object.entries(result.skipped)) {
       console.log(
         `  ${locale}: ${keys.length} already translated, kept (use --overwrite to replace)`,
@@ -646,87 +678,22 @@ export function formatCliError(error: unknown): string {
   return message.startsWith('[verbaly]') ? message : `[verbaly] ${message}`;
 }
 
-// the file is named because babel's message never is: a bare position is unactionable
-function reportParseErrors(cfg: ResolvedConfig, registry: MessageRegistry): void {
-  for (const { file, message } of registry.parseErrors()) {
-    const rel = relative(cfg.root, file).replaceAll('\\', '/');
-    console.warn(`  ${rel}: could not be parsed (${message}), its messages were not extracted`);
-  }
-}
-
-// a text the code owns was edited in the catalog: say whose it is instead of erasing it quietly
-function reportReplaced(
-  cfg: ResolvedConfig,
-  registry: MessageRegistry,
-  replaced: string[],
-  dryRun: boolean | undefined,
-): void {
-  if (replaced.length === 0) return;
-  const messages = registry.messages();
-  const locate = createLocator();
-  const verb = dryRun ? 'would get' : 'got';
-  for (const key of replaced) {
-    const msg = messages.get(key);
-    if (!msg) continue;
-    const line = locate(msg.file, msg.start);
-    const place = `${relative(cfg.root, msg.file).replaceAll('\\', '/')}${line ? `:${line}` : ''}`;
-    console.warn(
-      `  ${cfg.sourceLocale}: ${key} ${verb} the text written in ${place}, the code owns it: edit it there`,
-    );
-  }
-}
-
-// a t under another name runs fine and never translates: the scanner only reads calls named t
-function reportMissed(cfg: ResolvedConfig, registry: MessageRegistry): void {
-  const locate = createLocator();
-  for (const { name, file, start } of registry.missed()) {
-    const line = locate(file, start);
-    const place = `${relative(cfg.root, file).replaceAll('\\', '/')}${line ? `:${line}` : ''}`;
-    console.warn(
-      `  ${place}: ${name}\`…\` is never extracted, so it stays in the source language: name it t`,
-    );
-  }
-}
-
-// a translator who reads {_0} cannot know what goes there
-function reportPositional(cfg: ResolvedConfig, registry: MessageRegistry): void {
-  for (const msg of registry.messages().values()) {
-    const nameless = msg.params.filter((param) => /^_\d+$/.test(param.name));
-    if (nameless.length === 0) continue;
-    const file = relative(cfg.root, msg.file).replaceAll('\\', '/');
-    const names = nameless.map((param) => `{${param.name}}`).join(', ');
-    console.warn(
-      `  ${file}: ${names} in "${msg.message}" reaches the translator without a name, put the value in a named variable first`,
-    );
-  }
-}
-
 // check reads the state for its warnings, and it only has to be readable when a flag gates on it
 function checkState(cfg: ResolvedConfig, gating: boolean): State {
-  try {
-    return loadState(cfg);
-  } catch (error) {
-    if (gating) throw error;
-    console.warn(`${formatCliError(error)}, so outdated translations are not reported`);
-    return { drafts: {}, fingerprints: {} };
-  }
+  if (gating) return loadState(cfg);
+  const { state, problem } = readState(cfg);
+  if (problem) console.warn(`[verbaly] ${problem}, so outdated translations are not reported`);
+  return state;
 }
 
 function byLocale(entries: { locale: string; key: string }[]): [string, string[]][] {
   const out = new Map<string, string[]>();
-  for (const { locale, key } of entries) out.set(locale, [...(out.get(locale) ?? []), key]);
-  return [...out];
-}
-
-// a block inside a tagged template ships as literal braces, and nothing else in the cycle sees it
-function reportEscapedSyntax(cfg: ResolvedConfig, registry: MessageRegistry): void {
-  for (const msg of registry.messages().values()) {
-    const slice = escapedSyntax(msg.message);
-    if (!slice) continue;
-    const file = relative(cfg.root, msg.file).replaceAll('\\', '/');
-    console.warn(`  ${file}: ${slice} renders as literal text, a tagged template has no params`);
-    console.warn('    use t(key, params) for a plural or format block, or pass a ${…} value');
+  for (const { locale, key } of entries) {
+    const keys = out.get(locale);
+    if (keys) keys.push(key);
+    else out.set(locale, [key]);
   }
+  return [...out];
 }
 
 // flags shared by every command (config overrides)

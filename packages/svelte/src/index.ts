@@ -18,7 +18,7 @@ export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verba
 }
 
 // store factories: also usable without context (app-level singleton)
-export function tStore<D extends DictionaryInput>(instance: Verbaly<D>): Readable<TFunction<D>> {
+export function tStore<D extends DictionaryInput>(instance: Verbaly<D>): Readable<Verbaly<D>['t']> {
   return {
     subscribe(run) {
       run(instance.t);
@@ -38,7 +38,8 @@ export function localeStore(instance: Verbaly): Writable<string> {
   };
 }
 
-export function useT<D extends DictionaryInput = DictionaryInput>(): Readable<TFunction<D>> {
+// typed by the project's catalog once verbaly.d.ts exists, by a dictionary when one is named
+export function useT<D extends DictionaryInput = DictionaryInput>(): Readable<Verbaly<D>['t']> {
   return tStore(useVerbaly<D>());
 }
 

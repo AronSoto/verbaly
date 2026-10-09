@@ -129,6 +129,19 @@ describe('createVerbalyMcp', () => {
     expect(Object.values(catalog)).toContain('Hello {name}');
   });
 
+  it('reads the text that ships, not a catalog the code has moved past', async () => {
+    const root = makeProject();
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    // the code changes its text and nobody extracts: an agent must translate the new one
+    writeFileSync(join(root, 'src', 'app.ts'), 'export const msg = t.id("greet")`Hi there`;\n');
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ greet: 'Hello' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ greet: '' }));
+    const read = await client.readResource({ uri: 'verbaly://catalog/en' });
+    const catalog = JSON.parse(resourceText(read)) as Record<string, string>;
+    expect(catalog.greet).toBe('Hi there');
+  });
+
   it('refuses a locale the project does not have, naming the ones it does', async () => {
     const client = await connect(makeProject());
     await expect(client.readResource({ uri: 'verbaly://catalog/fr' })).rejects.toThrow('en, es');
@@ -211,7 +224,9 @@ describe('createVerbalyMcp', () => {
       string
     >;
     expect(Object.values(es)).toEqual(['']);
-    expect(readFileSync(join(root, 'verbaly.d.ts'), 'utf8')).toContain('name');
+    // src/ is where a project without a framework slot keeps its types, never the root
+    expect(readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8')).toContain('name');
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
   });
 
   it('extract dryRun writes nothing', async () => {

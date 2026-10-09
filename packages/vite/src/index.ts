@@ -6,6 +6,7 @@ import {
   createSourceFilter,
   extractProject,
   formatCliError,
+  reportOutsideInclude,
   isTransformTarget,
   loadCatalogs,
   loadConfig,
@@ -167,6 +168,8 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
     // the code's text ships, as in dev: the whole scan runs before any module is emitted
     async buildStart() {
+      // dev and build alike: a file outside include writes a t`…` that no build translates
+      await reportOutsideInclude(cfg);
       if (!isBuild) return;
       syncCatalogs(cfg, catalogs, await extractProject(cfg));
     },

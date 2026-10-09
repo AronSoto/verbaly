@@ -1,12 +1,16 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { RichLink, Routing } from 'verbaly';
+import { defaultTypesPath } from './host';
 import { PSEUDO_LOCALE } from './pseudo';
 import type { TranslateProvider } from './translate';
 
 // a term maps to how it must come out: one rendering for every locale, or one per locale
 export type GlossaryEntry = string | Record<string, string>;
+
+// the extensions extract reads, shared by the default include and every pattern we suggest
+export const SOURCE_EXTENSIONS = '{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}';
 
 export interface TranslateConfig {
   provider?: 'claude' | TranslateProvider;
@@ -68,7 +72,7 @@ export interface ResolvedConfig {
   relative: boolean | undefined;
   include: string[];
   exclude: string[];
-  dts: string | false | undefined;
+  dts: string | false;
   translate: TranslateConfig;
   render: RenderConfig;
   bundle: BundleConfig;
@@ -101,9 +105,15 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     icu: config.icu,
     relative: config.relative,
     locales: [...locales],
-    include: config.include ?? ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}'],
+    include: config.include ?? [`{src,app}/**/*.${SOURCE_EXTENSIONS}`],
     exclude: config.exclude ?? ['**/node_modules/**', '**/dist/**'],
-    dts: typeof config.dts === 'string' ? resolve(root, config.dts) : config.dts,
+    // decided once here, so every writer and doctor look in the same place
+    dts:
+      typeof config.dts === 'string'
+        ? resolve(root, config.dts)
+        : config.dts === false
+          ? false
+          : defaultTypesPath(root),
     translate: config.translate ?? {},
     render: config.render ?? {},
     bundle: config.bundle ?? {},
@@ -126,7 +136,9 @@ export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
   for (const name of ['verbaly.config.js', 'verbaly.config.mjs']) {
     const path = join(root, name);
     if (existsSync(path)) {
-      const mod = (await import(pathToFileURL(path).href)) as { default?: VerbalyConfig };
+      // Node caches a module by url: without the mtime, a long-lived process keeps the old config
+      const url = `${pathToFileURL(path).href}?mtime=${statSync(path).mtimeMs}`;
+      const mod = (await import(url)) as { default?: VerbalyConfig };
       return mod.default ?? {};
     }
   }

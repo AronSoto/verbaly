@@ -1,26 +1,16 @@
 import {
-  cloneElement,
   createContext,
   createElement,
-  Fragment,
   useContext,
   useMemo,
   useSyncExternalStore,
   type ReactElement,
   type ReactNode,
 } from 'react';
-import {
-  normalizeLink,
-  parseTags,
-  RICH_TAGS,
-  VOID_TAGS,
-  type DictionaryInput,
-  type Params,
-  type RichLink,
-  type TagNode,
-  type TFunction,
-  type Verbaly,
-} from 'verbaly';
+import type { DictionaryInput, Params, TFunction, Verbaly } from 'verbaly';
+import { renderTrans, type TransProps } from './render';
+
+export type { TransOptions, TransProps } from './render';
 
 const VerbalyContext = createContext<Verbaly | null>(null);
 
@@ -47,16 +37,17 @@ export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verba
   return instance as unknown as Verbaly<D>;
 }
 
-export function useT<D extends DictionaryInput = DictionaryInput>(): TFunction<D> {
+// typed by the project's catalog once verbaly.d.ts exists, by a dictionary when one is named
+export function useT<D extends DictionaryInput = DictionaryInput>(): Verbaly<D>['t'] {
   const instance = useVerbaly<D>();
   const version = useVersion(instance);
   // a new t per locale or catalog: a memo or an effect keyed on t would keep the old language
   return useMemo(() => bound(instance.t), [instance, version]);
 }
 
-function bound<D extends DictionaryInput>(t: TFunction<D>): TFunction<D> {
+function bound<T extends Pick<TFunction, 'id'>>(t: T): T {
   const call = t as unknown as (...args: unknown[]) => string;
-  const fresh = ((...args: unknown[]) => call(...args)) as unknown as TFunction<D>;
+  const fresh = ((...args: unknown[]) => call(...args)) as unknown as T;
   fresh.id = t.id;
   return fresh;
 }
@@ -75,15 +66,6 @@ function useVersion<D extends DictionaryInput>(instance: Verbaly<D>): number {
   );
 }
 
-export interface TransProps {
-  id: string;
-  values?: Params;
-  instance?: Verbaly;
-  components?: Record<string, ReactElement>;
-  richTags?: string[];
-  links?: Record<string, RichLink>;
-}
-
 // translated message + element interpolation
 export function Trans(props: TransProps): ReactElement {
   const ctx = useContext(VerbalyContext);
@@ -92,50 +74,7 @@ export function Trans(props: TransProps): ReactElement {
     throw new Error('[verbaly] <Trans> requires an instance prop or a <VerbalyProvider>');
   }
   useVersion(instance);
-  const text = (instance.t as unknown as (id: string, values?: Params) => string)(
-    props.id,
-    props.values,
-  );
-  return createElement(
-    Fragment,
-    null,
-    ...toNodes(
-      parseTags(text),
-      props.components ?? {},
-      props.links ?? {},
-      new Set(props.richTags ?? RICH_TAGS),
-    ),
-  );
-}
-
-const VOID = new Set(VOID_TAGS);
-
-// own entries only: a tag named constructor in a message must never find the one on Object
-function own<T>(map: Record<string, T>, name: string): T | undefined {
-  return Object.prototype.hasOwnProperty.call(map, name) ? map[name] : undefined;
-}
-
-function toNodes(
-  nodes: TagNode[],
-  components: Record<string, ReactElement>,
-  links: Record<string, RichLink>,
-  richTags: Set<string>,
-): ReactNode[] {
-  return nodes.map((node, i) => {
-    if (typeof node === 'string') return node;
-    const children = toNodes(node.children, components, links, richTags);
-    const el = own(components, node.name);
-    if (el) return cloneElement(el, { key: i }, ...children);
-    const link = own(links, node.name);
-    if (link !== undefined) {
-      return createElement('a', { key: i, ...normalizeLink(link) }, ...children);
-    }
-    if (richTags.has(node.name)) {
-      if (VOID.has(node.name)) return createElement(node.name, { key: i });
-      return createElement(node.name, { key: i }, ...children);
-    }
-    return createElement(Fragment, { key: i }, ...children);
-  });
+  return renderTrans(instance, props);
 }
 
 export type { Params, TFunction, Verbaly };

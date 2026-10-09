@@ -100,6 +100,8 @@ export const load = async ({ data }) => ({
   import { provideVerbaly } from '@verbaly/svelte';
 
   let { data, children } = $props();
+  // the instance is the one this render loaded: reading it once is the point
+  // svelte-ignore state_referenced_locally
   provideVerbaly(data.verbaly);
 </script>
 

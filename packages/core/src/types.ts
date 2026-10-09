@@ -92,6 +92,19 @@ export interface TFunction<D extends DictionaryInput = DictionaryInput> {
   id(key: string): (strings: TemplateStringsArray, ...values: unknown[]) => string;
 }
 
+// the generated verbaly.d.ts fills it in; empty, every t takes any key and any locale is a string
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface Register {}
+
+// the project's t once its types are generated, the untyped t until then
+export type Translate = Register extends { t: infer T } ? T : TFunction;
+
+// one of the project's locales once its types are generated, any string until then
+export type Locale = Register extends { locale: infer L extends string } ? L : string;
+
+// built from a dictionary, t is typed by it; built from the project's catalogs, t reads Register
+export type TOf<D extends DictionaryInput> = DictionaryInput extends D ? Translate : TFunction<D>;
+
 // how a t(key) call resolved: the observability signal (devtools)
 export type ResolveStatus = 'hit' | 'fallback' | 'miss';
 
@@ -125,7 +138,7 @@ export interface Verbaly<D extends DictionaryInput = DictionaryInput> {
   readonly locale: string;
   readonly locales: string[];
   readonly version: number;
-  t: TFunction<D>;
+  t: TOf<D>;
   setLocale(locale: string): void;
   loadLocale(locale: string): Promise<void>;
   addMessages(locale: string, messages: MessageTree, options?: AddMessagesOptions): void;

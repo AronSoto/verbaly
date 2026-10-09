@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
 import type { Routing } from 'verbaly';
 
 const jar = {
@@ -40,6 +41,41 @@ beforeEach(() => {
   jar.cookie = undefined;
   jar.header = undefined;
   jar.reads = 0;
+});
+
+describe('getT with a locale, for an OG image, a sitemap or an email', () => {
+  it('answers in that locale and never reads headers, so the route can stay static', async () => {
+    jar.header = 'en';
+    const server = await load();
+    const t = await server.getT({ locale: 'es' });
+    expect(t('greeting')).toBe('Hola');
+    expect(jar.reads).toBe(0);
+  });
+
+  it('narrows a regional tag, and falls to the source for a locale the project lacks', async () => {
+    const server = await load();
+    expect((await server.getT({ locale: 'es-MX' }))('greeting')).toBe('Hola');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect((await server.getT({ locale: 'fr' }))('greeting')).toBe('Hello');
+    expect(warn.mock.calls.flat().join('\n')).toContain('getT was asked for a locale');
+    warn.mockRestore();
+  });
+});
+
+describe('Trans for Server Components', () => {
+  it('renders in the request locale with no provider and no hook', async () => {
+    jar.header = 'es';
+    const server = await load();
+    // called outside any React render: a hook in there would throw, a context would be empty
+    const element = await server.Trans({ id: 'greeting' });
+    expect(renderToStaticMarkup(element)).toBe('Hola');
+  });
+
+  it('renders its children as written when the compiler never saw it', async () => {
+    const server = await load();
+    const element = await server.Trans({ children: 'Plain text' });
+    expect(renderToStaticMarkup(element)).toBe('Plain text');
+  });
 });
 
 describe('@verbaly/next/server', () => {

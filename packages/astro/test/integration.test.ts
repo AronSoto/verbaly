@@ -130,6 +130,9 @@ describe('verbaly astro integration', () => {
     await plugin.configResolved({ root, command: 'serve' });
     expect(existsSync(target)).toBe(true);
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+    // Astro's copy, dev's refresh and the CLI's write are one text, the project's locales included
+    expect(injected?.content).toContain('export type VerbalyLocale = "en" | "es";');
+    expect(readFileSync(target, 'utf8')).toBe(injected?.content);
   });
 
   it('mirrors the built site per locale when render is enabled', async () => {

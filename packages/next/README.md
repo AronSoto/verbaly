@@ -46,6 +46,9 @@ import { getRequestLocale, getVerbalyProps } from '@verbaly/next/server';
 import { VerbalyProvider } from '@verbaly/next/client';
 import { localeDirection } from 'verbaly';
 
+// the language comes from the cookie and Accept-Language, so the shell renders per request
+export const instant = false;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
   const props = await getVerbalyProps();
@@ -59,6 +62,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 }
 ```
 
+`export const instant = false` is for `cacheComponents`, which `create-next-app` turns on: a layout that reads the request outside `<Suspense>` fails the build there, and a language chosen by cookie is exactly that. Without `cacheComponents`, leave the line out. To keep pages static instead, put the language in the URL (step 5).
+
 **3. Write text**: Server Components use `getT()`:
 
 ```tsx
@@ -67,6 +72,28 @@ import { getT } from '@verbaly/next/server';
 export default async function Page() {
   const t = await getT();
   return <h1>{t`Welcome back`}</h1>;
+}
+```
+
+Rich text in a Server Component is the same `<Trans>` as in React, from `@verbaly/next/server`: it renders in the request's language with no provider.
+
+```tsx
+import { Trans } from '@verbaly/next/server';
+
+<Trans>
+  Read the <a href="/terms">terms</a> before you go on
+</Trans>;
+```
+
+Outside a page, where there is no request to read (an OG image, a sitemap, an email), name the language. That call never reads the request, so the route stays static:
+
+```ts
+// app/og/route.ts
+import { getT } from '@verbaly/next/server';
+
+export async function GET() {
+  const t = await getT({ locale: 'es' });
+  return Response.json({ title: t('home.lead') });
 }
 ```
 
@@ -135,7 +162,9 @@ export default async function LocaleLayout({ children, params }) {
 Without `setRequestLocale`, Verbaly negotiates from the cookie and `Accept-Language`, and that read
 is what makes the route dynamic. With it, no header is read at all.
 
-That's it. `next dev` extracts your messages live (catalogs + `verbaly.d.ts` stay fresh) and says in the terminal what it would otherwise do quietly: a hand edit of a text your code owns, a key written with two texts, a translation that is now older than its source. Each one is said once, and again if it goes away and comes back; a long list stays a few lines, and a catalog saved half-typed pauses live extraction with a one-line reason instead of stopping the server. `next build` blocks on missing translations once it has compiled, so `next typegen`, which loads the same config, never meets the gate, with Yarn PnP too. The report prints once, above Next's own failure line. Dev and build show the same words: a text written in the code wins over the catalog in both.
+**Keys are typed.** `getT()` and `useT()` check every key and its params against your catalog, and `getRequestLocale()` returns one of your locales, so `ogLocale[await getRequestLocale()]` needs no cast. The types live in `.verbaly/types.d.ts`, next to the generated modules and never committed; TypeScript skips a dot folder, so Verbaly adds that file to the `include` of your `tsconfig.json`, the way Next adds `.next/types`. On a fresh clone, `next typegen && tsc --noEmit` writes them before it checks them.
+
+That's it. `next dev` extracts your messages live (catalogs and types stay fresh) and says in the terminal what it would otherwise do quietly: a hand edit of a text your code owns, a key written with two texts, a translation that is now older than its source. Each one is said once, and again if it goes away and comes back; a long list stays a few lines, and a catalog saved half-typed pauses live extraction with a one-line reason instead of stopping the server. `next build` blocks on missing translations once it has compiled, so `next typegen`, which loads the same config, never meets the gate, with Yarn PnP too. Both say once when they start if a file outside your `include` writes a `` t`…` ``, which no build translates: in a project without `src/`, add `components/` there. The report prints once, above Next's own failure line. Dev and build show the same words: a text written in the code wins over the catalog in both.
 
 The gate rides on `compiler.runAfterProductionCompile`, and `withVerbaly` keeps any hook of your own there (yours runs first). A wrapper applied **outside** `withVerbaly` that replaces that hook instead of calling the one it got would switch the gate off, so keep `withVerbaly` outermost or compose the hook.
 

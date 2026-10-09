@@ -51,7 +51,7 @@ const title = t`Search and find`;
 <img alt={t`Company logo`} src="/logo.png" />
 ```
 
-Every message becomes a stable key with typed params. Untranslated entries fail the build (opt out with `failOnMissing: false`).
+Every message becomes a stable key with typed params. Untranslated entries fail the build (opt out with `failOnMissing: false`). The types go to the slot Astro gives integrations (`.astro/integrations/_verbaly_astro/verbaly.d.ts`), and `npx verbaly extract` writes that same file, so `astro check` never sees the module declared twice.
 
 ## 🌍 Two ways to ship the languages
 

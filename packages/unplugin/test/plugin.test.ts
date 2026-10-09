@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stableKey } from '@verbaly/compiler';
 import type { UnpluginOptions } from 'unplugin';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { verbaly, type UnpluginVerbalyOptions } from '../src/index';
 
 const KEY = stableKey('Hola {name}');
@@ -157,5 +157,36 @@ describe('the code owns the texts it writes (0.67.0)', () => {
     writeFileSync(join(root, 'src', 'app.ts'), "export const s = t.id('greet')`Hola`;\n");
     const p = await setup(root);
     expect(p.load('\0virtual:verbaly/locale/es')).toBe('export default {"greet":"Hola"};\n');
+  });
+});
+
+describe('a broken config', () => {
+  it('fails the build where it starts, and never ends the process before that', async () => {
+    const root = makeProject({ es: {} });
+    writeFileSync(join(root, 'verbaly.config.json'), '{ "sourceLocale": ');
+    const plugin = rawPlugin({ root });
+    // a bundler creates its plugins while it reads its own config, and starts the build later
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expect((plugin.buildStart as () => Promise<void>).call({})).rejects.toThrow(
+      'verbaly.config.json is not valid JSON',
+    );
+  });
+});
+
+describe('a file outside include', () => {
+  it('is left alone and named once when the build starts, since its t`…` ships untranslated', async () => {
+    const root = makeProject({ es: {} });
+    mkdirSync(join(root, 'components'), { recursive: true });
+    const file = join(root, 'components', 'save.ts');
+    writeFileSync(file, CODE);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const p = await setup(root);
+    expect(p.transform(CODE, file)).toBeNull();
+    const said = warn.mock.calls
+      .flat()
+      .filter((line) => String(line).includes('components/save.ts'));
+    expect(said).toHaveLength(1);
+    expect(String(said[0])).toContain('outside the include of your verbaly config');
+    warn.mockRestore();
   });
 });

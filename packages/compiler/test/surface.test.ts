@@ -51,6 +51,7 @@ const VALUES = [
   'readState',
   'recordTranslations',
   'renderSite',
+  'reportOutsideInclude',
   'resolveConfig',
   'resolveProvider',
   'resolveVirtualId',

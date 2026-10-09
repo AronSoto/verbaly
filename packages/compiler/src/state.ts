@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
 import { catalogPath, emptyCatalog, own, type Catalog, type Catalogs } from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
+import { withLineEndings } from './eol';
 import { stableKey } from './key';
+import { byCodeUnit } from './text';
 
 export const STATE_FILE = '.verbaly-state.json';
 // before 0.67.0 the sidecar held only the drafts, and a teammate on 0.66.0 still writes it
@@ -76,10 +78,10 @@ export function readState(cfg: ResolvedConfig): StateRead {
 
 // content-compared like a catalog, and gone when there is nothing left to remember
 export function saveState(cfg: ResolvedConfig, state: State): void {
-  const serialized = serializeState(state);
+  const fresh = serializeState(state);
   const path = statePath(cfg);
   const legacy = statePath(cfg, LEGACY_DRAFTS_FILE);
-  if (serialized === undefined) {
+  if (fresh === undefined) {
     rmSync(path, { force: true });
     rmSync(legacy, { force: true });
     return;
@@ -90,6 +92,7 @@ export function saveState(cfg: ResolvedConfig, state: State): void {
   } catch {
     mkdirSync(cfg.dir, { recursive: true });
   }
+  const serialized = withLineEndings(fresh, existing);
   if (existing !== serialized) writeFileSync(path, serialized);
   if (existsSync(legacy)) rmSync(legacy);
 }
@@ -238,7 +241,8 @@ export function outdatedTranslations(
       if (sourceOf(was) !== fingerprint(text)) out.push({ locale, key });
     }
   }
-  return out.sort((a, b) => a.locale.localeCompare(b.locale) || a.key.localeCompare(b.key));
+  // code unit order, the one the catalogs use: localeCompare differs from machine to machine
+  return out.sort((a, b) => byCodeUnit(a.locale, b.locale) || byCodeUnit(a.key, b.key));
 }
 
 // a person read it against the new source and kept it: stamp it as written for that source

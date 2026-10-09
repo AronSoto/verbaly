@@ -849,6 +849,22 @@ describe('renderSite: the head is half the page a search result shows', () => {
     expect(es).toContain('content="Busca y encuentra"');
   });
 
+  it('fills the text the code ships, so the page and the runtime that repaints it agree', async () => {
+    const root = site(
+      '<html><head><title data-verbaly="home.hint">x</title></head>' +
+        '<body><h1 data-verbaly="home.hint">x</h1></body></html>',
+    );
+    mkdirSync(join(root, 'src'), { recursive: true });
+    // the code owns this key and moved past the catalog, which nobody re-extracted
+    writeFileSync(
+      join(root, 'src', 'app.ts'),
+      "export const h = t.id('home.hint')`Find anything`;\n",
+    );
+    await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+    const en = readFileSync(join(root, 'dist', 'index.html'), 'utf8');
+    expect(en).toContain('<h1 data-verbaly="home.hint">Find anything</h1>');
+  });
+
   it('never flags a redirect stub: it is no search result', async () => {
     const root = site(
       '<html><head><meta http-equiv="refresh" content="0;url=/docs/init/what-is">' +

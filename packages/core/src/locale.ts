@@ -83,7 +83,8 @@ export type LocalePathOptions = LocalePathBase &
 export function localePath(locale: string, options: LocalePathOptions): string {
   const { supported } = options;
   const routing = options.routing ?? 'prefix-except-source';
-  const full = options.path ?? currentPath() ?? '/';
+  // the whole address: a language switch on a search page keeps the search and the anchor
+  const full = options.path ?? currentPath(true) ?? '/';
 
   // the identity, so one switcher works in both modes: no-prefix changes the text, never the url
   if (routing === 'no-prefix') return full;
@@ -135,7 +136,7 @@ export interface StripLocalePathOptions {
 
 // the canonical route behind a localized url: /es/docs → /docs, so a router matches one tree
 export function stripLocalePath(options: StripLocalePathOptions): string {
-  const full = options.path ?? currentPath() ?? '/';
+  const full = options.path ?? currentPath(true) ?? '/';
   const base = normalizeBase(options.base);
   return joinLocalePath(base, splitLocalePath(full, options.supported, base));
 }
@@ -373,10 +374,10 @@ export function persistLocale(
   }
 }
 
-function currentPath(): string | undefined {
+function currentPath(full?: boolean): string | undefined {
   // require document like every other browser check: a server has no page to read a prefix from
   return typeof document !== 'undefined' && typeof location !== 'undefined'
-    ? location.pathname
+    ? location.pathname + (full ? location.search + location.hash : '')
     : undefined;
 }
 

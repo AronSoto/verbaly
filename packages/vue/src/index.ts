@@ -48,7 +48,8 @@ export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verba
   return instance as unknown as Verbaly<D>;
 }
 
-export function useT<D extends DictionaryInput = DictionaryInput>(): TFunction<D> {
+// typed by the project's catalog once verbaly.d.ts exists, by a dictionary when one is named
+export function useT<D extends DictionaryInput = DictionaryInput>(): Verbaly<D>['t'] {
   const instance = useVerbaly<D>();
   const version = trackVersion(instance);
   const t = (first: unknown, ...rest: unknown[]): string => {
@@ -56,8 +57,8 @@ export function useT<D extends DictionaryInput = DictionaryInput>(): TFunction<D
     return (instance.t as unknown as (...args: unknown[]) => string)(first, ...rest);
   };
   // the reactive wrapper must keep t's full surface (react/svelte hand out instance.t directly)
-  (t as TFunction<D>).id = instance.t.id;
-  return t as TFunction<D>;
+  (t as unknown as Pick<TFunction, 'id'>).id = instance.t.id;
+  return t as unknown as Verbaly<D>['t'];
 }
 
 export function useLocale(): WritableComputedRef<string> {

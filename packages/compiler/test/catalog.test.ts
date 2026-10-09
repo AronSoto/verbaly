@@ -348,3 +348,27 @@ describe('parseCatalog, the flat view of a catalog that is not on disk', () => {
     expect(parseCatalog('{}')).toEqual({});
   });
 });
+
+describe('a catalog checked out with CRLF', () => {
+  it('is not rewritten when nothing in it changed', () => {
+    const cfg = makeProject({ es: {} });
+    const file = catalogPath(cfg, 'es');
+    const crlf = '{\r\n  "hola": "Hola"\r\n}\r\n';
+    writeFileSync(file, crlf);
+    const before = statSync(file).mtimeMs;
+    // the content compare is what keeps a watcher from firing on a write that changed nothing
+    expect(writeCatalog(cfg, 'es', { hola: 'Hola' })).toBe(crlf);
+    expect(readFileSync(file, 'utf8')).toBe(crlf);
+    expect(statSync(file).mtimeMs).toBe(before);
+  });
+
+  it('keeps CRLF on the lines a change adds', () => {
+    const cfg = makeProject({ es: {} });
+    const file = catalogPath(cfg, 'es');
+    writeFileSync(file, '{\r\n  "hola": "Hola"\r\n}\r\n');
+    writeCatalog(cfg, 'es', { hola: 'Hola', adios: 'Adiós' });
+    expect(readFileSync(file, 'utf8')).toBe(
+      '{\r\n  "adios": "Adiós",\r\n  "hola": "Hola"\r\n}\r\n',
+    );
+  });
+});

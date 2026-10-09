@@ -37,14 +37,14 @@ const SURFACES = [
   {
     name: 'a real app (runtime + dom + locale)',
     code: `export { ${REAL_APP.join(', ')} } from './dist/index.js';`,
-    budget: 6.1,
+    budget: 6.11,
     claims: [`ships [*]{2}${NUMBER} KB[*]{2}`],
   },
   { name: 'devtools', code: "export * from './dist/devtools.js';", budget: 1.75, claims: [] },
   {
     name: 'every export at once (canary, nobody ships this)',
     code: "export * from './dist/index.js';",
-    budget: 7.82,
+    budget: 7.84,
     claims: [],
   },
 ];

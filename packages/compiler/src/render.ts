@@ -22,6 +22,7 @@ import {
 } from 'verbaly';
 import type { Catalogs } from './catalog';
 import { loadCatalogs } from './catalog';
+import { extractProject, shippedCatalogs } from './extract';
 import type { RedirectConfig, ResolvedConfig } from './config';
 import { counted } from './text';
 import { warnOnce } from './warn';
@@ -498,7 +499,8 @@ export async function renderSite(
     base,
     storageKey: redirect.storageKey,
   };
-  const catalogs = loadCatalogs(cfg);
+  // the text the build ships, or the pre-filled page and the runtime that repaints it disagree
+  const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), await extractProject(cfg));
   // one runtime per locale for the whole run: rebuilding it per page reflattened every catalog
   const instances = new Map(
     locales.map((locale) => [locale, localeInstance(catalogs, locale, cfg.sourceLocale)]),

@@ -1,3 +1,4 @@
+import { renderTrans, type TransProps } from '@verbaly/react/server';
 import { cookies, headers } from 'next/headers';
 import * as React from 'react';
 import {
@@ -7,7 +8,8 @@ import {
   resolveRequestLocale,
   warnOnce,
   type AlternateLink,
-  type TFunction,
+  type Locale,
+  type Translate,
   type Verbaly,
 } from 'verbaly';
 import {
@@ -63,6 +65,17 @@ function declaredLocale(): string | undefined {
   return undefined;
 }
 
+// a locale asked for by name narrows the same way, and one the project lacks falls to the source
+function namedLocale(raw: string): string {
+  const match = localeFromPath({ supported: locales, path: `/${raw}` });
+  if (match) return match;
+  warnOnce(`getT was asked for a locale the project does not have, so it answers in the source`);
+  return sourceLocale;
+}
+
+// one instance per locale and request: an OG image, a sitemap or an email asks without headers()
+const instanceFor = perRequest((locale: string) => createRequestInstance(locale));
+
 // only reached when no segment declared it: this read is what opts a route out of static
 async function negotiate(): Promise<string> {
   const cookieName = requestOptions?.cookie ?? LOCALE_STORAGE_KEY;
@@ -110,12 +123,23 @@ export async function getVerbaly(): Promise<Verbaly> {
   return (await getRequestState()).instance;
 }
 
-export async function getT(): Promise<TFunction> {
+export interface GetTOptions {
+  locale?: string;
+}
+
+// with a locale it never reads headers(), so a route that only renders it stays static
+export async function getT(options: GetTOptions = {}): Promise<Translate> {
+  if (options.locale !== undefined) return (await instanceFor(namedLocale(options.locale))).t;
   return (await getRequestState()).instance.t;
 }
 
-export async function getRequestLocale(): Promise<string> {
-  return (await getRequestState()).locale;
+export async function getRequestLocale(): Promise<Locale> {
+  return (await getRequestState()).locale as Locale;
+}
+
+// a Server Component: the request's instance, so a server render needs no provider
+export async function Trans(props: TransProps): Promise<React.ReactElement> {
+  return renderTrans(props.instance ?? (await getVerbaly()), props);
 }
 
 export interface VerbalyProviderProps {

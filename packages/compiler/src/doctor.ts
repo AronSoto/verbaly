@@ -4,11 +4,14 @@ import { flatten } from 'verbaly';
 import { auditBundle, formatBundleIssue } from './bundle';
 import { badLeaf, isTree, parseTree, type Catalogs } from './catalog';
 import { check } from './check';
-import { generateDts } from './codegen';
+import { DTS_HEADER, generateDts, projectDtsOptions } from './codegen';
 import { findConfigFile, type ResolvedConfig } from './config';
 import { extractProject } from './extract';
 import { sourcePlace } from './findings';
-import { CLI_INSTALL_FIX, cliReachable, detectHost, readDependencies, WIRING_PACKAGES } from './init';
+import { detectHost, installCommand, readDependencies, WIRING_PACKAGES } from './host';
+import { CLI_INSTALL_FIX, cliReachable } from './init';
+import { filesOutsideInclude } from './scope';
+import { typesIncluded } from './tsconfig';
 import { counted } from './text';
 import { isLocaleTag, suggestTag } from './tag';
 import { effectiveDrafts, readState, STATE_FILE } from './state';
@@ -188,7 +191,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     warn(
       'plugin',
       `${host.name} detected but ${host.pkg} is not installed`,
-      `pnpm add -D ${host.pkg} and ${host.wire}`,
+      `${installCommand(cfg.root, host.install)}, then ${host.wire}`,
     );
   }
 
@@ -199,16 +202,44 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   }
 
   if (source && scanning && cfg.dts !== false) {
-    const dtsPath = cfg.dts ?? join(cfg.root, 'verbaly.d.ts');
+    const dtsPath = cfg.dts;
+    const shown = rel(dtsPath);
+    // a framework slot is linked from the framework's own types, which only its command writes
+    const regenerate =
+      host?.name === 'astro'
+        ? 'run `npx astro sync`, which writes the types and links them'
+        : host?.name === 'nuxt'
+          ? 'run `npx nuxi prepare`, which writes the types and links them'
+          : 'run `npx verbaly typegen`';
+    const expected = generateDts(source, projectDtsOptions(cfg));
     if (!existsSync(dtsPath)) {
-      warn('types', 'verbaly.d.ts has not been generated', 'run `npx verbaly extract`');
-    } else if (
-      readFileSync(dtsPath, 'utf8') !==
-      generateDts(source, { inlineCatalog: cfg.render.inlineCatalog === true })
-    ) {
-      warn('types', 'verbaly.d.ts is stale', 'run `npx verbaly extract`');
+      warn('types', `${shown} has not been generated`, regenerate);
+    } else if (readFileSync(dtsPath, 'utf8').replace(/\r\n/g, '\n') !== expected) {
+      warn('types', `${shown} is stale`, 'run `npx verbaly typegen`');
     } else {
-      ok('types', 'verbaly.d.ts is up to date');
+      ok('types', `${shown} is up to date`);
+    }
+    // .verbaly/ is a dot folder: TypeScript reads it only if tsconfig names the file
+    if (dtsPath.startsWith(join(cfg.root, '.verbaly'))) {
+      const state = typesIncluded(cfg.root, dtsPath);
+      if (state === 'missing' || state === 'unreadable') {
+        warn(
+          'types',
+          state === 'missing'
+            ? `tsconfig.json does not include ${shown}, so TypeScript never reads the types`
+            : `tsconfig.json could not be read, so it may not include ${shown}`,
+          `run \`npx verbaly typegen\`, which adds the line, or add "${shown}" to include`,
+        );
+      }
+    }
+    // the root file and the one in its new place declare the same module twice
+    const old = join(cfg.root, 'verbaly.d.ts');
+    if (dtsPath !== old && existsSync(old) && readFileSync(old, 'utf8').startsWith(DTS_HEADER)) {
+      warn(
+        'types',
+        `the verbaly.d.ts Verbaly wrote at the root is still there next to ${shown}, and they declare the same module twice`,
+        'run `npx verbaly typegen`, which removes it',
+      );
     }
   }
 
@@ -222,6 +253,17 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         'sources',
         `could not parse ${counted(unreadable.length, 'file')}, so the messages inside are not extracted (${rel(first.file)}: ${first.message})`,
         'fix the syntax error, or exclude the file in your config if it is not source',
+      );
+    }
+    // a file the build reads and extract never will: its texts show the source language everywhere
+    const outside = await filesOutsideInclude(cfg);
+    if (outside.length > 0) {
+      const files = outside.map((entry) => rel(entry.file));
+      const patterns = [...new Set(outside.map((entry) => `"${entry.pattern}"`))];
+      warn(
+        'sources',
+        `t\`…\` is written in ${counted(outside.length, 'file')} outside include, and those texts are never extracted or translated (${preview(files)})`,
+        `add ${patterns.join(' and ')} to include in your verbaly config, or the files to exclude if they are not app code`,
       );
     }
     const stray = registry.strayImports();

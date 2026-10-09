@@ -93,6 +93,8 @@ export function withVerbaly<C extends object>(
     const cfg = await compiler.loadConfig(root, verbalyConfig);
     const catalogs = compiler.loadCatalogs(cfg);
     const registry = await compiler.extractProject(cfg);
+    // once per phase, from the config: a loader result can come from Turbopack's cache
+    await compiler.reportOutsideInclude(cfg);
     let gate: (() => void) | undefined;
 
     if (phase === DEV_PHASE) {
@@ -102,6 +104,8 @@ export function withVerbaly<C extends object>(
       // the code's text ships, as it does in dev: a catalog edit of a text it owns never wins
       compiler.syncCatalogs(cfg, catalogs, registry);
       writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
+      // next build and next typegen check types, and .verbaly/ is never committed
+      compiler.writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
       if (phase === BUILD_PHASE) {
         const runGate = (): void => compiler.runBuildGate(cfg, registry, failOnMissing);
         // typegen loads this config in the build phase too, and only a real build runs the hook

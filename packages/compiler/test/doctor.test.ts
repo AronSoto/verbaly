@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { generateDts } from '../src/codegen';
+import { generateDts, writeDts } from '../src/codegen';
 import { resolveConfig } from '../src/config';
 import { doctor, type DoctorEntry } from '../src/doctor';
 import { stableKey } from '../src/key';
@@ -32,12 +32,6 @@ function makeProject(options: ProjectOptions = {}) {
   }
   mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(join(root, 'src', 'app.ts'), options.code ?? 'const s = t`Hola ${name}`;\n');
-  if (options.dts !== false) {
-    const source = catalogs['es'];
-    if (typeof source === 'object') {
-      writeFileSync(join(root, 'verbaly.d.ts'), generateDts(source as Record<string, string>));
-    }
-  }
   if (options.pkg) {
     writeFileSync(join(root, 'package.json'), JSON.stringify(options.pkg));
   }
@@ -45,7 +39,13 @@ function makeProject(options: ProjectOptions = {}) {
     mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true });
     writeFileSync(join(root, 'node_modules', '.bin', 'verbaly'), '');
   }
-  return resolveConfig({ root, sourceLocale: 'es', include: options.include });
+  const cfg = resolveConfig({ root, sourceLocale: 'es', include: options.include });
+  // where the project's types live, with the content its own config produces
+  const source = catalogs['es'];
+  if (options.dts !== false && typeof source === 'object') {
+    writeDts(cfg, source as Record<string, string>);
+  }
+  return cfg;
 }
 
 function entry(entries: DoctorEntry[], check: string): DoctorEntry | undefined {
@@ -177,10 +177,10 @@ describe('doctor', () => {
     expect(entry(missing.entries, 'types')?.message).toContain('not been generated');
 
     const cfg = makeProject();
-    writeFileSync(join(cfg.root, 'verbaly.d.ts'), '// old\n');
+    writeFileSync(cfg.dts as string, '// old\n');
     const stale = await doctor(cfg);
-    expect(entry(stale.entries, 'types')?.message).toContain('stale');
-    expect(entry(stale.entries, 'types')?.fix).toContain('verbaly extract');
+    expect(entry(stale.entries, 'types')?.message).toBe('src/verbaly.d.ts is stale');
+    expect(entry(stale.entries, 'types')?.fix).toContain('verbaly typegen');
   });
 
   it('flags orphan keys with a prune fix', async () => {
@@ -262,6 +262,66 @@ describe('doctor', () => {
       makeProject({ pkg: { dependencies: { astro: '^7.0.0', '@verbaly/vite': '^0.30.0' } } }),
     );
     expect(entry(viteInAstro.entries, 'plugin')?.level).toBe('ok');
+  });
+
+  it('prints the install line the README teaches, in the manager the project uses', async () => {
+    const cfg = makeProject({ pkg: { dependencies: { next: '^16.0.0' } } });
+    writeFileSync(join(cfg.root, 'package-lock.json'), '{}');
+    const fix = entry((await doctor(cfg)).entries, 'plugin')?.fix;
+    // a runtime package is a dependency: -D for @verbaly/next contradicted its own README
+    expect(fix).toBe(
+      'npm install verbaly @verbaly/next @verbaly/react, then wrap the export of next.config with withVerbaly',
+    );
+  });
+
+  it('looks for the types where the framework keeps them, and names its command', async () => {
+    // telling an Astro project to run extract wrote a root file that redeclared the module
+    const astro = await doctor(
+      makeProject({ pkg: { dependencies: { astro: '^7.0.0' } }, dts: false }),
+    );
+    const types = entry(astro.entries, 'types');
+    expect(types?.message).toBe(
+      '.astro/integrations/_verbaly_astro/verbaly.d.ts has not been generated',
+    );
+    expect(types?.fix).toContain('npx astro sync');
+    const nuxt = await doctor(
+      makeProject({ pkg: { dependencies: { nuxt: '^4.0.0' } }, dts: false }),
+    );
+    expect(entry(nuxt.entries, 'types')?.message).toBe('.nuxt/verbaly.d.ts has not been generated');
+    expect(entry(nuxt.entries, 'types')?.fix).toContain('npx nuxi prepare');
+  });
+
+  it('says when tsconfig does not name .verbaly/types.d.ts, which TypeScript would skip', async () => {
+    const cfg = makeProject({ pkg: { dependencies: { next: '^16.0.0' } } });
+    writeFileSync(join(cfg.root, 'tsconfig.json'), '{ "include": ["**/*.ts", "**/*.tsx"] }');
+    const types = (await doctor(cfg)).entries.filter((e) => e.check === 'types');
+    expect(types.map((e) => e.message)).toContain(
+      'tsconfig.json does not include .verbaly/types.d.ts, so TypeScript never reads the types',
+    );
+    writeFileSync(
+      join(cfg.root, 'tsconfig.json'),
+      '{ "include": ["**/*.ts", ".verbaly/types.d.ts"] }',
+    );
+    const fixed = (await doctor(cfg)).entries.filter((e) => e.check === 'types');
+    expect(fixed.every((e) => e.level === 'ok')).toBe(true);
+  });
+
+  it('names the root verbaly.d.ts it wrote before, still declaring the module a second time', async () => {
+    const cfg = makeProject();
+    writeFileSync(join(cfg.root, 'verbaly.d.ts'), generateDts({ old: 'Old' }));
+    const types = (await doctor(cfg)).entries.filter((e) => e.check === 'types');
+    expect(types.some((e) => e.level === 'warn' && e.message.includes('still there'))).toBe(true);
+  });
+
+  it('lists a file outside include that writes t`…`, which no build translates', async () => {
+    const cfg = makeProject();
+    mkdirSync(join(cfg.root, 'components'));
+    writeFileSync(join(cfg.root, 'components', 'save.ts'), 'export const s = t`Guardar`;\n');
+    const sources = (await doctor(cfg)).entries.filter((e) => e.check === 'sources');
+    const outside = sources.find((e) => e.message.includes('outside include'));
+    expect(outside?.level).toBe('warn');
+    expect(outside?.message).toContain('components/save.ts');
+    expect(outside?.fix).toContain('"components/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}"');
   });
 
   it('reports broken translations, so it cannot call a failing build healthy', async () => {

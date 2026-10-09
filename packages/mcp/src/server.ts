@@ -150,7 +150,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Locale catalog',
       description:
-        'Every message of one locale, keyed the way the runtime sees them: a nested catalog arrives flattened, and an empty value means untranslated. This is the only way to read what a message actually says.',
+        'Every message of one locale, keyed the way the runtime sees them: a nested catalog arrives flattened, a text the code owns reads as the code has it, and an empty value means untranslated. This is the only way to read what a message actually says.',
       mimeType: 'application/json',
     },
     async (uri, { locale }) => {
@@ -160,7 +160,10 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         const have = cfg.locales.join(', ');
         throw new Error(`[verbaly] unknown locale "${name}": the project has ${have}`);
       }
-      const catalog = loadCatalogs(cfg)[name] ?? {};
+      // the text that ships: a catalog the code has moved past would hand an agent the old words
+      const registry = await extractProject(cfg);
+      const shipped = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
+      const catalog = shipped[name] ?? {};
       return {
         contents: [
           { uri: uri.href, mimeType: 'application/json', text: JSON.stringify(catalog, null, 2) },

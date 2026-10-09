@@ -82,7 +82,8 @@ describe('extract, which is local and free and answers in the request', () => {
     expect(JSON.stringify(JSON.parse(readFileSync(join(cfg.dir, 'en.json'), 'utf8')))).toContain(
       'Brand new',
     );
-    expect(existsSync(join(cfg.root, 'verbaly.d.ts'))).toBe(true);
+    // where the config resolves the types, the same file the CLI and the dev servers write
+    expect(existsSync(cfg.dts as string)).toBe(true);
   });
 
   // Proved able to fail by syncing without updateState: the draft of a gone translation stayed.

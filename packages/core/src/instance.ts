@@ -187,7 +187,8 @@ export function createVerbaly<const D extends DictionaryInput = DictionaryInput>
     get version() {
       return version;
     },
-    t,
+    // the generic is still open in here, so the conditional type cannot pick a side yet
+    t: t as Verbaly<D>['t'],
     setLocale(next: string) {
       autoLoad(next);
       if (next === locale) return;

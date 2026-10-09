@@ -59,6 +59,8 @@ export {
 } from './plugin';
 export type { PluginOptions } from './plugin';
 export { transformCode } from './transform';
+// next, vite and unplugin say it when they start: a file outside include that writes a t`…`
+export { reportOutsideInclude } from './scope';
 export type { TransformResult } from './transform';
 
 export { check, formatCheckResult, formatCheckWarnings } from './check';

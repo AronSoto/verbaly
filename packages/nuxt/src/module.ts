@@ -54,9 +54,8 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
   nuxt.hook('prepare:types', async ({ references }) => {
     const cfg = await loadConfig(nuxt.options.rootDir, vite);
     if (cfg.dts === false) return;
-    const file = cfg.dts ?? join(cfg.root, 'verbaly.d.ts');
-    writeDts(cfg, loadCatalogs(cfg)[cfg.sourceLocale] ?? {}, file);
-    references.push({ path: file });
+    writeDts(cfg, loadCatalogs(cfg)[cfg.sourceLocale] ?? {});
+    references.push({ path: cfg.dts });
   });
 
   nuxt.options.build.transpile.push(runtimeDir);

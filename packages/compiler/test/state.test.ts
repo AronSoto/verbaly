@@ -289,3 +289,27 @@ describe('saving drafts', () => {
     expect(loadState(c).fingerprints).toEqual(stamped);
   });
 });
+
+describe('the state file and its readers, on any machine', () => {
+  it('keeps the line endings the file was checked out with', () => {
+    const c = cfg();
+    const path = join(c.dir, STATE_FILE);
+    saveState(c, { drafts: { es: ['a'] }, fingerprints: {} });
+    writeFileSync(path, readFileSync(path, 'utf8').replace(/\n/g, '\r\n'));
+    saveState(c, { drafts: { es: ['a', 'b'] }, fingerprints: {} });
+    const written = readFileSync(path, 'utf8');
+    expect(written).toContain('"b"\r\n');
+    expect(written.replace(/\r\n/g, '')).not.toContain('\n');
+  });
+
+  it('lists outdated translations in code unit order, never the order of the machine language', () => {
+    const c = cfg();
+    const catalogs = { en: { B: 'One', a: 'Two' }, es: { B: 'Uno', a: 'Dos' } };
+    const fingerprints = { es: { B: stamp('Old', 'Uno'), a: stamp('Old', 'Dos') } };
+    // "B" before "a" by code unit; localeCompare puts "a" first
+    expect(outdatedTranslations(c, catalogs, fingerprints).map((entry) => entry.key)).toEqual([
+      'B',
+      'a',
+    ]);
+  });
+});

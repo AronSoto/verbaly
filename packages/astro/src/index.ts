@@ -72,8 +72,10 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         const cfg = await loadConfig(root, vite);
         const url = options.injectTypes({
           filename: 'verbaly.d.ts',
+          // the same options writeDts passes, so the CLI and dev write this very content
           content: generateDts(loadCatalogs(cfg)[cfg.sourceLocale] ?? {}, {
             inlineCatalog: cfg.render.inlineCatalog === true,
+            locales: cfg.locales,
           }),
         });
         vite.dts = fileURLToPath(url);

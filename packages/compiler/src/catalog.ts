@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
 import type { ResolvedConfig } from './config';
+import { withLineEndings } from './eol';
 
 export type Catalog = Record<string, string>;
 export type Catalogs = Record<string, Catalog>;
@@ -184,7 +185,10 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
   // parsed once: the shape and the key order are two questions about the same previous file
   const parsed = existing === undefined ? undefined : parseTree(existing);
   const previous = isTree(parsed) ? parsed : undefined;
-  const serialized = serializeCatalog(catalog, wantsNesting(cfg, locale, existing, previous), previous);
+  const serialized = withLineEndings(
+    serializeCatalog(catalog, wantsNesting(cfg, locale, existing, previous), previous),
+    existing,
+  );
   // identical writes are skipped: a rewrite retriggers whatever watches the catalog
   if (existing === serialized) return serialized;
   writeFileSync(path, serialized);

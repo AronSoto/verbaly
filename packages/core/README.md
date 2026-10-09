@@ -16,7 +16,7 @@
 
 ---
 
-Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.31 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.09 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
+Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.31 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.11 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
 
 ```ts
 // You write this:
@@ -51,6 +51,8 @@ import { t, setLocale } from 'virtual:verbaly';
 t`Hello ${name}`;
 await setLocale('es'); // per-locale bundle loaded on demand
 ```
+
+With the compiler, every `t` your project holds is typed by its catalog: the generated types fill in `Register`, so `Translate` and `Locale` (both exported here, types only, zero bytes) are your keys and your locales, and an instance's `t` checks keys and params too.
 
 ### 🎛️ Standalone runtime (no compiler)
 

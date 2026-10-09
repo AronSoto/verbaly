@@ -143,12 +143,65 @@ describe('runCli: status', () => {
   });
 });
 
+describe('runCli: typegen', () => {
+  it('writes the types alone, from the text the code ships', async () => {
+    // the catalog is behind the code: typegen must not wait for an extract to know {name}
+    const root = makeProject(
+      { en: { greet: 'Hello' }, es: { greet: 'Hola' } },
+      "export const x = t.id('greet')`Hello ${name}`;\n",
+    );
+    const before = readFileSync(join(root, 'locales', 'en.json'), 'utf8');
+    await runCli(['typegen', '--root', root]);
+    expect(process.exitCode).toBeUndefined();
+    expect(readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8')).toContain(
+      '"greet": { "name": unknown };',
+    );
+    expect(readFileSync(join(root, 'locales', 'en.json'), 'utf8')).toBe(before);
+    expect(output(log)).toContain('[verbaly] types written to src/verbaly.d.ts (1 message)');
+    await runCli(['typegen', '--root', root]);
+    expect(output(log)).toContain('[verbaly] types up to date in src/verbaly.d.ts');
+  });
+
+  it('writes nothing under dts: false, and says so', async () => {
+    const root = makeProject({ en: {} }, 'export const x = t`Hi`;\n');
+    writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ dts: false }));
+    await runCli(['typegen', '--root', root]);
+    expect(existsSync(join(root, 'src', 'verbaly.d.ts'))).toBe(false);
+    expect(output(log)).toContain('dts is false');
+  });
+
+  it('takes no flag of another command', async () => {
+    const root = makeProject({ en: {} }, 'export const x = t`Hi`;\n');
+    await runCli(['typegen', '--root', root, '--prune']);
+    expect(process.exitCode).toBe(1);
+    expect(output(error)).toContain('--prune is not a "typegen" flag');
+  });
+});
+
+describe('runCli: pseudo', () => {
+  it('stretches the text the code ships, not the one a stale catalog holds', async () => {
+    const root = makeProject(
+      { en: { greet: 'Hello' } },
+      "export const x = t.id('greet')`Hello there`;\n",
+    );
+    await runCli(['pseudo', '--root', root]);
+    const pseudo = JSON.parse(readFileSync(join(root, 'locales', 'en-XA.json'), 'utf8')) as Record<
+      string,
+      string
+    >;
+    // the pseudo text of "Hello there" is longer than the one of "Hello"
+    expect(pseudo.greet!.length).toBeGreaterThan('[Ĥéļļö]'.length + 4);
+    expect(pseudo.greet).toContain('ţĥéŕé');
+  });
+});
+
 describe('runCli: extract dts option', () => {
   it('dts: false skips the type file, a path redirects it', async () => {
     const root = makeProject({ en: {} }, 'export const x = t`Hi there`;\n');
     writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ dts: false }));
     await runCli(['extract', '--root', root]);
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+    expect(existsSync(join(root, 'src', 'verbaly.d.ts'))).toBe(false);
 
     writeFileSync(
       join(root, 'verbaly.config.json'),
@@ -305,7 +358,9 @@ describe('runCli: extract', () => {
       string
     >;
     expect(Object.values(es)).toContain('');
-    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(true);
+    // src/ is what every app template's tsconfig includes, and the root is not
+    expect(existsSync(join(root, 'src', 'verbaly.d.ts'))).toBe(true);
+    expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
   });
 
   it('a nested catalog survives extract instead of gaining a flat twin', async () => {
@@ -535,7 +590,10 @@ describe('runCli: doctor', () => {
     const key = stableKey('Hi');
     const root = makeProject({ en: { [key]: 'Hi' } }, 'const s = t`Hi`;\n');
     writeFileSync(join(root, 'verbaly.config.json'), '{}');
-    writeFileSync(join(root, 'verbaly.d.ts'), generateDts({ [key]: 'Hi' }));
+    writeFileSync(
+      join(root, 'src', 'verbaly.d.ts'),
+      generateDts({ [key]: 'Hi' }, { locales: ['en'] }),
+    );
     await runCli(['doctor', '--root', root]);
     expect(output(log)).toContain('setup looks healthy ✓');
     expect(process.exitCode).toBeUndefined();

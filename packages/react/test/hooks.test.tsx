@@ -161,6 +161,21 @@ describe('@verbaly/react', () => {
 });
 
 describe('@verbaly/react <Trans>', () => {
+  it('takes the children form the README teaches, and shows it as written until compiled', () => {
+    const v = createVerbaly({ locale: 'es', messages: { es: {} } });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Trans>
+            Read the <a href="/terms">terms</a> first
+          </Trans>
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Read the terms first');
+    expect(container.querySelector('a')!.getAttribute('href')).toBe('/terms');
+  });
+
   it('wraps a named tag in its component', () => {
     const v = createVerbaly({
       locale: 'es',

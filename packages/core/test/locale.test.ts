@@ -737,6 +737,30 @@ describe('switchLocale: one call, both modes', () => {
     expect(went[0]).toContain('/pt');
   });
 
+  it('keeps the search and the anchor of the page it leaves', async () => {
+    const { instance } = fake();
+    const went: string[] = [];
+    history.replaceState({}, '', '/es/search?q=gatos&page=2#results');
+    await switchLocale(instance, 'pt', {
+      routing: 'prefix-except-source',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      navigate: (p) => void went.push(p),
+    });
+    // losing ?q= sent a visitor who changed language back to an empty search
+    expect(went).toEqual(['/pt/search?q=gatos&page=2#results']);
+  });
+
+  it('reads the whole address in localePath and stripLocalePath, the way switchLocale does', () => {
+    history.replaceState({}, '', '/es/search?q=gatos#results');
+    expect(localePath('pt', { supported: SUPPORTED, sourceLocale: 'en' })).toBe(
+      '/pt/search?q=gatos#results',
+    );
+    expect(stripLocalePath({ supported: SUPPORTED })).toBe('/search?q=gatos#results');
+    // the fact a url carries is still read from the path alone
+    expect(localeFromPath({ supported: SUPPORTED })).toBe('es');
+  });
+
   it('going back to the source locale drops the prefix', async () => {
     const { instance } = fake();
     const went: string[] = [];

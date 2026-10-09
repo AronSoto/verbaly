@@ -10,7 +10,7 @@ import { targetLocales, type ResolvedConfig } from './config';
 import { shippedCatalogs } from './extract';
 import type { MessageRegistry } from './registry';
 import { loadState, recordTranslations } from './state';
-import { counted } from './text';
+import { byCodeUnit, counted } from './text';
 import { validateMessage, validatePair } from './validate';
 
 export interface TranslateRequest {
@@ -189,12 +189,12 @@ export async function translateCatalogs(
   // batches land out of order once they run in parallel, and a report has to read the same twice
   for (const locale of Object.keys(result.translated)) result.translated[locale]!.sort();
   for (const locale of Object.keys(result.invalid)) result.invalid[locale]!.sort();
-  result.failed.sort((a, b) => a.locale.localeCompare(b.locale) || compare(a.keys, b.keys));
+  result.failed.sort((a, b) => byCodeUnit(a.locale, b.locale) || compare(a.keys, b.keys));
   return result;
 }
 
 function compare(a: string[], b: string[]): number {
-  return (a[0] ?? '').localeCompare(b[0] ?? '');
+  return byCodeUnit(a[0] ?? '', b[0] ?? '');
 }
 
 // a run takes minutes, so it writes onto the file as it is now: text a person added meanwhile stays

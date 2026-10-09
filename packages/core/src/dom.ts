@@ -117,7 +117,7 @@ export function bindDom<D extends DictionaryInput>(
   const richAttr = `${attr}-rich`;
   const linksAttr = `${attr}-links`;
   const richTags = new Set(options.richTags ?? RICH_TAGS);
-  
+
   // null prototype: a tag named constructor in a message is unknown, never Object's own function
   const globalLinks: Record<string, RichLink> | undefined =
     options.richLinks && Object.assign(Object.create(null), options.richLinks);
@@ -288,7 +288,8 @@ function parseArgs(raw: string | null): Params | undefined {
   try {
     return JSON.parse(raw) as Params;
   } catch {
-    warnOnce(`invalid args JSON: ${raw}`);
+    // the value stays out: the dedupe set is unbounded, and an attribute can be built at runtime
+    warnOnce('invalid args JSON');
     return undefined;
   }
 }

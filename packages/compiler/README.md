@@ -28,6 +28,7 @@ npx verbaly extract        # sync catalogs + types
 npx verbaly extract --watch  # keep extracting as you code (dev loop)
 npx verbaly extract --prune  # drop orphaned keys (waits while any source file does not parse)
 npx verbaly extract --dry-run  # say what extract would add and prune, write nothing
+npx verbaly typegen        # write the TypeScript types alone (CI: run it before tsc)
 npx verbaly status         # coverage per locale, plus unreviewed, broken and outdated counts
 npx verbaly check          # exit 1 if anything is missing or broken (CI)
 npx verbaly translate      # fill missing translations via Claude (or your provider), as drafts
@@ -39,7 +40,7 @@ npx verbaly pseudo         # generate a pseudo-locale catalog for i18n QA (en-XA
 npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG, kills the FOUC)
 ```
 
-Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (portable JSON, flat or nested, whichever the file already is) and `verbaly.d.ts` with params typed per key.
+Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (portable JSON, flat or nested, whichever the file already is) and the TypeScript types of your messages, [where your framework looks for them](#-typed-keys-and-where-the-types-live).
 
 ## 🚦 The build gate
 
@@ -104,11 +105,38 @@ t(titles[slug]);
 
 **A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `.verbaly-state.json`, next to your catalogs. It is taken the moment the translation is written, by `translate`, `import`, Studio or an agent, so a source that changes right after is still caught; `import` takes it from the source text the translator's file carries, so a file made for an older text reads as outdated at once. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it with both texts, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
 
-Three details that catch people out:
+Four details that catch people out:
 
+- **Keep the files that write `t` inside `include`.** The default reads `src/` and `app/`. A file outside them, like `components/` in a Next app without `src/`, is never extracted, so its text shows in the source language in every language. `@verbaly/next`, the Vite plugin and unplugin say so once when they start, with the pattern to add, and `doctor` lists every such file.
 - **Name it `t`.** The compiler reads calls named `t`. `const tr = useT()` works at runtime, but `` tr`…` `` is never extracted, so that text stays in the source language. `extract`, `doctor` and the dev servers name every such call with its file and line, in `.vue`, `.svelte` and `.astro` files too, and `--prune` keeps the translations it reads until it is renamed. Only a `useT` or `getT` from a Verbaly package (or auto-imported, as Nuxt does) counts, so a `t` from another library is left alone.
 - **A number param is formatted for the language.** `{year}` with `2026` renders `2,026` in English, the same as ICU. Pass `String(year)` when the value is a label, not a quantity.
 - **Literal braces are doubled in a catalog.** `{{` shows `{`. `extract` does it for you from code; a catalog written by hand has to do it itself.
+
+## 🔑 Typed keys, and where the types live
+
+Every `t` your project holds checks its keys and their params: the one from `virtual:verbaly`, `useT()` in React, Vue and Svelte, `getT()` in Next, and the `t` of an instance from `createInstance` or `createRequestInstance`. A key no catalog has does not compile, a message with a `{name}` asks for it, and Next's `getRequestLocale()` returns one of your locales instead of any string:
+
+```ts
+const t = useT();
+t('settings.save'); // ✓
+t('settings.sav'); // ✗ '"settings.sav"' is not assignable to parameter of type 'TemplateStringsArray | VerbalyKey'
+t('greeting'); // ✗ greeting is "Hello {name}", so it asks for { name }
+```
+
+A key that comes from data is not a literal: declare it with `defineKeys` (above), or say it is one of yours with `key as VerbalyKey`, imported from `virtual:verbaly`.
+
+The types are one generated file, written where your framework's TypeScript already reads, so there is nothing to add to `tsconfig.json`:
+
+| Project                                                             | The file                                                                                                                                                              |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Next.js                                                             | `.verbaly/types.d.ts`, next to the generated modules. TypeScript skips a dot folder, so its line in `tsconfig.json` is added for you, the way Next adds `.next/types` |
+| Astro                                                               | `.astro/integrations/_verbaly_astro/verbaly.d.ts`, the slot Astro gives integrations                                                                                  |
+| Nuxt                                                                | `.nuxt/verbaly.d.ts`, the slot Nuxt gives modules                                                                                                                     |
+| Vite, SvelteKit, webpack, Rollup, esbuild, Rspack, or the CLI alone | `src/verbaly.d.ts`, the folder every app template includes, or `verbaly.d.ts` when there is no `src/`                                                                 |
+
+`extract`, `typegen`, the dev servers, Studio and the MCP server all write that same file, and `dts` in your config still names another one (`dts: false` writes none). A `verbaly.d.ts` an older Verbaly left at the root is removed the first time the new one is written, because the two would declare the same module; one you wrote yourself, without the generated header, is left alone.
+
+In CI, write the types before you check them, since a fresh clone has none: `npx verbaly typegen && tsc --noEmit`. In Next, `next typegen` writes them as well, because it loads the same config: `next typegen && tsc --noEmit`.
 
 ## 🤖 Machine translation
 
@@ -303,7 +331,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | Config & catalogs | `loadConfig` `resolveConfig` `targetLocales` `loadCatalogs` `readCatalog` `parseCatalog` `writeCatalog` `clientCatalogs` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                       |
 | Extraction        | `syncProject` `extractProject` `collectOrigins` `syncCatalogs` `shippedCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` `watchTree` · types `SyncProjectResult` `SyncResult` `TreeOptions`                                                                                            |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · types `DtsOptions` `RuntimeModuleOptions`                                                                                                                                    |
-| Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |
+| Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `reportOutsideInclude` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult` |
 | The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` `collisionEntries` `formatCollision` `formatFinding` `createDevReporter` · types `Finding` `DevReporter` `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `CollisionEntry` `DivergentEntry` `OutdatedEntry` `SourceSite` `StructureIssue` `IssueSeverity` |
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                            |
 | Review state      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `loadState` `readState` `updateState` `recordTranslations` `outdatedTranslations` `STATE_FILE` · types `Drafts` `State` `Fingerprints` `TranslationWrite`                                                            |
@@ -334,6 +362,8 @@ const { messages, result } = transformSource(code, id, registry);
 // at the end of the build: throws with the reason and the remedy
 runBuildGate(cfg, registry);
 ```
+
+Call `reportOutsideInclude(cfg)` once when your build starts: it names every file outside `include` that writes a `` t`…` ``, which no build translates. It reads the project itself, so a cached transform never hides one. `writeDts(cfg, catalog)` writes the types where the config resolves them and returns the file and whether it changed.
 
 A dev server that writes the catalogs goes through `syncProject`, the same path `extract`, the MCP server and Studio take: it scans (or takes the registry you hold), syncs, writes the catalogs and the types, and keeps `.verbaly-state.json` in step, in that order. Pass `confirm: true` when your registry is built file by file, so a file that changed on disk unseen is read again before its text is written back. `createDevReporter` then says each of its findings once, says it again if it goes away and comes back, and keeps a long list to a few lines.
 

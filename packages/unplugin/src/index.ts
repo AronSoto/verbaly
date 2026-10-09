@@ -7,6 +7,7 @@ import {
   loadCatalogs,
   loadConfig,
   loadVirtualModule,
+  reportOutsideInclude,
   resolveVirtualId,
   runBuildGate,
   syncCatalogs,
@@ -33,6 +34,8 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
     // the code's text ships: a text it owns that was edited in the catalog never reaches the bundle
     syncCatalogs(cfg, catalogs, await extractProject(cfg));
   })();
+  // buildStart awaits it and reports the failure; unwatched till then, a rejection ends the process
+  ready.catch(() => {});
 
   return {
     name: 'verbaly',
@@ -40,6 +43,8 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
 
     async buildStart() {
       await ready;
+      // a file outside include writes a t`…` that no build translates: said once, at the start
+      await reportOutsideInclude(cfg);
     },
 
     resolveId(id) {

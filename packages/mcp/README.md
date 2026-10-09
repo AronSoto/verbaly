@@ -56,7 +56,7 @@ Reading the project is an address, not a call, so these cost no tool invocation:
 | Resource                     | What it holds                                                                                              |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `verbaly://config`           | Source locale, every locale, the catalog directory and where the language lives in the url. Read it first. |
-| `verbaly://catalog/{locale}` | Every message of one locale, flattened the way the runtime reads it. An empty value means untranslated.    |
+| `verbaly://catalog/{locale}` | Every message of one locale, flattened the way the runtime reads it, with the text your code ships where the code owns it. An empty value means untranslated. |
 
 **This is the only way to read what a message says.** Every tool works in keys and counts, which is enough to report a gap and not enough to review a translation or write one in context.
 

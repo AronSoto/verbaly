@@ -35,6 +35,8 @@ function Inbox() {
 }
 ```
 
+**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app): a key no catalog has does not compile. A key that comes from data is declared with `defineKeys` from `virtual:verbaly`.
+
 `useT()` hands out a new `t` whenever the language changes or a catalog arrives, so a `useMemo`, `useCallback` or effect keyed on `t` runs again in the new language. While nothing changes it stays the same function.
 
 ### ✨ Rich text: `<Trans>`
@@ -50,7 +52,7 @@ import { Trans } from '@verbaly/react';
 <Trans id="x7Ka9q2f" components={{ "a": <a href="/terms" /> }} />
 ```
 
-Runtime-first still works: pass `id` (+ `values`/`components`) yourself and nothing is touched. Whitelisted phrasing tags in a message (`<em>`, `<code>`…) render as real elements, same whitelist as `data-verbaly-rich` (`richTags` overrides it); unknown tags unwrap to inert text. JSX whitespace rules apply: a line break between an element and text renders no space (use `{' '}`).
+Both forms type-check: children in your source, `id` at runtime. A `<Trans>` the compiler never saw (no plugin, or a file outside `include`) renders its children as written, like an uncompiled `` t`…` ``. Runtime-first still works: pass `id` (+ `values`/`components`) yourself and nothing is touched. Whitelisted phrasing tags in a message (`<em>`, `<code>`…) render as real elements, same whitelist as `data-verbaly-rich` (`richTags` overrides it); unknown tags unwrap to inert text. JSX whitespace rules apply: a line break between an element and text renders no space (use `{' '}`).
 
 Named links without custom components; hrefs come from your code, never from messages (`javascript:` blocked):
 
@@ -58,6 +60,18 @@ Named links without custom components; hrefs come from your code, never from mes
 // message: 'Read the <docs>guide</docs>'
 <Trans id="cta" links={{ docs: { href: '/docs', target: '_blank', rel: 'noopener' } }} />
 ```
+
+### React Server Components: `@verbaly/react/server`
+
+A Server Component has no provider to read and no hooks to call, so this entry renders `<Trans>` from an instance you pass, with the same contract as the client one:
+
+```tsx
+import { Trans } from '@verbaly/react/server';
+
+<Trans id="agree" instance={verbaly} components={{ terms: <a href="/terms" /> }} />;
+```
+
+In Next.js, `@verbaly/next/server` exports a `<Trans>` that finds the request's instance itself.
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/react**
 

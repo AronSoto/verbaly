@@ -218,8 +218,17 @@ describe('generateDts', () => {
     expect(dts).toContain("declare module 'virtual:verbaly'");
     expect(dts).toContain('setLocale(locale: string): Promise<void>');
     expect(dts).toContain('export namespace t {');
+    // a bare Verbaly reads Register: Verbaly<VerbalyKey> broke its constraint and left t untyped
     expect(dts).toContain(
-      "options?: import('verbaly').VerbalyOptions<VerbalyKey>,\n  ): import('verbaly').Verbaly<VerbalyKey>;",
+      "options?: import('verbaly').VerbalyOptions,\n  ): import('verbaly').Verbaly;",
+    );
+    expect(dts).toContain(
+      "createRequestInstance(locale: string): Promise<import('verbaly').Verbaly>;",
+    );
+    expect(dts).not.toContain('Verbaly<VerbalyKey>');
+    expect(dts).toContain('export type VerbalyLocale = string;');
+    expect(dts).toContain(
+      "  module 'verbaly' {\n    interface Register {\n      t: typeof t;\n      locale: VerbalyLocale;",
     );
     expect(dts).toContain('export const locales: string[];');
     expect(dts).toContain(

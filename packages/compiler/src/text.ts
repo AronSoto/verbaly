@@ -6,3 +6,8 @@ export function counted(count: number, noun: string, many = `${noun}s`): string 
 export function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max - 1) + '…' : text;
 }
+
+// code unit order: localeCompare follows the machine's language, and two machines would disagree
+export function byCodeUnit(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}

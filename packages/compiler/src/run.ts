@@ -1,3 +1,4 @@
+import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { loadCatalogs, writeCatalog } from './catalog';
 import {
@@ -7,6 +8,7 @@ import {
   formatCheckWarnings,
   githubCheckAnnotations,
 } from './check';
+import { writeDts } from './codegen';
 import { loadConfig, type ResolvedConfig } from './config';
 import { doctor, formatDoctorEntry } from './doctor';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
@@ -49,6 +51,7 @@ Usage:
   verbaly wrap       find hardcoded JSX text and wrap it in t\`…\` (report; --write applies)
   verbaly migrate    port catalogs from another i18n library (report; --write applies)
   verbaly extract    scan sources, update catalogs and types
+  verbaly typegen    write the TypeScript types only (CI: run it before tsc)
   verbaly status     translation coverage per locale, at a glance
   verbaly check      verify translations are complete (CI)
   verbaly translate  fill missing translations via a provider (default: claude)
@@ -242,6 +245,23 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       watchProject(cfg, runExtract);
       console.log('[verbaly] watching for source changes (ctrl+c to stop)');
     }
+    return;
+  }
+
+  if (command === 'typegen') {
+    const registry = await extractProject(cfg);
+    // the types describe the text that ships, the code's text wherever the code owns one
+    const source = shippedCatalogs(cfg, loadCatalogs(cfg), registry)[cfg.sourceLocale] ?? {};
+    const written = writeDts(cfg, source);
+    if (!written) {
+      console.log('[verbaly] no types written: dts is false in your verbaly config');
+      return;
+    }
+    const where = relative(cfg.root, written.file).replaceAll('\\', '/');
+    const how = written.changed ? 'written to' : 'up to date in';
+    console.log(
+      `[verbaly] types ${how} ${where} (${counted(Object.keys(source).length, 'message')})`,
+    );
     return;
   }
 
@@ -645,7 +665,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   }
 
   if (command === 'pseudo') {
-    const catalogs = loadCatalogs(cfg);
+    // the text that ships is the one QA has to see stretched, never a catalog the code moved past
+    const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), await extractProject(cfg), {
+      newKeys: false,
+    });
     const locale = values.locale ?? PSEUDO_LOCALE;
     const keys = pseudoCatalogs(cfg, catalogs, locale);
     writeCatalog(cfg, locale, catalogs[locale] ?? {});
@@ -702,6 +725,7 @@ export const COMMAND_FLAGS: Record<string, string[]> = {
   init: [],
   doctor: [],
   extract: ['prune', 'dry-run', 'watch'],
+  typegen: [],
   wrap: ['write'],
   migrate: ['write', 'plurals'],
   status: ['json'],

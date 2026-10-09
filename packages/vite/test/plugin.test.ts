@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stableKey } from '@verbaly/compiler';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import verbalyPlugin from '../src/index';
 
 const KEY = stableKey('Hola {name}');
@@ -99,6 +99,22 @@ describe('dev transform', () => {
     const root = makeProject({ es: {} });
     const { transform } = await setup(root, 'serve');
     expect(transform(CODE, join(root, 'demo', 'app.ts'))).toBeUndefined();
+  });
+
+  it('names a file outside include that writes t`…` once, when the server starts', async () => {
+    const root = makeProject({ es: {} });
+    save(root, CODE, join(root, 'components', 'card.ts'));
+    const { plugin, transform } = await setup(root, 'serve');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await hook<() => Promise<void>>(plugin.buildStart)();
+    await hook<() => Promise<void>>(plugin.buildStart)();
+    // and the file itself is left as written
+    expect(transform(CODE, join(root, 'components', 'card.ts'))).toBeUndefined();
+    const said = warn.mock.calls
+      .flat()
+      .filter((line) => String(line).includes('components/card.ts'));
+    expect(said).toHaveLength(1);
+    warn.mockRestore();
   });
 
   it('include: [] disables source scanning entirely', async () => {

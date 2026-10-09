@@ -42,12 +42,13 @@ verbaly.rspack({ locales: ['en', 'es'] });
 Extraction runs via the CLI: add it to your dev loop or CI:
 
 ```bash
-npx verbaly extract           # scan sources, sync catalogs, write verbaly.d.ts
+npx verbaly extract           # scan sources, sync catalogs, write the types (src/verbaly.d.ts)
 npx verbaly extract --watch   # keep extracting as you code (dev loop)
 ```
 
 - **Same virtual module**: `import { t, setLocale } from 'virtual:verbaly'`.
 - **Build gate**: missing translations fail the build (`failOnMissing: false` to opt out).
+- **Files outside `include`**: the build names once, when it starts, every file outside your `include` that writes a `` t`…` ``, since that text ships untranslated.
 - ESM-only, like the compiler. Use `webpack.config.mjs` (or `"type": "module"`).
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin**

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -109,6 +109,20 @@ describe('loadConfig', () => {
     },
     ESBUILD_TIMEOUT,
   );
+});
+
+describe('a config edited while the process runs', () => {
+  it('is read again: the MCP server and Studio outlive every edit of verbaly.config.mjs', async () => {
+    const root = makeRoot();
+    const file = join(root, 'verbaly.config.mjs');
+    writeFileSync(file, "export default { locales: ['es'] };\n");
+    expect((await loadConfig(root)).locales).toEqual(['en', 'es']);
+    writeFileSync(file, "export default { locales: ['es', 'pt'] };\n");
+    // a write within the same millisecond would keep the stamp, so the test moves it on
+    const later = new Date(Date.now() + 2000);
+    utimesSync(file, later, later);
+    expect((await loadConfig(root)).locales).toEqual(['en', 'es', 'pt']);
+  });
 });
 
 describe('resolveConfig defaults', () => {

@@ -48,6 +48,8 @@ pnpm add @verbaly/svelte
 </select>
 ```
 
+**Keys are typed.** `$t` from `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts`): a key no catalog has does not compile. A key that comes from data is declared with `defineKeys` from `virtual:verbaly`.
+
 Or skip the keys entirely: write the source text in place and the compiler extracts it, right in your `.svelte` files (script and markup):
 
 ```html

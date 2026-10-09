@@ -134,6 +134,15 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
 
   it('dev phase scaffolds catalogs, types and generated modules', async () => {
     const root = makeProject({ source: 'export const s = t`Hello`;' });
+    // a Next project: next in its dependencies and the tsconfig create-next-app writes
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ dependencies: { next: '^16.0.0' } }),
+    );
+    writeFileSync(
+      join(root, 'tsconfig.json'),
+      '{\n  // comments are legal here\n  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"]\n}\n',
+    );
     try {
       await withVerbaly({}, { root, ...inline })(DEV);
       const en = JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')) as Record<
@@ -146,11 +155,46 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
         string
       >;
       expect(Object.values(es)).toContain('');
-      expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(true);
+      // the types live with the generated modules, never committed and never at the root
+      expect(existsSync(join(root, '.verbaly', 'types.d.ts'))).toBe(true);
+      expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
       expect(existsSync(join(root, '.verbaly', 'index.js'))).toBe(true);
+      // TypeScript skips a dot folder unless tsconfig names it, like .next/types
+      const tsconfig = readFileSync(join(root, 'tsconfig.json'), 'utf8');
+      expect(tsconfig).toContain('".verbaly/types.d.ts"');
+      expect(tsconfig).toContain('// comments are legal here');
     } finally {
       stopWatcher(root);
     }
+  });
+
+  it('names a file outside include once, however many times the config is evaluated', async () => {
+    // create-next-app with no src/: components/ sits outside the default include
+    const root = makeProject({ source: 'export const s = t`Hello`;' });
+    mkdirSync(join(root, 'components'), { recursive: true });
+    writeFileSync(join(root, 'components', 'save.tsx'), 'export const b = () => <b>{t`Save`}</b>;');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await withVerbaly({}, { root, ...inline, failOnMissing: false })(BUILD);
+    await withVerbaly({}, { root, ...inline, failOnMissing: false })(BUILD);
+    const said = warn.mock.calls
+      .flat()
+      .filter((line) => String(line).includes('components/save.tsx'));
+    expect(said).toHaveLength(1);
+    expect(String(said[0])).toContain('outside the include of your verbaly config');
+    warn.mockRestore();
+  });
+
+  it('writes the types in the build phase too, the one next typegen loads', async () => {
+    const root = makeProject({ catalogs: { en: { greet: 'Hello {name}' }, es: { greet: '' } } });
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ dependencies: { next: '^16.0.0' } }),
+    );
+    await withVerbaly({}, { root, ...inline, failOnMissing: false })(BUILD);
+    // .verbaly/ is never committed, so a fresh clone gets its types from typegen or the build
+    expect(readFileSync(join(root, '.verbaly', 'types.d.ts'), 'utf8')).toContain(
+      '"greet": { "name": unknown };',
+    );
   });
 
   it('embeds cookie/fallback into the generated module', async () => {

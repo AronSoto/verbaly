@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config';
-import { detectHost, init } from '../src/init';
+import { detectHost } from '../src/host';
+import { init } from '../src/init';
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-init-'));
@@ -134,5 +135,24 @@ describe('init: a locale is written the way Intl reads it', () => {
   it('refuses a source locale it cannot name, since there is no project without one', async () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-init-tag-'));
     await expect(init({ root, sourceLocale: 'x' })).rejects.toThrow(/"x" is not a locale tag/);
+  });
+});
+
+describe('the install line init prints', () => {
+  it('is the one the README teaches, as dependencies, in the manager the project uses', async () => {
+    const pnpm = makeRoot();
+    writeFileSync(
+      join(pnpm, 'package.json'),
+      JSON.stringify({ dependencies: { next: '^16.0.0' } }),
+    );
+    writeFileSync(join(pnpm, 'pnpm-lock.yaml'), '');
+    const fromPnpm = await init({ root: pnpm });
+    expect(fromPnpm.next[0]).toBe('pnpm add verbaly @verbaly/next @verbaly/react');
+
+    const npm = makeRoot();
+    writeFileSync(join(npm, 'package.json'), JSON.stringify({ dependencies: { nuxt: '^4.0.0' } }));
+    writeFileSync(join(npm, 'package-lock.json'), '{}');
+    const fromNpm = await init({ root: npm });
+    expect(fromNpm.next[0]).toBe('npm install verbaly @verbaly/nuxt @verbaly/vue');
   });
 });

@@ -51,6 +51,8 @@ const t = useT();
 </template>
 ```
 
+`useT()` is typed by your catalog: the types go to `.nuxt/verbaly.d.ts`, where Nuxt links them, and `npx verbaly extract` writes that same file. A key no catalog has fails `nuxi typecheck`.
+
 **3. Switching languages** (client): persists the cookie the server reads:
 
 ```vue

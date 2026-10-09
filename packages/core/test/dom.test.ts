@@ -88,6 +88,27 @@ describe('bindDom', () => {
     expect(el.textContent).toBe('Hola');
   });
 
+  it('keeps the broken value out of the warn, since the dedupe set never shrinks', async () => {
+    // a fresh module: the warn set is module-level, and the test above already said it once
+    vi.resetModules();
+    const fresh = await import('../src/dom');
+    const { createVerbaly: create } = await import('../src/instance');
+    const v = create({ locale: 'es', messages: { es: { home: { title: 'Hola' } } } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // an attribute built at runtime: one broken JSON per count would be one entry per count
+    for (const n of [1, 2, 3]) {
+      const el = document.createElement('i');
+      el.setAttribute('data-verbaly', 'home.title');
+      el.setAttribute('data-verbaly-args', `{"n": ${n}`);
+      document.body.appendChild(el);
+    }
+    unbind = fresh.bindDom(v);
+    const said = warn.mock.calls.flat().map(String);
+    expect(said.filter((line) => line.includes('invalid args JSON'))).toHaveLength(1);
+    expect(said.join('\n')).not.toContain('{"n"');
+    warn.mockRestore();
+  });
+
   it('translates attributes', () => {
     const v = setup();
     const input = document.createElement('input');

@@ -34,7 +34,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **1 730 tests under `pnpm test`, 3 new** (0.69.0: 1 727), and **1 731 under `pnpm coverage`**. Compiler 828 plus the 20 of its DOM suite, core 373. Coverage 96.89% of lines.
 - **Sizes and bench unchanged**: the change is types only, and the runtime has no diff.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **`/docs/guide/keys`**: a key you write is checked, and a key from data passes as it is (`p_typed`, `p_typed_data`, and a `t(item.key)` line in the sample).
 - **`/docs/reference/api`**: the dynamic keys callout loses the open dictionary it needed in 0.69.0.

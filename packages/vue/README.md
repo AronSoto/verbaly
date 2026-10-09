@@ -39,7 +39,7 @@ app.use(verbalyPlugin(verbaly));
 </template>
 ```
 
-**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app, `.nuxt/verbaly.d.ts` in Nuxt): a key no catalog has does not compile. A key that comes from data is declared with `defineKeys` from `virtual:verbaly`.
+**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app, `.nuxt/verbaly.d.ts` in Nuxt): a key no catalog has does not compile. A key that comes from data, like `t(item.key)`, passes as it is; declare it with `defineKeys` from `virtual:verbaly` when you want `check` to verify it exists.
 
 Or skip the keys entirely: write the source text in place and the compiler extracts it, right in your `.vue` files (script and template):
 

@@ -35,7 +35,7 @@ function Inbox() {
 }
 ```
 
-**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app): a key no catalog has does not compile. A key that comes from data is declared with `defineKeys` from `virtual:verbaly`.
+**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app): a key no catalog has does not compile. A key that comes from data, like `t(item.key)`, passes as it is; declare it with `defineKeys` from `virtual:verbaly` when you want `check` to verify it exists.
 
 `useT()` hands out a new `t` whenever the language changes or a catalog arrives, so a `useMemo`, `useCallback` or effect keyed on `t` runs again in the new language. While nothing changes it stays the same function.
 

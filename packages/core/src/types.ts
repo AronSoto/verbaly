@@ -85,9 +85,31 @@ export type TArgs<S extends string> = [S] extends [never]
       ? []
       : [params: { [N in ParamNames<S> & string]: unknown }];
 
+// string, or a template with a part from data: a key nobody wrote, so no catalog can check it
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type FromData<K> = {} extends Record<K & string, 1> ? true : false;
+
+// one signature, so a typo is reported against the keys and never against the tagged form
 export interface TFunction<D extends DictionaryInput = DictionaryInput> {
-  <K extends KeysOf<D>>(key: K, ...args: TArgs<MessageAt<D, K>>): string;
-  (strings: TemplateStringsArray, ...values: unknown[]): string;
+  <K extends KeysOf<D> | TemplateStringsArray | (string & {})>(
+    first: K extends TemplateStringsArray
+      ? K
+      : FromData<K> extends true
+        ? K
+        : K extends KeysOf<D>
+          ? K
+          : KeysOf<D>,
+    // never (a key cast away) would distribute to never, which no argument list matches
+    ...args: [K] extends [never]
+      ? [params?: Params]
+      : K extends TemplateStringsArray
+        ? unknown[]
+        : FromData<K> extends true
+          ? [params?: Params]
+          : K extends KeysOf<D>
+            ? TArgs<MessageAt<D, K>>
+            : unknown[]
+  ): string;
   // explicit readable key; compiler rewrites to t(key, params)
   id(key: string): (strings: TemplateStringsArray, ...values: unknown[]) => string;
 }

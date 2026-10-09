@@ -119,11 +119,12 @@ Every `t` your project holds checks its keys and their params: the one from `vir
 ```ts
 const t = useT();
 t('settings.save'); // ✓
-t('settings.sav'); // ✗ '"settings.sav"' is not assignable to parameter of type 'TemplateStringsArray | VerbalyKey'
+t('settings.sav'); // ✗ '"settings.sav"' is not assignable to parameter of type 'VerbalyKey'
 t('greeting'); // ✗ greeting is "Hello {name}", so it asks for { name }
+t(item.key); // ✓ a key that comes from data passes as it is
 ```
 
-A key that comes from data is not a literal: declare it with `defineKeys` (above), or say it is one of yours with `key as VerbalyKey`, imported from `virtual:verbaly`.
+A key you write is checked, through a `const` or a template of literals too. A key that comes from data, a `string` or a template with a part from data like ``t(`status.${s}`)``, passes as it is, since no catalog can tell which key it will be. Declare such keys with `defineKeys` (above) when you want `check` to verify they exist and `--prune` to keep them.
 
 The types are one generated file, written where your framework's TypeScript already reads, so there is nothing to add to `tsconfig.json`:
 

@@ -178,6 +178,66 @@ describe('the generated types reach every t a project holds', () => {
   );
 
   it(
+    'takes a key that comes from data as it is, through every t a project holds',
+    () => {
+      const errors = typecheck(
+        `import { createRequestInstance, t } from 'virtual:verbaly';\n` +
+          `import type { Translate, Verbaly } from 'verbaly';\n` +
+          `declare const slug: string;\n` +
+          `declare const tr: Translate;\n` +
+          `declare function useT(): Verbaly['t'];\n` +
+          `export async function page(): Promise<string> {\n` +
+          `  const v = await createRequestInstance('es');\n` +
+          `  return t(slug) + t(slug, { name: 'Ana' }) + t(\`inbox_\${slug}\`) +\n` +
+          `    tr(slug) + useT()(slug) + v.t(slug);\n` +
+          `}\n`,
+      );
+      // migrating code is full of t(item.key): rejecting it made every migration start in red
+      expect(errors).toBe('');
+    },
+    TSC_TIMEOUT,
+  );
+
+  it(
+    'still checks a key written as a literal, through a const and a template of literals',
+    () => {
+      const errors = typecheck(
+        `import { t } from 'virtual:verbaly';\n` +
+          `declare const part: 'title' | 'body';\n` +
+          `declare const bad: 'title' | 'nope';\n` +
+          `const typo = 'inbox_titel';\n` +
+          `export const a = t(typo);\n` +
+          `export const b = t(\`inbox_\${bad}\`);\n` +
+          `export const c = t(\`inbox_\${part}\`) + t('inbox_title');\n`,
+      );
+      // a written key, however it is spelled, is still a key someone can get wrong
+      expect(errors).toMatch(/app\.ts\(5,[\d]+\): error TS2345: .*"inbox_titel"/);
+      expect(errors).toMatch(/app\.ts\(6,[\d]+\): error TS2345: .*"inbox_nope"/);
+      expect(errors.split('\n').filter((line) => line.startsWith('app.ts'))).toHaveLength(2);
+    },
+    TSC_TIMEOUT,
+  );
+
+  it(
+    'gives an instance built from a dictionary the same rule, naming the key a typo got wrong',
+    () => {
+      const errors = typecheck(
+        `import { createVerbaly } from 'verbaly';\n` +
+          `declare const slug: string;\n` +
+          `const v = createVerbaly({ messages: { en: { hi: 'Hi', greet: 'Hi {name}' } } });\n` +
+          `export const typo = v.t('hii');\n` +
+          `export const bare = v.t('greet');\n` +
+          `export const fine = v.t('hi') + v.t('greet', { name: 'Ana' }) + v.t(slug) + v.t\`x\`;\n`,
+        { dts: false },
+      );
+      expect(errors).toContain(`'"hii"' is not assignable to parameter of type`);
+      expect(errors).toMatch(/app\.ts\(5,[\d]+\): error TS2554/);
+      expect(errors.split('\n').filter((line) => line.startsWith('app.ts'))).toHaveLength(2);
+    },
+    TSC_TIMEOUT,
+  );
+
+  it(
     'leaves every key open in a project with no generated types',
     () => {
       const errors = typecheck(

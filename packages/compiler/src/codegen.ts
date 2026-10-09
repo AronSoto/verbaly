@@ -216,11 +216,22 @@ ${lines.join('\n')}
   ): import('verbaly').Verbaly;
   export function createRequestInstance(locale: string): Promise<import('verbaly').Verbaly>;
 
-  export function t<K extends VerbalyKey | TemplateStringsArray>(
-    first: K,
-    ...rest: K extends VerbalyKey
-      ? [VerbalyMessages[K]] extends [never] ? [] : [VerbalyMessages[K]]
-      : unknown[]
+  // a key written as a literal must exist; string, or a template with a part from data, is data
+  export function t<K extends VerbalyKey | TemplateStringsArray | (string & {})>(
+    first: K extends TemplateStringsArray
+      ? K
+      : {} extends Record<K & string, 1>
+        ? K
+        : K extends VerbalyKey ? K : VerbalyKey,
+    ...rest: [K] extends [never]
+      ? [params?: import('verbaly').Params]
+      : K extends TemplateStringsArray
+        ? unknown[]
+        : {} extends Record<K & string, 1>
+          ? [params?: import('verbaly').Params]
+          : K extends VerbalyKey
+            ? [VerbalyMessages[K]] extends [never] ? [] : [VerbalyMessages[K]]
+            : unknown[]
   ): string;
   export namespace t {
     export function id(

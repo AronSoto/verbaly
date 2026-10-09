@@ -8,6 +8,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.69.1] · 2026-10-08
+
+**A key you write is still checked, and a key that comes from data compiles again as it is.** 0.69.0 typed every `t` and, with it, rejected any key held in a plain `string`, so code that reads its keys from data, and every move from another library, started in red. Now the rule is the one TypeScript can actually keep: a key written as a literal must exist and gets its params checked, and a key from data passes. Breaking: no, this only accepts what 0.69.0 rejected.
+
+### Highlights
+
+- **Keys that come from data compile again.** `t(item.key)` and `` t(`status.${s}`) `` work in every `t` with no cast, while a key you write by hand is still checked against your catalog, params included, and your editor still completes it.
+- **The same rule for an instance you build yourself.** On `createVerbaly({ messages })`, a typo now names the key it got wrong, and a key from data passes there too.
+
+### Changed
+
+- **A key from data passes (`@verbaly/compiler`, `verbaly`).** The generated `t` and core's `TFunction` take one generic signature: a finite set of literals must be keys of the catalog, while a `string`, or a template literal type with a `string` part, is data and takes optional params. A `const`, a union of literals and a template whose parts are all literals are still checked; a `let` widens to `string`, so a key held in one passes. `as VerbalyKey` and `defineKeys` keep working, and `defineKeys` is still what lets `check` verify a key from data and `--prune` keep it.
+
+### Fixed
+
+- **A typo on an instance built from a dictionary named no key (`verbaly`).** `TFunction<D>` kept the two overloads the generated `t` dropped in 0.69.0, so `createVerbaly({ messages }).t('hii')` reported `No overload matches this call` against the tagged form. It now reports `'"hii"' is not assignable to parameter of type '"greet" | "hi"'`.
+
+### Notes
+
+- **Why, and what was weighed.** After 0.69.0, Aron asked for the library to stay simple to adopt and to migrate to. Four options: keep every `string` out (every migration starts with type errors), a config flag (configuration against the zero-config pillar), an overload that falls back to `string` (a typo matches the fallback and passes in silence), or check what was written and let data pass. The last one keeps everything 0.69.0 was for, typos, params and completion, and drops the friction.
+- **Measured on TypeScript 5.9.3, 6.0.3 and 7.0.2, on thirteen cases.** Five fail as they should: a typo, a missing param, an extra param, a template with a part that is no key, a typo held in a `const`. Eight pass: a `string` key with and without params, the correct forms, a template of known literals, a template with a part from data, a `let`, and `as VerbalyKey` with and without params. **The first attempt only let a bare `string` through**, and `` t(`status.${s}`) `` with `s: string` failed, since TypeScript types it as `` `status.${string}` ``: data is now anything that is not a finite set of literals. Key completion in the editor is the same as in 0.69.0, measured with the language service on 5.9.3 and 6.0.3.
+- **`t('x' as never)` keeps compiling**: a key cast to `never` would otherwise distribute into an argument list nothing matches, and an existing core test caught it.
+- **Every new pin was sabotaged and seen red before it was trusted: 4 of 4** (the generated `t` rejecting data again, only a bare `string` counted as data, core back to two overloads, core without the `never` guard).
+- **1 730 tests under `pnpm test`, 3 new** (0.69.0: 1 727), and **1 731 under `pnpm coverage`**. Compiler 828 plus the 20 of its DOM suite, core 373. Coverage 96.89% of lines.
+- **Sizes and bench unchanged**: the change is types only, and the runtime has no diff.
+
+### Docs impact (pending)
+
+- **`/docs/guide/keys`**: a key you write is checked, and a key from data passes as it is (`p_typed`, `p_typed_data`, and a `t(item.key)` line in the sample).
+- **`/docs/reference/api`**: the dynamic keys callout loses the open dictionary it needed in 0.69.0.
+- **`releases.ts` plus `changelog_rel.v0_69_1` in en, es and pt**, with two highlights.
+- **Left from 0.69.0**: `RUNTIME_APP_KB` 6.11, which `check-size` confirms against the installed 0.69.0.
+
 ## [0.69.0] · 2026-10-08
 
 **Every `t` in your project now checks its keys, and the types are written where your framework already reads them.** This release fixes what an audit of 0.68.0 found in the parts you meet first (the generated types, the Next.js server, the install lines and the language switch), and it gives Next.js `getT({ locale })` and a server `<Trans>`. Breaking: a key held in a plain `string` no longer type-checks in `useT`, `getT` or an instance's `t`; the types move out of the project root, and the old generated file there is removed for you; for programmatic users, `ResolvedConfig.dts` is never `undefined`.
@@ -83,6 +116,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **`/docs/guide/troubleshooting`**: `Cannot find module 'virtual:verbaly'` on a fresh clone or in CI (`typegen`), `Cannot redeclare` from an old root file, a text that stays in the source language (`include`), and a typo error that names the key.
 - **A real app's size**: `RUNTIME_APP_KB` 6.11 and the prose that quotes it.
 - **`releases.ts` plus `changelog_rel.v0_69_0` in en, es and pt**, with six highlights.
+- **Executed:** the three dependencies at `^0.69.0` with `pnpm install` after the publish; the 0.69.0 block in `releases.ts` plus en, es and pt (72 releases, two breaking changes counted); `/docs/reference/cli` (`typegen` with its section and its line in the command index, the `init` sample with the README's install line, the `doctor` sample and what it checks of the types and of files outside `include`, `extract` and `pseudo` reading the text that ships); `/docs/guide/keys` (the new "Every key is typed" section); `/docs/reference/api` (`Register`, `Translate` and `Locale`, the dynamic keys callout, the `localePath` sample with query and anchor); `/docs/reference/config` (`dts` by host and the `include` warning); the React page and its Next section (`instant = false`, the server `<Trans>`, `getT({ locale })`, the types in `.verbaly/`, the `include` line); the Vite, Svelte, Vue and Astro pages (where the types live); `/docs/guide/server`, `/docs/guide/urls`, `/docs/guide/agents` with `tools.ts`; troubleshooting (the `include` warning with its message, and missing or clashing types); `/docs/init/start` and `llms.txt`. **Re-measured on the way:** the new prose grew the Spanish catalog chunk from 56 to 58 KB, so `docs_astro.p_inline_measured` now says 58, 55 and 26 in the three catalogs, which `check-size` confirmed. `RUNTIME_APP_KB` reached 6.11 with the 0.69.1 sync, once 0.69.0 was installed.
 
 ## [0.68.0] · 2026-10-07
 

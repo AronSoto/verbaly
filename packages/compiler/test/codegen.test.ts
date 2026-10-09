@@ -96,6 +96,28 @@ describe('generateRuntimeModule', () => {
     expect(await loadMessages('toString')).toEqual({});
   });
 
+  // Proved able to fail by registering on a server too: a request would read the app's language.
+  it('registers its instance for a hook with no provider above it, in a browser only', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en'],
+    });
+    const line = generateRuntimeModule(cfg)
+      .split('\n')
+      .find((text) => text.includes("Symbol.for('verbaly.app')"))!;
+    const APP = Symbol.for('verbaly.app');
+    const run = (document: unknown) => new Function('document', 'v', line)(document, { app: 1 });
+    try {
+      run(undefined);
+      expect((globalThis as Record<symbol, unknown>)[APP]).toBeUndefined();
+      run({});
+      expect((globalThis as Record<symbol, unknown>)[APP]).toEqual({ app: 1 });
+    } finally {
+      delete (globalThis as Record<symbol, unknown>)[APP];
+    }
+  });
+
   it('supports custom locale imports and extra exports', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),
@@ -217,7 +239,10 @@ describe('generateDts', () => {
     expect(dts).toContain('"plain": never;');
     expect(dts).toContain("declare module 'virtual:verbaly'");
     expect(dts).toContain('setLocale(locale: string): Promise<void>');
-    expect(dts).toContain('export namespace t {');
+    expect(dts).toContain('export const t: {');
+    expect(dts).toContain(
+      '    id(key: string): (strings: TemplateStringsArray, ...values: unknown[]) => string;',
+    );
     // a bare Verbaly reads Register: Verbaly<VerbalyKey> broke its constraint and left t untyped
     expect(dts).toContain(
       "options?: import('verbaly').VerbalyOptions,\n  ): import('verbaly').Verbaly;",

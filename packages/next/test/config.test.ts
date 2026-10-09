@@ -120,16 +120,36 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     );
   });
 
-  it('blocks the build on missing translations', async () => {
+  // Proved able to fail by throwing again by default: next build stopped on a missing text.
+  it('reports missing translations and builds on, on a Next with no compile hook', async () => {
     const root = makeProject({ source: 'export const s = t`Hello`;' });
-    await expect(withVerbaly({}, { root, ...inline })(BUILD)).rejects.toThrow(/build blocked/);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(withVerbaly({}, { root, ...inline })(BUILD)).resolves.toBeDefined();
+      const said = warn.mock.calls.map(([line]: unknown[]) => String(line)).join('\n');
+      expect(said).toContain('the build goes on without');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
-  it('failOnMissing: false opts out of the gate', async () => {
+  it('stops the build with failOnMissing: true, on a Next with no compile hook', async () => {
     const root = makeProject({ source: 'export const s = t`Hello`;' });
-    await expect(
-      withVerbaly({}, { root, ...inline, failOnMissing: false })(BUILD),
-    ).resolves.toBeDefined();
+    await expect(withVerbaly({}, { root, ...inline, failOnMissing: true })(BUILD)).rejects.toThrow(
+      /build blocked/,
+    );
+  });
+
+  it('failOnMissing: false builds on, as the default does', async () => {
+    const root = makeProject({ source: 'export const s = t`Hello`;' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(
+        withVerbaly({}, { root, ...inline, failOnMissing: false })(BUILD),
+      ).resolves.toBeDefined();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('dev phase scaffolds catalogs, types and generated modules', async () => {
@@ -265,17 +285,38 @@ describe('withVerbaly: the gate belongs to the build, not to whoever loads the c
     return root;
   }
 
-  it('loads past missing translations, so next typegen works, and blocks after the compile', async () => {
+  it('loads past missing translations, so next typegen works, and reports after the compile', async () => {
     const root = withHook(makeProject({ source: 'export const s = t`Hello`;' }));
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
-    const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;
-    await expect(hook()).rejects.toThrow(/build blocked/);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;
+      await expect(hook()).resolves.toBeUndefined();
+      const said = warn.mock.calls.map(([line]: unknown[]) => String(line)).join('\n');
+      expect(said).toContain('the build goes on without');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('with failOnMissing: true, still loads past them and blocks after the compile', async () => {
+    const root = withHook(makeProject({ source: 'export const s = t`Hello`;' }));
+    const options = { root, ...inline, failOnMissing: true };
+    const config = await withVerbaly<NextConfigLike>({}, options)(BUILD);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;
+      await expect(hook()).rejects.toThrow(/build blocked/);
+    } finally {
+      error.mockRestore();
+    }
   });
 
   // Proved able to fail by rethrowing the gate's error: Next printed the whole list twice.
   it('prints the report once and throws a short line, as Next prints a failed hook twice', async () => {
     const root = withHook(makeProject({ source: 'export const s = t`Hello`;' }));
-    const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
+    const options = { root, ...inline, failOnMissing: true };
+    const config = await withVerbaly<NextConfigLike>({}, options)(BUILD);
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const hook = config.compiler?.runAfterProductionCompile as () => Promise<void>;

@@ -1,6 +1,9 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
 import { loadCatalogs } from '../src/catalog';
@@ -123,6 +126,47 @@ describe('a config edited while the process runs', () => {
     utimesSync(file, later, later);
     expect((await loadConfig(root)).locales).toEqual(['en', 'es', 'pt']);
   });
+
+  // Proved able to fail by keeping the cache, or by keying it with the root as given: en,es twice.
+  it(
+    'is read again when it is CommonJS, which Node caches by file name and not by url',
+    async () => {
+      const bundle = join(makeRoot(), 'config.mjs');
+      await build({
+        entryPoints: [fileURLToPath(new URL('../src/config.ts', import.meta.url))],
+        bundle: true,
+        format: 'esm',
+        platform: 'node',
+        outfile: bundle,
+        external: ['bundle-require'],
+        logLevel: 'silent',
+      });
+      // a --root or an agent's root can be relative, and Node keys that cache by the full path
+      for (const relativeRoot of [false, true]) {
+        const root = makeRoot();
+        const file = join(root, 'verbaly.config.js');
+        writeFileSync(file, "module.exports = { locales: ['es'] };\n");
+        const at = JSON.stringify(relativeRoot ? basename(root) : root);
+        const script = [
+          "import { utimesSync, writeFileSync } from 'node:fs';",
+          `const { loadConfig } = await import(${JSON.stringify(pathToFileURL(bundle).href)});`,
+          `const first = (await loadConfig(${at})).locales.join(',');`,
+          `writeFileSync(${JSON.stringify(file)}, "module.exports = { locales: ['es', 'pt'] };\\n");`,
+          'const later = new Date(Date.now() + 2000);',
+          `utimesSync(${JSON.stringify(file)}, later, later);`,
+          `const second = (await loadConfig(${at})).locales.join(',');`,
+          "console.log(first + '|' + second);",
+        ].join('\n');
+        // in a real Node process: vitest loads modules its own way, and there the old code passed
+        const out = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+          cwd: dirname(root),
+          encoding: 'utf8',
+        });
+        expect(out.trim()).toBe('en,es|en,es,pt');
+      }
+    },
+    ESBUILD_TIMEOUT,
+  );
 });
 
 describe('resolveConfig defaults', () => {

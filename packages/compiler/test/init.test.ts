@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -109,6 +109,55 @@ describe('init', () => {
     const result = await init({ root });
     expect(result.host).toBeUndefined();
     expect(result.next.join(' ')).toContain('verbaly extract');
+  });
+});
+
+describe('init in a project that already translates', () => {
+  // what Memos looked like: react-i18next, Vite, and a <locale>.json per language in src/locales
+  function moving(): string {
+    const root = makeRoot();
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({
+        dependencies: { i18next: '^26.0.0', 'react-i18next': '^17.0.0', verbaly: '^0.70.0' },
+        devDependencies: { vite: '^8.0.0', '@verbaly/vite': '^0.70.0' },
+      }),
+    );
+    mkdirSync(join(root, 'src', 'locales'), { recursive: true });
+    writeFileSync(join(root, 'src', 'locales', 'en.json'), '{"hi":"Hi {{name}}"}');
+    writeFileSync(join(root, 'src', 'locales', 'es.json'), '{"hi":"Hola {{name}}"}');
+    return root;
+  }
+
+  // Proved able to fail without the look around: an empty locales/en.json beside 46 catalogs.
+  it('points the config at the catalogs it has, and scaffolds no second set', async () => {
+    const root = moving();
+    const result = await init({ root });
+
+    expect(result.found).toBe('src/locales');
+    expect(result.created).toEqual(['verbaly.config.mjs']);
+    expect(result.skipped).toEqual(['src/locales/en.json']);
+    expect(existsSync(join(root, 'locales'))).toBe(false);
+    const cfg = await loadConfig(root);
+    expect(cfg.dir).toBe(join(root, 'src', 'locales'));
+    expect(cfg.locales).toEqual(['en', 'es']);
+  });
+
+  it('names migrate for those catalogs, and installs nothing that is already installed', async () => {
+    const result = await init({ root: moving() });
+
+    expect(result.next).toEqual([
+      'add verbaly() to the plugins in vite.config',
+      'port the i18next and react-i18next catalogs: npx verbaly migrate reports, --write applies',
+    ]);
+  });
+
+  it('looks around only for a config it writes, never past a --dir or a config file', async () => {
+    const flagged = moving();
+    expect((await init({ root: flagged, dir: 'i18n' })).found).toBeUndefined();
+    const configured = moving();
+    writeFileSync(join(configured, 'verbaly.config.json'), '{"dir":"translations"}');
+    expect((await init({ root: configured })).found).toBeUndefined();
   });
 });
 

@@ -20,7 +20,7 @@ Extraction covers `.js`/`.ts`/`.jsx`/`.tsx` **and `.svelte`, `.vue` and `.astro`
 ## 🧰 CLI
 
 ```bash
-npx verbaly init           # scaffold config + locale catalogs (detects your framework)
+npx verbaly init           # write the config, keeping catalogs you already have (detects your framework)
 npx verbaly doctor         # diagnose the setup (config, catalogs, wiring, types, translations)
 npx verbaly wrap           # onboarding codemod: report plain JSX text, --write wraps it in t``
 npx verbaly migrate        # port catalogs from another i18n library (--write applies, --plurals merges)
@@ -42,11 +42,13 @@ npx verbaly render         # pre-fill data-verbaly HTML per locale (SSG, kills t
 
 Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed). Generates `locales/<locale>.json` (portable JSON, flat or nested, whichever the file already is) and the TypeScript types of your messages, [where your framework looks for them](#-typed-keys-and-where-the-types-live).
 
-## 🚦 The build gate
+## 🚦 The gate: `check` in CI, a report in every build
 
-`verbaly check` is the only command that exits 1, and it asks two questions, not one.
+`verbaly check` is the only command that exits 1. Run it in CI: it is the strict gate, and it asks three questions.
 
-**Is every message translated?** A missing key or an empty value fails the build, so raw keys never reach production.
+**Is every message translated?** A missing key or an empty value fails `check`, so a raw key never reaches a release your CI let through.
+
+**Does every key you wrote exist?** A key written in the code has to be in a catalog, however it is spelled (`t('k')`, ``t(`k`)``, `<Trans id={'k'}>`) and also when a `t` under another name reads it. One that is not renders the key itself.
 
 **Can the translation render what the source renders?** Presence is not correctness. These fail too, each with the reason in plain words:
 
@@ -67,7 +69,21 @@ Three more warnings name things that used to happen in silence, each with the fi
 - **The catalog and the code disagree.** A text written in your code is the code's: the build ships it, and the source catalog only mirrors it (see [where a text lives](#-where-a-text-lives)).
 - **An outdated translation.** The source text changed after the translation was written, and nobody has looked at the translation since. It is read against the text that ships, the one in your code, so it is caught even before `extract` runs.
 
-The bundler plugins run the same gate on `build`, and when `check` has warnings the build prints one line saying how many, then passes: `npx verbaly check` reads them out.
+**A build never stops over a text.** The bundler plugins run the same `check` at the end of every build, say what it found and let the build finish: a missing translation shows in the source language, a key no catalog has shows the key itself, and a broken translation renders differently from its source, so those come first:
+
+```text
+[verbaly] ✗ the build goes on with 1 broken translation, each rendering differently from its source:
+  [es] cart.total: {amount} is missing, so its value never reaches the text
+[verbaly] ⚠ the build goes on without 1 translation, shown in en instead:
+  [es] home.lead: "Pick a language"
+[verbaly] ⚠ the build goes on with 1 key no catalog has, so the key itself shows:
+  cart.totl (used in src/app.ts)
+[verbaly] to fix them:
+  …
+[verbaly] `npx verbaly check` lists every one, and in your CI it stops a release on them
+```
+
+Each list shows five and counts the rest. A problem is said once while it lasts, across the client and server builds of one project and the rebuilds of a watch, and again only if it goes away and comes back. A text your source catalog does not have yet gets one line, since the build ships it from the code anyway, and warnings get one line saying how many. A project that deploys without CI can ask for the old behavior: `failOnMissing: true` in the plugin's options stops the build on whatever fails `check`.
 
 ```bash
 npx verbaly check                     # text report
@@ -110,7 +126,7 @@ Four details that catch people out:
 - **Keep the files that write `t` inside `include`.** The default reads `src/` and `app/`. A file outside them, like `components/` in a Next app without `src/`, is never extracted, so its text shows in the source language in every language. `@verbaly/next`, the Vite plugin and unplugin say so once when they start, with the pattern to add, and `doctor` lists every such file.
 - **Name it `t`.** The compiler reads calls named `t`. `const tr = useT()` works at runtime, but `` tr`…` `` is never extracted, so that text stays in the source language. `extract`, `doctor` and the dev servers name every such call with its file and line, in `.vue`, `.svelte` and `.astro` files too, and `--prune` keeps the translations it reads until it is renamed. Only a `useT` or `getT` from a Verbaly package (or auto-imported, as Nuxt does) counts, so a `t` from another library is left alone.
 - **A number param is formatted for the language.** `{year}` with `2026` renders `2,026` in English, the same as ICU. Pass `String(year)` when the value is a label, not a quantity.
-- **Literal braces are doubled in a catalog.** `{{` shows `{`. `extract` does it for you from code; a catalog written by hand has to do it itself.
+- **Literal braces are doubled in a catalog.** `{{` shows `{`. `extract` does it for you from code, and `migrate` does it for a catalog that comes from i18next, where a lone brace was text; a catalog written by hand has to do it itself.
 
 ## 🔑 Typed keys, and where the types live
 
@@ -124,7 +140,7 @@ t('greeting'); // ✗ greeting is "Hello {name}", so it asks for { name }
 t(item.key); // ✓ a key that comes from data passes as it is
 ```
 
-A key you write is checked, through a `const` or a template of literals too. A key that comes from data, a `string` or a template with a part from data like ``t(`status.${s}`)``, passes as it is, since no catalog can tell which key it will be. Declare such keys with `defineKeys` (above) when you want `check` to verify they exist and `--prune` to keep them.
+A key you write is checked, through a `const` or a template of literals too. A key that comes from data, a `string` or a template with a part from data like ``t(`status.${s}`)``, passes as it is, since no catalog can tell which key it will be. A variable typed as a union of keys, `VerbalyKey` itself included, is data too: each key it can be has to exist, and its params are left open, since no one message says which it will be. Declare such keys with `defineKeys` (above) when you want `check` to verify they exist and `--prune` to keep them.
 
 The types are one generated file, written where your framework's TypeScript already reads, so there is nothing to add to `tsconfig.json`:
 
@@ -138,6 +154,12 @@ The types are one generated file, written where your framework's TypeScript alre
 `extract`, `typegen`, the dev servers, Studio and the MCP server all write that same file, and `dts` in your config still names another one (`dts: false` writes none). A `verbaly.d.ts` an older Verbaly left at the root is removed the first time the new one is written, because the two would declare the same module; one you wrote yourself, without the generated header, is left alone.
 
 In CI, write the types before you check them, since a fresh clone has none: `npx verbaly typegen && tsc --noEmit`. In Next, `next typegen` writes them as well, because it loads the same config: `next typegen && tsc --noEmit`.
+
+## 🚚 Coming from i18next
+
+`npx verbaly init` keeps the catalogs a project already has: it points the config at `src/locales`, or wherever they are, instead of starting a second set, and its next steps name `migrate` when your dependencies have i18next. `npx verbaly migrate` reports what it would change in those catalogs, and `--write` applies it: `{{name}}` becomes `{name}`, and a brace i18next showed as text is doubled, so it stays text. A format, an unescape or a nesting is left to you, each with its reason. `.verbaly-state.json` remembers which languages were converted, so a later run, like `--plurals` to merge `_one` and `_other` into one message, never reads them as i18next again.
+
+While i18next still serves some screens, give it `interpolation: { prefix: '{', suffix: '}' }` and both libraries read the converted files.
 
 ## 🤖 Machine translation
 
@@ -337,7 +359,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                            |
 | Review state      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `loadState` `readState` `updateState` `recordTranslations` `outdatedTranslations` `STATE_FILE` · types `Drafts` `State` `Fingerprints` `TranslationWrite`                                                            |
 | Translation       | `translateCatalogs` `mergeTranslations` `writeDrafts` `resolveProvider` `formatTranslateFailures` · types `DraftEntry` `WriteDraftsResult`                                                                                               |
-| Diagnosis         | `doctor` `formatDoctorEntry` · types `DoctorResult` `DoctorEntry`                                                                                                                                                                        |
+| Diagnosis         | `doctor` `formatDoctorEntry` `formatDoctorHealth` · types `DoctorResult` `DoctorEntry`                                                                                                                                                   |
 | Onboarding        | `wrapProject` · types `WrapResult` `WrapEntry` `WrapSkip` `WrapBlocked` `WrapOptions`                                                                                                                                                                  |
 | Static rendering  | `renderSite` `formatRenderWarnings` · types `RenderSiteOptions` `RenderSiteResult`                                                                                                                       |
 | Error output      | `formatCliError`                                                                                                                                                       |

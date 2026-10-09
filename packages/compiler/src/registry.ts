@@ -47,7 +47,7 @@ export class MessageRegistry {
     }));
   }
 
-  // strict leaves out the loose spellings, which the gate does not fail on yet
+  // strict leaves out the keys of texts never extracted, which no catalog has to hold
   usedKeys(strict = false): Map<string, string[]> {
     const out = new Map<string, string[]>();
     for (const analysis of this.inOrder()) {

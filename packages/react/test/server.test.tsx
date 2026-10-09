@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createVerbaly } from 'verbaly';
 import { describe, expect, it } from 'vitest';
+import { useT } from '../src/index';
 import { renderTrans, Trans } from '../src/server';
 
 function makeInstance() {
@@ -28,6 +29,22 @@ describe('@verbaly/react/server, the entry a Server Component imports', () => {
     expect(renderToStaticMarkup(renderTrans(makeInstance(), { id: 'bold' }))).toBe(
       'a <b>b</b><br/>c',
     );
+  });
+});
+
+describe('a hook rendered on a server with no provider above it', () => {
+  // Proved able to fail by dropping the document guard: the server rendered the app's language.
+  it('never reads the app instance, which belongs to no request', () => {
+    const APP = Symbol.for('verbaly.app');
+    (globalThis as Record<symbol, unknown>)[APP] = makeInstance();
+    function Hello() {
+      return <p>{useT()('agree' as never)}</p>;
+    }
+    try {
+      expect(() => renderToStaticMarkup(<Hello />)).toThrow(/requires a <VerbalyProvider>/);
+    } finally {
+      delete (globalThis as Record<symbol, unknown>)[APP];
+    }
   });
 });
 

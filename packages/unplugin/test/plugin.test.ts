@@ -103,40 +103,64 @@ describe('transform', () => {
 });
 
 describe('build gate', () => {
-  it('blocks the build on missing translations', async () => {
+  function reported(run: () => void): string[] {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      run();
+      return warn.mock.calls.map(([text]) => String(text));
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  // Proved able to fail by throwing again by default: every rebuild of a watch stopped.
+  it('reports missing translations and builds on', async () => {
     const root = makeProject({ es: {}, en: {} });
     const p = await setup(root);
     p.transform(CODE, join(root, 'src', 'app.ts'));
-    expect(() => p.buildEnd()).toThrowError(/missing translations/);
+    const said = reported(() => expect(() => p.buildEnd()).not.toThrow());
+    expect(said.join('\n')).toContain('the build goes on without 1 translation,');
   });
 
-  it('passes when catalogs are complete', async () => {
+  // unplugin runs buildEnd on every rebuild of webpack, rspack and esbuild watch modes
+  it('says it once across rebuilds while nothing changes', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const p = await setup(root);
+    p.transform(CODE, join(root, 'src', 'app.ts'));
+    expect(reported(() => p.buildEnd())).toHaveLength(1);
+    expect(reported(() => p.buildEnd())).toEqual([]);
+    expect(reported(() => p.buildEnd())).toEqual([]);
+  });
+
+  it('passes in silence when catalogs are complete', async () => {
     const root = makeProject({
       es: { [KEY]: 'Hola {name}' },
       en: { [KEY]: 'Hello {name}' },
     });
     const p = await setup(root);
     p.transform(CODE, join(root, 'src', 'app.ts'));
-    expect(() => p.buildEnd()).not.toThrow();
+    expect(reported(() => expect(() => p.buildEnd()).not.toThrow())).toEqual([]);
   });
 
-  it('blocks the build on unknown keys', async () => {
+  it('reports an unknown key and builds on', async () => {
     const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello {name}' } });
     const p = await setup(root);
     p.transform("const s = t('nope.missing');", join(root, 'src', 'app.ts'));
-    expect(() => p.buildEnd()).toThrowError(/build blocked/);
+    const said = reported(() => expect(() => p.buildEnd()).not.toThrow());
+    expect(said.join('\n')).toContain('  nope.missing (used in src/app.ts)');
   });
 
-  it('can be disabled with failOnMissing: false', async () => {
+  // Proved able to fail by dropping the option on the way to the gate: the build went on.
+  it('stops the build with failOnMissing: true, as the gate did before 0.70.0', async () => {
     const root = makeProject({ es: {}, en: {} });
-    const plugin = rawPlugin({ root, sourceLocale: 'es', failOnMissing: false });
+    const plugin = rawPlugin({ root, sourceLocale: 'es', failOnMissing: true });
     await (plugin.buildStart as () => Promise<void>).call({});
     (plugin.transform as (code: string, id: string) => unknown).call(
       {},
       CODE,
       join(root, 'src', 'app.ts'),
     );
-    expect(() => (plugin.buildEnd as () => void).call({})).not.toThrow();
+    expect(() => (plugin.buildEnd as () => void).call({})).toThrowError(/missing translations/);
   });
 });
 

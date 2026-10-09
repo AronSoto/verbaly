@@ -10,6 +10,7 @@ import {
   formatCheckResult,
   formatCheckWarnings,
   formatDoctorEntry,
+  formatDoctorHealth,
   formatFinding,
   formatStatusResult,
   formatTranslateFailures,
@@ -199,6 +200,10 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         refused: z
           .array(z.string())
           .describe('Locales left out: not a locale tag, and no sure way to fix one'),
+        found: z
+          .string()
+          .optional()
+          .describe('Catalogs the project already had, which the new config points at'),
       },
     },
     guarded(async ({ root, dir, sourceLocale, locales }) => {
@@ -210,6 +215,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       for (const locale of result.refused) {
         lines.push(`left out "${locale}": it is not a locale tag, use one like es or pt-BR`);
       }
+      if (result.found) lines.push(`catalogs: ${result.found}, kept where they already are`);
       if (result.host) lines.push(`detected: ${result.host}`);
       lines.push(...result.next.map((step, i) => `${i + 1}. ${step}`));
       return reply(lines.join('\n'), { ...result });
@@ -239,8 +245,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     guarded(async ({ root }) => {
       const cfg = await config(root);
       const result = await doctor(cfg);
-      const health = result.ok ? 'setup looks healthy' : 'problems found';
-      const head = `${counted(result.entries.length, 'check')}, ${health}`;
+      const head = `${counted(result.entries.length, 'check')}, ${formatDoctorHealth(result)}`;
       return reply([head, ...result.entries.map(formatDoctorEntry)].join('\n'), { ...result });
     }),
   );

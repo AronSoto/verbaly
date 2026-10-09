@@ -89,6 +89,13 @@ export type TArgs<S extends string> = [S] extends [never]
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type FromData<K> = {} extends Record<K & string, 1> ? true : false;
 
+// a union of keys comes from data: each must exist, but no one message says which params it takes
+type OneKey<K> = [K] extends [
+  (K extends unknown ? (key: K) => void : never) extends (key: infer One) => void ? One : never,
+]
+  ? true
+  : false;
+
 // one signature, so a typo is reported against the keys and never against the tagged form
 export interface TFunction<D extends DictionaryInput = DictionaryInput> {
   <K extends KeysOf<D> | TemplateStringsArray | (string & {})>(
@@ -102,13 +109,15 @@ export interface TFunction<D extends DictionaryInput = DictionaryInput> {
     // never (a key cast away) would distribute to never, which no argument list matches
     ...args: [K] extends [never]
       ? [params?: Params]
-      : K extends TemplateStringsArray
-        ? unknown[]
-        : FromData<K> extends true
-          ? [params?: Params]
-          : K extends KeysOf<D>
-            ? TArgs<MessageAt<D, K>>
-            : unknown[]
+      : OneKey<K> extends false
+        ? [params?: Params]
+        : K extends TemplateStringsArray
+          ? unknown[]
+          : FromData<K> extends true
+            ? [params?: Params]
+            : K extends KeysOf<D>
+              ? TArgs<MessageAt<D, K>>
+              : unknown[]
   ): string;
   // explicit readable key; compiler rewrites to t(key, params)
   id(key: string): (strings: TemplateStringsArray, ...values: unknown[]) => string;

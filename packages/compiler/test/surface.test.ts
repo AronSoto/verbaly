@@ -26,6 +26,7 @@ const VALUES = [
   'formatCliError',
   'formatCollision',
   'formatDoctorEntry',
+  'formatDoctorHealth',
   'formatFinding',
   'formatRenderWarnings',
   'formatStatusResult',

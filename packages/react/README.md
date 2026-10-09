@@ -35,7 +35,9 @@ function Inbox() {
 }
 ```
 
-**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app): a key no catalog has does not compile. A key that comes from data, like `t(item.key)`, passes as it is; declare it with `defineKeys` from `virtual:verbaly` when you want `check` to verify it exists.
+**The provider is optional in the browser.** With none above it, a hook reads the instance `virtual:verbaly` creates, so a single-page app can skip it and a component test renders with no wrapper, as with react-i18next. On a server it is required, since every request has its own instance.
+
+**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app): a key no catalog has does not compile. A key that comes from data, like `t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `virtual:verbaly` when you want `check` to verify it exists.
 
 `useT()` hands out a new `t` whenever the language changes or a catalog arrives, so a `useMemo`, `useCallback` or effect keyed on `t` runs again in the new language. While nothing changes it stays the same function.
 

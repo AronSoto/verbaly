@@ -40,10 +40,21 @@ export function verbalyPlugin<D extends DictionaryInput>(instance: Verbaly<D>): 
   };
 }
 
+// what virtual:verbaly registers in a browser; a server holds one instance per request instead
+const APP_INSTANCE = Symbol.for('verbaly.app');
+
+function appInstance(): Verbaly | null {
+  if (typeof document === 'undefined') return null;
+  return ((globalThis as Record<symbol, unknown>)[APP_INSTANCE] as Verbaly | undefined) ?? null;
+}
+
+// the plugin wins; without it, a browser or a test reads the app's own instance
 export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verbaly<D> {
-  const instance = inject(KEY, null);
+  const instance = inject(KEY, null) ?? appInstance();
   if (!instance) {
-    throw new Error('[verbaly] useVerbaly requires app.use(verbalyPlugin(...))');
+    throw new Error(
+      '[verbaly] useVerbaly requires app.use(verbalyPlugin(...)): on a server, or before virtual:verbaly loads',
+    );
   }
   return instance as unknown as Verbaly<D>;
 }

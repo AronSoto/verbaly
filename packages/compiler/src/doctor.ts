@@ -57,6 +57,15 @@ export function formatDoctorEntry(entry: DoctorEntry): string {
     : head;
 }
 
+// the verdict under the entries: healthy said after a warning read as if nothing needed a look
+export function formatDoctorHealth(result: DoctorResult): string {
+  if (!result.ok) return 'problems found';
+  const warnings = result.entries.filter((entry) => entry.level === 'warn').length;
+  return warnings > 0
+    ? `setup works, with ${counted(warnings, 'warning')} to read`
+    : 'setup looks healthy';
+}
+
 export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   const entries: DoctorEntry[] = [];
   const ok = (name: string, message: string) => entries.push({ level: 'ok', check: name, message });

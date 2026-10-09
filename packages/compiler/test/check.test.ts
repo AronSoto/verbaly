@@ -426,13 +426,28 @@ describe('a key only a translation has', () => {
     expect(warnings).toContain('[es] dead.key: only this translation has it, and no code reads it');
   });
 
-  // Proved able to fail by counting loose keys as unknown: a build that passed on 0.64.0 fails.
-  it('never fails the gate for a key spelled in backticks, which 0.64.0 did not read at all', () => {
+  // the build only reports since 0.70.0, so the raw key on screen can finally be named in CI
+  it('fails for a key spelled in backticks that no catalog has, like a quoted one', () => {
     const registry = new MessageRegistry();
-    registry.update('a.ts', analyze('t(`nowhere.key`);', 'a.ts'));
+    registry.update(
+      'a.ts',
+      analyze('t(`nowhere.key`);\nconst tr = useT();\ntr("gone.key");', 'a.ts'),
+    );
+    const result = check(cfg(), { en: { kept: 'Kept' }, es: { kept: 'Guardada' } }, registry);
+    expect(result.unknown).toEqual([
+      { key: 'nowhere.key', files: ['a.ts'] },
+      { key: 'gone.key', files: ['a.ts'] },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  // Proved able to fail by counting every used key: the renamed t's own text read as unknown.
+  it('never counts the key of a text a renamed t writes, which is reported as renamed instead', () => {
+    const registry = new MessageRegistry();
+    registry.update('a.ts', analyze('const tr = useT();\ntr`Never extracted`;', 'a.ts'));
     const result = check(cfg(), { en: { kept: 'Kept' }, es: { kept: 'Guardada' } }, registry);
     expect(result.unknown).toEqual([]);
-    expect(result.ok).toBe(true);
+    expect(registry.missed().map((call) => call.name)).toEqual(['tr']);
   });
 
   it('is not a key the code already writes and the source catalog has not caught up with', () => {

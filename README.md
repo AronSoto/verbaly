@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.69.1" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.70.0" alt="Socket supply chain security" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/verbaly#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <img src="https://img.shields.io/badge/gzip-3.31KB-3fb950" alt="3.31KB gzip runtime" />
@@ -39,7 +39,7 @@ t`Hello ${name}, you have ${count} messages`;
 t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
 ```
 
-Missing a translation? **The build fails**, so raw keys never reach production.
+Missing a translation? **Every build says which ones**, and `verbaly check` stops your CI on them, so a raw key never reaches a release.
 
 ---
 
@@ -111,7 +111,7 @@ Plain HTML, no framework? Bind by attribute:
 - **Fast, with receipts**: fully memoized hot path: 5-35× faster than i18next on lookup/interpolation/plurals (`pnpm bench`, benchmarked every release).
 - **No proprietary format**: plain, portable JSON catalogs. No lock-in. Most TMS platforms ingest them natively, and `verbaly export`/`import` round-trips XLIFF 2.0, CSV or gettext PO with human translators; exports carry the source-file location of every message so translators see context, and imports are structure-validated, so a typo in a `{param}` or tag never reaches your UI. The same catalogs also export as native mobile resources (`--format android-xml` / `ios-strings`) for a companion app.
 - **Works with plain HTML**: a `data-verbaly` DOM interpreter for the framework-less case, with opt-in rich text (`data-verbaly-rich`, whitelist-based, XSS-safe), named links (`richLinks`; hrefs from your code, never from messages) and locale bootstrap helpers (`resolveLocale`/`persistLocale`).
-- **Fails the build on missing translations**: the #1 i18n pain, gone. And on **broken** ones: `verbaly check` reads every translation against its source and rejects the ones that cannot render it, whether they came from a translator, a machine or a hand edit. A dropped `{param}`, a lost `<em>`, a flattened plural block, a plural set with no catch-all case (that one renders an empty string) all stop the build with the reason in plain words, annotated on the source line in CI. It also warns, without failing, when a language needs plural forms your catalog does not carry yet. And when a catalog reaches your app without passing through the build (a lazy loader, a CMS), the runtime reports the same problems in the console instead of degrading quietly: it never crashes on bad data, and it never hides it either.
+- **Catches missing and broken translations before a release**: the #1 i18n pain, gone. `verbaly check` reads every translation against its source and rejects the ones that cannot render it, whether they came from a translator, a machine or a hand edit. A dropped `{param}`, a lost `<em>`, a flattened plural block, a plural set with no catch-all case (that one renders an empty string) all fail it with the reason in plain words, annotated on the source line in CI. Every build lists them too, broken ones first, and goes on: a text never stops a deploy unless you ask for it with `failOnMissing: true`. It also warns, without failing, when a language needs plural forms your catalog does not carry yet. And when a catalog reaches your app without passing through the build (a lazy loader, a CMS), the runtime reports the same problems in the console instead of degrading quietly: it never crashes on bad data, and it never hides it either.
 - **RTL and language names built in**: adding Arabic or Hebrew just works: `switchLocale`, the SSR integrations and `verbaly render` keep `<html dir>` right on their own, and `localeName('es')` gives your locale switcher real names ('español') via `Intl.DisplayNames`, no hardcoded tables.
 - **Static sites ship translated**: `verbaly render` pre-fills your built HTML per locale (`dist/es/…`, `<html lang>` and `<html dir>` set). No flash of untranslated content on SSG.
 - **i18n QA built in**: `verbaly pseudo` generates a pseudo-locale (`⟦Ĥéĺĺó ~⟧`) that exposes hardcoded strings and clipped layouts; `verbaly translate` fills real locales via Claude or your own provider; `verbaly doctor` diagnoses the whole setup with the exact fix for each finding.
@@ -126,8 +126,8 @@ Plain HTML, no framework? Bind by attribute:
 | Key maintenance           | **none, extracted**   | by hand            | extract → compile step | by hand        | by hand       |
 | Dynamic / CMS content     | ✅ real runtime path  | ✅                 | ✅                     | ⚠️ weak        | ✅            |
 | Plain HTML (no framework) | ✅ DOM interpreter    | ❌                 | ❌                     | ❌             | ❌            |
-| Missing-translation gate  | ✅ build fails        | runtime warning    | CI step                | ✅             | ❌            |
-| Broken-translation gate   | ✅ build fails        | ❌                 | ❌                     | ❌             | ❌            |
+| Missing-translation gate  | ✅ fails CI only      | runtime warning    | CI step                | ✅             | ❌            |
+| Broken-translation gate   | ✅ fails CI only      | ❌                 | ❌                     | ❌             | ❌            |
 | Catalog format            | plain JSON            | JSON               | PO/JSON                | inlang format  | TS files      |
 
 ---

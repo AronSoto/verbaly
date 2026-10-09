@@ -14,6 +14,14 @@ export type { TransOptions, TransProps } from './render';
 
 const VerbalyContext = createContext<Verbaly | null>(null);
 
+// what virtual:verbaly registers in a browser; a server holds one instance per request instead
+const APP_INSTANCE = Symbol.for('verbaly.app');
+
+function appInstance(): Verbaly | null {
+  if (typeof document === 'undefined') return null;
+  return ((globalThis as Record<symbol, unknown>)[APP_INSTANCE] as Verbaly | undefined) ?? null;
+}
+
 export interface VerbalyProviderProps<D extends DictionaryInput> {
   instance: Verbaly<D>;
   children?: ReactNode;
@@ -29,10 +37,13 @@ export function VerbalyProvider<D extends DictionaryInput>(
   );
 }
 
+// a provider wins; without one, a browser or a test reads the app's own, as react-i18next does
 export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verbaly<D> {
-  const instance = useContext(VerbalyContext);
+  const instance = useContext(VerbalyContext) ?? appInstance();
   if (!instance) {
-    throw new Error('[verbaly] useVerbaly requires a <VerbalyProvider>');
+    throw new Error(
+      '[verbaly] useVerbaly requires a <VerbalyProvider>: on a server, or before virtual:verbaly loads',
+    );
   }
   return instance as unknown as Verbaly<D>;
 }
@@ -69,7 +80,7 @@ function useVersion<D extends DictionaryInput>(instance: Verbaly<D>): number {
 // translated message + element interpolation
 export function Trans(props: TransProps): ReactElement {
   const ctx = useContext(VerbalyContext);
-  const instance = props.instance ?? ctx;
+  const instance = props.instance ?? ctx ?? appInstance();
   if (!instance) {
     throw new Error('[verbaly] <Trans> requires an instance prop or a <VerbalyProvider>');
   }

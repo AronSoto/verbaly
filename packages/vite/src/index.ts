@@ -14,6 +14,7 @@ import {
   outdatedTranslations,
   resolveVirtualId,
   runBuildGate,
+  SOURCE_FILE_RE,
   syncCatalogs,
   syncProject,
   transformSource,
@@ -38,6 +39,11 @@ function safeRead(file: string): string | undefined {
 
 export type { VerbalyConfig } from '@verbaly/compiler';
 export type ViteVerbalyOptions = PluginOptions;
+
+// built from the constant, so the NUL that marks a resolved virtual id never sits in the source
+const VIRTUAL_ID_FILTER = new RegExp(`^${RESOLVED_VIRTUAL_ID.slice(1)}(?:/|$)`);
+const RESOLVED_ID_FILTER = new RegExp(`^${RESOLVED_VIRTUAL_ID}(?:/|$)`);
+const ANY_RESOLVED_ID = new RegExp(`^${RESOLVED_VIRTUAL_ID.charAt(0)}`);
 
 export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let cfg: ResolvedConfig;
@@ -174,32 +180,42 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       syncCatalogs(cfg, catalogs, await extractProject(cfg));
     },
 
-    resolveId(id) {
-      return resolveVirtualId(id);
+    // filtered: without them Vite 8 hands every module to JS, which tripled a real app's build
+    resolveId: {
+      filter: { id: VIRTUAL_ID_FILTER },
+      handler(id) {
+        return resolveVirtualId(id);
+      },
     },
 
-    load(id) {
-      return loadVirtualModule(id, cfg, catalogs);
+    load: {
+      filter: { id: RESOLVED_ID_FILTER },
+      handler(id) {
+        return loadVirtualModule(id, cfg, catalogs);
+      },
     },
 
-    transform(code, id) {
-      if (!isTransformTarget(id) || !included(id)) return undefined;
-      const { messages, result } = transformSource(code, id, registry);
+    transform: {
+      filter: { id: { include: SOURCE_FILE_RE, exclude: [/node_modules/, ANY_RESOLVED_ID] } },
+      handler(code, id) {
+        if (!isTransformTarget(id) || !included(id)) return undefined;
+        const { messages, result } = transformSource(code, id, registry);
 
-      const found = Object.entries(messages);
-      if (!isBuild && found.length > 0) {
-        const source = (catalogs[cfg.sourceLocale] ??= {});
-        let changed = false;
-        for (const [key, message] of found) {
-          if (source[key] !== message) {
-            source[key] = message;
-            changed = true;
+        const found = Object.entries(messages);
+        if (!isBuild && found.length > 0) {
+          const source = (catalogs[cfg.sourceLocale] ??= {});
+          let changed = false;
+          for (const [key, message] of found) {
+            if (source[key] !== message) {
+              source[key] = message;
+              changed = true;
+            }
           }
+          if (changed) scheduleFlush();
         }
-        if (changed) scheduleFlush();
-      }
 
-      return result ?? undefined;
+        return result ?? undefined;
+      },
     },
 
     buildEnd() {

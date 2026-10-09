@@ -13,7 +13,7 @@
 
 Write your text in place, in the frontmatter or right in the markup of your `.astro` files. The compiler extracts the messages, generates stable keys, typed params and one catalog per language, and the dev server keeps them in sync while you code.
 
-One line in `astro.config` wires everything: the Vite plugin (live extraction, the `virtual:verbaly` module and the build gate) and, if you use the mirror flow, `verbaly render` runs by itself after every build. The generated types live inside Astro's own `.astro` folder (via `injectTypes`), so no extra file lands in your project.
+One line in `astro.config` wires everything: the Vite plugin (live extraction, the `virtual:verbaly` module and the build report) and, if you use the mirror flow, `verbaly render` runs by itself after every build. The generated types live inside Astro's own `.astro` folder (via `injectTypes`), so no extra file lands in your project.
 
 ## 🚀 Install
 
@@ -51,7 +51,7 @@ const title = t`Search and find`;
 <img alt={t`Company logo`} src="/logo.png" />
 ```
 
-Every message becomes a stable key with typed params. Untranslated entries fail the build (opt out with `failOnMissing: false`). The types go to the slot Astro gives integrations (`.astro/integrations/_verbaly_astro/verbaly.d.ts`), and `npx verbaly extract` writes that same file, so `astro check` never sees the module declared twice.
+Every message becomes a stable key with typed params. A build lists what `verbaly check` would fail on and goes on, so run `check` in CI (`failOnMissing: true` stops the build instead). The types go to the slot Astro gives integrations (`.astro/integrations/_verbaly_astro/verbaly.d.ts`), and `npx verbaly extract` writes that same file, so `astro check` never sees the module declared twice.
 
 ## 🌍 Two ways to ship the languages
 

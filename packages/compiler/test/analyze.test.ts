@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
 import { stableKey } from '../src/key';
+import { transformCode } from '../src/transform';
 
 describe('analyze', () => {
   it('extracts tagged templates', () => {
@@ -362,8 +363,8 @@ describe('a key written as a literal in any spelling', () => {
     const { usedKeys } = analyze(code, 'App.tsx');
     const keys = usedKeys.map((used) => used.key);
     expect(keys.sort()).toEqual(['cta.buy', 'cta.sell', 'nav.home', 'page.body', 'page.title']);
-    // loose: prune keeps them, and the gate treats them as 0.64.0 did, which was not at all
-    expect(usedKeys.every((used) => used.loose)).toBe(true);
+    // Proved able to fail by marking them loose again: check never saw the five as keys.
+    expect(usedKeys.some((used) => used.loose)).toBe(false);
     expect(analyze("t('quoted');", 'a.ts').usedKeys).toEqual([{ key: 'quoted', file: 'a.ts' }]);
   });
 
@@ -372,12 +373,27 @@ describe('a key written as a literal in any spelling', () => {
     expect(usedKeys).toEqual([]);
   });
 
-  // extracting these would fail builds that passed on 0.64.0: that is the gate's own release
-  it('does not start extracting t.id(`key`)`…` or <Trans id={"x"}> with children', () => {
-    expect(analyze('const a = t.id(`hero.title`)`Welcome`;', 'app.ts').tagged).toEqual([]);
-    const trans = analyze('const A = () => <Trans id={"intro"}>Hello</Trans>;', 'App.tsx');
-    expect(trans.tagged).toEqual([]);
-    expect(trans.usedKeys).toEqual([{ key: 'intro', file: 'App.tsx', loose: true }]);
+  // Proved able to fail by accepting a quoted id only again: both texts stayed in the source.
+  it('extracts t.id(`key`)`…` and <Trans id={"x"}> with children under their id, like quotes', () => {
+    const tagged = analyze('const a = t.id(`hero.title`)`Welcome`;', 'app.ts').tagged;
+    expect(tagged.map((msg) => [msg.key, msg.message])).toEqual([['hero.title', 'Welcome']]);
+    const trans = analyze(
+      'const A = () => <Trans id={"intro"}>Hello</Trans>;\nconst B = () => <Trans id={`outro`}>Bye</Trans>;',
+      'App.tsx',
+    );
+    expect(trans.tagged.map((msg) => [msg.key, msg.message])).toEqual([
+      ['intro', 'Hello'],
+      ['outro', 'Bye'],
+    ]);
+    expect(trans.usedKeys).toEqual([]);
+  });
+
+  it('rewrites them to the keyed call the quoted forms become', () => {
+    const code =
+      'const a = t.id(`hero.title`)`Welcome ${name}`;\nconst B = <Trans id={`intro`}>Hello</Trans>;';
+    const out = transformCode(code, 'App.tsx')!.code;
+    expect(out).toContain('t("hero.title", { "name": name })');
+    expect(out).toContain('<Trans id="intro" />');
   });
 });
 
@@ -414,13 +430,14 @@ describe('a t under another name', () => {
     expect(names("import { t as tr } from 'virtual:verbaly'; tr`Hola`;")).toEqual(['tr']);
   });
 
-  it('extracts nothing from it, since rewriting it would be a new reason for a build to fail', () => {
+  it('extracts nothing from it: the report is how its text reaches the catalogs', () => {
     expect(analyze('const tr = useT(); tr`Hola`;', 'app.tsx').tagged).toEqual([]);
   });
 
-  it('still reads its keys, loose, so prune keeps their translations and no gate fails', () => {
+  // Proved able to fail by marking it loose again: check said nothing about a key no catalog has.
+  it('still reads its keys as keys, so prune keeps their translations and check knows them', () => {
     const { usedKeys } = analyze("const tr = useT(); tr('about.bio');", 'app.tsx');
-    expect(usedKeys).toEqual([{ key: 'about.bio', file: 'app.tsx', loose: true }]);
+    expect(usedKeys).toEqual([{ key: 'about.bio', file: 'app.tsx' }]);
   });
 
   it('says nothing about a binding named t, or one that never becomes a tag', () => {

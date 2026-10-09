@@ -19,6 +19,8 @@ export type Fingerprints = Record<string, Record<string, string>>;
 export interface State {
   drafts: Drafts;
   fingerprints: Fingerprints;
+  // locales migrate already rewrote from i18next: a later run must not read their escapes as params
+  migrated?: string[];
 }
 
 export interface OutdatedEntry {
@@ -55,7 +57,11 @@ export function loadState(cfg: ResolvedConfig): State {
   const legacy = readJson(statePath(cfg, LEGACY_DRAFTS_FILE));
   if (legacy !== undefined && !isObject(legacy)) throw corrupt(statePath(cfg, LEGACY_DRAFTS_FILE));
   const state: State = isObject(current)
-    ? { drafts: readDrafts(current.drafts), fingerprints: readFingerprints(current.fingerprints) }
+    ? {
+        drafts: readDrafts(current.drafts),
+        fingerprints: readFingerprints(current.fingerprints),
+        migrated: readMigrated(current.migrated),
+      }
     : { drafts: {}, fingerprints: {} };
   // drafts the old file still lists join the new ones, and the next save removes that file
   if (legacy !== undefined) {
@@ -131,7 +137,7 @@ function refreshState(cfg: ResolvedConfig, catalogs: Catalogs, previous: State):
     const stamps = refreshStamps(source, flat[locale]!, previous.fingerprints[locale] ?? {});
     if (Object.keys(stamps).length) fingerprints[locale] = stamps;
   }
-  return { drafts, fingerprints };
+  return { drafts, fingerprints, migrated: previous.migrated };
 }
 
 // a stamp lives as long as its translation: kept while the translation is unchanged
@@ -291,10 +297,12 @@ function serializeState(state: State): string | undefined {
     if (!keys.length) continue;
     fingerprints[locale] = Object.fromEntries(keys.map((key) => [key, entries[key]!]));
   }
+  const migrated = [...new Set(state.migrated ?? [])].sort();
   const out: Partial<State> = {};
   if (Object.keys(drafts).length) out.drafts = drafts;
   if (Object.keys(fingerprints).length) out.fingerprints = fingerprints;
-  if (!out.drafts && !out.fingerprints) return undefined;
+  if (migrated.length) out.migrated = migrated;
+  if (!out.drafts && !out.fingerprints && !out.migrated) return undefined;
   return JSON.stringify(out, null, 2) + '\n';
 }
 
@@ -332,6 +340,13 @@ function readDrafts(value: unknown): Drafts {
     if (Array.isArray(keys)) out[locale] = keys.filter((key): key is string => typeof key === 'string');
   }
   return out;
+}
+
+// absent when there is nothing to remember, like the file itself
+function readMigrated(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const locales = value.filter((locale): locale is string => typeof locale === 'string');
+  return locales.length ? locales : undefined;
 }
 
 function readFingerprints(value: unknown): Fingerprints {

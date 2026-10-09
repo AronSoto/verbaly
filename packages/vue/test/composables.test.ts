@@ -123,6 +123,19 @@ describe('@verbaly/vue', () => {
     const { errors } = mount(Hello);
     expect(String(errors[0])).toContain('verbalyPlugin');
   });
+
+  // Proved able to fail by injecting alone: a component test with no plugin threw.
+  it('reads the instance virtual:verbaly registers when no plugin was installed', () => {
+    const APP = Symbol.for('verbaly.app');
+    (globalThis as Record<symbol, unknown>)[APP] = makeInstance();
+    try {
+      const { el, errors } = mount(Hello);
+      expect(errors).toEqual([]);
+      expect(el.textContent).toBe('Hola Aron');
+    } finally {
+      delete (globalThis as Record<symbol, unknown>)[APP];
+    }
+  });
 });
 
 describe('@verbaly/vue <Trans>', () => {

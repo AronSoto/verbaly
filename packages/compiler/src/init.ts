@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { findConfigFile, loadConfigFile } from './config';
-import { detectHost, installCommand, type Host } from './host';
+import { detectHost, installCommand, readDependencies, type Host } from './host';
+import { detectLibraries } from './migrate';
 import { isLocaleTag, suggestTag } from './tag';
 
 export type { Host };
@@ -21,6 +22,34 @@ export interface InitResult {
   next: string[];
   renamed: { from: string; to: string }[];
   refused: string[];
+  // catalogs the project already had, which the new config points at instead of a fresh folder
+  found?: string;
+}
+
+// where i18n libraries keep a <locale>.json per language: a project that moves keeps its texts
+const CATALOG_DIRS = [
+  'locales',
+  'src/locales',
+  'src/i18n/locales',
+  'src/i18n',
+  'i18n',
+  'lang',
+  'src/lang',
+  'translations',
+  'src/translations',
+  'messages',
+];
+
+function existingCatalogs(root: string): string | undefined {
+  return CATALOG_DIRS.find((dir) => {
+    try {
+      return readdirSync(join(root, dir)).some(
+        (file) => file.endsWith('.json') && isLocaleTag(file.slice(0, -5)),
+      );
+    } catch {
+      return false;
+    }
+  });
 }
 
 // a package manager links a bin for a direct dependency only, and ours is usually transitive
@@ -78,17 +107,24 @@ export async function init(input: InitOptions = {}): Promise<InitResult> {
   const existing = findConfigFile(root);
   const typescript = existsSync(join(root, 'tsconfig.json'));
   const configFile = existing ?? (typescript ? 'verbaly.config.ts' : 'verbaly.config.mjs');
+  // only a config written now looks around: one already there, or a --dir, said where they go
+  const found = existing || options.dir ? undefined : existingCatalogs(root);
   if (existing) {
     skipped.push(existing);
   } else {
-    writeFileSync(join(root, configFile), configSource(options, typescript));
+    // the default needs no line, so a found locales/ leaves the config as short as ever
+    const dir = found === 'locales' ? undefined : found;
+    writeFileSync(
+      join(root, configFile),
+      configSource({ ...options, dir: options.dir ?? dir }, typescript),
+    );
     created.push(configFile);
   }
 
   // a config already answers where the catalogs go: guessing again scaffolds a second set
   const fromFile = existing ? await loadConfigFile(root) : {};
   const scaffold: InitOptions = {
-    dir: options.dir ?? fromFile.dir,
+    dir: options.dir ?? fromFile.dir ?? found,
     sourceLocale: options.sourceLocale ?? fromFile.sourceLocale,
     locales: options.locales ?? fromFile.locales,
   };
@@ -107,10 +143,18 @@ export async function init(input: InitOptions = {}): Promise<InitResult> {
   }
 
   const host = detectHost(root);
-  // the line its README teaches, in the project's own package manager
+  const deps = readDependencies(root);
+  // the line its README teaches, in the project's own package manager, for what is not there yet
+  const missing = host?.install.filter((pkg) => !deps[pkg]) ?? [];
   const next = host
-    ? [installCommand(root, host.install), host.wire]
+    ? [...(missing.length ? [installCommand(root, missing)] : []), host.wire]
     : ['run "verbaly extract" after writing your first t`…` message'];
+  const others = detectLibraries(root);
+  if (found && others.length) {
+    next.push(
+      `port the ${others.join(' and ')} catalogs: npx verbaly migrate reports, --write applies`,
+    );
+  }
 
-  return { created, skipped, host: host?.name, configFile, next, renamed, refused };
+  return { created, skipped, host: host?.name, configFile, next, renamed, refused, found };
 }

@@ -94,6 +94,37 @@ describe('virtual modules', () => {
   });
 });
 
+describe('hook filters', () => {
+  interface Filtered {
+    filter: { id: RegExp | { include: RegExp; exclude: RegExp[] } };
+  }
+  const passes = (hook: unknown, id: string): boolean => {
+    const filter = (hook as Filtered).filter.id;
+    if (filter instanceof RegExp) return filter.test(id);
+    return filter.include.test(id) && !filter.exclude.some((rule) => rule.test(id));
+  };
+
+  // Proved able to fail by dropping the filters: a Vite 8 app's build went from 17 s to 37 s.
+  it('hands each hook only the ids it acts on, as rolldown reads them before calling JS', () => {
+    const plugin = verbalyPlugin();
+    expect(passes(plugin.resolveId, 'virtual:verbaly')).toBe(true);
+    expect(passes(plugin.resolveId, 'virtual:verbaly/locale/es')).toBe(true);
+    expect(passes(plugin.resolveId, 'virtual:verbalyish')).toBe(false);
+    expect(passes(plugin.resolveId, '/app/src/main.ts')).toBe(false);
+    expect(passes(plugin.load, '\0virtual:verbaly')).toBe(true);
+    expect(passes(plugin.load, '\0virtual:verbaly/locale/es')).toBe(true);
+    expect(passes(plugin.load, 'virtual:verbaly')).toBe(false);
+    expect(passes(plugin.load, '/app/src/main.ts')).toBe(false);
+    for (const file of ['main.ts', 'App.tsx', 'page.mjs', 'App.vue', 'App.svelte', 'page.astro']) {
+      expect(passes(plugin.transform, `/app/src/${file}`), file).toBe(true);
+    }
+    expect(passes(plugin.transform, '/app/node_modules/lib/index.js')).toBe(false);
+    expect(passes(plugin.transform, '\0virtual:verbaly')).toBe(false);
+    expect(passes(plugin.transform, '\0plugin:helper.js')).toBe(false);
+    expect(passes(plugin.transform, '/app/src/style.css')).toBe(false);
+  });
+});
+
 describe('dev transform', () => {
   it('never touches files outside the include scope', async () => {
     const root = makeProject({ es: {} });
@@ -327,48 +358,64 @@ describe('dev server', () => {
 });
 
 describe('build check', () => {
-  it('blocks the build on missing translations', async () => {
+  // what buildEnd printed, the gate's report among it
+  function reported(run: () => void): string {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      run();
+      return warn.mock.calls.map(([text]) => String(text)).join('\n');
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  // Proved able to fail by throwing again by default: vite build stopped on a missing text.
+  it('reports missing translations and builds on', async () => {
     const root = makeProject({ es: {}, en: {} });
     const { transform, buildEnd } = await setup(root, 'build');
     transform(CODE, save(root, CODE));
-    expect(() => buildEnd()).toThrowError(/missing translations/);
+    const said = reported(() => expect(() => buildEnd()).not.toThrow());
+    expect(said).toContain('the build goes on without 1 translation, shown in es instead');
+    expect(said).toContain('with 1 text the es catalog does not have yet, taken from the code');
   });
 
-  it('passes when catalogs are complete', async () => {
+  it('passes in silence when catalogs are complete', async () => {
     const root = makeProject({
       es: { [KEY]: 'Hola {name}' },
       en: { [KEY]: 'Hello {name}' },
     });
     const { transform, buildEnd } = await setup(root, 'build');
     transform(CODE, save(root, CODE));
-    expect(() => buildEnd()).not.toThrow();
+    expect(reported(() => expect(() => buildEnd()).not.toThrow())).toBe('');
   });
 
-  it('blocks the build on unknown keys', async () => {
+  it('reports an unknown key and builds on', async () => {
     const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello {name}' } });
     const { transform, buildEnd } = await setup(root, 'build');
     transform("const s = t('nope.missing');", join(root, 'src', 'app.ts'));
-    expect(() => buildEnd()).toThrowError(/build blocked/);
+    const said = reported(() => expect(() => buildEnd()).not.toThrow());
+    expect(said).toContain('  nope.missing (used in src/app.ts)');
   });
 
-  it('failOnMissing: false waives untranslated strings', async () => {
+  it('reports a broken translation and builds on, failOnMissing: false included', async () => {
+    const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
+    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
+    transform(CODE, save(root, CODE));
+    const said = reported(() => expect(() => buildEnd()).not.toThrow());
+    expect(said).toContain('✗ the build goes on with 1 broken translation');
+  });
+
+  // Proved able to fail by dropping the option on the way to the gate: the build went on.
+  it('failOnMissing: true stops the build, as the gate did before 0.70.0', async () => {
     const root = makeProject({ es: {}, en: {} });
-    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
+    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: true });
     transform(CODE, save(root, CODE));
-    expect(() => buildEnd()).not.toThrow();
+    expect(() => buildEnd()).toThrowError(/missing translations/);
   });
 
-  it('failOnMissing: false still blocks a broken translation', async () => {
-    // opting out is about untranslated strings: a missing one falls back, a broken one does not
+  it('names the remedy that matches the failure when it stops', async () => {
     const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
-    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: false });
-    transform(CODE, save(root, CODE));
-    expect(() => buildEnd()).toThrowError(/broken translations/);
-  });
-
-  it('names the remedy that matches the failure', async () => {
-    const root = makeProject({ es: { [KEY]: 'Hola {name}' }, en: { [KEY]: 'Hello' } });
-    const { transform, buildEnd } = await setup(root, 'build');
+    const { transform, buildEnd } = await setup(root, 'build', { failOnMissing: true });
     transform(CODE, save(root, CODE));
     // a broken translation is not repaired by extract, which is all it used to say
     expect(() => buildEnd()).toThrowError(/params, tags and plural cases/);

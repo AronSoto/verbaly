@@ -32,9 +32,10 @@ describe('the build gate under Yarn PnP', { timeout: 30_000 }, () => {
     writeFileSync(join(root, 'locales', 'en.json'), '{}');
     writeFileSync(join(root, 'locales', 'es.json'), '{}');
 
+    // failOnMissing: true, the one setting where the gate can still stop a build
     const config = await withVerbaly<NextConfigLike>(
       {},
-      { root, sourceLocale: 'en', locales: ['en', 'es'] },
+      { root, sourceLocale: 'en', locales: ['en', 'es'], failOnMissing: true },
     )('phase-production-build');
     expect(asked).toContain('next/dist/build/after-production-compile.js');
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});

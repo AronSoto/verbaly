@@ -112,7 +112,8 @@ export type { DraftEntry, WriteDraftsResult } from './translate';
 export { watchTree } from './watch';
 export type { TreeOptions } from './watch';
 
-export { doctor, formatDoctorEntry } from './doctor';
+// formatDoctorHealth: the CLI and verbaly_doctor say the same verdict under the same entries
+export { doctor, formatDoctorEntry, formatDoctorHealth } from './doctor';
 export { init } from './init';
 export type { Host, InitOptions, InitResult } from './init';
 export type { DoctorEntry, DoctorResult } from './doctor';

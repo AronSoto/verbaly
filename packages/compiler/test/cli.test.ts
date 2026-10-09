@@ -594,8 +594,27 @@ describe('runCli: doctor', () => {
       join(root, 'src', 'verbaly.d.ts'),
       generateDts({ [key]: 'Hi' }, { locales: ['en'] }),
     );
+    // the command linked, so nothing is left to warn about
+    mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true });
+    writeFileSync(join(root, 'node_modules', '.bin', 'verbaly'), '');
     await runCli(['doctor', '--root', root]);
     expect(output(log)).toContain('setup looks healthy ✓');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  // Proved able to fail by printing healthy again: the warning above it read as nothing to do.
+  it('says how many warnings there are when the setup works but has some', async () => {
+    const key = stableKey('Hi');
+    const root = makeProject({ en: { [key]: 'Hi' } }, 'const s = t`Hi`;\n');
+    writeFileSync(join(root, 'verbaly.config.json'), '{}');
+    writeFileSync(
+      join(root, 'src', 'verbaly.d.ts'),
+      generateDts({ [key]: 'Hi' }, { locales: ['en'] }),
+    );
+    await runCli(['doctor', '--root', root]);
+    expect(output(warn)).toContain('cli:');
+    expect(output(log)).toContain('setup works, with 1 warning to read ✓');
+    expect(output(log)).not.toContain('healthy');
     expect(process.exitCode).toBeUndefined();
   });
 

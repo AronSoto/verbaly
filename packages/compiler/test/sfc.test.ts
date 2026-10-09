@@ -368,7 +368,7 @@ describe('a t under another name in a component (0.68.0)', () => {
       '<script setup>\nconst tr = useT();\n</script>\n<template><p>{{ tr(\'home.title\') }}</p>\n<p :title="tr`Hola`"></p></template>',
       'App.vue',
     );
-    expect(vue.usedKeys).toContainEqual({ key: 'home.title', file: 'App.vue', loose: true });
+    expect(vue.usedKeys).toContainEqual({ key: 'home.title', file: 'App.vue' });
     expect(vue.missed.map((call) => [call.name, call.line])).toEqual([['tr', 5]]);
     expect(vue.tagged).toEqual([]);
   });
@@ -378,7 +378,7 @@ describe('a t under another name in a component (0.68.0)', () => {
       "<script>\nimport { useT } from '@verbaly/svelte';\nconst tr = useT();\n</script>\n<p>{$tr('home.title')}</p>\n<p>{$tr`Hola`}</p>",
       'App.svelte',
     );
-    expect(svelte.usedKeys).toContainEqual({ key: 'home.title', file: 'App.svelte', loose: true });
+    expect(svelte.usedKeys).toContainEqual({ key: 'home.title', file: 'App.svelte' });
     expect(svelte.missed.map((call) => [call.name, call.line])).toEqual([['$tr', 6]]);
     expect(svelte.usedKeys).toContainEqual({
       key: stableKey('Hola'),

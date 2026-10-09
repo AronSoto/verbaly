@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { createVerbaly } from 'verbaly';
 import { localeStore, tStore } from '../src/index';
+import AppInstance from './fixtures/AppInstance.svelte';
 import Hooks from './fixtures/Hooks.svelte';
 import NoProvider from './fixtures/NoProvider.svelte';
 
@@ -108,6 +109,21 @@ describe('context hooks', () => {
     expect(() => mount(NoProvider, { target: document.createElement('div') })).toThrow(
       /provideVerbaly/,
     );
+  });
+
+  // Proved able to fail by reading the context alone: a component test with no parent threw.
+  it('reads the instance virtual:verbaly registers when no parent provided one', () => {
+    const APP = Symbol.for('verbaly.app');
+    (globalThis as Record<symbol, unknown>)[APP] = setup();
+    const target = document.createElement('div');
+    try {
+      const app = mount(AppInstance, { target });
+      flushSync();
+      expect(target.querySelector('p')?.textContent).toBe('Hola');
+      unmount(app);
+    } finally {
+      delete (globalThis as Record<symbol, unknown>)[APP];
+    }
   });
 });
 

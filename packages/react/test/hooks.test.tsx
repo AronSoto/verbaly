@@ -353,6 +353,37 @@ describe('@verbaly/react <Trans>', () => {
   });
 });
 
+describe('no provider above: the instance virtual:verbaly registers (0.70.0)', () => {
+  const APP = Symbol.for('verbaly.app');
+  afterEach(() => {
+    delete (globalThis as Record<symbol, unknown>)[APP];
+  });
+
+  // Proved able to fail by reading the context alone: a component test with no wrapper threw.
+  it('reads the app instance in a browser, and a provider above still wins', () => {
+    (globalThis as Record<symbol, unknown>)[APP] = makeInstance();
+    act(() => {
+      root.render(
+        <>
+          <Hello />
+          <Trans id="hello" values={{ name: 'Ana' }} />
+          <Switcher />
+        </>,
+      );
+    });
+    expect(container.textContent).toBe('Hola AronHola Anaes');
+    const other = createVerbaly({ locale: 'en', messages: { en: { hello: 'Hello {name}' } } });
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={other}>
+          <Hello />
+        </VerbalyProvider>,
+      );
+    });
+    expect(container.textContent).toBe('Hello Aron');
+  });
+});
+
 describe('useT hands out a new t when the language changes (0.67.0)', () => {
   function Memoized() {
     const t = useT();

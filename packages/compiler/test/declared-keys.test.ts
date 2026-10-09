@@ -198,6 +198,30 @@ describe('the generated types reach every t a project holds', () => {
     TSC_TIMEOUT,
   );
 
+  // Proved able to fail by checking params per member again: lines 9 and 10 went red, 3 errors.
+  it(
+    'takes a union of keys from data with the params at hand, and still names a key nobody has',
+    () => {
+      const errors = typecheck(
+        `import { t, type VerbalyKey } from 'virtual:verbaly';\n` +
+          `import { createVerbaly } from 'verbaly';\n` +
+          `declare const reason: VerbalyKey;\n` +
+          `declare const detail: string | undefined;\n` +
+          `declare const pick: 'greet' | 'inbox_title';\n` +
+          `declare const bad: 'greet' | 'gret';\n` +
+          `const v = createVerbaly({ messages: { en: { hi: 'Hi', greet: 'Hi {name}' } } });\n` +
+          `declare const either: 'hi' | 'greet';\n` +
+          `export const a = t(reason, detail ? { url: detail } : undefined) + t(pick, { name: 'A' });\n` +
+          `export const b = t(pick) + v.t(either, detail ? { name: detail } : undefined);\n` +
+          `export const c = t(bad, { name: 'Ana' });\n`,
+      );
+      // a key from a typed field met the params of every message at once, and a migration went red
+      expect(errors).toMatch(/app\.ts\(11,[\d]+\): error TS2345: .*"gret"/);
+      expect(errors.split('\n').filter((line) => line.startsWith('app.ts'))).toHaveLength(1);
+    },
+    TSC_TIMEOUT,
+  );
+
   it(
     'still checks a key written as a literal, through a const and a template of literals',
     () => {

@@ -9,10 +9,21 @@ export function provideVerbaly<D extends DictionaryInput>(instance: Verbaly<D>):
   return instance;
 }
 
+// what virtual:verbaly registers in a browser; a server holds one instance per request instead
+const APP_INSTANCE = Symbol.for('verbaly.app');
+
+function appInstance<D extends DictionaryInput>(): Verbaly<D> | undefined {
+  if (typeof document === 'undefined') return undefined;
+  return (globalThis as Record<symbol, unknown>)[APP_INSTANCE] as Verbaly<D> | undefined;
+}
+
+// a parent's wins; without one, a browser or a test reads the app's own instance
 export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verbaly<D> {
-  const instance = getContext<Verbaly<D> | undefined>(KEY);
+  const instance = getContext<Verbaly<D> | undefined>(KEY) ?? appInstance<D>();
   if (!instance) {
-    throw new Error('[verbaly] useVerbaly requires provideVerbaly(...) in a parent component');
+    throw new Error(
+      '[verbaly] useVerbaly requires provideVerbaly(...) in a parent: on a server, or before virtual:verbaly loads',
+    );
   }
   return instance;
 }

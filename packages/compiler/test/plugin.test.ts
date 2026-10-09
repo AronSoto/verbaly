@@ -85,6 +85,114 @@ describe('runBuildGate: what a build says about warnings', () => {
   });
 });
 
+describe('runBuildGate: a text never stops the build unless asked (0.70.0)', () => {
+  function project(en: Record<string, string>, es: Record<string, string>, code = '') {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-report-'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify(en));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify(es));
+    const cfg = resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
+    const registry = new MessageRegistry();
+    if (code) transformSource(code, join(root, 'src', 'app.ts'), registry);
+    return { root, cfg, registry };
+  }
+
+  function printed(run: () => void): string[] {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      run();
+      return warn.mock.calls.map(([text]) => String(text));
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  // Proved able to fail by throwing again by default: the build stopped on a missing text.
+  it('builds on and names what is broken, missing or unknown, the broken first', () => {
+    const { cfg, registry } = project(
+      { greet: 'Hi {name}', title: 'Title' },
+      { greet: 'Hola' },
+      "const a = t('nowhere');",
+    );
+    const said = printed(() => expect(() => runBuildGate(cfg, registry)).not.toThrow());
+    expect(said).toHaveLength(1);
+    const block = said[0]!;
+    const at = (text: string) => block.indexOf(text);
+    expect(at('✗ the build goes on with 1 broken translation')).toBeGreaterThan(-1);
+    expect(at('  [es] greet:')).toBeGreaterThan(at('✗'));
+    expect(at('⚠ the build goes on without 1 translation, shown in en instead:')).toBeGreaterThan(
+      at('  [es] greet:'),
+    );
+    expect(block).toContain('  [es] title: "Title"');
+    expect(block).toContain(
+      '⚠ the build goes on with 1 key no catalog has, so the key itself shows:',
+    );
+    expect(block).toContain('  nowhere (used in src/app.ts)');
+    expect(block).toContain('[verbaly] to fix them:\n  missing: run `npx verbaly extract`');
+    expect(block.split('\n').at(-1)).toBe(
+      '[verbaly] `npx verbaly check` lists every one, and in your CI it stops a release on them',
+    );
+  });
+
+  // Proved able to fail by listing them with the translations: [en] read as shown in en instead.
+  it('says a text the source catalog lacks is taken from the code, not a missing translation', () => {
+    const { cfg, registry } = project({}, {}, "const a = t.id('home.hello')`Hello`;");
+    const block = printed(() => runBuildGate(cfg, registry))[0]!;
+    expect(block).toContain(
+      '⚠ the build goes on without 1 translation, shown in en instead:\n  [es] home.hello: "Hello"',
+    );
+    expect(block.split('\n')).toContain(
+      '[verbaly] ⚠ the build goes on with 1 text the en catalog does not have yet, taken from the code',
+    );
+    expect(block).not.toContain('[en]');
+  });
+
+  // Proved able to fail by printing every call: a watch said the same block on every rebuild.
+  it('says each failure once while it lasts, and again after it went away and came back', () => {
+    const { root, cfg, registry } = project({ title: 'Title' }, {});
+    expect(printed(() => runBuildGate(cfg, registry))).toHaveLength(1);
+    expect(printed(() => runBuildGate(cfg, registry))).toEqual([]);
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ title: 'Título' }));
+    expect(printed(() => runBuildGate(cfg, registry))).toEqual([]);
+    writeFileSync(join(root, 'locales', 'es.json'), '{}');
+    const back = printed(() => runBuildGate(cfg, registry));
+    expect(back).toHaveLength(1);
+    expect(back[0]).toContain('  [es] title: "Title"');
+  });
+
+  // Proved able to fail by keying the memory on the config object: Nuxt printed it twice.
+  it('prints a project once when its client and server builds each run the gate', () => {
+    const { root, registry } = project({ title: 'Title' }, {});
+    const client = resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
+    const server = resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
+    expect(printed(() => runBuildGate(client, registry))).toHaveLength(1);
+    expect(printed(() => runBuildGate(server, registry))).toEqual([]);
+  });
+
+  it('shows five of a list and counts the rest, since check is where every one is read', () => {
+    const en = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((k) => [k, k]));
+    const { cfg, registry } = project(en, {});
+    const block = printed(() => runBuildGate(cfg, registry))[0]!;
+    expect(block).toContain('without 7 translations');
+    expect(block.split('\n').filter((line) => line.startsWith('  [es] '))).toHaveLength(5);
+    expect(block).toContain('  and 2 more');
+  });
+
+  // Proved able to fail by ignoring the option: a project that asked for the old gate shipped.
+  it('stops the build on whatever fails check with failOnMissing: true, as before 0.70.0', () => {
+    const missing = project({ title: 'Title' }, {});
+    expect(() => runBuildGate(missing.cfg, missing.registry, true)).toThrow(/build blocked/);
+    const broken = project({ greet: 'Hi {name}' }, { greet: 'Hola' });
+    expect(() => runBuildGate(broken.cfg, broken.registry, true)).toThrow(/broken translations/);
+  });
+
+  it('reads failOnMissing: false as the default, so a broken translation is reported too', () => {
+    const { cfg, registry } = project({ greet: 'Hi {name}' }, { greet: 'Hola' });
+    const said = printed(() => expect(() => runBuildGate(cfg, registry, false)).not.toThrow());
+    expect(said[0]).toContain('✗ the build goes on with 1 broken translation');
+  });
+});
+
 describe('runBuildGate: the state file only feeds warnings', () => {
   it('builds past a state file nobody can read, and says once what it cannot report', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

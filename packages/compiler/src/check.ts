@@ -100,7 +100,7 @@ export function check(
 
   const used = registry.usedKeys();
   const unknown: UnknownEntry[] = [];
-  // strict: a key only spelled in backticks never failed the gate, and it does not start to here
+  // strict: a renamed t's text is never extracted, so its key is reported as renamed, not unknown
   for (const [key, files] of registry.usedKeys(true)) {
     const known =
       extracted.has(key) || cfg.locales.some((locale) => flat[locale]?.[key] !== undefined);
@@ -197,6 +197,50 @@ export function formatCheckResult(result: CheckResult, root?: string): string {
     for (const entry of errors) lines.push(`  [${entry.locale}] ${entry.key}: ${entry.issue}`);
   }
   return lines.join('\n');
+}
+
+// what a build prints instead of stopping: the broken first, since those render wrong
+export function formatBuildReport(
+  result: Pick<CheckResult, 'missing' | 'unknown' | 'broken'>,
+  sourceLocale: string,
+  root?: string,
+  cap = 5,
+): string[] {
+  const show = (file: string) => (root ? relative(root, file).replaceAll('\\', '/') : file);
+  const lines: string[] = [];
+  const list = <T>(entries: T[], line: (entry: T) => string): void => {
+    for (const entry of entries.slice(0, cap)) lines.push(`  ${line(entry)}`);
+    if (entries.length > cap) lines.push(`  and ${entries.length - cap} more`);
+  };
+  const broken = result.broken.filter((entry) => entry.severity === 'error');
+  if (broken.length > 0) {
+    lines.push(
+      `✗ the build goes on with ${counted(broken.length, 'broken translation')}, each rendering differently from its source:`,
+    );
+    list(broken, (entry) => `[${entry.locale}] ${entry.key}: ${entry.issue}`);
+  }
+  const quoted = (entry: MissingEntry) => (entry.source ? `: "${truncate(entry.source, 40)}"` : '');
+  const untranslated = result.missing.filter((entry) => entry.locale !== sourceLocale);
+  if (untranslated.length > 0) {
+    lines.push(
+      `⚠ the build goes on without ${counted(untranslated.length, 'translation')}, shown in ${sourceLocale} instead:`,
+    );
+    list(untranslated, (entry) => `[${entry.locale}] ${entry.key}${quoted(entry)}`);
+  }
+  if (result.unknown.length > 0) {
+    lines.push(
+      `⚠ the build goes on with ${counted(result.unknown.length, 'key')} no catalog has, so the key itself shows:`,
+    );
+    list(result.unknown, (entry) => `${entry.key} (used in ${entry.files.map(show).join(', ')})`);
+  }
+  // the code's text ships, so these render right, and one extract adds them all: a count says it
+  const unsynced = result.missing.filter((entry) => entry.locale === sourceLocale);
+  if (unsynced.length > 0) {
+    lines.push(
+      `⚠ the build goes on with ${counted(unsynced.length, 'text')} the ${sourceLocale} catalog does not have yet, taken from the code`,
+    );
+  }
+  return lines;
 }
 
 // what to do about each kind of failure: extract only fixes one of the three

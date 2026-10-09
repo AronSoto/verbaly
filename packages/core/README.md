@@ -29,7 +29,7 @@ t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
 t.id('inbox.title')`Hello ${name}`; // → t('inbox.title', { name })
 ```
 
-Missing a translation? **The build fails**, so raw keys never reach production. And a translation that dropped your `{name}` or flattened a plural block fails too: being filled in is not the same as working.
+Missing a translation? **Every build says which ones**, and `verbaly check` stops your CI on them, so a raw key never reaches a release. A translation that dropped your `{name}` or flattened a plural block fails `check` too: being filled in is not the same as working.
 
 ## 🚀 Try it in 30 seconds
 

@@ -29,6 +29,7 @@ export interface TaggedMessage {
 export interface UsedKey {
   key: string;
   file: string;
+  // the key of a text never extracted (a t under another name): prune keeps it, check never asks
   loose?: true;
 }
 
@@ -147,7 +148,7 @@ export function analyzeScript(
         return;
       }
       const key = staticString(args[0]);
-      if (key !== undefined) usedKeys.push(usedKey(key, file, args[0]));
+      if (key !== undefined) usedKeys.push({ key, file });
     } else if (node.type === 'JSXElement') {
       handleTrans(code, node, file, tagged, usedKeys, names);
     }
@@ -156,9 +157,9 @@ export function analyzeScript(
   const renamed = bindings.renamed(options.renamed);
   const missed: MissedCall[] = [];
   for (const candidate of candidates) {
-    // a key read under another name is in use: loose, so prune keeps it and no gate fails
+    // a key read under another name is still a key someone wrote: prune keeps it, check knows it
     if (candidate.kind === 'call') {
-      if (renamed.has(candidate.name)) usedKeys.push({ key: candidate.key, file, loose: true });
+      if (renamed.has(candidate.name)) usedKeys.push({ key: candidate.key, file });
       continue;
     }
     const { node } = candidate;
@@ -299,10 +300,7 @@ function missedKey(code: string, node: AstNode, names: ReadonlySet<string>): str
   const tag = node.tag as AstNode;
   if (tag.type === 'CallExpression') {
     const args = tag.arguments as AstNode[];
-    const first = args[0];
-    return args.length === 1 && first?.type === 'StringLiteral'
-      ? (first.value as string)
-      : undefined;
+    return args.length === 1 ? staticString(args[0]) : undefined;
   }
   const message = buildMessage(code, node.quasi as AstNode, names);
   return message ? stableKey(message.text) : undefined;
@@ -316,15 +314,11 @@ function collectDeclaredKeys(node: AstNode | undefined, file: string, out: UsedK
     const value = property.value as AstNode;
     const key = staticString(value);
     if (key !== undefined) {
-      if (key !== '') out.push(usedKey(key, file, value));
+      if (key !== '') out.push({ key, file });
     } else if (value.type === 'ObjectExpression') {
       collectDeclaredKeys(value, file, out);
     }
   }
-}
-
-function usedKey(key: string, file: string, node: AstNode | null | undefined): UsedKey {
-  return node?.type === 'StringLiteral' ? { key, file } : { key, file, loose: true };
 }
 
 // a key is a literal however it is spelled: '…', `…` with no ${}, or {'…'} in a JSX attribute
@@ -387,15 +381,15 @@ function handleTrans(
     const value = idAttr.value as AstNode | null;
     const id = staticString(value);
     if (id === undefined) return;
-    // quoted id + children → extract under the explicit key; a backtick id never extracted before
-    if (value?.type === 'StringLiteral' && attrs.length === 1 && children?.length) {
+    // a fixed id + children → extract under the explicit key, however the id is spelled
+    if (attrs.length === 1 && children?.length) {
       const built = buildTransMessage(code, children, names);
       if (built?.text.trim()) {
         push(id, built);
         return;
       }
     }
-    usedKeys.push(usedKey(id, file, value));
+    usedKeys.push({ key: id, file });
     return; // runtime-first, untouched
   }
   if (attrs.length > 0) return; // hand-written props → don't guess
@@ -421,10 +415,9 @@ function explicitId(
   const obj = callee.object as AstNode;
   if (!isTReference(obj, names)) return undefined;
   const args = tag.arguments as AstNode[];
-  const first = args[0];
-  // quoted only: extracting a backtick id now would be a new reason for a build to fail
-  if (args.length !== 1 || first?.type !== 'StringLiteral') return undefined;
-  return { key: first.value as string, refStart: obj.start, refEnd: obj.end };
+  const key = args.length === 1 ? staticString(args[0]) : undefined;
+  if (key === undefined) return undefined;
+  return { key, refStart: obj.start, refEnd: obj.end };
 }
 
 interface BuiltTrans {

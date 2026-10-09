@@ -10,7 +10,7 @@ import {
 } from './check';
 import { writeDts } from './codegen';
 import { loadConfig, type ResolvedConfig } from './config';
-import { doctor, formatDoctorEntry } from './doctor';
+import { doctor, formatDoctorEntry, formatDoctorHealth } from './doctor';
 import { exportCatalogs, importCatalogs, isMobileFormat, type ExportFormat } from './exchange';
 import { collectOrigins, extractProject, shippedCatalogs } from './extract';
 import { createDevReporter, formatFinding } from './findings';
@@ -28,6 +28,7 @@ import {
   readState,
   recordTranslations,
   saveState,
+  STATE_FILE,
   type State,
   type TranslationWrite,
 } from './state';
@@ -157,6 +158,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     for (const locale of result.refused) {
       console.warn(`  left out "${locale}": it is not a locale tag, use one like es or pt-BR`);
     }
+    if (result.found) console.log(`  catalogs: ${result.found}, kept where they already are`);
     if (result.host) console.log(`  detected: ${result.host}`);
     console.log(
       ['  next steps:', ...result.next.map((step, i) => `    ${i + 1}. ${step}`)].join('\n'),
@@ -180,7 +182,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       else console.log(line);
     }
     if (result.ok) {
-      console.log('[verbaly] setup looks healthy ✓');
+      console.log(`[verbaly] ${formatDoctorHealth(result)} ✓`);
     } else {
       console.error('[verbaly] doctor found problems');
       process.exitCode = 1;
@@ -269,13 +271,17 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     const result = migrateCatalogs(cfg, { write: values.write, plurals: values.plurals });
     const from = result.detected.length ? result.detected.join(', ') : 'no known i18n library';
     const changes = result.braces.length + result.plurals.length;
+    // said every time: a run that converts nothing must not read as one that skipped a language
+    const before = result.remembered.length
+      ? `, ${counted(result.remembered.length, 'language')} converted before`
+      : '';
     if (changes === 0 && result.skipped.length === 0) {
-      console.log(`[verbaly] catalogs need nothing (${from}) ✓`);
+      console.log(`[verbaly] catalogs need nothing (${from}${before}) ✓`);
       return;
     }
     const verb = values.write ? 'ported' : 'would port';
     const note = values.write ? '' : ' (report only, use --write to apply)';
-    console.log(`[verbaly] ${verb} ${counted(changes, 'message')} from ${from}${note}`);
+    console.log(`[verbaly] ${verb} ${counted(changes, 'message')} from ${from}${before}${note}`);
     for (const entry of result.braces) {
       console.log(`  ${entry.locale} ${entry.key}  ${entry.before} → ${entry.after}`);
     }
@@ -290,6 +296,11 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const entry of result.skipped) {
         console.log(`  ${entry.locale} ${entry.key}  ${entry.reason}`);
       }
+    }
+    if (values.write && result.braces.length > 0) {
+      console.log(
+        `  ${STATE_FILE} remembers the converted languages, so a later run never reads them as i18next again`,
+      );
     }
     if (values.write) console.log('  next: run verbaly check');
     return;

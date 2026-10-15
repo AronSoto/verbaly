@@ -41,12 +41,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **1 774 tests under `pnpm test`, 13 new** (0.70.0: 1 761). Compiler 862, MCP 38, Next 83, Vite 34, Studio 194. **1 775 under `pnpm coverage`**, which also collects the bench file, with 96.81% of lines covered.
 - **Sizes unchanged** (3.31 KB tree-shaken, 6.11 KB a real app, 7.83 KB every export): core has no runtime diff. Bench: 24.9x, 12.3x, 5.0x and 4.6x against i18next (11.9M lookups per second), taken right after a coverage run on the same machine; with no change in core, the distance to 0.70.0 is the machine, not the code.
 
-### Docs impact (pending)
+### Docs impact (synced)
 
 - **The state file is `verbaly.lock`, next to the config**, read like a lockfile (commit it, never edit or delete it), wherever the docs name `.verbaly-state.json`: `docs_keys.p_outdated`, `docs_translators.p_machine_drafts`, `docs_cli.p_review` and `li_doctor_unread`, `docs_trouble.p_state` and its error sample (`[verbaly] /app/verbaly.lock is not valid JSON…`), with the inline English of `/docs/guide/keys`, `/docs/guide/translators`, `/docs/guide/troubleshooting` and `/docs/reference/cli`. The move from the old file is the changelog's to tell, not the docs'.
 - **A key with two texts fails `check`**: `docs_cli.p_gate` asks four questions now, `li_gate_collision` moves from the warnings to what fails, and `docs_agents.td_t_missing` names collisions among what the CI gate fails on.
 - **`/docs/frameworks/react#next`, images with `no-prefix`** (item 32 of the portfolio report): a share card can mix two languages, because the crawler reads the page in the language it negotiates while an image that names its language is always in that one. Give each language its own url, or let the image read the request with `getT()` and no locale.
 - **`releases.ts` plus `changelog_rel.v0_71_0` in en, es and pt**, with the four highlights.
+- **Executed:** the three dependencies at `^0.71.0` with `pnpm install` after the publish; the 0.71.0 block in `releases.ts` plus en, es and pt (75 releases), with `breaking: 1`, and `breaking: 2` on 0.70.0, which had lost it; `verbaly.lock` on `/docs/guide/keys`, `/docs/guide/translators`, `/docs/guide/troubleshooting` (its error sample too) and `/docs/reference/cli`; the gate there asks four questions and the collision left its warnings; the `verbaly_missing` row of the tools table; and the share card note on `/docs/frameworks/react#next`. On the way, `docs_cli.p_gate_fix` in pt moved from European to Brazilian Portuguese. Measured after the install: `pnpm build`, `pnpm check` (homepages back to 3 of 13, the runtime 3.31 and 6.11 KB as claimed) and `pnpm lint` green, the pages read in a browser in en, es and pt, and `sync-audit` in agreement on all five surfaces.
 
 ---
 

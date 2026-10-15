@@ -523,6 +523,11 @@ describe('dev writes back from the disk (0.68.0)', () => {
     expect(warned).toContain(
       '[verbaly] [en] bio: translated from an older source text, update it or keep it with `npx verbaly review --approve`',
     );
+    // the state 0.70.0 kept next to the catalogs moves into the lock, said once like next dev
+    expect(warned).toContain(
+      '[verbaly] locales/.verbaly-state.json moved to verbaly.lock, next to your config: commit both changes',
+    );
+    expect(existsSync(join(root, 'verbaly.lock'))).toBe(true);
   });
 });
 

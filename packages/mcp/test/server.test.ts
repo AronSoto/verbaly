@@ -229,6 +229,27 @@ describe('createVerbalyMcp', () => {
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
   });
 
+  // Proved able to fail by leaving lock out of the answer: the agent had no field to act on.
+  it('extract tells the agent the lock it moved in, so the user commits it', async () => {
+    const root = makeProject();
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ bio: 'I write code' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ bio: 'Escribo código' }));
+    writeFileSync(
+      join(root, 'locales', '.verbaly-state.json'),
+      JSON.stringify({ drafts: { es: ['bio'] } }),
+    );
+    const client = await connect(root);
+    const result = await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    expect((structured(result) as { lock?: unknown }).lock).toEqual({
+      file: 'verbaly.lock',
+      from: 'locales/.verbaly-state.json',
+    });
+    expect(resultText(result)).toContain('moved to verbaly.lock, next to your config');
+    const again = await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    expect((structured(again) as { lock?: unknown }).lock).toBeUndefined();
+  });
+
   it('extract dryRun writes nothing', async () => {
     const root = makeProject();
     const client = await connect(root);
@@ -285,7 +306,7 @@ describe('createVerbalyMcp', () => {
     >;
     expect(Object.values(es)).toEqual(['ES Hello {name}']);
     const state = JSON.parse(
-      readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'),
+      readFileSync(join(root, 'verbaly.lock'), 'utf8'),
     ) as { drafts: Record<string, string[]> };
     expect(state.drafts.es).toHaveLength(1);
 
@@ -318,7 +339,7 @@ describe('createVerbalyMcp', () => {
     };
     expect(data.translated).toEqual([]);
     expect(data.kept).toEqual([{ locale: 'es', keys: Object.keys(es) }]);
-    expect(existsSync(join(root, 'locales', '.verbaly-state.json'))).toBe(false);
+    expect(existsSync(join(root, 'verbaly.lock'))).toBe(false);
   });
 
   it('translate dryRun lists pending entries without calling any provider', async () => {
@@ -543,7 +564,7 @@ describe('createVerbalyMcp: an agent never edits a catalog or the state by hand 
     });
     const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
     expect(es).toEqual({ bye: 'Adiós', greet: 'Hola {name}' });
-    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    const state = JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8'));
     expect(state.drafts).toEqual({ es: ['greet'] });
     expect(resultText(result)).toContain('saved as drafts, awaiting human review');
   });
@@ -648,7 +669,7 @@ describe('createVerbalyMcp: the same pipeline and the same answers as the CLI (0
   // Proved able to fail by reading the state strictly: the call errored with drafts never asked.
   it('missing still answers when the state file is broken and drafts were not asked for', async () => {
     const root = owned();
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    writeFileSync(join(root, 'verbaly.lock'), '<<<<<<< HEAD');
     const client = await connect(root);
     const result = await client.callTool({ name: 'verbaly_missing', arguments: {} });
     expect(result.isError).toBeFalsy();
@@ -664,7 +685,7 @@ describe('createVerbalyMcp: the same pipeline and the same answers as the CLI (0
   // Proved able to fail by letting updateState throw: the catalogs were written, the call errored.
   it('extract writes the catalogs and reports a broken state file instead of failing', async () => {
     const root = owned();
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    writeFileSync(join(root, 'verbaly.lock'), '<<<<<<< HEAD');
     const client = await connect(root);
     const result = await client.callTool({ name: 'verbaly_extract', arguments: {} });
     expect(result.isError).toBeFalsy();

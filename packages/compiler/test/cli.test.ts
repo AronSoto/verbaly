@@ -49,11 +49,16 @@ const output = (spy: { mock: { calls: unknown[][] } }): string =>
 const stamp = (source: string, translated: string): string =>
   `${stableKey(source)}.${stableKey(translated)}`;
 
-const readState = (root: string): Record<string, unknown> =>
-  JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8')) as Record<
+// what verbaly.lock remembers, without the two fields that say what the file is
+const readState = (root: string): Record<string, unknown> => {
+  const lock = JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8')) as Record<
     string,
     unknown
   >;
+  delete lock._readme;
+  delete lock.version;
+  return lock;
+};
 
 describe('runCli: dispatch and exit codes', () => {
   it('prints help and exits 1 without a command', async () => {
@@ -787,6 +792,8 @@ describe('runCli: translate + review drafts', () => {
     withProvider(root);
     await runCli(['translate', '--root', root]);
     expect(output(log)).toContain('es: +1 translated (draft)');
+    // a project with hash keys meets the lock here, with its first draft
+    expect(output(log)).toContain('verbaly.lock now keeps the source text');
     expect(readState(root)).toEqual({
       drafts: { es: ['hi'] },
       fingerprints: { es: { hi: stamp('Hi', '[es] Hi') } },
@@ -844,7 +851,7 @@ describe('runCli: translate + review drafts', () => {
   it('translate stops before calling the provider when the state cannot be read', async () => {
     const root = makeProject({ en: { hi: 'Hi' }, es: { hi: '' } });
     withProvider(root);
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    writeFileSync(join(root, 'verbaly.lock'), '<<<<<<< HEAD');
     await expect(runCli(['translate', '--root', root])).rejects.toThrow(/not valid JSON/);
     expect(JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'))).toEqual({ hi: '' });
   });
@@ -1093,7 +1100,7 @@ describe('the commands the tool tells people to run', () => {
 
 describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
   const state = (root: string): unknown =>
-    JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8'));
 
   it('extract --prune takes the drafts of the keys it drops along', async () => {
     const root = makeProject(
@@ -1109,6 +1116,56 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
     expect(es).toEqual({ 'nav.docs': 'Docs' });
     expect(state(root)).toMatchObject({ drafts: { es: ['nav.docs'] } });
     expect(existsSync(join(root, 'locales', '.verbaly-drafts.json'))).toBe(false);
+  });
+
+  // Proved able to fail by keeping the lock news out of the findings: extract said nothing.
+  it('extract says once that verbaly.lock appeared, and that it goes in git', async () => {
+    const root = makeProject(
+      { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } },
+      "export const x = t('bio');\n",
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(log)).toContain(
+      'verbaly.lock now keeps the source text each translation was made for and which ones are drafts: commit it with your catalogs',
+    );
+    expect(output(warn)).not.toContain('verbaly.lock');
+    log.mockClear();
+    await runCli(['extract', '--root', root]);
+    expect(output(log)).not.toContain('verbaly.lock');
+  });
+
+  it('extract moves the state an older version kept next to the catalogs, and says from where', async () => {
+    const root = makeProject(
+      { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } },
+      "export const x = t('bio');\n",
+    );
+    writeFileSync(
+      join(root, 'locales', '.verbaly-state.json'),
+      JSON.stringify({ drafts: { es: ['bio'] } }),
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(log)).toContain(
+      'locales/.verbaly-state.json moved to verbaly.lock, next to your config: commit both changes',
+    );
+    expect(existsSync(join(root, 'locales', '.verbaly-state.json'))).toBe(false);
+    expect(readState(root).drafts).toEqual({ es: ['bio'] });
+  });
+
+  // Proved able to fail by keeping collisions out of the gate: check exited 0 on a lost text.
+  it('check fails on a key written with two texts, and the github line counts it', async () => {
+    const root = makeProject(
+      { en: { dup: 'First' }, es: { dup: 'Primero' } },
+      "export const a = t.id('dup')`First`;\nexport const b = t.id('dup')`Second`;\n",
+    );
+    await runCli(['check', '--root', root]);
+    expect(process.exitCode).toBe(1);
+    expect(output(error)).toContain('keys written with more than one text:');
+    expect(output(error)).toContain('collisions: give each text its own key');
+    error.mockClear();
+    process.exitCode = undefined;
+    await runCli(['check', '--root', root, '--reporter', 'github']);
+    expect(output(error)).toContain('0 missing, 0 unknown, 0 broken, 1 collision');
+    expect(output(error)).toContain('::error file=src/app.ts,line=2::"dup" has 2 texts');
   });
 
   it('extract says where each text of a collision is written', async () => {
@@ -1172,7 +1229,7 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
       "t('hi');\n",
     );
     writeFileSync(
-      join(root, 'locales', '.verbaly-state.json'),
+      join(root, 'verbaly.lock'),
       JSON.stringify({ drafts: { pt: ['hi'] } }),
     );
     await runCli(['extract', '--root', root, '--locales', 'es']);
@@ -1182,7 +1239,7 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
   // Proved able to fail by letting updateState throw out of extract: no summary, catalogs written.
   it('extract writes the catalogs and says so when the state cannot be read', async () => {
     const root = makeProject({ en: {}, es: {} }, 'export const a = t`Hello`;\n');
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    writeFileSync(join(root, 'verbaly.lock'), '<<<<<<< HEAD');
     await runCli(['extract', '--root', root]);
     expect(output(log)).toContain('[verbaly] 1 message');
     expect(output(warn)).toContain('so drafts and outdated translations were not updated');
@@ -1250,7 +1307,7 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
 
   it('status warns about a state file it cannot read and still reports coverage', async () => {
     const root = makeProject({ en: { hi: 'Hi' }, es: { hi: 'Hola' } }, "t('hi');\n");
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '<<<<<<< HEAD');
+    writeFileSync(join(root, 'verbaly.lock'), '<<<<<<< HEAD');
     await runCli(['status', '--root', root]);
     expect(output(warn)).toContain('so drafts and outdated translations are not counted');
     expect(output(log)).toContain('es: 1/1 translated (100%) ✓');
@@ -1291,7 +1348,7 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
 
   it('a state file nobody can read never stops plain check, only the flags that gate on it', async () => {
     const root = makeProject({ en: { a: 'A' }, es: { a: 'A es' } }, "export const x = t('a');\n");
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '{broken');
+    writeFileSync(join(root, 'verbaly.lock'), '{broken');
     await runCli(['check', '--root', root]);
     expect(process.exitCode).toBeUndefined();
     expect(output(warn)).toContain('so outdated translations are not reported');

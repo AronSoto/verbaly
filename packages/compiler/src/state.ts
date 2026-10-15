@@ -7,8 +7,14 @@ import { withLineEndings } from './eol';
 import { stableKey } from './key';
 import { byCodeUnit } from './text';
 
-export const STATE_FILE = '.verbaly-state.json';
-// before 0.67.0 the sidecar held only the drafts, and a teammate on 0.66.0 still writes it
+// a lockfile next to the config: committed, written by the tools, never edited by hand
+export const STATE_FILE = 'verbaly.lock';
+const LOCK_VERSION = 1;
+const README =
+  'Written by Verbaly: the source text each translation was made for, which ones are drafts, and which languages migrate converted. Commit it with your catalogs and never edit it: deleting it marks every draft as reviewed.';
+// where the state lived before 0.71.0, next to the catalogs: an older teammate still writes it
+const LEGACY_STATE_FILE = '.verbaly-state.json';
+// before 0.67.0 that file held only the drafts
 const LEGACY_DRAFTS_FILE = '.verbaly-drafts.json';
 
 export type Drafts = Record<string, string[]>;
@@ -47,29 +53,68 @@ export interface TranslationWrite {
   draft?: boolean;
 }
 
-function statePath(cfg: ResolvedConfig, file = STATE_FILE): string {
-  return join(cfg.dir, file);
+// what a save that made the lock appear reports, once, where it happened
+export interface LockEntry {
+  file: string;
+  from?: string;
+}
+
+function statePath(cfg: ResolvedConfig): string {
+  return join(cfg.root, STATE_FILE);
+}
+
+function legacyPaths(cfg: ResolvedConfig): [state: string, drafts: string] {
+  return [join(cfg.dir, LEGACY_STATE_FILE), join(cfg.dir, LEGACY_DRAFTS_FILE)];
 }
 
 export function loadState(cfg: ResolvedConfig): State {
-  const current = readJson(statePath(cfg));
-  if (current !== undefined && !isObject(current)) throw corrupt(statePath(cfg));
-  const legacy = readJson(statePath(cfg, LEGACY_DRAFTS_FILE));
-  if (legacy !== undefined && !isObject(legacy)) throw corrupt(statePath(cfg, LEGACY_DRAFTS_FILE));
-  const state: State = isObject(current)
-    ? {
-        drafts: readDrafts(current.drafts),
-        fingerprints: readFingerprints(current.fingerprints),
-        migrated: readMigrated(current.migrated),
+  const lock = readObject(statePath(cfg));
+  if (lock) checkVersion(statePath(cfg), lock.version);
+  const [legacyState, legacyDrafts] = legacyPaths(cfg).map(readObject);
+  const state: State = { drafts: {}, fingerprints: {} };
+  // the lock wins where both files know a translation; the older one only fills what it lacks
+  for (const source of [lock, legacyState]) {
+    if (!source) continue;
+    for (const [locale, keys] of Object.entries(readDrafts(source.drafts))) {
+      markDrafts(state.drafts, locale, keys);
+    }
+    for (const [locale, stamps] of Object.entries(readFingerprints(source.fingerprints))) {
+      const into = (state.fingerprints[locale] ??= emptyCatalog());
+      for (const [key, stamped] of Object.entries(stamps)) {
+        if (own(into, key) === undefined) into[key] = stamped;
       }
-    : { drafts: {}, fingerprints: {} };
-  // drafts the old file still lists join the new ones, and the next save removes that file
-  if (legacy !== undefined) {
-    for (const [locale, keys] of Object.entries(readDrafts(legacy))) {
+    }
+    const migrated = readMigrated(source.migrated);
+    if (migrated) state.migrated = [...new Set([...(state.migrated ?? []), ...migrated])];
+  }
+  // drafts the 0.66.0 file still lists join the rest, and the next save removes that file
+  if (legacyDrafts) {
+    for (const [locale, keys] of Object.entries(readDrafts(legacyDrafts))) {
       markDrafts(state.drafts, locale, keys);
     }
   }
   return state;
+}
+
+// the file the state lives in right now: the lock, an older file next to the catalogs, or none
+export function stateFile(cfg: ResolvedConfig): string | undefined {
+  return [statePath(cfg), ...legacyPaths(cfg)].find((path) => existsSync(path));
+}
+
+// a write that brought the lock into being, given where the state lived before it
+export function lockNews(cfg: ResolvedConfig, before: string | undefined): LockEntry | undefined {
+  const lock = statePath(cfg);
+  if (before === lock || !existsSync(lock)) return undefined;
+  return before ? { file: lock, from: before } : { file: lock };
+}
+
+// a format newer than this reader would be written back wrong: stop instead of guessing
+function checkVersion(path: string, version: unknown): void {
+  if (typeof version === 'number' && version > LOCK_VERSION) {
+    throw new Error(
+      `[verbaly] ${path} was written by a newer Verbaly (format ${version}): update @verbaly/compiler to read it`,
+    );
+  }
 }
 
 // read-only paths go on without the state: it only feeds warnings, never a gate they run
@@ -86,21 +131,27 @@ export function readState(cfg: ResolvedConfig): StateRead {
 export function saveState(cfg: ResolvedConfig, state: State): void {
   const fresh = serializeState(state);
   const path = statePath(cfg);
-  const legacy = statePath(cfg, LEGACY_DRAFTS_FILE);
+  const legacy = legacyPaths(cfg);
   if (fresh === undefined) {
-    rmSync(path, { force: true });
-    rmSync(legacy, { force: true });
+    for (const file of [path, ...legacy]) rmSync(file, { force: true });
     return;
   }
-  let existing: string | undefined;
-  try {
-    existing = readFileSync(path, 'utf8');
-  } catch {
-    mkdirSync(cfg.dir, { recursive: true });
-  }
-  const serialized = withLineEndings(fresh, existing);
+  const existing = readText(path);
+  if (existing === undefined) mkdirSync(cfg.root, { recursive: true });
+  // a lock that replaces an older file keeps the line endings that file was checked out with
+  const template = existing ?? legacy.map(readText).find((text) => text !== undefined);
+  const serialized = withLineEndings(fresh, template);
   if (existing !== serialized) writeFileSync(path, serialized);
-  if (existsSync(legacy)) rmSync(legacy);
+  // only once the lock holds everything they held
+  for (const file of legacy) rmSync(file, { force: true });
+}
+
+function readText(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
 }
 
 // the state follows the catalogs it is shown; a locale whose catalog was not read stays as it was
@@ -298,27 +349,29 @@ function serializeState(state: State): string | undefined {
     fingerprints[locale] = Object.fromEntries(keys.map((key) => [key, entries[key]!]));
   }
   const migrated = [...new Set(state.migrated ?? [])].sort();
-  const out: Partial<State> = {};
+  if (!Object.keys(drafts).length && !Object.keys(fingerprints).length && !migrated.length) {
+    return undefined;
+  }
+  // what anyone who opens the file reads first, then the version an older reader checks
+  const out: Record<string, unknown> = { _readme: README, version: LOCK_VERSION };
   if (Object.keys(drafts).length) out.drafts = drafts;
   if (Object.keys(fingerprints).length) out.fingerprints = fingerprints;
   if (migrated.length) out.migrated = migrated;
-  if (!out.drafts && !out.fingerprints && !out.migrated) return undefined;
   return JSON.stringify(out, null, 2) + '\n';
 }
 
-// a corrupt sidecar throws: read as empty, the next save would erase every draft it held
-function readJson(path: string): unknown {
-  let content: string;
+// a corrupt state file throws: read as empty, the next save would erase every draft it held
+function readObject(path: string): Record<string, unknown> | undefined {
+  const content = readText(path);
+  if (content === undefined) return undefined;
+  let value: unknown;
   try {
-    content = readFileSync(path, 'utf8');
-  } catch {
-    return undefined;
-  }
-  try {
-    return JSON.parse(content.charCodeAt(0) === 0xfeff ? content.slice(1) : content) as unknown;
+    value = JSON.parse(content.charCodeAt(0) === 0xfeff ? content.slice(1) : content);
   } catch (error) {
     throw corrupt(path, error);
   }
+  if (!isObject(value)) throw corrupt(path);
+  return value;
 }
 
 // deleting it is the one fix that is not safe: every draft it listed would read as reviewed

@@ -90,12 +90,12 @@ describe('extract, which is local and free and answers in the request', () => {
   it('keeps the review state in step with the catalogs, like the CLI does', async () => {
     const cfg = project({ scan: true });
     writeFileSync(
-      join(cfg.dir, '.verbaly-state.json'),
+      join(cfg.root, 'verbaly.lock'),
       JSON.stringify({ drafts: { es: ['bye', 'hi'] } }),
     );
     const result = await runExtract(cfg);
     // bye has no translation, so it is missing, not a draft; hi keeps its flag
-    expect(JSON.parse(readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8')).drafts).toEqual({
+    expect(JSON.parse(readFileSync(join(cfg.root, 'verbaly.lock'), 'utf8')).drafts).toEqual({
       es: ['hi'],
     });
     expect(result.stateProblem).toBeUndefined();

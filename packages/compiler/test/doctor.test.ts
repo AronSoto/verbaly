@@ -512,7 +512,7 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
     const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
     const stamp = `${stableKey('Escribía código')}.${stableKey('I write code')}`;
     writeFileSync(
-      join(cfg.dir, '.verbaly-state.json'),
+      join(cfg.root, 'verbaly.lock'),
       JSON.stringify({ fingerprints: { en: { bio: stamp } } }),
     );
     const result = await doctor(cfg);
@@ -526,7 +526,7 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
   it('names drafts whose translation is gone, which extract drops', async () => {
     const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
     writeFileSync(
-      join(cfg.dir, '.verbaly-state.json'),
+      join(cfg.root, 'verbaly.lock'),
       JSON.stringify({ drafts: { en: ['bio', 'nav.home'] } }),
     );
     const e = entry((await doctor(cfg)).entries, 'drafts');
@@ -536,13 +536,14 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
 
   it('warns about a state file it cannot read and still calls the setup healthy', async () => {
     const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
-    writeFileSync(join(cfg.dir, '.verbaly-state.json'), '{broken');
+    writeFileSync(join(cfg.root, 'verbaly.lock'), '{broken');
     const result = await doctor(cfg);
     expect(entry(result.entries, 'state')?.level).toBe('warn');
     expect(result.ok).toBe(true);
   });
 
-  it('names a key written with two texts, a text the catalog contradicts and a renamed t', async () => {
+  // Proved able to fail by keeping the collision a warning: doctor said healthy where check failed.
+  it('fails like check on a key written with two texts, and warns on a contradicted text and a renamed t', async () => {
     const code =
       "export const a = t.id('dup')`Uno`;\nexport const b = t.id('dup')`Dos`;\n" +
       "export const c = t.id('bio')`Escribo software`;\nconst tr = useT();\ntr`Oculto`;\n";
@@ -552,15 +553,17 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
       dts: false,
     });
     const result = await doctor(cfg);
-    expect(entry(result.entries, 'keys')?.message).toContain(
-      'dup: src/app.ts:1, src/app.ts:2',
-    );
+    const keys = entry(result.entries, 'keys');
+    expect(keys?.message).toContain('dup: src/app.ts:1, src/app.ts:2');
+    expect(keys?.level).toBe('error');
     expect(entry(result.entries, 'source texts')?.message).toContain(
       "the code and es.json disagree on 1 text, and the code's text ships (bio, src/app.ts:3)",
     );
+    expect(entry(result.entries, 'source texts')?.level).toBe('warn');
     const sources = result.entries.filter((e) => e.check === 'sources');
     expect(sources.some((e) => e.message.includes('tr`…`') && e.message.includes('src/app.ts:5'))).toBe(true);
-    expect(result.ok).toBe(true);
+    // the mirror of the gate: doctor exits 1 exactly when check would
+    expect(result.ok).toBe(false);
   });
 
   it('names a nameless value a translator would read as {_0}', async () => {

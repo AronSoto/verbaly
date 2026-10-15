@@ -81,7 +81,7 @@ keep in step. Every answer is JSON, including the errors, which are `{ "error": 
 
 `GET /api/state` is unpaginated on purpose: the biggest catalog we know is more than 1600 messages, and over
 localhost that is instant. Its `problems` array is why nothing Studio reads can take the server
-down: a catalog it cannot parse, a drafts sidecar it cannot parse, a source file Babel cannot read,
+down: a catalog it cannot parse, a `verbaly.lock` it cannot parse, a source file Babel cannot read,
 and a `--root` with no catalogs in it are all reported there, by a path relative to your project,
 and the rest is served. Studio is what you open to fix those files.
 

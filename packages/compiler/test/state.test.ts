@@ -8,11 +8,13 @@ import { stableKey } from '../src/key';
 import {
   acceptOutdated,
   loadState,
+  lockNews,
   outdatedTranslations,
   readState,
   recordTranslations,
   saveState,
   STATE_FILE,
+  stateFile,
   updateState,
 } from '../src/state';
 
@@ -35,70 +37,141 @@ function onDisk(c: Config, catalogs: Catalogs): Catalogs {
 const refresh = (c: Config, catalogs: Catalogs) => updateState(c, onDisk(c, catalogs)).fingerprints;
 const stamp = (source: string, translated: string) =>
   `${stableKey(source)}.${stableKey(translated)}`;
-const LEGACY = '.verbaly-drafts.json';
+const OLD_STATE = '.verbaly-state.json';
+const OLD_DRAFTS = '.verbaly-drafts.json';
+const lockPath = (c: Config) => join(c.root, STATE_FILE);
+const lockOf = (c: Config) =>
+  JSON.parse(readFileSync(lockPath(c), 'utf8')) as Record<string, unknown>;
 
-describe('the state sidecar', () => {
-  it('reads the drafts file 0.66.0 wrote, and the first save leaves only the new file', () => {
+describe('verbaly.lock', () => {
+  it('lives at the project root and opens by saying what it is and which format it is', () => {
     const c = cfg();
-    writeFileSync(join(c.dir, LEGACY), JSON.stringify({ es: ['a'] }));
-    const state = loadState(c);
-    expect(state).toEqual({ drafts: { es: ['a'] }, fingerprints: {} });
-    saveState(c, state);
-    expect(existsSync(join(c.dir, LEGACY))).toBe(false);
-    expect(JSON.parse(readFileSync(join(c.dir, STATE_FILE), 'utf8'))).toEqual({
-      drafts: { es: ['a'] },
-    });
+    saveState(c, { drafts: { es: ['a'] }, fingerprints: {} });
+    expect(existsSync(join(c.dir, OLD_STATE))).toBe(false);
+    const lock = lockOf(c);
+    expect(Object.keys(lock)).toEqual(['_readme', 'version', 'drafts']);
+    expect(lock._readme).toMatch(/Commit it with your catalogs and never edit it/);
+    expect(lock.version).toBe(1);
   });
 
-  // Proved able to fail by reading the old file only when the new one is missing: b was dropped.
-  it('keeps the drafts a teammate on 0.66.0 wrote next to the new file', () => {
+  // Proved able to fail by reading the lock alone: the drafts and stamps 0.70.0 kept were lost.
+  it('moves the state 0.70.0 kept next to the catalogs into the lock, and that file goes', () => {
     const c = cfg();
-    writeFileSync(join(c.dir, LEGACY), JSON.stringify({ es: ['b'] }));
-    writeFileSync(join(c.dir, STATE_FILE), JSON.stringify({ drafts: { es: ['a'] } }));
+    const old = { drafts: { es: ['a'] }, fingerprints: { es: { bio: 'S.T' } }, migrated: ['es'] };
+    writeFileSync(join(c.dir, OLD_STATE), JSON.stringify(old));
+    const state = loadState(c);
+    expect(state.drafts).toEqual({ es: ['a'] });
+    expect({ ...state.fingerprints.es }).toEqual({ bio: 'S.T' });
+    expect(state.migrated).toEqual(['es']);
+    saveState(c, state);
+    expect(existsSync(join(c.dir, OLD_STATE))).toBe(false);
+    expect(lockOf(c)).toMatchObject(old);
+  });
+
+  // Proved able to fail by letting the older file win: the lock's stamp of bio was replaced.
+  it('keeps the lock where both files know a translation, and takes the rest from the older one', () => {
+    const c = cfg();
+    writeFileSync(
+      lockPath(c),
+      JSON.stringify({ drafts: { es: ['a'] }, fingerprints: { es: { bio: 'L.L' } }, migrated: ['es'] }),
+    );
+    writeFileSync(
+      join(c.dir, OLD_STATE),
+      JSON.stringify({
+        drafts: { es: ['b'] },
+        fingerprints: { es: { bio: 'O.O', title: 'O.T' } },
+        migrated: ['pt'],
+      }),
+    );
     const state = loadState(c);
     expect(state.drafts).toEqual({ es: ['a', 'b'] });
+    expect({ ...state.fingerprints.es }).toEqual({ bio: 'L.L', title: 'O.T' });
+    expect(state.migrated).toEqual(['es', 'pt']);
+  });
+
+  // Proved able to fail by reading the old drafts file only when nothing else exists: b was lost.
+  it('reads the drafts file 0.66.0 wrote as well, and the first save leaves only the lock', () => {
+    const c = cfg();
+    writeFileSync(join(c.dir, OLD_DRAFTS), JSON.stringify({ es: ['b'] }));
+    writeFileSync(join(c.dir, OLD_STATE), JSON.stringify({ drafts: { es: ['a'] } }));
+    const state = loadState(c);
+    expect(state).toEqual({ drafts: { es: ['a', 'b'] }, fingerprints: {} });
     saveState(c, state);
-    expect(existsSync(join(c.dir, LEGACY))).toBe(false);
+    expect(existsSync(join(c.dir, OLD_DRAFTS))).toBe(false);
+    expect(existsSync(join(c.dir, OLD_STATE))).toBe(false);
     expect(loadState(c).drafts).toEqual({ es: ['a', 'b'] });
   });
 
-  it('is gone when there is nothing left to remember', () => {
+  it('is gone when there is nothing left to remember, and so are the older files', () => {
     const c = cfg();
     saveState(c, { drafts: { es: ['a'] }, fingerprints: {} });
-    expect(existsSync(join(c.dir, STATE_FILE))).toBe(true);
+    expect(existsSync(lockPath(c))).toBe(true);
+    writeFileSync(join(c.dir, OLD_STATE), JSON.stringify({ drafts: {} }));
     saveState(c, { drafts: {}, fingerprints: { es: {} } });
-    expect(existsSync(join(c.dir, STATE_FILE))).toBe(false);
+    expect(existsSync(lockPath(c))).toBe(false);
+    expect(existsSync(join(c.dir, OLD_STATE))).toBe(false);
   });
 
-  it('throws on a file it cannot read, and never advises deleting it', () => {
+  it('throws on a file it cannot read, either one, and never advises deleting it', () => {
     const c = cfg();
-    writeFileSync(join(c.dir, STATE_FILE), '{not json');
-    expect(() => loadState(c)).toThrow(/not valid JSON: restore it from git or fix it/);
+    writeFileSync(lockPath(c), '{not json');
+    expect(() => loadState(c)).toThrow(/verbaly\.lock is not valid JSON: restore it from git or fix it/);
     expect(() => loadState(c)).toThrow(/deleting it approves every draft/);
-    writeFileSync(join(c.dir, STATE_FILE), '["a"]');
+    writeFileSync(lockPath(c), '["a"]');
     expect(() => loadState(c)).toThrow(/not valid JSON/);
+    rmSync(lockPath(c));
+    writeFileSync(join(c.dir, OLD_STATE), '<<<<<<< HEAD');
+    expect(() => loadState(c)).toThrow(/\.verbaly-state\.json is not valid JSON/);
+  });
+
+  // Proved able to fail by reading any version: a newer file was read as this format.
+  it('refuses a format newer than it reads, so it never writes one back wrong', () => {
+    const c = cfg();
+    writeFileSync(lockPath(c), JSON.stringify({ version: 2, drafts: { es: ['a'] } }));
+    expect(() => loadState(c)).toThrow(
+      /written by a newer Verbaly \(format 2\): update @verbaly\/compiler to read it/,
+    );
+    expect(readState(c).problem).toMatch(/newer Verbaly/);
   });
 
   it('reads tolerantly where it only feeds a warning, naming the problem', () => {
     const c = cfg();
-    writeFileSync(join(c.dir, STATE_FILE), '{not json');
+    writeFileSync(lockPath(c), '{not json');
     const { state, problem } = readState(c);
     expect(state).toEqual({ drafts: {}, fingerprints: {} });
     expect(problem).toMatch(/not valid JSON/);
     expect(problem).not.toMatch(/^\[verbaly\]/);
-    rmSync(join(c.dir, STATE_FILE));
+    rmSync(lockPath(c));
     expect(readState(c).problem).toBeUndefined();
   });
 
   it('skips entries of the wrong shape instead of reading them as data', () => {
     const c = cfg();
     writeFileSync(
-      join(c.dir, STATE_FILE),
+      lockPath(c),
       JSON.stringify({ drafts: { es: ['a', 3] }, fingerprints: { es: { k: 'nodot', j: 'S.T' } } }),
     );
     const state = loadState(c);
     expect(state.drafts).toEqual({ es: ['a'] });
     expect({ ...state.fingerprints.es }).toEqual({ j: 'S.T' });
+  });
+
+  // Proved able to fail by comparing paths loosely: every later save was news again.
+  it('says when a save brought the lock into being, and where the state came from', () => {
+    const c = cfg();
+    expect(stateFile(c)).toBeUndefined();
+    saveState(c, { drafts: { es: ['a'] }, fingerprints: {} });
+    expect(lockNews(c, undefined)).toEqual({ file: lockPath(c) });
+    expect(lockNews(c, stateFile(c))).toBeUndefined();
+
+    const moved = cfg();
+    writeFileSync(join(moved.dir, OLD_STATE), JSON.stringify({ drafts: { es: ['a'] } }));
+    const before = stateFile(moved);
+    saveState(moved, loadState(moved));
+    expect(lockNews(moved, before)).toEqual({
+      file: lockPath(moved),
+      from: join(moved.dir, OLD_STATE),
+    });
   });
 });
 
@@ -293,12 +366,23 @@ describe('saving drafts', () => {
 describe('the state file and its readers, on any machine', () => {
   it('keeps the line endings the file was checked out with', () => {
     const c = cfg();
-    const path = join(c.dir, STATE_FILE);
+    const path = lockPath(c);
     saveState(c, { drafts: { es: ['a'] }, fingerprints: {} });
     writeFileSync(path, readFileSync(path, 'utf8').replace(/\n/g, '\r\n'));
     saveState(c, { drafts: { es: ['a', 'b'] }, fingerprints: {} });
     const written = readFileSync(path, 'utf8');
     expect(written).toContain('"b"\r\n');
+    expect(written.replace(/\r\n/g, '')).not.toContain('\n');
+  });
+
+  // Proved able to fail by templating on the lock alone: the moved file came out with LF.
+  it('a lock that replaces an older file keeps the line endings that file had', () => {
+    const c = cfg();
+    const crlf = JSON.stringify({ drafts: { es: ['a'] } }, null, 2).replace(/\n/g, '\r\n');
+    writeFileSync(join(c.dir, OLD_STATE), crlf + '\r\n');
+    saveState(c, loadState(c));
+    const written = readFileSync(lockPath(c), 'utf8');
+    expect(written).toContain('"a"\r\n');
     expect(written.replace(/\r\n/g, '')).not.toContain('\n');
   });
 

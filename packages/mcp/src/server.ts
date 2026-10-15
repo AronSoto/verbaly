@@ -29,6 +29,7 @@ import {
   wrapProject,
   writeDrafts,
   type CheckResult,
+  type Finding,
   type ResolvedConfig,
   type TranslationWrite,
 } from '@verbaly/compiler';
@@ -66,6 +67,18 @@ const sourceSite = z.object({ file: z.string(), line: z.number().optional(), mes
 // an agent reads paths against the project, the same way every tool here writes them
 function relativeTo(root: string): (file: string) => string {
   return (file) => relative(root, file).replaceAll('\\', '/');
+}
+
+// the lock a run created or moved in, the one thing an agent has to tell its user to commit
+function lockOf(
+  findings: Finding[],
+  rel: (file: string) => string,
+): { lock?: { file: string; from?: string } } {
+  for (const finding of findings) {
+    if (finding.kind !== 'lock') continue;
+    return { lock: { file: rel(finding.file), ...(finding.from && { from: rel(finding.from) }) } };
+  }
+  return {};
 }
 
 function relativeCheck(root: string, result: CheckResult): CheckResult {
@@ -372,6 +385,12 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .describe(
             'The state file could not be read or written: the catalogs were written, drafts and outdated tracking were not',
           ),
+        lock: z
+          .object({ file: z.string(), from: z.string().optional() })
+          .optional()
+          .describe(
+            'This run created verbaly.lock, or moved an older state file (from) into it: it belongs in git with the catalogs, so tell the user to commit it',
+          ),
       },
     },
     guarded(async ({ root, prune, dryRun }) => {
@@ -396,6 +415,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         positional: [] as { params: string[]; code: ReturnType<typeof at> }[],
         escaped: [] as { slice: string; code: ReturnType<typeof at> }[],
         ...(result.stateProblem && { stateProblem: result.stateProblem }),
+        ...lockOf(result.findings, rel),
       };
       for (const finding of result.findings) {
         if (finding.kind === 'unparsed')
@@ -486,7 +506,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Missing and broken translations',
       description:
-        'List missing translations, unknown keys and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings never fail the gate and are listed too: an incomplete plural set for the locale, keys a translation carries that the source catalog does not (extra), keys written with two texts (collisions), texts the code and the source catalog disagree on (divergent, the text in the code ships) and translations written for an older source text (outdated). Optionally also lists machine translations awaiting review. Read-only.',
+        'List missing translations, unknown keys, keys written with two texts (collisions: every place shows the first text) and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings never fail the gate and are listed too: an incomplete plural set for the locale, keys a translation carries that the source catalog does not (extra), texts the code and the source catalog disagree on (divergent, the text in the code ships) and translations written for an older source text (outdated). Optionally also lists machine translations awaiting review. Read-only.',
       inputSchema: {
         root: rootInput,
         drafts: z
@@ -515,7 +535,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           ),
         collisions: z
           .array(z.object({ key: z.string(), sites: z.array(sourceSite) }))
-          .describe('One key, several texts: every place shows the first site. Never fails the gate'),
+          .describe(
+            'One key, several texts: every place shows the first site, so it fails the gate. Give each text its own key',
+          ),
         divergent: z
           .array(z.object({ key: z.string(), catalog: z.string(), code: sourceSite }))
           .describe(

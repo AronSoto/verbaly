@@ -82,14 +82,17 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
     reporter ??= createDevReporter(cfg.root);
     const replaced: Finding[] = [];
     const code: Finding[] = [];
+    const lock: Finding[] = [];
     for (const finding of result.findings) {
       if (finding.kind === 'collision' || finding.kind === 'renamed') code.push(finding);
+      else if (finding.kind === 'lock') lock.push(finding);
       // a change to the catalog that the code undid was a person's edit; one to the code is not
       else if (finding.kind === 'replaced' && catalogEdit)
         replaced.push({ ...finding, edited: true });
     }
     reporter.report('replaced', replaced);
     reporter.report('code', code);
+    reporter.report('lock', lock);
     const outdated = result.state
       ? outdatedTranslations(cfg, result.catalogs, result.state.fingerprints)
       : [];
@@ -152,7 +155,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       const onCatalogFile = (file: string): void => {
         if (!file.startsWith(cfg.dir) || !file.endsWith('.json')) return;
         const locale = file.split(/[\\/]/).pop()!.slice(0, -5);
-        // a dotfile there is the state sidecar: it changes no message, so no tab has to reload
+        // a dotfile there is an older state file: it changes no message, so no tab has to reload
         if (locale.startsWith('.')) return;
         const expected = selfWrites.get(locale);
         if (expected !== undefined) {

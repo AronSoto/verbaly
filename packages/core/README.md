@@ -23,7 +23,7 @@ Most i18n tools make you maintain key files by hand: keys drift from the code, n
 t`Hello ${name}, you have ${count} messages`;
 
 // The compiler generates: a stable key + inferred types + per-locale entries.
-t('EMo3ph4u', { name, count }); //  ← fully typed, tree-shakeable
+t('usNGUet6', { name, count }); //  ← fully typed, tree-shakeable
 
 // Prefer readable keys? Opt in per message:
 t.id('inbox.title')`Hello ${name}`; // → t('inbox.title', { name })

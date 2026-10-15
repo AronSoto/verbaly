@@ -21,8 +21,10 @@ export function reportDev(
   }
   const replaced: Finding[] = [];
   const code: Finding[] = [];
+  const lock: Finding[] = [];
   for (const finding of result.findings) {
     if (finding.kind === 'collision' || finding.kind === 'renamed') code.push(finding);
+    if (finding.kind === 'lock') lock.push(finding);
     if (finding.kind !== 'replaced') continue;
     // the code changed this text since the last run, which is how a text it owns is edited
     if (previous && previous.get(finding.key) !== finding.site.message) continue;
@@ -30,6 +32,7 @@ export function reportDev(
   }
   reporter.report('replaced', replaced);
   reporter.report('code', code);
+  reporter.report('lock', lock);
   const outdated = result.state
     ? compiler.outdatedTranslations(cfg, result.catalogs, result.state.fingerprints)
     : [];
@@ -38,7 +41,7 @@ export function reportDev(
     outdated.map((entry): Finding => ({ kind: 'outdated', ...entry })),
   );
 
-  // a broken sidecar must not stop next dev: said once, and again if it breaks after a fix
+  // a broken lock must not stop next dev: said once, and again if it breaks after a fix
   if (result.stateProblem && !brokenState.has(cfg.root)) {
     console.warn(`[verbaly] ${result.stateProblem}, so drafts are not tracked`);
   }

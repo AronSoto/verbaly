@@ -47,6 +47,15 @@ const said = (): string[] => warn.mock.calls.map(([line]: unknown[]) => String(l
 
 // every test here loads the real ESM compiler through the alias: not a 5s job under pnpm test
 describe('reportDev', { timeout: COMPILER_TIMEOUT }, () => {
+  // Proved able to fail by leaving the lock out of the channels: next dev said nothing.
+  it('says once that verbaly.lock appeared, in the words extract uses', async () => {
+    const cfg = project();
+    const lock: compiler.Finding = { kind: 'lock', file: join(cfg.root, 'verbaly.lock') };
+    reportDev(compiler, cfg, await run(cfg, registryOf({}), undefined, { findings: [lock] }), undefined);
+    expect(said()).toEqual([`[verbaly] ${compiler.formatFinding(lock, cfg.root)}`]);
+    expect(said()[0]).toContain('verbaly.lock now keeps the source text');
+  });
+
   it('says a collision once while its text is being typed, not once per keystroke', async () => {
     const cfg = project();
     for (const text of ['C', 'Ch', 'Cha', 'Chau']) {

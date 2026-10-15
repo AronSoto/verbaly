@@ -3,7 +3,7 @@ import type { TaggedMessage } from './analyze';
 import type { ResolvedConfig } from './config';
 import type { ReplacedText } from './extract';
 import type { MessageRegistry } from './registry';
-import type { OutdatedEntry } from './state';
+import type { LockEntry, OutdatedEntry } from './state';
 import { counted, truncate } from './text';
 import { escapedSyntax } from './validate';
 
@@ -49,7 +49,7 @@ export interface UnparsedEntry {
   message: string;
 }
 
-// what a scan finds that never fails a gate; every surface words it through formatFinding
+// what a run finds, or does, that never fails a gate; every surface words it through formatFinding
 export type Finding =
   | ({ kind: 'replaced' } & ReplacedEntry)
   | ({ kind: 'collision' } & CollisionEntry)
@@ -57,7 +57,8 @@ export type Finding =
   | ({ kind: 'positional' } & PositionalEntry)
   | ({ kind: 'escaped' } & EscapedEntry)
   | ({ kind: 'unparsed' } & UnparsedEntry)
-  | ({ kind: 'outdated' } & OutdatedEntry);
+  | ({ kind: 'outdated' } & OutdatedEntry)
+  | ({ kind: 'lock' } & LockEntry);
 
 export function siteOf(msg: TaggedMessage): SourceSite {
   return { file: msg.file, line: msg.line, message: msg.message };
@@ -143,6 +144,12 @@ export function formatFinding(finding: Finding, root?: string): string {
       return `${sourcePlace(finding, root)}: could not be parsed (${finding.message}), its messages were not extracted`;
     case 'outdated':
       return `[${finding.locale}] ${finding.key}: translated from an older source text, update it or keep it with \`npx verbaly review --approve\``;
+    case 'lock': {
+      const lock = sourcePlace(finding, root);
+      return finding.from
+        ? `${sourcePlace({ file: finding.from }, root)} moved to ${lock}, next to your config: commit both changes`
+        : `${lock} now keeps the source text each translation was made for and which ones are drafts: commit it with your catalogs`;
+    }
   }
 }
 
@@ -162,6 +169,8 @@ function findingId(finding: Finding): string {
       return `escaped:${finding.site.file}:${finding.slice}`;
     case 'unparsed':
       return `unparsed:${finding.file}`;
+    case 'lock':
+      return `lock:${finding.file}`;
   }
 }
 

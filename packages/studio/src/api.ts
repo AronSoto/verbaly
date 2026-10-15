@@ -100,7 +100,7 @@ function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
 export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const { catalogs, problems } = readAll(cfg);
   const registry = await extractProject(cfg);
-  // a sidecar nobody can parse is the other file Studio is there to fix: it degrades like a catalog
+  // a lock nobody can parse is the other file Studio is there to fix: it degrades like a catalog
   const { state: sidecar, problem } = readState(cfg);
   if (problem) problems.push({ scope: STATE_FILE, message: problem });
   const live = effectiveDrafts(sidecar.drafts, catalogs);
@@ -198,7 +198,7 @@ export interface ApproveResult {
   keys: string[];
 }
 
-// The sidecar is re-read here: saveDrafts writes every locale, so a stale copy drops another's.
+// The lock is re-read here: saveDrafts writes every locale, so a stale copy drops another's.
 export function approve(cfg: ResolvedConfig, locale: string, keys?: string[]): ApproveResult {
   if (!cfg.locales.includes(locale)) {
     throw badRequest(`${locale} is not one of this project's locales`);

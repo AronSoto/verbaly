@@ -24,11 +24,13 @@ import {
   clearDrafts,
   effectiveDrafts,
   loadState,
+  lockNews,
   outdatedTranslations,
   readState,
   recordTranslations,
   saveState,
   STATE_FILE,
+  stateFile,
   type State,
   type TranslationWrite,
 } from './state';
@@ -227,9 +229,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const [locale, keys] of Object.entries(result.added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);
       }
-      // news either way: an edit made in the code, or one the code undid in the catalog
+      // news either way: an edit the code made or undid, or the lock appearing
       const warnings = result.findings.filter((finding) => {
-        if (finding.kind !== 'replaced') return true;
+        if (finding.kind !== 'replaced' && finding.kind !== 'lock') return true;
         console.log(`  ${formatFinding(finding, cfg.root)}`);
         return false;
       });
@@ -268,6 +270,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
   }
 
   if (command === 'migrate') {
+    const lockBefore = stateFile(cfg);
     const result = migrateCatalogs(cfg, { write: values.write, plurals: values.plurals });
     const from = result.detected.length ? result.detected.join(', ') : 'no known i18n library';
     const changes = result.braces.length + result.plurals.length;
@@ -302,6 +305,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         `  ${STATE_FILE} remembers the converted languages, so a later run never reads them as i18next again`,
       );
     }
+    sayLockNews(cfg, lockBefore);
     if (values.write) console.log('  next: run verbaly check');
     return;
   }
@@ -398,7 +402,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       const brokenCount = result.broken.filter((entry) => entry.severity === 'error').length;
       const report =
         reporter === 'github'
-          ? `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken`
+          ? `[verbaly] check failed: ${result.missing.length} missing, ${result.unknown.length} unknown, ${brokenCount} broken, ${counted(result.collisions.length, 'collision')}`
           : `[verbaly] check failed\n${formatCheckResult(result, cfg.root)}`;
       console.error(`${report}\n${checkNextSteps(result)}`);
     }
@@ -460,7 +464,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
         console.log(`  ${locale}: ${counted(kept, 'message')} kept as written while this ran`);
       }
     }
+    const lockBefore = stateFile(cfg);
     if (writes.length > 0) recordTranslations(cfg, source, writes);
+    sayLockNews(cfg, lockBefore);
     for (const [locale, keys] of Object.entries(result.invalid)) {
       console.warn(
         `  ${locale}: ${keys.length} rejected (params/tags not preserved): ${keys.join(', ')}`,
@@ -507,7 +513,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       for (const [locale, keys] of byLocale(outdated)) {
         console.log(`  ${locale}: ${keys.length} kept for the new source text`);
       }
+      const lockBefore = stateFile(cfg);
       saveState(cfg, state);
+      sayLockNews(cfg, lockBefore);
       // a draft can be outdated as well, and it is still one translation reviewed
       const reviewed = new Set(
         [...drafts, ...outdated].map(({ locale, key }) => `${locale}:${key}`),
@@ -635,7 +643,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       const verb = values['dry-run'] ? 'would import' : 'imported';
       console.log(`  ${locale}: +${keys.length} ${verb}${values.draft ? ' (draft)' : ''}`);
     }
+    const lockBefore = stateFile(cfg);
     if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
+    sayLockNews(cfg, lockBefore);
     for (const [locale, keys] of Object.entries(result.skipped)) {
       console.log(
         `  ${locale}: ${keys.length} already translated, kept (use --overwrite to replace)`,
@@ -718,6 +728,12 @@ function checkState(cfg: ResolvedConfig, gating: boolean): State {
   const { state, problem } = readState(cfg);
   if (problem) console.warn(`[verbaly] ${problem}, so outdated translations are not reported`);
   return state;
+}
+
+// a write that brought the lock into being is said once, where it happened
+function sayLockNews(cfg: ResolvedConfig, before: string | undefined): void {
+  const news = lockNews(cfg, before);
+  if (news) console.log(`  ${formatFinding({ kind: 'lock', ...news }, cfg.root)}`);
 }
 
 function byLocale(entries: { locale: string; key: string }[]): [string, string[]][] {

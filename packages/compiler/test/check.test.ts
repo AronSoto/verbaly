@@ -504,7 +504,8 @@ describe('what check says and never fails on (0.67.0)', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('reports one key written with two texts at both places, with their lines', () => {
+  // Proved able to fail by leaving collisions out of gatePasses: check passed with "Second" lost.
+  it('fails on one key written with two texts, naming both places and their lines', () => {
     const { config, registry } = files({
       'a.ts': "\nexport const a = t.id('dup')`First`;\n",
       'b.ts': "\n\nexport const b = t.id('dup')`Second`;\n",
@@ -519,14 +520,17 @@ describe('what check says and never fails on (0.67.0)', () => {
         ],
       },
     ]);
-    // a warning, by the 2026-09-26 rule: the gate's own release decides what fails
-    expect(result.ok).toBe(true);
-    const text = formatCheckWarnings(result, config.root);
+    // b.ts renders "First": a wrong text on screen, the same class as a broken translation
+    expect(result.ok).toBe(false);
+    const text = formatCheckResult(result, config.root);
+    expect(text).toContain('keys written with more than one text:');
     expect(text).toContain('dup: one key with 2 texts, and every place shows "First" (src/a.ts:2)');
     expect(text).toContain('never "Second" (src/b.ts:3)');
+    expect(formatCheckWarnings(result, config.root)).not.toContain('dup');
+    expect(checkNextSteps(result)).toContain('collisions: give each text its own key');
     const annotations = githubCheckAnnotations(result, registry, config);
     expect(annotations).toContain(
-      '::warning file=src/b.ts,line=3::"dup" has 2 texts, and every place shows the first one',
+      '::error file=src/b.ts,line=3::"dup" has 2 texts, and every place shows the first one',
     );
   });
 
@@ -581,6 +585,7 @@ describe('what check says and never fails on (0.67.0)', () => {
     const result = check(config, { en: { dup: 'Other' }, es: { dup: 'Otro' } }, registry);
     expect(result.collisions).toHaveLength(1);
     expect(result.divergent).toHaveLength(1);
-    expect(warningCount(result)).toBe(2);
+    // the collision fails the gate, so the divergent text is the one warning
+    expect(warningCount(result)).toBe(1);
   });
 });

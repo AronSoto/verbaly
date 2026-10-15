@@ -5,6 +5,7 @@ import type { ResolvedConfig } from './config';
 import { shippedCatalogs } from './extract';
 import {
   collisionEntries,
+  formatCollision,
   formatFinding,
   siteOf,
   sourcePlace,
@@ -61,10 +62,14 @@ export interface CheckResult {
   outdated: OutdatedEntry[];
 }
 
-export function gatePasses(result: Pick<CheckResult, 'missing' | 'unknown' | 'broken'>): boolean {
+// a collision fails like a broken translation: one of its places renders another place's text
+export function gatePasses(
+  result: Pick<CheckResult, 'missing' | 'unknown' | 'broken' | 'collisions'>,
+): boolean {
   return (
     result.missing.length === 0 &&
     result.unknown.length === 0 &&
+    result.collisions.length === 0 &&
     !result.broken.some((entry) => entry.severity === 'error')
   );
 }
@@ -74,7 +79,6 @@ export function warningCount(result: CheckResult): number {
   return (
     result.broken.filter((entry) => entry.severity === 'warning').length +
     result.extra.length +
-    result.collisions.length +
     result.divergent.length +
     result.outdated.length
   );
@@ -162,13 +166,14 @@ export function check(
     }
   }
 
+  const collisions = collisionEntries(registry);
   return {
-    ok: gatePasses({ missing, unknown, broken }),
+    ok: gatePasses({ missing, unknown, broken, collisions }),
     missing,
     unknown,
     broken,
     extra,
-    collisions: collisionEntries(registry),
+    collisions,
     divergent,
     outdated: outdatedTranslations(cfg, shipped, fingerprints),
   };
@@ -196,12 +201,16 @@ export function formatCheckResult(result: CheckResult, root?: string): string {
     lines.push('broken translations:');
     for (const entry of errors) lines.push(`  [${entry.locale}] ${entry.key}: ${entry.issue}`);
   }
+  if (result.collisions.length > 0) {
+    lines.push('keys written with more than one text:');
+    for (const entry of result.collisions) lines.push(`  ${formatCollision(entry, root)}`);
+  }
   return lines.join('\n');
 }
 
 // what a build prints instead of stopping: the broken first, since those render wrong
 export function formatBuildReport(
-  result: Pick<CheckResult, 'missing' | 'unknown' | 'broken'>,
+  result: Pick<CheckResult, 'missing' | 'unknown' | 'broken' | 'collisions'>,
   sourceLocale: string,
   root?: string,
   cap = 5,
@@ -218,6 +227,12 @@ export function formatBuildReport(
       `✗ the build goes on with ${counted(broken.length, 'broken translation')}, each rendering differently from its source:`,
     );
     list(broken, (entry) => `[${entry.locale}] ${entry.key}: ${entry.issue}`);
+  }
+  if (result.collisions.length > 0) {
+    lines.push(
+      `✗ the build goes on with ${counted(result.collisions.length, 'key')} written with more than one text:`,
+    );
+    list(result.collisions, (entry) => formatCollision(entry, root));
   }
   const quoted = (entry: MissingEntry) => (entry.source ? `: "${truncate(entry.source, 40)}"` : '');
   const untranslated = result.missing.filter((entry) => entry.locale !== sourceLocale);
@@ -243,7 +258,7 @@ export function formatBuildReport(
   return lines;
 }
 
-// what to do about each kind of failure: extract only fixes one of the three
+// what to do about each kind of failure: extract only fixes one of them
 export function checkNextSteps(result: CheckResult, cliReachable = true): string {
   const steps: string[] = [];
   if (result.missing.length > 0) {
@@ -259,6 +274,11 @@ export function checkNextSteps(result: CheckResult, cliReachable = true): string
   if (result.broken.some((entry) => entry.severity === 'error')) {
     steps.push(
       'broken: a translation has to keep the params, tags and plural cases of its source message',
+    );
+  }
+  if (result.collisions.length > 0) {
+    steps.push(
+      'collisions: give each text its own key in t.id(…), or write the same text in every place',
     );
   }
   // the gate prints from inside a build, where the command it just named may not exist at all
@@ -288,9 +308,6 @@ export function formatCheckWarnings(
         ? `  [${entry.locale}] ${entry.key}: only this translation has it, so the source language shows the key itself`
         : `  [${entry.locale}] ${entry.key}: only this translation has it, and no code reads it`,
     );
-  }
-  for (const entry of result.collisions) {
-    lines.push(`  ${formatFinding({ kind: 'collision', ...entry }, root)}`);
   }
   for (const { key, catalog, code } of result.divergent) {
     lines.push(
@@ -371,7 +388,7 @@ export function githubCheckAnnotations(
     const text = escapeData(
       `"${key}" has ${counted(texts, 'text')}, and every place shows the first one`,
     );
-    for (const place of sites) lines.push(`::warning ${at(place.file, place.line)}::${text}`);
+    for (const place of sites) lines.push(`::error ${at(place.file, place.line)}::${text}`);
   }
   for (const { key, code } of result.divergent) {
     const text = escapeData(`"${key}": the source catalog has another text, the code's one ships`);

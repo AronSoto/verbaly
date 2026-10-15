@@ -186,6 +186,17 @@ describe('runBuildGate: a text never stops the build unless asked (0.70.0)', () 
     expect(() => runBuildGate(broken.cfg, broken.registry, true)).toThrow(/broken translations/);
   });
 
+  // Proved able to fail by leaving collisions out of the report: the build said nothing of dup.
+  it('lists a key written with two texts with the broken ones, and stops on it when asked', () => {
+    const code = "const a = t.id('dup')`First`;\nconst b = t.id('dup')`Second`;";
+    const { cfg, registry } = project({ dup: 'First' }, { dup: 'Primero' }, code);
+    const block = printed(() => expect(() => runBuildGate(cfg, registry)).not.toThrow())[0]!;
+    expect(block).toContain('✗ the build goes on with 1 key written with more than one text:');
+    expect(block).toContain('  dup: one key with 2 texts, and every place shows "First"');
+    expect(block).toContain('collisions: give each text its own key');
+    expect(() => runBuildGate(cfg, registry, true)).toThrow(/keys written with more than one text/);
+  });
+
   it('reads failOnMissing: false as the default, so a broken translation is reported too', () => {
     const { cfg, registry } = project({ greet: 'Hi {name}' }, { greet: 'Hola' });
     const said = printed(() => expect(() => runBuildGate(cfg, registry, false)).not.toThrow());
@@ -200,7 +211,7 @@ describe('runBuildGate: the state file only feeds warnings', () => {
     mkdirSync(join(root, 'locales'));
     writeFileSync(join(root, 'locales', 'en.json'), '{"a":"A"}');
     writeFileSync(join(root, 'locales', 'es.json'), '{"a":"A es"}');
-    writeFileSync(join(root, 'locales', '.verbaly-state.json'), '{broken');
+    writeFileSync(join(root, 'verbaly.lock'), '{broken');
     const cfg = resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
     expect(() => runBuildGate(cfg, new MessageRegistry())).not.toThrow();
     const said = warn.mock.calls.map(([text]) => String(text));

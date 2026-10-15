@@ -22,7 +22,7 @@ export interface ExtractResult {
   // source texts the code wrote over, a hand edit in the catalog among them
   replaced: number;
   messages: number;
-  // the sidecar could not be read or written: the catalogs were, its drafts and stamps were not
+  // the lock could not be read or written: the catalogs were, its drafts and stamps were not
   stateProblem?: string;
 }
 

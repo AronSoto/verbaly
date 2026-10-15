@@ -87,7 +87,7 @@ describe('braces i18next shows as text', () => {
       hi: 'Hi {name}',
       m: '{count | one: one # | other: # all}',
     });
-    const state = JSON.parse(readFileSync(join(cfg.dir, STATE_FILE), 'utf8'));
+    const state = JSON.parse(readFileSync(join(cfg.root, STATE_FILE), 'utf8'));
     expect(state.migrated).toEqual(['en']);
     // extract keeps the sidecar in step with the catalogs, and must carry the memory along
     updateState(cfg, { en: read(cfg, 'en') });
@@ -116,8 +116,8 @@ describe('braces i18next shows as text', () => {
     const native = project({ en: { hi: 'Hi {name}' } });
     migrateCatalogs(native, { write: true });
 
-    expect(existsSync(join(report.dir, STATE_FILE))).toBe(false);
-    expect(existsSync(join(native.dir, STATE_FILE))).toBe(false);
+    expect(existsSync(join(report.root, STATE_FILE))).toBe(false);
+    expect(existsSync(join(native.root, STATE_FILE))).toBe(false);
     expect(read(native, 'en')).toEqual({ hi: 'Hi {name}' });
   });
 

@@ -97,6 +97,8 @@ export async function GET() {
 }
 ```
 
+With `routing: 'no-prefix'`, a share card can mix two languages: the crawler reads the page in the language it negotiates, while an image that names its language is always in that one. To keep them together, give each language its own url (a prefix routing mode), or let the image read the request like the page does, with `getT()` and no locale, which renders it on every request.
+
 Client Components use the React bindings (re-exported from `@verbaly/next/client`):
 
 ```tsx

@@ -6,7 +6,7 @@ import { extractProject, pruneCatalogs, syncCatalogs, type ReplacedText } from '
 import { scanFindings, type Finding } from './findings';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
-import { updateState, type State } from './state';
+import { lockNews, stateFile, updateState, type State } from './state';
 
 // The one way the code reaches the catalogs: scan, prune, sync, write, keep the state in step
 export interface SyncProjectOptions {
@@ -61,12 +61,15 @@ export async function syncProject(
     result.written[locale] = writeCatalog(cfg, locale, catalogs[locale] ?? {});
   }
   writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+  const before = stateFile(cfg);
   try {
     // a pruned key takes its draft along, and an edited source text marks its translations
     result.state = updateState(cfg, catalogs);
   } catch (error) {
     result.stateProblem = (error as Error).message.replace(/^\[verbaly\] /, '');
   }
+  const news = lockNews(cfg, before);
+  if (news) result.findings.push({ kind: 'lock', ...news });
   return result;
 }
 

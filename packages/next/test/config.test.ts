@@ -384,7 +384,7 @@ describe('withVerbaly: the gate belongs to the build, not to whoever loads the c
     } finally {
       stopWatcher(root);
     }
-    const state = JSON.parse(readFileSync(join(root, 'locales', '.verbaly-state.json'), 'utf8'));
+    const state = JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8'));
     expect(state.drafts).toEqual({ es: ['a'] });
     expect(Object.keys(state.fingerprints.es)).toEqual(['a']);
   });

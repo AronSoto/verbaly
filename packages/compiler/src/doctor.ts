@@ -348,7 +348,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     }
   }
 
-  // the sidecar only feeds warnings, so a broken one is reported here and never stops a build
+  // the state only feeds warnings, so a broken lock is reported here and never stops a build
   const { state, problem } = readState(cfg);
   if (problem) {
     warn(
@@ -418,7 +418,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     }
     if (result.collisions.length > 0) {
       const first = result.collisions[0]!;
-      warn(
+      error(
         'keys',
         `${counted(result.collisions.length, 'key')} written with more than one text, and every place shows the first (${first.key}: ${first.sites.map((at) => sourcePlace(at, cfg.root)).join(', ')})`,
         'give each text its own key (`npx verbaly check` lists every place)',

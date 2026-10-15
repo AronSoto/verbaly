@@ -45,7 +45,8 @@ packages/
 - **The core stays dependency-free, and its weight is gated.** `pnpm --filter verbaly size` measures four surfaces against budgets; a PR that adds a dependency to `verbaly` core won't be merged, and one that pushes a budget over needs a reason in the changelog.
 - **Adapters stay thin.** `react`/`vue`/`svelte` only bridge the core's reactivity. If an adapter needs real logic, it probably belongs in core.
 - **Don't bump versions.** The thirteen packages release together; releases are cut by the maintainer.
-- Match the existing style: Prettier and ESLint run in CI, and comments are sparse on purpose.
+- Match the existing style: format with Prettier, and `pnpm lint` (which CI runs) keeps every comment to one line of at most 100 characters. Comments are sparse on purpose.
+- Using a coding agent? [AGENTS.md](AGENTS.md) holds the commands, the layout and the rules a change keeps.
 
 ## What makes a good first contribution
 

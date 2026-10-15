@@ -44,11 +44,13 @@ Reads `verbaly.config.{js,mjs,ts,mts,json}` (TS configs need `esbuild` installed
 
 ## 🚦 The gate: `check` in CI, a report in every build
 
-`verbaly check` is the only command that exits 1. Run it in CI: it is the strict gate, and it asks three questions.
+`verbaly check` is the only command that exits 1. Run it in CI: it is the strict gate, and it asks four questions.
 
 **Is every message translated?** A missing key or an empty value fails `check`, so a raw key never reaches a release your CI let through.
 
 **Does every key you wrote exist?** A key written in the code has to be in a catalog, however it is spelled (`t('k')`, ``t(`k`)``, `<Trans id={'k'}>`) and also when a `t` under another name reads it. One that is not renders the key itself.
+
+**Does every key have one text?** Two `` t.id('k')`…` `` with different texts both render the one written first, by file path, so one place shows a text nobody wrote for it. `check` names every place that disagrees, with its line, and the fix is a key for each text.
 
 **Can the translation render what the source renders?** Presence is not correctness. These fail too, each with the reason in plain words:
 
@@ -63,13 +65,12 @@ Two more are reported as **warnings** and keep the exit code at 0, because the t
 
 A third warning is a key that **only a translation has**. It never fails the build either, and the report says which case it is: your code reads it, so the source language shows the raw key there, or nothing reads it and it is dead weight in that language's download (`extract --prune` drops it).
 
-Three more warnings name things that used to happen in silence, each with the file and line to go to:
+Two more warnings name things that used to happen in silence, each with the file and line to go to:
 
-- **One key, two texts.** Two `` t.id('k')`…` `` with different texts both render the one written first, by file path, so the order your files load never picks it. The report lists every place that disagrees.
 - **The catalog and the code disagree.** A text written in your code is the code's: the build ships it, and the source catalog only mirrors it (see [where a text lives](#-where-a-text-lives)).
 - **An outdated translation.** The source text changed after the translation was written, and nobody has looked at the translation since. It is read against the text that ships, the one in your code, so it is caught even before `extract` runs.
 
-**A build never stops over a text.** The bundler plugins run the same `check` at the end of every build, say what it found and let the build finish: a missing translation shows in the source language, a key no catalog has shows the key itself, and a broken translation renders differently from its source, so those come first:
+**A build never stops over a text.** The bundler plugins run the same `check` at the end of every build, say what it found and let the build finish: a missing translation shows in the source language, a key no catalog has shows the key itself, and a broken translation, like a key with two texts, renders differently from what was written, so those come first:
 
 ```text
 [verbaly] ✗ the build goes on with 1 broken translation, each rendering differently from its source:
@@ -119,7 +120,7 @@ t(titles[slug]);
 
 `defineKeys` is detected by name, like `t`. It comes from `virtual:verbaly`, the module generated for your project, which is the one the framework provider already loads.
 
-**A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `.verbaly-state.json`, next to your catalogs. It is taken the moment the translation is written, by `translate`, `import`, Studio or an agent, so a source that changes right after is still caught; `import` takes it from the source text the translator's file carries, so a file made for an older text reads as outdated at once. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it with both texts, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
+**A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `verbaly.lock`, next to your config. It is taken the moment the translation is written, by `translate`, `import`, Studio or an agent, so a source that changes right after is still caught; `import` takes it from the source text the translator's file carries, so a file made for an older text reads as outdated at once. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it with both texts, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
 
 Four details that catch people out:
 
@@ -182,7 +183,7 @@ export default {
 
 Only the terms a batch actually contains are sent, so a glossary of hundreds never becomes the prompt.
 
-**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `locales/.verbaly-state.json`, the file that also holds the fingerprints above: commit it, and never edit it by hand. `verbaly review` lists the drafts with the source text and the translation side by side, `--approve` accepts them (`verbaly review home.title --approve` accepts only the keys you name), and importing a translator's file clears the flag because a human already reviewed it. `import --draft` keeps them as drafts instead, for a file nobody has read yet. An agent that translates on its own saves its work through the MCP tool `verbaly_write_drafts`, which checks it like a provider's and marks it as a draft. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing. `extract` keeps the file in step with the catalogs, so a pruned key takes its draft with it, and the file disappears when there is nothing left in it. It only ever touches the languages it read: `extract --locales es` leaves every other language's drafts and fingerprints as they were. If the file cannot be read, say after a merge conflict, the commands that only read it warn and go on, and the ones that would write drafts stop before writing anything: restore it from git, because deleting it would mark every draft as reviewed.
+**Machine output is a draft until a human says yes.** Everything `translate` writes is recorded in `verbaly.lock`, the file that also holds the fingerprints above. Like a package manager's lockfile, Verbaly writes it and you commit it, and nobody edits it by hand; the first command that writes it says so. A `.verbaly-state.json` an older version left next to the catalogs moves into it on its own. `verbaly review` lists the drafts with the source text and the translation side by side, `--approve` accepts them (`verbaly review home.title --approve` accepts only the keys you name), and importing a translator's file clears the flag because a human already reviewed it. `import --draft` keeps them as drafts instead, for a file nobody has read yet. An agent that translates on its own saves its work through the MCP tool `verbaly_write_drafts`, which checks it like a provider's and marks it as a draft. `verbaly check --drafts` turns "nothing unreviewed ships" into a CI rule; plain `check` leaves it alone, since a draft has a value and is therefore not missing. `extract` keeps the file in step with the catalogs, so a pruned key takes its draft with it, and the file disappears when there is nothing left in it. It only ever touches the languages it read: `extract --locales es` leaves every other language's drafts and fingerprints as they were. If the file cannot be read, say after a merge conflict, the commands that only read it warn and go on, and the ones that would write drafts stop before writing anything: restore it from git, because deleting it would mark every draft as reviewed.
 
 Plug your own provider in `verbaly.config.ts`. In TypeScript, `TranslateProvider` types it for you:
 
@@ -388,7 +389,7 @@ runBuildGate(cfg, registry);
 
 Call `reportOutsideInclude(cfg)` once when your build starts: it names every file outside `include` that writes a `` t`…` ``, which no build translates. It reads the project itself, so a cached transform never hides one. `writeDts(cfg, catalog)` writes the types where the config resolves them and returns the file and whether it changed.
 
-A dev server that writes the catalogs goes through `syncProject`, the same path `extract`, the MCP server and Studio take: it scans (or takes the registry you hold), syncs, writes the catalogs and the types, and keeps `.verbaly-state.json` in step, in that order. Pass `confirm: true` when your registry is built file by file, so a file that changed on disk unseen is read again before its text is written back. `createDevReporter` then says each of its findings once, says it again if it goes away and comes back, and keeps a long list to a few lines.
+A dev server that writes the catalogs goes through `syncProject`, the same path `extract`, the MCP server and Studio take: it scans (or takes the registry you hold), syncs, writes the catalogs and the types, and keeps `verbaly.lock` in step, in that order; its `findings` say once when that file first appears. Pass `confirm: true` when your registry is built file by file, so a file that changed on disk unseen is read again before its text is written back. `createDevReporter` then says each of its findings once, says it again if it goes away and comes back, and keeps a long list to a few lines.
 
 ## License
 

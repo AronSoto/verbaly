@@ -138,6 +138,7 @@ function reportGate(cfg: ResolvedConfig, found: CheckResult): void {
     ),
     missing: fresh(found.missing, (entry) => `missing:${entry.locale}:${entry.key}`),
     unknown: fresh(found.unknown, (entry) => `unknown:${entry.key}`),
+    collisions: fresh(found.collisions, (entry) => `collision:${entry.key}`),
   };
   reported.set(cfg.root, now);
   const lines = formatBuildReport(report, cfg.sourceLocale, cfg.root);
@@ -152,7 +153,7 @@ function reportGate(cfg: ResolvedConfig, found: CheckResult): void {
   console.warn(block.join('\n'));
 }
 
-// the state only feeds a warning, so a sidecar nobody can parse must not be what stops a build
+// the state only feeds a warning, so a lock nobody can parse must not be what stops a build
 function buildFingerprints(cfg: ResolvedConfig): Fingerprints {
   const { state, problem } = readState(cfg);
   if (problem) warnOnce(`${problem}, so outdated translations are not reported`, 'gate:state');

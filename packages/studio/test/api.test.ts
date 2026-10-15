@@ -150,14 +150,14 @@ describe('writeMessage reads the text that ships (0.68.0)', () => {
   it('stamps what a person saves for the text that ships, as it saves it', async () => {
     const cfg = owned();
     await writeMessage(cfg, 'es', 'greet', 'Hola {name}');
-    const state = JSON.parse(readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8'));
+    const state = JSON.parse(readFileSync(join(cfg.root, 'verbaly.lock'), 'utf8'));
     expect(Object.keys(state.fingerprints.es)).toEqual(['greet']);
     expect(state.drafts).toBeUndefined();
   });
 
   it('saves nothing when the state cannot be read, since the draft flag would be lost', async () => {
     const cfg = owned();
-    writeFileSync(join(cfg.dir, '.verbaly-state.json'), '<<<<<<< HEAD');
+    writeFileSync(join(cfg.root, 'verbaly.lock'), '<<<<<<< HEAD');
     await expect(writeMessage(cfg, 'es', 'greet', 'Hola {name}')).rejects.toThrow(/not valid JSON/);
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('');
   });
@@ -271,11 +271,11 @@ describe('buildState degrades on every file it reads, not just the catalogs', ()
   // Proved able to fail by calling loadDrafts directly: it throws and the whole panel 500s.
   it('reports a state sidecar it cannot parse instead of throwing', async () => {
     const cfg = project();
-    writeFileSync(join(cfg.dir, '.verbaly-state.json'), '{ not json');
+    writeFileSync(join(cfg.root, 'verbaly.lock'), '{ not json');
 
     const state = await buildState(cfg);
     expect(state.drafts).toEqual({});
-    expect(state.problems.map((p) => p.scope)).toContain('.verbaly-state.json');
+    expect(state.problems.map((p) => p.scope)).toContain('verbaly.lock');
   });
 
   // Proved able to fail by pushing the file registry.parseErrors() reports, which is absolute.
@@ -315,14 +315,14 @@ describe('undo, because the flag records who wrote the text', () => {
     const cfg = project({ es: ['hello', 'bye'], de: ['hello'] });
     // saveDrafts sorts and dedupes, so the baseline is what it writes, not what the fixture wrote
     approve(cfg, 'de', []);
-    const before = readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8');
+    const before = readFileSync(join(cfg.root, 'verbaly.lock'), 'utf8');
 
     const done = approve(cfg, 'es');
     expect(loadDrafts(cfg)).toEqual({ de: ['hello'] });
 
     unapprove(cfg, 'es', done.keys);
     expect(loadDrafts(cfg)).toEqual({ de: ['hello'], es: ['bye', 'hello'] });
-    expect(readFileSync(join(cfg.dir, '.verbaly-state.json'), 'utf8')).toBe(before);
+    expect(readFileSync(join(cfg.root, 'verbaly.lock'), 'utf8')).toBe(before);
   });
 
   it('refuses a locale the project does not declare', () => {

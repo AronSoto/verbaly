@@ -51,7 +51,11 @@ export function guardRequest(
     return { ok: false, status: 403, reason: '[verbaly] cross-origin request' };
   }
   if (!tokenMatches(url.searchParams.get('t'), token)) {
-    return { ok: false, status: 401, reason: '[verbaly] missing or wrong token, open the printed url' };
+    return {
+      ok: false,
+      status: 401,
+      reason: '[verbaly] missing or wrong token, open the printed url',
+    };
   }
   return PASS;
 }

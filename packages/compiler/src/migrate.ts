@@ -153,16 +153,28 @@ function mergePlurals(
     if (legacy.has(base) && typeof bare === 'string' && !forms.has('one')) {
       forms.set('one', { key: base, value: bare });
     } else if (bare !== undefined) {
-      skipped.push({ locale, key: base, reason: `"${base}" already exists, so merging would overwrite it` });
+      skipped.push({
+        locale,
+        key: base,
+        reason: `"${base}" already exists, so merging would overwrite it`,
+      });
       continue;
     }
     if (!forms.has('other')) {
-      skipped.push({ locale, key: base, reason: 'no _other form, so the block would have no catch-all' });
+      skipped.push({
+        locale,
+        key: base,
+        reason: 'no _other form, so the block would have no catch-all',
+      });
       continue;
     }
     // one form is not a plural: merging it would render the plural wording for a count of one
     if (forms.size === 1) {
-      skipped.push({ locale, key: base, reason: 'only a plural form, so add the singular before merging' });
+      skipped.push({
+        locale,
+        key: base,
+        reason: 'only a plural form, so add the singular before merging',
+      });
       continue;
     }
     const sorted = [...forms.entries()].sort((a, b) => order(a[0], b[0]));
@@ -228,7 +240,8 @@ export function migrateCatalogs(cfg: ResolvedConfig, options: MigrateOptions = {
 
     if (options.plurals) mergePlurals(locale, catalog, out, plurals, skipped, convert);
 
-    const changed = braces.some((b) => b.locale === locale) || plurals.some((p) => p.locale === locale);
+    const changed =
+      braces.some((b) => b.locale === locale) || plurals.some((p) => p.locale === locale);
     if (changed && options.write) {
       writeCatalog(cfg, locale, out);
       written.push(locale);

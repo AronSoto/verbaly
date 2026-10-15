@@ -51,7 +51,12 @@ describe('reportDev', { timeout: COMPILER_TIMEOUT }, () => {
   it('says once that verbaly.lock appeared, in the words extract uses', async () => {
     const cfg = project();
     const lock: compiler.Finding = { kind: 'lock', file: join(cfg.root, 'verbaly.lock') };
-    reportDev(compiler, cfg, await run(cfg, registryOf({}), undefined, { findings: [lock] }), undefined);
+    reportDev(
+      compiler,
+      cfg,
+      await run(cfg, registryOf({}), undefined, { findings: [lock] }),
+      undefined,
+    );
     expect(said()).toEqual([`[verbaly] ${compiler.formatFinding(lock, cfg.root)}`]);
     expect(said()[0]).toContain('verbaly.lock now keeps the source text');
   });

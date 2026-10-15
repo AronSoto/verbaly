@@ -44,7 +44,8 @@ function pack(destination) {
   const tarballs = {};
   for (const name of PACKAGES) {
     const dir = join(root, 'packages', name);
-    if (!existsSync(join(dir, 'dist'))) throw new Error(`run pnpm build first: ${name} has no dist`);
+    if (!existsSync(join(dir, 'dist')))
+      throw new Error(`run pnpm build first: ${name} has no dist`);
     const out = run('pnpm', ['pack', '--pack-destination', destination], dir);
     tarballs[name] = out.trim().split(/\r?\n/).pop();
   }
@@ -65,7 +66,8 @@ function fixture(tarballs, shape, pm) {
   writeFileSync(join(dir, 'verbaly.config.json'), CONFIG);
   mkdirSync(join(dir, 'src'), { recursive: true });
   writeFileSync(join(dir, 'src', 'app.js'), SOURCE);
-  const specs = shape.source === 'tarballs' ? shape.specs.map((name) => tarballs[name]) : shape.specs;
+  const specs =
+    shape.source === 'tarballs' ? shape.specs.map((name) => tarballs[name]) : shape.specs;
   const install = pm === 'npm' ? ['install', '--no-audit', '--no-fund'] : ['add'];
   const result = tryRun(pm, [...install, ...specs], dir);
   if (!result.ok) {
@@ -132,7 +134,12 @@ for (const pm of managers) {
     if (runs !== says) {
       const said = says ? 'it is available' : 'it is not linked';
       fail(pm, shape, `the command ${runs ? 'runs' : 'does not run'} but doctor says ${said}`, dir);
-      console.log(doctor.split('\n').filter((line) => line.includes('cli:')).join('\n'));
+      console.log(
+        doctor
+          .split('\n')
+          .filter((line) => line.includes('cli:'))
+          .join('\n'),
+      );
     } else if (shape.cli && !runs) {
       fail(pm, shape, 'the install the docs teach gives no working verbaly command', dir);
     } else {

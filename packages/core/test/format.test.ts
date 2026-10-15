@@ -565,7 +565,7 @@ describe('a param that cannot become text', () => {
 
   // Proved able to fail by removing the try in formatParam: the first case throws a TypeError.
   it('renders as nothing and says so once', () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const v = createVerbaly({ locale: 'en', messages: { en: { greet: 'hi {name}' } } });
     expect(v.t('greet', { name: hostile })).toBe('hi ');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('cannot format an object'));

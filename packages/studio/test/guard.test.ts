@@ -70,11 +70,11 @@ describe('newToken', () => {
 });
 
 describe('the scheme-default port', () => {
-// Proved able to fail by demanding the port unconditionally: every browser request 403s on :80.
-it('accepts a Host with no port when the port is the scheme default', () => {
-  expect(hostAllowed('127.0.0.1', 80)).toBe(true);
-  expect(hostAllowed('localhost', 80)).toBe(true);
-  expect(hostAllowed('127.0.0.1', 4747)).toBe(false);
-  expect(hostAllowed('evil.example.com', 80)).toBe(false);
-});
+  // Proved able to fail by demanding the port unconditionally: every browser request 403s on :80.
+  it('accepts a Host with no port when the port is the scheme default', () => {
+    expect(hostAllowed('127.0.0.1', 80)).toBe(true);
+    expect(hostAllowed('localhost', 80)).toBe(true);
+    expect(hostAllowed('127.0.0.1', 4747)).toBe(false);
+    expect(hostAllowed('evil.example.com', 80)).toBe(false);
+  });
 });

@@ -1,6 +1,7 @@
 // a comment is one line of at most 100 characters: the longer why belongs to the changelog
 const MAX = 100;
-const DIRECTIVE = /^\s*(eslint|prettier-|@ts-|@vitest-|@type|global|v8 ignore|c8 |istanbul|#__PURE__)/;
+const DIRECTIVE =
+  /^\s*(eslint|prettier-|@ts-|@vitest-|@type|global|v8 ignore|c8 |istanbul|#__PURE__)/;
 
 export const oneLine = {
   meta: {

@@ -597,14 +597,7 @@ describe('parseExchangeFile', () => {
   it('po: msgctxt and msgid wrap across lines the way msgstr already did', () => {
     const file = scratch(
       'es.po',
-      [
-        'msgctxt "very"',
-        '"LongKey"',
-        'msgid "a"',
-        '"b"',
-        'msgstr "x"',
-        '',
-      ].join('\n'),
+      ['msgctxt "very"', '"LongKey"', 'msgid "a"', '"b"', 'msgstr "x"', ''].join('\n'),
     );
     expect(parseExchangeFile(file).entries).toEqual({ veryLongKey: 'x' });
   });

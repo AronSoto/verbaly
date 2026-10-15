@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveConfig } from '@verbaly/compiler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attribute, catalogHistory, keyCommit, mergeOwners, parseLog, type Commit } from '../src/history';
+import {
+  attribute,
+  catalogHistory,
+  keyCommit,
+  mergeOwners,
+  parseLog,
+  type Commit,
+} from '../src/history';
 
 const FIELD = '\u001f';
 const line = (sha: string, author: string, date: string, subject: string): string =>
@@ -20,9 +27,16 @@ function project(dir: string) {
 describe('a log line, which is where the parsing can go wrong', () => {
   // Proved able to fail by splitting on the wrong field: the subject comes back truncated.
   it('reads the four fields and shortens the sha to seven', () => {
-    const out = parseLog(line('0123456789abcdef', 'Aron Soto', '2026-09-15T10:00:00+02:00', 'feat: x'));
+    const out = parseLog(
+      line('0123456789abcdef', 'Aron Soto', '2026-09-15T10:00:00+02:00', 'feat: x'),
+    );
     expect(out).toEqual([
-      { sha: '0123456', author: 'Aron Soto', date: '2026-09-15T10:00:00+02:00', subject: 'feat: x' },
+      {
+        sha: '0123456',
+        author: 'Aron Soto',
+        date: '2026-09-15T10:00:00+02:00',
+        subject: 'feat: x',
+      },
     ]);
   });
 
@@ -102,7 +116,11 @@ describe('which commit changed a key, which is a question about values and not a
 
   it('keeps the newest answer, because the walk runs newest first', () => {
     const owners = attribute([
-      { commit: commit('new', '2026-09-02T00:00:00Z', 'newest'), now: { a: '2' }, before: { a: '1' } },
+      {
+        commit: commit('new', '2026-09-02T00:00:00Z', 'newest'),
+        now: { a: '2' },
+        before: { a: '1' },
+      },
       { commit: commit('old', '2026-09-01T00:00:00Z', 'older'), now: { a: '1' }, before: {} },
     ]);
     expect(owners.get('a')!.subject).toBe('newest');
@@ -118,7 +136,11 @@ describe('which commit changed a key, which is a question about values and not a
   // Proved able to fail by treating an unreadable blob as an empty catalog: every key moves to it.
   it('attributes nothing for a revision nobody could parse, instead of everything', () => {
     const owners = attribute([
-      { commit: commit('bad', '2026-09-02T00:00:00Z', 'broken json'), now: undefined, before: { a: '1' } },
+      {
+        commit: commit('bad', '2026-09-02T00:00:00Z', 'broken json'),
+        now: undefined,
+        before: { a: '1' },
+      },
       { commit: commit('ok', '2026-09-01T00:00:00Z', 'write a'), now: { a: '1' }, before: {} },
     ]);
     expect(owners.get('a')!.subject).toBe('write a');

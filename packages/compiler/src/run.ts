@@ -336,7 +336,9 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
       }
     }
     if (result.blocked.length > 0) {
-      console.log(`  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`);
+      console.log(
+        `  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`,
+      );
       for (const entry of result.blocked) {
         const how = entry.client
           ? '"use client", so const t = useT()'

@@ -347,7 +347,9 @@ describe('renderHtml', () => {
       const { html } = render('<p data-verbaly="home.intro" data-verbaly-args="{not json}"></p>');
       // args unparsed: the {name} placeholder stays literal, no crash
       expect(html).toContain('Hola {name}');
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid JSON in data-verbaly-args'));
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('invalid JSON in data-verbaly-args'),
+      );
     } finally {
       warn.mockRestore();
     }
@@ -357,7 +359,9 @@ describe('renderHtml', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       render('<a data-verbaly="home.intro" data-verbaly-attr="href:home.url"></a>');
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid JSON in data-verbaly-attr'));
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('invalid JSON in data-verbaly-attr'),
+      );
       expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('data-verbaly-args'));
     } finally {
       warn.mockRestore();
@@ -492,7 +496,9 @@ describe('the slice a page carries', () => {
     });
 
   function slice(html: string): Record<string, string> {
-    const found = /<script data-verbaly-catalog type="application\/json">(.*?)<\/script>/s.exec(html);
+    const found = /<script data-verbaly-catalog type="application\/json">(.*?)<\/script>/s.exec(
+      html,
+    );
     return found ? (JSON.parse(found[1]!) as Record<string, string>) : {};
   }
 
@@ -519,11 +525,14 @@ describe('the slice a page carries', () => {
   });
 
   it('stays out of the page unless it is asked for', () => {
-    const { html } = renderHtml('<html><head></head><body><h1 data-verbaly="home.title"></h1></body></html>', {
-      locale: 'es',
-      catalogs: CATALOGS,
-      sourceLocale: 'en',
-    });
+    const { html } = renderHtml(
+      '<html><head></head><body><h1 data-verbaly="home.title"></h1></body></html>',
+      {
+        locale: 'es',
+        catalogs: CATALOGS,
+        sourceLocale: 'en',
+      },
+    );
     expect(html).not.toContain('data-verbaly-catalog');
   });
 

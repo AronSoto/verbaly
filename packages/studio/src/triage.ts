@@ -111,7 +111,9 @@ export function triage({ source, target, reviewed }: TriageInput): TriageResult 
     if (!split && targets.size > 1) {
       for (const key of group) {
         const mine = target[key]?.trim() ?? '';
-        const other = group.find((k) => k !== key && (target[k]?.trim() ?? '') !== mine && target[k]?.trim());
+        const other = group.find(
+          (k) => k !== key && (target[k]?.trim() ?? '') !== mine && target[k]?.trim(),
+        );
         push(out, key, {
           signal: 'collision',
           text: other
@@ -132,9 +134,16 @@ export function triage({ source, target, reviewed }: TriageInput): TriageResult 
       const value = catalog[key]?.trim();
       return value !== undefined && value !== '';
     });
-    if (trg === src && voters.length > 0 && voters.every(({ catalog }) => catalog[key]?.trim() !== src)) {
+    if (
+      trg === src &&
+      voters.length > 0 &&
+      voters.every(({ catalog }) => catalog[key]?.trim() !== src)
+    ) {
       const names = voters.map(({ locale }) => locale).join(' and ');
-      push(out, key, { signal: 'echo', text: `still the source text, and ${names} did translate it` });
+      push(out, key, {
+        signal: 'echo',
+        text: `still the source text, and ${names} did translate it`,
+      });
     }
 
     // a translation that adds a number is idiomatic ("refresh" is "F5"); one that changes it is not

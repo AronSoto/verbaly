@@ -38,11 +38,7 @@ const cases: Array<[string, () => void, () => void]> = [
     () => void v.t('param', { name: 'Aron', count: 3 }),
     () => void i18next.t('param', { name: 'Aron', count: 3 }),
   ],
-  [
-    'plural',
-    () => void v.t('plural', { count: 3 }),
-    () => void i18next.t('plural', { count: 3 }),
-  ],
+  ['plural', () => void v.t('plural', { count: 3 }), () => void i18next.t('plural', { count: 3 })],
   [
     'currency format',
     () => void v.t('money', { total: 1234.5 }),

@@ -128,9 +128,9 @@ describe('what the table shows, which is the search and the filters together', (
 
   // Proved able to fail by treating 'look' as a state: it would ask for one nobody has.
   it('shows what the triage flagged, whichever state it is in', () => {
-    expect(visible(panel.rows, { text: '', state: 'look', locales: ['es'] }).map((r) => r.key)).toEqual([
-      'nav.home',
-    ]);
+    expect(
+      visible(panel.rows, { text: '', state: 'look', locales: ['es'] }).map((r) => r.key),
+    ).toEqual(['nav.home']);
     expect(visible(panel.rows, { text: '', state: 'look', locales: ['pt'] })).toEqual([]);
   });
 
@@ -157,7 +157,12 @@ describe('one language on screen', () => {
     const before = panel.rows.map((r) => r.key);
     const after = lookFirst(panel.rows, 'es');
     expect(after.flagged).toBe(2);
-    expect(after.rows.slice(0, 2).map((r) => r.key).sort()).toEqual(['gone', 'nav.home']);
+    expect(
+      after.rows
+        .slice(0, 2)
+        .map((r) => r.key)
+        .sort(),
+    ).toEqual(['gone', 'nav.home']);
     expect(after.rows.map((r) => r.key).sort()).toEqual(before.sort());
   });
 
@@ -168,10 +173,18 @@ describe('one language on screen', () => {
   });
 
   it('hands the column its prose, and nothing when there is no reason', () => {
-    expect(reasonFor(panel.rows.find((r) => r.key === 'gone')!, 'es')).toBe(
-      'the source says "2" and this one does not',
-    );
-    expect(reasonFor(panel.rows.find((r) => r.key === 'bye')!, 'es')).toBeNull();
+    expect(
+      reasonFor(
+        panel.rows.find((r) => r.key === 'gone')!,
+        'es',
+      ),
+    ).toBe('the source says "2" and this one does not');
+    expect(
+      reasonFor(
+        panel.rows.find((r) => r.key === 'bye')!,
+        'es',
+      ),
+    ).toBeNull();
   });
 
   it('joins the reasons when a row tripped more than one signal', () => {
@@ -187,9 +200,12 @@ describe('one language on screen', () => {
         },
       }),
     );
-    expect(reasonFor(many.rows.find((r) => r.key === 'gone')!, 'es')).toBe(
-      'the source says "2". a link changed',
-    );
+    expect(
+      reasonFor(
+        many.rows.find((r) => r.key === 'gone')!,
+        'es',
+      ),
+    ).toBe('the source says "2". a link changed');
   });
 
   // two chips that overlap would let the same row be in both piles, and the counts would not add up

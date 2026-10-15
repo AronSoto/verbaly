@@ -46,7 +46,9 @@ describe('the one transformation that is not optional', () => {
   });
 
   it('names the library it found, and says so when it finds none', () => {
-    expect(migrateCatalogs(project({ en: {} }, { 'vue-i18n': '^9' })).detected).toEqual(['vue-i18n']);
+    expect(migrateCatalogs(project({ en: {} }, { 'vue-i18n': '^9' })).detected).toEqual([
+      'vue-i18n',
+    ]);
     expect(migrateCatalogs(project({ en: {} }, {})).detected).toEqual([]);
   });
 });
@@ -208,7 +210,9 @@ describe('the plural merge, which is an upgrade and therefore opt-in', () => {
   });
 
   it('refuses to overwrite a key that already means something else', () => {
-    const cfg = project({ en: { taken: 'Already here', taken_one: 'one', taken_other: '{{count}}' } });
+    const cfg = project({
+      en: { taken: 'Already here', taken_one: 'one', taken_other: '{{count}}' },
+    });
     const result = migrateCatalogs(cfg, { write: true, plurals: true });
 
     expect(result.plurals).toEqual([]);

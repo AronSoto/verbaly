@@ -63,7 +63,9 @@ export function startWatcher(
     }
     // a dotfile there is an older state file, which the next save moves: it changes no message
     const isCatalog =
-      file.startsWith(`${catalogDir}/`) && file.endsWith('.json') && !basename(file).startsWith('.');
+      file.startsWith(`${catalogDir}/`) &&
+      file.endsWith('.json') &&
+      !basename(file).startsWith('.');
     if (isCatalog || compiler.SOURCE_FILE_RE.test(file)) schedule();
   });
 

@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1104,7 +1111,10 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
 
   it('extract --prune takes the drafts of the keys it drops along', async () => {
     const root = makeProject(
-      { en: { 'nav.home': 'Home', 'nav.docs': 'Docs' }, es: { 'nav.home': 'Inicio', 'nav.docs': 'Docs' } },
+      {
+        en: { 'nav.home': 'Home', 'nav.docs': 'Docs' },
+        es: { 'nav.home': 'Inicio', 'nav.docs': 'Docs' },
+      },
       "export const x = t('nav.docs');\n",
     );
     writeFileSync(
@@ -1228,10 +1238,7 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
       { en: { hi: 'Hi' }, es: { hi: 'Hola' }, pt: { hi: 'Oi' } },
       "t('hi');\n",
     );
-    writeFileSync(
-      join(root, 'verbaly.lock'),
-      JSON.stringify({ drafts: { pt: ['hi'] } }),
-    );
+    writeFileSync(join(root, 'verbaly.lock'), JSON.stringify({ drafts: { pt: ['hi'] } }));
     await runCli(['extract', '--root', root, '--locales', 'es']);
     expect(readState(root).drafts).toEqual({ pt: ['hi'] });
   });

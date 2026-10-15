@@ -390,7 +390,8 @@ function readDrafts(value: unknown): Drafts {
   const out: Drafts = {};
   if (!isObject(value)) return out;
   for (const [locale, keys] of Object.entries(value)) {
-    if (Array.isArray(keys)) out[locale] = keys.filter((key): key is string => typeof key === 'string');
+    if (Array.isArray(keys))
+      out[locale] = keys.filter((key): key is string => typeof key === 'string');
   }
   return out;
 }

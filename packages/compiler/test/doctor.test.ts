@@ -548,7 +548,10 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
       "export const a = t.id('dup')`Uno`;\nexport const b = t.id('dup')`Dos`;\n" +
       "export const c = t.id('bio')`Escribo software`;\nconst tr = useT();\ntr`Oculto`;\n";
     const cfg = makeProject({
-      catalogs: { es: { dup: 'Uno', bio: 'Escribo código' }, en: { dup: 'One', bio: 'I write code' } },
+      catalogs: {
+        es: { dup: 'Uno', bio: 'Escribo código' },
+        en: { dup: 'One', bio: 'I write code' },
+      },
       code,
       dts: false,
     });
@@ -561,7 +564,9 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
     );
     expect(entry(result.entries, 'source texts')?.level).toBe('warn');
     const sources = result.entries.filter((e) => e.check === 'sources');
-    expect(sources.some((e) => e.message.includes('tr`…`') && e.message.includes('src/app.ts:5'))).toBe(true);
+    expect(
+      sources.some((e) => e.message.includes('tr`…`') && e.message.includes('src/app.ts:5')),
+    ).toBe(true);
     // the mirror of the gate: doctor exits 1 exactly when check would
     expect(result.ok).toBe(false);
   });

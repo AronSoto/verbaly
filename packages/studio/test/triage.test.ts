@@ -217,7 +217,12 @@ describe('a reason names its evidence', () => {
     const result = triage({
       source: { a: long, b: long },
       target: { a: 'Commencer', b: 'Demarrer' },
-      reviewed: [{ locale: 'es', catalog: { a: 'Comienza ahora mismo con todo el compilador', b: 'Empezar' } }],
+      reviewed: [
+        {
+          locale: 'es',
+          catalog: { a: 'Comienza ahora mismo con todo el compilador', b: 'Empezar' },
+        },
+      ],
     });
     const text = why(result, 'a')[0]!;
     expect(text).toContain('…');

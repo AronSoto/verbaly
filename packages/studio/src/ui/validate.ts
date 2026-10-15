@@ -72,7 +72,8 @@ export function preview(source: string, translated: string): Preview {
   const lost = params.filter((p) => p.inSource && !p.inTarget).map((p) => `{${p.name}}`);
   const made = params.filter((p) => !p.inSource && p.inTarget).map((p) => `{${p.name}}`);
   if (lost.length) problems.push(`${list(lost)} is missing, so its value never reaches the text`);
-  if (made.length) problems.push(`${list(made)} is not in the source, so it renders as literal text`);
+  if (made.length)
+    problems.push(`${list(made)} is not in the source, so it renders as literal text`);
 
   // a plural block that lost its catch-all renders nothing for any count it does not list
   for (const [name, selectors] of to) {

@@ -61,7 +61,10 @@ function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioPro
   // an empty green panel and a wrong --root look identical, and only this line tells them apart
   if (!existsSync(cfg.dir)) {
     const dir = relative(cfg.root, cfg.dir).replaceAll('\\', '/');
-    problems.push({ scope: dir, message: '[verbaly] no catalogs here, run npx verbaly init or check --root' });
+    problems.push({
+      scope: dir,
+      message: '[verbaly] no catalogs here, run npx verbaly init or check --root',
+    });
   }
   for (const locale of cfg.locales) {
     try {
@@ -76,7 +79,6 @@ function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioPro
   }
   return { catalogs, problems };
 }
-
 
 // check() reports the files a key was used in as absolute paths, origins already do not.
 function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {

@@ -215,7 +215,9 @@ describe('runBuildGate: the state file only feeds warnings', () => {
     const cfg = resolveConfig({ root, sourceLocale: 'en', locales: ['en', 'es'] });
     expect(() => runBuildGate(cfg, new MessageRegistry())).not.toThrow();
     const said = warn.mock.calls.map(([text]) => String(text));
-    expect(said.filter((text) => text.includes('outdated translations are not reported'))).toHaveLength(1);
+    expect(
+      said.filter((text) => text.includes('outdated translations are not reported')),
+    ).toHaveLength(1);
     expect(said[0]).not.toContain('[verbaly] [verbaly]');
     warn.mockRestore();
   });

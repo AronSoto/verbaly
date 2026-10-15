@@ -81,7 +81,8 @@ export const ACTION = {
 
 // An empty screen that tells you to click something that is not there is worse than a blank one.
 export const EMPTY = {
-  noCatalogs: 'No messages yet. Studio reads the catalogs in your project, and there are none here.',
+  noCatalogs:
+    'No messages yet. Studio reads the catalogs in your project, and there are none here.',
   oneLocale: 'One language is all you have, so there is nothing to compare it against yet.',
   oneLocaleFix: 'Add another one to your config and it shows up in the rail.',
   pickOne: 'Tick a language in the rail to see its translations.',
@@ -97,7 +98,10 @@ export const WAITING = {
   broken: { one: 'translation breaks your site', many: 'translations break your site' },
   missing: { one: 'message is missing', many: 'messages are missing' },
   draft: { one: 'translation nobody has read', many: 'translations nobody has read' },
-  undefined: { one: 'key your code calls has no message', many: 'keys your code calls have no message' },
+  undefined: {
+    one: 'key your code calls has no message',
+    many: 'keys your code calls have no message',
+  },
   extra: { one: 'key only a translation has', many: 'keys only a translation has' },
 } as const;
 

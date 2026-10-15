@@ -48,7 +48,10 @@ function plural(): ResolvedConfig {
   mkdirSync(dir, { recursive: true });
   const one = '{n | one: one file | other: # files}';
   writeFileSync(join(dir, 'en.json'), JSON.stringify({ n: one }, null, 2));
-  writeFileSync(join(dir, 'es.json'), JSON.stringify({ n: '{n | one: un archivo | other: # archivos}' }, null, 2));
+  writeFileSync(
+    join(dir, 'es.json'),
+    JSON.stringify({ n: '{n | one: un archivo | other: # archivos}' }, null, 2),
+  );
   return resolveConfig({ root, dir: 'locales', sourceLocale: 'en', locales: ['en', 'es'] });
 }
 
@@ -96,7 +99,9 @@ describe('writeMessage', () => {
   it('accepts the same translation once the param is back', async () => {
     const cfg = params();
     await writeMessage(cfg, 'es', 'greet', 'Que tal, {name}');
-    expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('Que tal, {name}');
+    expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe(
+      'Que tal, {name}',
+    );
   });
 
   // Proved able to fail by using `key in source`, which walks Object.prototype and lets these in.

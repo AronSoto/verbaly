@@ -11,6 +11,7 @@ pnpm test                      # each package's suite (scripts/test.mjs), what t
 pnpm coverage                  # the root vitest projects, what CI runs
 pnpm typecheck                 # TypeScript 7 native (tsc)
 pnpm lint                      # eslint, including the one-line comment rule
+pnpm format                    # prettier; CI runs pnpm format:check
 pnpm --filter verbaly size     # the core's weight against its budgets, gated in CI
 pnpm --filter <package> test   # one package
 ```
@@ -22,14 +23,14 @@ pnpm --filter <package> test   # one package
 - `skills/verbaly/SKILL.md`: the Agent Skill Verbaly ships to its users, not instructions for working on this repo.
 - `scripts/`: the test runner, the first-contact check and the lint rule for comments.
 
-| Folder | Package | What it is |
-|--------|---------|------------|
-| `core` | `verbaly` | The runtime: `createVerbaly`, `t`, formats, locale helpers, `bindDom`. Zero dependencies, ESM and CJS |
-| `compiler` | `@verbaly/compiler` | Extraction (Babel), codegen, validation and the `verbaly` CLI. ESM only |
-| `vite`, `unplugin` | `@verbaly/vite`, `@verbaly/unplugin` | Bundler plugins (unplugin covers webpack, Rollup, esbuild and Rspack) |
-| `react`, `vue`, `svelte` | `@verbaly/react`, `@verbaly/vue`, `@verbaly/svelte` | Thin adapters: the core's reactivity plus `<Trans>` |
-| `sveltekit`, `nuxt`, `next`, `astro` | `@verbaly/<name>` | Framework integrations |
-| `mcp`, `studio` | `@verbaly/mcp`, `@verbaly/studio` | The MCP server for agents, and the local review server |
+| Folder                               | Package                                             | What it is                                                                                            |
+| ------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `core`                               | `verbaly`                                           | The runtime: `createVerbaly`, `t`, formats, locale helpers, `bindDom`. Zero dependencies, ESM and CJS |
+| `compiler`                           | `@verbaly/compiler`                                 | Extraction (Babel), codegen, validation and the `verbaly` CLI. ESM only                               |
+| `vite`, `unplugin`                   | `@verbaly/vite`, `@verbaly/unplugin`                | Bundler plugins (unplugin covers webpack, Rollup, esbuild and Rspack)                                 |
+| `react`, `vue`, `svelte`             | `@verbaly/react`, `@verbaly/vue`, `@verbaly/svelte` | Thin adapters: the core's reactivity plus `<Trans>`                                                   |
+| `sveltekit`, `nuxt`, `next`, `astro` | `@verbaly/<name>`                                   | Framework integrations                                                                                |
+| `mcp`, `studio`                      | `@verbaly/mcp`, `@verbaly/studio`                   | The MCP server for agents, and the local review server                                                |
 
 ## Rules every change keeps
 

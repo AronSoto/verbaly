@@ -182,10 +182,7 @@ async function walkFile(root: string, file: string, limit: number) {
 }
 
 // The whole map at once, because a per-key query costs a git process and every row has a menu.
-export async function catalogKeyHistory(
-  cfg: ResolvedConfig,
-  limit = WINDOW,
-): Promise<KeyHistory> {
+export async function catalogKeyHistory(cfg: ResolvedConfig, limit = WINDOW): Promise<KeyHistory> {
   const maps: Map<string, Commit>[] = [];
   const committed = new Set<string>();
   let ok = false;

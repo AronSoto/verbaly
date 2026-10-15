@@ -39,7 +39,9 @@ describe('search reads every language, which is the whole reason the sheet exist
   });
 
   it('never matches the key itself, because nobody remembers a hash', () => {
-    expect(search(panel, 'b')).not.toContainEqual(expect.objectContaining({ key: 'b', locales: [] }));
+    expect(search(panel, 'b')).not.toContainEqual(
+      expect.objectContaining({ key: 'b', locales: [] }),
+    );
     expect(search(panel, 'zzz')).toEqual([]);
   });
 

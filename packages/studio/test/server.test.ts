@@ -15,7 +15,10 @@ beforeEach(async () => {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'en.json'), JSON.stringify({ hello: 'Hello' }, null, 2));
   writeFileSync(join(dir, 'es.json'), JSON.stringify({ hello: 'Hola' }, null, 2));
-  writeFileSync(join(dir, '.verbaly-drafts.json'), JSON.stringify({ es: ['hello'] }, null, 2) + '\n');
+  writeFileSync(
+    join(dir, '.verbaly-drafts.json'),
+    JSON.stringify({ es: ['hello'] }, null, 2) + '\n',
+  );
   const cfg = resolveConfig({ root, dir: 'locales', sourceLocale: 'en', locales: ['en', 'es'] });
   studio = await startStudio(cfg, { port: 0 });
 });
@@ -31,8 +34,7 @@ const call = (path: string, init: RequestInit = {}) =>
     headers: { host: `127.0.0.1:${studio.port}`, ...(init.headers ?? {}) },
   });
 
-const withToken = (path: string) =>
-  `${path}${path.includes('?') ? '&' : '?'}t=${studio.token}`;
+const withToken = (path: string) => `${path}${path.includes('?') ? '&' : '?'}t=${studio.token}`;
 
 describe('guards', () => {
   it('answers 401 without the token the command printed', async () => {

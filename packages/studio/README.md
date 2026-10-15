@@ -39,11 +39,11 @@ npx verbaly-studio
 #   Ctrl+C to stop
 ```
 
-| Flag | What it does |
-|------|--------------|
-| `--root <path>` | point at another project instead of the working directory |
-| `--port <n>` | start somewhere other than 4747; a busy port climbs to the next free one |
-| `--json` | print the whole state to stdout and exit, no server |
+| Flag            | What it does                                                             |
+| --------------- | ------------------------------------------------------------------------ |
+| `--root <path>` | point at another project instead of the working directory                |
+| `--port <n>`    | start somewhere other than 4747; a busy port climbs to the next free one |
+| `--json`        | print the whole state to stdout and exit, no server                      |
 
 `--json` is the panel without the panel: the same object the interface reads, so it can be piped,
 diffed and scripted. Opening the printed url gets you the screen instead.
@@ -66,18 +66,18 @@ accepts the name alone, because that is what a browser sends.
 Every route calls the same compiler function the CLI calls, so there is no second implementation to
 keep in step. Every answer is JSON, including the errors, which are `{ "error": "[verbaly] …" }`.
 
-| Method and route | What it does |
-|---|---|
-| `GET /api/state` | the whole project: config, catalogs, origins, status, check, drafts, triage and problems |
-| `GET /api/health` | what `verbaly doctor` reports |
-| `GET /api/commit/:key` | the commit that last changed that message, or why there is none |
-| `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }` |
-| `POST /api/approve` | approve drafts; body `{ "locale": "es", "keys": ["…"] }`, and the whole locale when `keys` is omitted |
-| `POST /api/extract` | read your code and add what your catalogs do not have; answers in the request, because it is local and free |
-| `GET /api/translate` | **the bill**: how many messages and in which languages, without calling the provider |
-| `POST /api/translate` | start the run and get back a job; body `{ "locales": ["es"] }` |
-| `GET /api/job/:id` | how that run is going, to ask once a second |
-| `GET /api/job` | the run in progress, or `null`; a reloaded page asks this instead of losing the bar |
+| Method and route                | What it does                                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /api/state`                | the whole project: config, catalogs, origins, status, check, drafts, triage and problems                    |
+| `GET /api/health`               | what `verbaly doctor` reports                                                                               |
+| `GET /api/commit/:key`          | the commit that last changed that message, or why there is none                                             |
+| `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }`                                    |
+| `POST /api/approve`             | approve drafts; body `{ "locale": "es", "keys": ["…"] }`, and the whole locale when `keys` is omitted       |
+| `POST /api/extract`             | read your code and add what your catalogs do not have; answers in the request, because it is local and free |
+| `GET /api/translate`            | **the bill**: how many messages and in which languages, without calling the provider                        |
+| `POST /api/translate`           | start the run and get back a job; body `{ "locales": ["es"] }`                                              |
+| `GET /api/job/:id`              | how that run is going, to ask once a second                                                                 |
+| `GET /api/job`                  | the run in progress, or `null`; a reloaded page asks this instead of losing the bar                         |
 
 `GET /api/state` is unpaginated on purpose: the biggest catalog we know is more than 1600 messages, and over
 localhost that is instant. Its `problems` array is why nothing Studio reads can take the server
@@ -116,8 +116,7 @@ a draft, and the panel says how many it left alone.
 **`GET /api/commit/:key` answers about values, not about lines.** It walks your catalogs' history
 once and remembers, per message, the newest commit where that message's text really differs from its
 parent's. `git blame` is the obvious way to ask and it is wrong here: adding a key rewrites the
-previous line's comma, so blame blames that commit, which on our own site is 26 messages in every
-100. When there is no answer the route says which of the three reasons applies, because "never
+previous line's comma, so blame blames that commit, which on our own site is 26 messages in every 100. When there is no answer the route says which of the three reasons applies, because "never
 committed", "older than the history I read" and "there is no git here" are three different facts.
 
 ## 🔎 Triage: which machine translations are worth reading
@@ -129,14 +128,14 @@ are how a safeguard turns into something people route around, so Studio ranks in
 meaning, which nothing can measure. These signals do not score a translation, they point at the few
 worth a human eye:
 
-| Signal | What it means |
-|---|---|
+| Signal      | What it means                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
 | `divergent` | the same source text was already rendered two ways by a reviewed locale, so the English is ambiguous |
-| `collision` | the fallback when no reviewed locale can tell: one source text came back as two translations here |
-| `echo` | still identical to the source, while every reviewed locale did translate it |
-| `digits` | a number the source has came back changed, ignoring decimal separators and trailing punctuation |
-| `url` | a URL changed |
-| `code` | the contents of a `<code>` span changed |
+| `collision` | the fallback when no reviewed locale can tell: one source text came back as two translations here    |
+| `echo`      | still identical to the source, while every reviewed locale did translate it                          |
+| `digits`    | a number the source has came back changed, ignoring decimal separators and trailing punctuation      |
+| `url`       | a URL changed                                                                                        |
+| `code`      | the contents of a `<code>` span changed                                                              |
 
 A locale that still carries drafts is never used as the reviewed control, and neither is a blank:
 an unfinished translation is not a second opinion.

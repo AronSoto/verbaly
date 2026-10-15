@@ -95,7 +95,8 @@ export function serverApi(token: string): StudioApi {
       const query = locales.map((locale) => `locale=${encodeURIComponent(locale)}`).join('&');
       return ask<Plan>(token, `/api/translate${query ? `?${query}` : ''}`);
     },
-    translate: (locales) => ask<Job>(token, '/api/translate', { method: 'POST', body: { locales } }),
+    translate: (locales) =>
+      ask<Job>(token, '/api/translate', { method: 'POST', body: { locales } }),
     // without an id it asks what is running, which is how a reloaded page finds its bar again
     job: (id) => ask<Job | null>(token, id ? `/api/job/${encodeURIComponent(id)}` : '/api/job'),
   };

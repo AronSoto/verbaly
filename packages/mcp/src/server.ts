@@ -289,9 +289,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         skipped: z.array(
           z.object({ file: z.string(), line: z.number(), text: z.string(), reason: z.string() }),
         ),
-        blocked: z.array(
-          z.object({ file: z.string(), texts: z.number(), client: z.boolean() }),
-        ),
+        blocked: z.array(z.object({ file: z.string(), texts: z.number(), client: z.boolean() })),
       },
     },
     guarded(async ({ root, write }) => {
@@ -316,7 +314,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         }
       }
       if (result.blocked.length > 0) {
-        lines.push(`  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`);
+        lines.push(
+          `  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`,
+        );
         for (const entry of result.blocked) {
           const how = entry.client ? '"use client", so const t = useT()' : 'no "use client"';
           lines.push(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${how}`);
@@ -685,7 +685,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Save translations an agent wrote',
       description:
-        "Save translations you wrote yourself, so neither a catalog nor the state file is ever edited by hand. Each one is checked the way `verbaly translate` checks a provider (params, rich tags and plural cases must survive), written only for keys the source catalog has, and marked as a draft awaiting human review. Existing translations are kept unless overwrite is set, which is how an outdated one gets rewritten. Approving is not a tool here: a human runs `verbaly review --approve`.",
+        'Save translations you wrote yourself, so neither a catalog nor the state file is ever edited by hand. Each one is checked the way `verbaly translate` checks a provider (params, rich tags and plural cases must survive), written only for keys the source catalog has, and marked as a draft awaiting human review. Existing translations are kept unless overwrite is set, which is how an outdated one gets rewritten. Approving is not a tool here: a human runs `verbaly review --approve`.',
       inputSchema: {
         root: rootInput,
         locale: z.string().describe("Target locale, one of the project's non-source locales"),
@@ -718,7 +718,9 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         lines.push(`${locale}: +${result.written.length} saved as drafts, awaiting human review`);
       }
       if (result.kept.length > 0) {
-        lines.push(`${locale}: ${result.kept.length} already translated, kept: ${result.kept.join(', ')}`);
+        lines.push(
+          `${locale}: ${result.kept.length} already translated, kept: ${result.kept.join(', ')}`,
+        );
       }
       if (result.invalid.length > 0) {
         lines.push(
@@ -777,15 +779,16 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         );
       const body = entries.length
         ? entries
-            .map((e) => `[${e.locale}] ${e.key}
+            .map(
+              (e) => `[${e.locale}] ${e.key}
   source: ${e.source}
-  draft:  ${e.translated}`)
+  draft:  ${e.translated}`,
+            )
             .join('\n')
         : 'nothing awaiting review';
       return reply(body, { total: entries.length, entries });
     }),
   );
-
 
   return server;
 }

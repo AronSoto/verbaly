@@ -37,7 +37,8 @@ describe('a catalog keeps the order the file already had', () => {
 
   // this is the headline case: alphabetical reads the sentence backwards
   it('keeps the pieces of a split sentence in reading order', () => {
-    const body = '{\n  "claim_start": "Your catalogs,",\n  "claim_mid": "in",\n  "claim_end": "one screen"\n}\n';
+    const body =
+      '{\n  "claim_start": "Your catalogs,",\n  "claim_mid": "in",\n  "claim_end": "one screen"\n}\n';
     const cfg = project({ en: body });
     writeCatalog(cfg, 'en', readCatalog(cfg, 'en'));
     expect(keysOf(cfg, 'en')).toEqual(['claim_start', 'claim_mid', 'claim_end']);

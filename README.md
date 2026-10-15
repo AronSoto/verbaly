@@ -118,17 +118,17 @@ Plain HTML, no framework? Bind by attribute:
 
 ### How it compares
 
-|                           | **Verbaly**           | i18next            | Lingui                 | Paraglide      | typesafe-i18n |
-| ------------------------- | --------------------- | ------------------ | ---------------------- | -------------- | ------------- |
-| Type-safe keys & params   | ✅ inferred from text | plugin/manual      | partial                | ✅             | ✅            |
-| Runtime size (gzip)       | **3.31KB, zero deps** | 13.6KB (19.0 +react) | 2.2KB (3.3 +react)   | compiled       | 1.2KB         |
-| Setup                     | 1 Vite plugin         | heavy config       | macros + Babel/SWC     | inlang project | generator     |
-| Key maintenance           | **none, extracted**   | by hand            | extract → compile step | by hand        | by hand       |
-| Dynamic / CMS content     | ✅ real runtime path  | ✅                 | ✅                     | ⚠️ weak        | ✅            |
-| Plain HTML (no framework) | ✅ DOM interpreter    | ❌                 | ❌                     | ❌             | ❌            |
-| Missing-translation gate  | ✅ fails CI only      | runtime warning    | CI step                | ✅             | ❌            |
-| Broken-translation gate   | ✅ fails CI only      | ❌                 | ❌                     | ❌             | ❌            |
-| Catalog format            | plain JSON            | JSON               | PO/JSON                | inlang format  | TS files      |
+|                           | **Verbaly**           | i18next              | Lingui                 | Paraglide      | typesafe-i18n |
+| ------------------------- | --------------------- | -------------------- | ---------------------- | -------------- | ------------- |
+| Type-safe keys & params   | ✅ inferred from text | plugin/manual        | partial                | ✅             | ✅            |
+| Runtime size (gzip)       | **3.31KB, zero deps** | 13.6KB (19.0 +react) | 2.2KB (3.3 +react)     | compiled       | 1.2KB         |
+| Setup                     | 1 Vite plugin         | heavy config         | macros + Babel/SWC     | inlang project | generator     |
+| Key maintenance           | **none, extracted**   | by hand              | extract → compile step | by hand        | by hand       |
+| Dynamic / CMS content     | ✅ real runtime path  | ✅                   | ✅                     | ⚠️ weak        | ✅            |
+| Plain HTML (no framework) | ✅ DOM interpreter    | ❌                   | ❌                     | ❌             | ❌            |
+| Missing-translation gate  | ✅ fails CI only      | runtime warning      | CI step                | ✅             | ❌            |
+| Broken-translation gate   | ✅ fails CI only      | ❌                   | ❌                     | ❌             | ❌            |
+| Catalog format            | plain JSON            | JSON                 | PO/JSON                | inlang format  | TS files      |
 
 ---
 

@@ -61,13 +61,7 @@ describe('the module keeps its shape, so a new file has one obvious home', () =>
   });
 
   it('leaves the root of ui for the logic the components are handed', () => {
-    expect([...logic].sort()).toEqual([
-      'api.ts',
-      'model.ts',
-      'validate.ts',
-      'wire.ts',
-      'words.ts',
-    ]);
+    expect([...logic].sort()).toEqual(['api.ts', 'model.ts', 'validate.ts', 'wire.ts', 'words.ts']);
   });
 });
 

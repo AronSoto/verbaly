@@ -22,7 +22,9 @@ const panel = toPanel({
   origins: {},
   drafts: { es: ['nav.account'] },
   triage: {},
-  check: { broken: [{ locale: 'es', key: 'cart.total', severity: 'error', issue: 'lost {amount}' }] },
+  check: {
+    broken: [{ locale: 'es', key: 'cart.total', severity: 'error', issue: 'lost {amount}' }],
+  },
   problems: [],
 });
 

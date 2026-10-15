@@ -296,7 +296,9 @@ describe('declared keys', () => {
       'export type VerbalyKeyTree = VerbalyKey | { readonly [name: string]: VerbalyKeyTree };',
     );
     // const keeps the literal types, without it every value widens to string and t(key) breaks
-    expect(dts).toContain('export function defineKeys<const T extends VerbalyKeyTree>(keys: T): T;');
+    expect(dts).toContain(
+      'export function defineKeys<const T extends VerbalyKeyTree>(keys: T): T;',
+    );
   });
 });
 
@@ -404,8 +406,10 @@ describe('the inline slice in the generated module', () => {
     const out = generateRuntimeModule(cfg, { inlineCatalog: true });
     expect(out).toContain('export function adoptPage(options)');
     // partial, or the second page would count as the whole catalog and hide what it lacks
-    expect(out).toContain("v.addMessages(slice.locale, slice.messages, { partial: true })");
-    expect(generateDts({ a: 'Hi' }, { inlineCatalog: true })).toContain('export function adoptPage');
+    expect(out).toContain('v.addMessages(slice.locale, slice.messages, { partial: true })');
+    expect(generateDts({ a: 'Hi' }, { inlineCatalog: true })).toContain(
+      'export function adoptPage',
+    );
   });
 
   it('reads the page slice and tells the runtime the locale is partial', () => {

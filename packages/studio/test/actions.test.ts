@@ -198,7 +198,7 @@ describe('translate, the one action that spends money', () => {
 
 // Proved able to fail by counting every locale: a gap a target already had reads as new text.
 it('counts one new message, not one per language that was missing it', async () => {
-  const root = mkdtempSync(join(tmpdir(), "verbaly-found-"));
+  const root = mkdtempSync(join(tmpdir(), 'verbaly-found-'));
   made.push(root);
   mkdirSync(join(root, 'locales'), { recursive: true });
   mkdirSync(join(root, 'src'), { recursive: true });

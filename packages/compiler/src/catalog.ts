@@ -154,9 +154,7 @@ function orderLike(tree: MessageTree, previous: MessageTree): MessageTree {
     if (value === undefined) return;
     const before = previous[key];
     out[key] =
-      typeof before === 'object' && before !== null
-        ? orderLike(value, before)
-        : sortTree(value);
+      typeof before === 'object' && before !== null ? orderLike(value, before) : sortTree(value);
   };
 
   for (const key of had) if (Object.hasOwn(tree, key)) take(key);
@@ -165,11 +163,7 @@ function orderLike(tree: MessageTree, previous: MessageTree): MessageTree {
   return out;
 }
 
-export function serializeCatalog(
-  catalog: Catalog,
-  nested = false,
-  previous?: MessageTree,
-): string {
+export function serializeCatalog(catalog: Catalog, nested = false, previous?: MessageTree): string {
   const tree: MessageTree = nested ? nest(catalog) : catalog;
   return JSON.stringify(previous ? orderLike(tree, previous) : sortTree(tree), null, 2) + '\n';
 }

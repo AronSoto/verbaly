@@ -204,7 +204,8 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
         const close = findClose(html, tagName, openEnd, inSkip);
         if (close) {
           const text = t(key, args);
-          const own = parseArgs(attrs.get(linksAttr), linksAttr) as Record<string, RichLink> | undefined;
+          const own = parseArgs(attrs.get(linksAttr), linksAttr) as
+            Record<string, RichLink> | undefined;
           const merged = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
           // a link inside a message is a link: without the prefix it leaves the mirror
           const links = mirror ? mirroredLinks(merged, mirror) : merged;

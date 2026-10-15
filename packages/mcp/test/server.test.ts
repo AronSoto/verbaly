@@ -151,7 +151,10 @@ describe('createVerbalyMcp', () => {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-mcp-init-'));
     tempDirs.push(root);
     const client = await connect(root);
-    const result = await client.callTool({ name: 'verbaly_init', arguments: { locales: ['en', 'es'] } });
+    const result = await client.callTool({
+      name: 'verbaly_init',
+      arguments: { locales: ['en', 'es'] },
+    });
     const data = structured(result) as { created: string[]; next: string[]; configFile: string };
 
     expect(existsSync(join(root, data.configFile))).toBe(true);
@@ -305,9 +308,9 @@ describe('createVerbalyMcp', () => {
       string
     >;
     expect(Object.values(es)).toEqual(['ES Hello {name}']);
-    const state = JSON.parse(
-      readFileSync(join(root, 'verbaly.lock'), 'utf8'),
-    ) as { drafts: Record<string, string[]> };
+    const state = JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8')) as {
+      drafts: Record<string, string[]>;
+    };
     expect(state.drafts.es).toHaveLength(1);
 
     // the draft shows up in status and in the opt-in missing view

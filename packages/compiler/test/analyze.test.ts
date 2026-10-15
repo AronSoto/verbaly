@@ -425,7 +425,9 @@ describe('a t under another name', () => {
 
   it('reports a tagged template on a binding of useT, getT, a destructured t or a renamed import', () => {
     expect(names('const tr = useT(); tr`Hola`;')).toEqual(['tr']);
-    expect(names('async function f() { const tr = await getT(); return tr`Hola`; }')).toEqual(['tr']);
+    expect(names('async function f() { const tr = await getT(); return tr`Hola`; }')).toEqual([
+      'tr',
+    ]);
     expect(names('const { t: tr } = useVerbaly(); tr.id("k")`Hola`;')).toEqual(['tr']);
     expect(names("import { t as tr } from 'virtual:verbaly'; tr`Hola`;")).toEqual(['tr']);
   });

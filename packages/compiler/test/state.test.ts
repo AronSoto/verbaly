@@ -73,7 +73,11 @@ describe('verbaly.lock', () => {
     const c = cfg();
     writeFileSync(
       lockPath(c),
-      JSON.stringify({ drafts: { es: ['a'] }, fingerprints: { es: { bio: 'L.L' } }, migrated: ['es'] }),
+      JSON.stringify({
+        drafts: { es: ['a'] },
+        fingerprints: { es: { bio: 'L.L' } },
+        migrated: ['es'],
+      }),
     );
     writeFileSync(
       join(c.dir, OLD_STATE),
@@ -115,7 +119,9 @@ describe('verbaly.lock', () => {
   it('throws on a file it cannot read, either one, and never advises deleting it', () => {
     const c = cfg();
     writeFileSync(lockPath(c), '{not json');
-    expect(() => loadState(c)).toThrow(/verbaly\.lock is not valid JSON: restore it from git or fix it/);
+    expect(() => loadState(c)).toThrow(
+      /verbaly\.lock is not valid JSON: restore it from git or fix it/,
+    );
     expect(() => loadState(c)).toThrow(/deleting it approves every draft/);
     writeFileSync(lockPath(c), '["a"]');
     expect(() => loadState(c)).toThrow(/not valid JSON/);

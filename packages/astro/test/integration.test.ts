@@ -63,7 +63,7 @@ describe('verbaly astro integration', () => {
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).toContain("import { adoptPage } from 'virtual:verbaly'");
     // before-swap, not page-load: bindDom repaints the new dom before a page event ever fires
-    expect(scripts[0]).toContain("astro:before-swap");
+    expect(scripts[0]).toContain('astro:before-swap');
     expect(scripts[0]).toContain('root: event.newDocument');
   });
 

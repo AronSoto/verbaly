@@ -26,7 +26,9 @@ describe('drafts sidecar', () => {
     saveDrafts(c, drafts);
     const raw = readFileSync(join(c.root, STATE_FILE), 'utf8');
     expect(Object.keys(JSON.parse(raw))).toEqual(['_readme', 'version', 'drafts']);
-    expect(raw.endsWith('"drafts": {\n    "es": [\n      "a",\n      "b"\n    ]\n  }\n}\n')).toBe(true);
+    expect(raw.endsWith('"drafts": {\n    "es": [\n      "a",\n      "b"\n    ]\n  }\n}\n')).toBe(
+      true,
+    );
     expect(loadDrafts(c)).toEqual({ es: ['a', 'b'] });
   });
 

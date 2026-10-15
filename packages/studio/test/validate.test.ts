@@ -4,7 +4,9 @@ import { preview } from '../src/ui/validate';
 
 const problems = (source: string, translated: string) => preview(source, translated).problems;
 const chips = (source: string, translated: string) =>
-  preview(source, translated).params.map((p) => `${p.name}:${p.inSource ? 's' : ''}${p.inTarget ? 't' : ''}`);
+  preview(source, translated).params.map(
+    (p) => `${p.name}:${p.inSource ? 's' : ''}${p.inTarget ? 't' : ''}`,
+  );
 
 describe('what the editor says while you type', () => {
   it('says nothing when the translation keeps what the source had', () => {
@@ -34,7 +36,9 @@ describe('what the editor says while you type', () => {
     expect(problems('{n | one: one | other: # many}', '{n | one: uno}')).toContain(
       'the block for {n} has no "other" case, so some counts render empty',
     );
-    expect(problems('{n | one: one | other: # many}', '{n | one: uno | other: # muchos}')).toEqual([]);
+    expect(problems('{n | one: one | other: # many}', '{n | one: uno | other: # muchos}')).toEqual(
+      [],
+    );
   });
 
   // Proved able to fail by comparing tags as a set: one of the two survives and nothing says so.
@@ -94,7 +98,10 @@ describe('the preview never contradicts the gate that will run on the server', (
     ['{n | one: one | other: # many}', '{n | one: uno | other: # muchos}'],
     ['Total {amount:currency/EUR}', 'Total {amount:currency/EUR}'],
     ['Total {amount:currency/EUR}', 'Total'],
-    ['{a, plural, one {# file} other {# files}}', '{a, plural, one {# fichero} other {# ficheros}}'],
+    [
+      '{a, plural, one {# file} other {# files}}',
+      '{a, plural, one {# fichero} other {# ficheros}}',
+    ],
     ['{b, plural, one {# box} other {# boxes}}', 'cajas'],
     ['{name} has {c, number} points', '{name} tiene puntos'],
   ];

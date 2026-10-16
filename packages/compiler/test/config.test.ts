@@ -17,8 +17,8 @@ function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-cfg-'));
 }
 
-// a ts config goes through bundle-require, which spawns esbuild: 5s is not that job under pnpm test
-const ESBUILD_TIMEOUT = 30_000;
+// a ts config goes through jiti, whose first load reads its own Babel: 5s is tight under pnpm test
+const TS_CONFIG_TIMEOUT = 30_000;
 
 describe('loadConfig', () => {
   it('reads verbaly.config.json', async () => {
@@ -74,7 +74,42 @@ describe('loadConfig', () => {
       expect(cfg.sourceLocale).toBe('pt');
       expect(cfg.locales).toContain('en');
     },
-    ESBUILD_TIMEOUT,
+    TS_CONFIG_TIMEOUT,
+  );
+
+  // Proved able to fail with Node's own TypeScript import: ERR_MODULE_NOT_FOUND on the import.
+  it(
+    'reads a ts config that imports a module without its extension, as a Next app writes it',
+    async () => {
+      const root = makeRoot();
+      mkdirSync(join(root, 'src', 'lib'), { recursive: true });
+      writeFileSync(
+        join(root, 'src', 'lib', 'i18n.ts'),
+        "export const locales = ['es', 'en'] as const;\nexport const sourceLocale = 'es';\n",
+      );
+      writeFileSync(
+        join(root, 'verbaly.config.ts'),
+        [
+          "import type { VerbalyConfig } from '@verbaly/compiler';",
+          "import { locales, sourceLocale } from './src/lib/i18n';",
+          'export default { sourceLocale, locales: [...locales] } satisfies VerbalyConfig;',
+        ].join('\n'),
+      );
+      const cfg = await loadConfig(root);
+      expect(cfg.sourceLocale).toBe('es');
+      expect(cfg.locales).toEqual(['es', 'en']);
+    },
+    TS_CONFIG_TIMEOUT,
+  );
+
+  it(
+    'reads a ts config written with module.exports',
+    async () => {
+      const root = makeRoot();
+      writeFileSync(join(root, 'verbaly.config.ts'), "module.exports = { sourceLocale: 'fr' };\n");
+      expect((await loadConfig(root)).sourceLocale).toBe('fr');
+    },
+    TS_CONFIG_TIMEOUT,
   );
 
   it('prefers mjs over ts when both exist', async () => {
@@ -92,25 +127,29 @@ describe('loadConfig', () => {
     expect(cfg.sourceLocale).toBe('en');
   });
 
+  // Proved able to fail with jiti's default interop on: the named sourceLocale read as the config.
   it(
     'falls back to defaults when a ts config has no default export',
     async () => {
       const root = makeRoot();
-      writeFileSync(join(root, 'verbaly.config.ts'), 'export const foo: number = 1;\n');
+      writeFileSync(
+        join(root, 'verbaly.config.ts'),
+        "export const sourceLocale: string = 'pt';\nexport const foo: number = 1;\n",
+      );
       const cfg = await loadConfig(root);
       expect(cfg.sourceLocale).toBe('en');
     },
-    ESBUILD_TIMEOUT,
+    TS_CONFIG_TIMEOUT,
   );
 
   it(
-    'rethrows a ts config that fails to bundle for a non-esbuild reason',
+    'rethrows a ts config that does not parse',
     async () => {
       const root = makeRoot();
       writeFileSync(join(root, 'verbaly.config.ts'), 'export default {   // unterminated\n');
       await expect(loadConfig(root)).rejects.toThrow();
     },
-    ESBUILD_TIMEOUT,
+    TS_CONFIG_TIMEOUT,
   );
 });
 
@@ -127,6 +166,24 @@ describe('a config edited while the process runs', () => {
     expect((await loadConfig(root)).locales).toEqual(['en', 'es', 'pt']);
   });
 
+  // Proved able to fail with jiti's module cache on: the second read kept es and en.
+  it(
+    'is read again when it is TypeScript, and so is the module it imports',
+    async () => {
+      const root = makeRoot();
+      const shared = join(root, 'locales.ts');
+      writeFileSync(shared, "export const locales = ['es'];\n");
+      writeFileSync(
+        join(root, 'verbaly.config.ts'),
+        "import { locales } from './locales';\nexport default { locales };\n",
+      );
+      expect((await loadConfig(root)).locales).toEqual(['en', 'es']);
+      writeFileSync(shared, "export const locales = ['es', 'pt'];\n");
+      expect((await loadConfig(root)).locales).toEqual(['en', 'es', 'pt']);
+    },
+    TS_CONFIG_TIMEOUT,
+  );
+
   // Proved able to fail by keeping the cache, or by keying it with the root as given: en,es twice.
   it(
     'is read again when it is CommonJS, which Node caches by file name and not by url',
@@ -138,7 +195,7 @@ describe('a config edited while the process runs', () => {
         format: 'esm',
         platform: 'node',
         outfile: bundle,
-        external: ['bundle-require'],
+        external: ['jiti'],
         logLevel: 'silent',
       });
       // a --root or an agent's root can be relative, and Node keys that cache by the full path
@@ -165,7 +222,7 @@ describe('a config edited while the process runs', () => {
         expect(out.trim()).toBe('en,es|en,es,pt');
       }
     },
-    ESBUILD_TIMEOUT,
+    TS_CONFIG_TIMEOUT,
   );
 });
 

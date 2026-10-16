@@ -54,6 +54,8 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let included: (id: string) => boolean;
   let reporter: DevReporter | undefined;
   let stateBroken = false;
+  // a build's scan: each file it read unchanged reaches transform already parsed
+  let scan: MessageRegistry | undefined;
   // one write-back at a time: a save and a catalog edit landing together must not interleave
   let writing: Promise<void> = Promise.resolve();
   const registry = new MessageRegistry();
@@ -180,7 +182,8 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       // dev and build alike: a file outside include writes a t`…` that no build translates
       await reportOutsideInclude(cfg);
       if (!isBuild) return;
-      syncCatalogs(cfg, catalogs, await extractProject(cfg));
+      scan = await extractProject(cfg, { keepSource: true });
+      syncCatalogs(cfg, catalogs, scan);
     },
 
     // filtered: without them Vite 8 hands every module to JS, which tripled a real app's build
@@ -202,7 +205,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       filter: { id: { include: SOURCE_FILE_RE, exclude: [/node_modules/, ANY_RESOLVED_ID] } },
       handler(code, id) {
         if (!isTransformTarget(id) || !included(id)) return undefined;
-        const { messages, result } = transformSource(code, id, registry);
+        const { messages, result } = transformSource(code, id, registry, scan);
 
         const found = Object.entries(messages);
         if (!isBuild && found.length > 0) {
@@ -223,6 +226,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
     buildEnd() {
       if (!isBuild) return;
+      scan = undefined;
       runBuildGate(cfg, registry, options.failOnMissing);
     },
   };

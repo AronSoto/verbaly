@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveConfig } from '../src/config';
+import { extractProject } from '../src/extract';
 import { stableKey } from '../src/key';
 import { runBuildGate, transformSource } from '../src/plugin';
 import { MessageRegistry } from '../src/registry';
@@ -52,6 +53,48 @@ describe('transformSource', () => {
     expect(warn.mock.calls[0]![0]).toContain('src/unreadable.ts: could not be parsed');
     expect(registry.parseErrors()).toHaveLength(1);
     warn.mockRestore();
+  });
+});
+
+describe('transformSource with a build scan', () => {
+  function scanned() {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-scan-'));
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const file = join(root, 'src', 'app.ts');
+    const code = 'const s = t`Hola ${name}`;\n';
+    writeFileSync(file, code);
+    return { cfg: resolveConfig({ root, locales: ['en'] }), file, code };
+  }
+
+  // Proved able to fail by parsing in transform anyway: each file was read by Babel twice.
+  it('takes the analysis the scan made of a file it read unchanged, once', async () => {
+    const { cfg, file, code } = scanned();
+    const scan = await extractProject(cfg, { keepSource: true });
+    const first = new MessageRegistry();
+    transformSource(code, file.replaceAll('/', '\\'), first, scan);
+    expect(first.messages().get(KEY)).toBe(scan.messages().get(KEY));
+    // handed out once: a second build of the file parses it, so the scan holds nothing for long
+    const second = new MessageRegistry();
+    transformSource(code, file, second, scan);
+    expect(second.messages().get(KEY)).not.toBe(scan.messages().get(KEY));
+    expect(second.messages().get(KEY)?.message).toBe('Hola {name}');
+  });
+
+  // Proved able to fail by reusing on the path alone: the edited text shipped the scanned one.
+  it('parses the code it is handed when it is not what the scan read', async () => {
+    const { cfg, file } = scanned();
+    const scan = await extractProject(cfg, { keepSource: true });
+    const registry = new MessageRegistry();
+    const { messages } = transformSource('const s = t`Adiós ${name}`;\n', file, registry, scan);
+    expect(Object.values(messages)).toEqual(['Adiós {name}']);
+  });
+
+  it('keeps nothing when the scan was not asked to', async () => {
+    const { cfg, file, code } = scanned();
+    const scan = await extractProject(cfg);
+    const registry = new MessageRegistry();
+    transformSource(code, file, registry, scan);
+    expect(registry.messages().get(KEY)).not.toBe(scan.messages().get(KEY));
   });
 });
 

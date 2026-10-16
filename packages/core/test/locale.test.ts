@@ -265,6 +265,46 @@ describe('resolveLocale', () => {
     expect(resolveLocale({ supported: SUPPORTED })).toBe('pt');
   });
 
+  // Proved able to fail with narrowing alone: every one of these readers got English.
+  it('picks the script and region a tag implies, the way a reader reads it', () => {
+    const chinese = ['en', 'zh-Hans', 'zh-Hant'];
+    for (const [tag, expected] of [
+      ['zh-HK', 'zh-Hant'],
+      ['zh-TW', 'zh-Hant'],
+      ['zh', 'zh-Hans'],
+      ['zh-CN', 'zh-Hans'],
+    ]) {
+      stubNavigator([tag!]);
+      expect(resolveLocale({ supported: chinese, path: false, storageKey: false })).toBe(expected);
+    }
+    stubNavigator(['zh-TW']);
+    expect(resolveLocale({ supported: ['en', 'zh', 'zh-Hant'], path: false })).toBe('zh-Hant');
+    stubNavigator(['pt']);
+    expect(resolveLocale({ supported: ['en', 'pt-BR'], path: false })).toBe('pt-BR');
+  });
+
+  // Proved able to fail by passing over pt-PT: the second preference, English, won.
+  it('takes a sibling in the same script before the next preference, and never another script', () => {
+    stubNavigator(['pt-PT', 'en']);
+    expect(resolveLocale({ supported: ['en', 'pt-BR'], path: false })).toBe('pt-BR');
+    stubNavigator(['zh-HK', 'en']);
+    expect(resolveLocale({ supported: ['fr', 'zh-Hans', 'en'], path: false })).toBe('en');
+    stubNavigator(['sr', 'en']);
+    expect(resolveLocale({ supported: ['sr-Latn', 'en'], path: false })).toBe('en');
+  });
+
+  it('reads a stored choice the same way when the supported list moved on', () => {
+    localStorage.setItem('verbaly-locale', 'pt');
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: ['en', 'pt-BR'], path: false })).toBe('pt-BR');
+  });
+
+  it('keeps a url segment exact: an address is not a preference', () => {
+    expect(localeFromPath({ supported: ['en', 'pt-BR'], path: '/pt/docs' })).toBeUndefined();
+    stubNavigator(['en']);
+    expect(resolveLocale({ supported: ['en', 'pt-BR'], path: '/pt/docs' })).toBe('en');
+  });
+
   it('falls back to the first supported locale', () => {
     stubNavigator(['fr']);
     expect(resolveLocale({ supported: SUPPORTED })).toBe('en');
@@ -335,6 +375,15 @@ describe('negotiateLocale', () => {
 
   it('matches a regional supported entry from its header casing', () => {
     expect(negotiateLocale('es-mx', ['en', 'es-MX'])).toBe('es-MX');
+  });
+
+  // Proved able to fail with narrowing alone: a server in Hong Kong or Lisbon answered in English.
+  it('picks the script and region a header implies, and a same-script sibling', () => {
+    const supported = ['en', 'zh-Hans', 'zh-Hant', 'pt-BR'];
+    expect(negotiateLocale('zh-HK,zh;q=0.9,en;q=0.8', supported)).toBe('zh-Hant');
+    expect(negotiateLocale('zh-CN,en;q=0.5', supported)).toBe('zh-Hans');
+    expect(negotiateLocale('pt-PT,en;q=0.8', supported)).toBe('pt-BR');
+    expect(negotiateLocale('sr,en;q=0.5', ['sr-Latn', 'en'])).toBe('en');
   });
 
   it('skips unsupported tags and keeps walking', () => {

@@ -1,7 +1,9 @@
 // Named-tag tokenizer for <Trans>
 export type TagNode = string | { name: string; children: TagNode[] };
 
-const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
+const TAG = /<(\/?)([a-zA-Z][\w-]*)\s*(\/?)>/g;
+// the void tags a message renders; <link> stays a name for a link, so it still pairs
+const BREAK = /^(?:br|wbr)$/;
 
 // text runs only, post-tokenize: decoded braces/angles never re-enter a parser
 const ENTITY = /&(?:(lt|gt|amp)|#(\d+)|#[xX]([0-9a-fA-F]+));/g;
@@ -29,8 +31,9 @@ export function parseTags(text: string): TagNode[] {
     pushText(text.slice(last, m.index));
     last = m.index + full.length;
 
-    if (selfClose) {
-      top().push({ name: name!, children: [] });
+    // a break is whole on its own: <br>, <br/> and <br /> are one break, and </br> adds none
+    if (selfClose || BREAK.test(name!)) {
+      if (!closing) top().push({ name: name!, children: [] });
     } else if (closing) {
       if (stack.length && stack[stack.length - 1]!.name === name) {
         const node = stack.pop()!;

@@ -542,6 +542,22 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
     expect(result.ok).toBe(true);
   });
 
+  // Proved able to fail by saying nothing: git showed a conflict and doctor called the lock fine.
+  it('says a lock with a merge conflict was read, and which command writes it whole', async () => {
+    const cfg = makeProject({ catalogs: readable, code: "t('bio');\n", dts: false });
+    const lock = ['{"fingerprints": {"en": {', '<<<<<<< HEAD', '"bio": "A.B"', '======='];
+    lock.push('"nav.home": "C.D"', '>>>>>>> two', '}}}');
+    writeFileSync(join(cfg.root, 'verbaly.lock'), lock.join('\n'));
+    const result = await doctor(cfg);
+    const state = entry(result.entries, 'state');
+    expect(state?.level).toBe('warn');
+    expect(state?.message).toBe('verbaly.lock has a merge conflict, and both sides were read');
+    expect(state?.fix).toBe(
+      'run `npx verbaly extract`, which writes both sides into it, then commit it',
+    );
+    expect(result.ok).toBe(true);
+  });
+
   // Proved able to fail by keeping the collision a warning: doctor said healthy where check failed.
   it('fails like check on a key written with two texts, and warns on a contradicted text and a renamed t', async () => {
     const code =

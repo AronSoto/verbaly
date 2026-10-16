@@ -69,14 +69,15 @@ function relativeTo(root: string): (file: string) => string {
   return (file) => relative(root, file).replaceAll('\\', '/');
 }
 
-// the lock a run created or moved in, the one thing an agent has to tell its user to commit
+// the lock a run created, moved in or merged, the one thing an agent has to tell its user to commit
 function lockOf(
   findings: Finding[],
   rel: (file: string) => string,
-): { lock?: { file: string; from?: string } } {
+): { lock?: { file: string; from?: string; merged?: boolean } } {
   for (const finding of findings) {
     if (finding.kind !== 'lock') continue;
-    return { lock: { file: rel(finding.file), ...(finding.from && { from: rel(finding.from) }) } };
+    const from = finding.from && { from: rel(finding.from) };
+    return { lock: { file: rel(finding.file), ...from, ...(finding.merged && { merged: true }) } };
   }
   return {};
 }
@@ -386,10 +387,14 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
             'The state file could not be read or written: the catalogs were written, drafts and outdated tracking were not',
           ),
         lock: z
-          .object({ file: z.string(), from: z.string().optional() })
+          .object({
+            file: z.string(),
+            from: z.string().optional(),
+            merged: z.boolean().optional(),
+          })
           .optional()
           .describe(
-            'This run created verbaly.lock, or moved an older state file (from) into it: it belongs in git with the catalogs, so tell the user to commit it',
+            'This run created verbaly.lock, moved an older state file (from) into it, or rewrote it whole after a merge conflict (merged): it belongs in git with the catalogs, so tell the user to commit it',
           ),
       },
     },

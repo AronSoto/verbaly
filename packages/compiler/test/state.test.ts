@@ -1,9 +1,11 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Catalogs } from '../src/catalog';
+import { loadCatalogs, type Catalogs } from '../src/catalog';
 import { resolveConfig } from '../src/config';
+import { formatFinding } from '../src/findings';
 import { stableKey } from '../src/key';
 import {
   acceptOutdated,
@@ -37,6 +39,8 @@ function onDisk(c: Config, catalogs: Catalogs): Catalogs {
 const refresh = (c: Config, catalogs: Catalogs) => updateState(c, onDisk(c, catalogs)).fingerprints;
 const stamp = (source: string, translated: string) =>
   `${stableKey(source)}.${stableKey(translated)}`;
+// ten git processes: a second on their own, near a minute on Windows under the full parallel suite
+const GIT_TIMEOUT = 120_000;
 const OLD_STATE = '.verbaly-state.json';
 const OLD_DRAFTS = '.verbaly-drafts.json';
 const lockPath = (c: Config) => join(c.root, STATE_FILE);
@@ -179,6 +183,191 @@ describe('verbaly.lock', () => {
       from: join(moved.dir, OLD_STATE),
     });
   });
+});
+
+describe('a merge conflict in verbaly.lock', () => {
+  const BETA = stamp('beta text', 'texto beta');
+  const DELTA = stamp('delta text', 'texto delta');
+  // the file git leaves when two branches stamp different keys of one language
+  const conflicted = (ours: string[], theirs: string[], base?: string[]) =>
+    [
+      '{',
+      '  "_readme": "Written by Verbaly",',
+      '  "version": 1,',
+      '  "fingerprints": {',
+      '    "es": {',
+      '<<<<<<< HEAD',
+      ...ours,
+      ...(base ? ['||||||| base', ...base] : []),
+      '=======',
+      ...theirs,
+      '>>>>>>> branch',
+      '    }',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+
+  // Proved able to fail by reading the file as JSON: it was unreadable, every stamp lost.
+  it('reads both sides of the stamps two branches added', () => {
+    const c = cfg();
+    writeFileSync(
+      lockPath(c),
+      conflicted([`      "a.beta": "${BETA}"`], [`      "a.delta": "${DELTA}"`]),
+    );
+    expect({ ...loadState(c).fingerprints.es }).toEqual({ 'a.beta': BETA, 'a.delta': DELTA });
+  });
+
+  it('reads the diff3 style, leaving out what the base had', () => {
+    const c = cfg();
+    const text = conflicted(
+      [`      "a.beta": "${BETA}",`, '      "a.gamma": "G.G"'],
+      [`      "a.beta": "${BETA}",`, `      "a.delta": "${DELTA}"`],
+      [`      "a.beta": "${BETA}",`, '      "a.old": "O.O"'],
+    );
+    writeFileSync(lockPath(c), text.replaceAll('\n', '\r\n'));
+    expect({ ...loadState(c).fingerprints.es }).toEqual({
+      'a.beta': BETA,
+      'a.gamma': 'G.G',
+      'a.delta': DELTA,
+    });
+  });
+
+  // Proved able to fail by keeping one side's drafts: the other side's draft read as reviewed.
+  it('keeps every draft either side lists, so a merge never approves one', () => {
+    const c = cfg();
+    const text = [
+      '{',
+      '  "version": 1,',
+      '  "drafts": {',
+      '    "es": [',
+      '      "a",',
+      '<<<<<<< HEAD',
+      '      "b"',
+      '=======',
+      '      "c"',
+      '>>>>>>> branch',
+      '    ]',
+      '  }',
+      '}',
+    ].join('\n');
+    writeFileSync(lockPath(c), text);
+    expect(loadState(c).drafts).toEqual({ es: ['a', 'b', 'c'] });
+  });
+
+  // Proved able to fail by letting the first side win: the stamp of the dropped text stayed.
+  it('keeps the stamp of the translation the catalog holds when both sides stamped one key', () => {
+    const ours = stamp('Hello', 'Hola');
+    const theirs = stamp('Hello', 'Hola!');
+    const lock = conflicted([`      "greeting": "${ours}"`], [`      "greeting": "${theirs}"`]);
+    for (const [kept, stamped] of [
+      ['Hola!', theirs],
+      ['Hola', ours],
+      ['Buenas', ours],
+    ] as const) {
+      const c = cfg();
+      onDisk(c, { en: { greeting: 'Hello' }, es: { greeting: kept } });
+      writeFileSync(lockPath(c), lock);
+      expect(loadState(c).fingerprints.es?.greeting).toBe(stamped);
+    }
+  });
+
+  // Proved able to fail by never recording the conflict: the save said nothing about it.
+  it('is written whole by the next save, which says so once', () => {
+    const c = cfg();
+    onDisk(c, {
+      en: { 'a.beta': 'beta text', 'a.delta': 'delta text' },
+      es: { 'a.beta': 'texto beta', 'a.delta': 'texto delta' },
+    });
+    writeFileSync(
+      lockPath(c),
+      conflicted([`      "a.beta": "${BETA}"`], [`      "a.delta": "${DELTA}"`]),
+    );
+    const before = stateFile(c);
+    updateState(c, loadCatalogs(c));
+    const text = readFileSync(lockPath(c), 'utf8');
+    expect(text).not.toMatch(/^[<=>|]{7}/m);
+    expect((lockOf(c).fingerprints as Record<string, unknown>).es).toEqual({
+      'a.beta': BETA,
+      'a.delta': DELTA,
+    });
+    const news = lockNews(c, before);
+    expect(news).toEqual({ file: lockPath(c), merged: true });
+    expect(formatFinding({ kind: 'lock', ...news! }, c.root)).toBe(
+      'verbaly.lock had a merge conflict and now holds both sides, drafts and stamps included: add it to the commit that resolves the merge',
+    );
+    expect(lockNews(c, stateFile(c))).toBeUndefined();
+  });
+
+  it('is read through where it only feeds a warning, and nothing is written', () => {
+    const c = cfg();
+    const text = conflicted([`      "a.beta": "${BETA}"`], [`      "a.delta": "${DELTA}"`]);
+    writeFileSync(lockPath(c), text);
+    const read = readState(c);
+    expect(read.problem).toBeUndefined();
+    expect(read.conflict).toBe(true);
+    expect(Object.keys(read.state.fingerprints.es ?? {})).toEqual(['a.beta', 'a.delta']);
+    expect(readFileSync(lockPath(c), 'utf8')).toBe(text);
+    rmSync(lockPath(c));
+    expect(readState(c).conflict).toBeUndefined();
+  });
+
+  it('names a conflict it cannot read without advising to take one side', () => {
+    const c = cfg();
+    writeFileSync(lockPath(c), conflicted(['      "a.beta": '], [`      "a.delta": "${DELTA}"`]));
+    expect(() => loadState(c)).toThrow(
+      /verbaly\.lock has a merge conflict Verbaly cannot read: resolve it by hand and keep the entries of both sides/,
+    );
+    const read = readState(c);
+    expect(read.problem).toMatch(/merge conflict/);
+    expect(read.conflict).toBe(true);
+  });
+
+  // Proved able to fail by reading the file as JSON, as 0.71.0 did: the merge left it unreadable.
+  it(
+    'merges what two real git branches stamped, after git marks the lock as a conflict',
+    () => {
+      const c = cfg();
+      const git = (...args: string[]) =>
+        execFileSync(
+          'git',
+          ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'core.autocrlf=false', ...args],
+          { cwd: c.root, stdio: 'pipe' },
+        );
+      const keys = ['a.alpha', 'a.beta', 'a.gamma', 'a.delta', 'a.epsilon', 'a.zeta'];
+      const en = Object.fromEntries(keys.map((key) => [key, `${key.slice(2)} text`]));
+      const es: Record<string, string> = Object.fromEntries(keys.map((key) => [key, '']));
+      const translate = (key: string, text: string) => {
+        es[key] = text;
+        writeFileSync(join(c.dir, 'es.json'), JSON.stringify(es, null, 2) + '\n');
+        updateState(c, loadCatalogs(c));
+      };
+      writeFileSync(join(c.dir, 'en.json'), JSON.stringify(en, null, 2) + '\n');
+      git('init', '-q', '-b', 'main');
+      translate('a.alpha', 'texto alfa');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'base');
+      git('checkout', '-q', '-b', 'one');
+      translate('a.gamma', 'texto gamma');
+      git('commit', '-q', '-am', 'one');
+      git('checkout', '-q', 'main');
+      es['a.gamma'] = '';
+      git('checkout', '-q', '-b', 'two');
+      translate('a.zeta', 'texto zeta');
+      git('commit', '-q', '-am', 'two');
+      git('checkout', '-q', 'one');
+      expect(() => git('merge', '-q', 'two')).toThrow();
+      expect(readFileSync(lockPath(c), 'utf8')).toMatch(/^<{7} HEAD/m);
+      expect(readState(c).conflict).toBe(true);
+      updateState(c, loadCatalogs(c));
+      expect(Object.keys(lockOf(c).fingerprints as Record<string, Record<string, string>>)).toEqual(
+        ['es'],
+      );
+      const stamps = (lockOf(c).fingerprints as Record<string, Record<string, string>>).es!;
+      expect(Object.keys(stamps).sort()).toEqual(['a.alpha', 'a.gamma', 'a.zeta']);
+    },
+    GIT_TIMEOUT,
+  );
 });
 
 describe('outdated translations', () => {

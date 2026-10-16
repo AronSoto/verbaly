@@ -16,7 +16,7 @@
 
 ---
 
-Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.31 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.11 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
+Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.31 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.13 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
 
 ```ts
 // You write this:

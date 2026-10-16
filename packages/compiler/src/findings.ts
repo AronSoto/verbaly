@@ -146,6 +146,9 @@ export function formatFinding(finding: Finding, root?: string): string {
       return `[${finding.locale}] ${finding.key}: translated from an older source text, update it or keep it with \`npx verbaly review --approve\``;
     case 'lock': {
       const lock = sourcePlace(finding, root);
+      if (finding.merged) {
+        return `${lock} had a merge conflict and now holds both sides, drafts and stamps included: add it to the commit that resolves the merge`;
+      }
       return finding.from
         ? `${sourcePlace({ file: finding.from }, root)} moved to ${lock}, next to your config: commit both changes`
         : `${lock} now keeps the source text each translation was made for and which ones are drafts: commit it with your catalogs`;
@@ -170,7 +173,7 @@ function findingId(finding: Finding): string {
     case 'unparsed':
       return `unparsed:${finding.file}`;
     case 'lock':
-      return `lock:${finding.file}`;
+      return `lock:${finding.merged ? 'merged:' : ''}${finding.file}`;
   }
 }
 

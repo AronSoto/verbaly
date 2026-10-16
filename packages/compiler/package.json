@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/compiler",
-  "version": "0.71.0",
+  "version": "0.72.0",
   "description": "Message extraction and type-safe codegen for Verbaly.",
   "keywords": [
     "i18n",
@@ -36,14 +36,14 @@
   ],
   "sideEffects": false,
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
     "@babel/parser": "^8.0.7",
-    "bundle-require": "^5.1.0",
+    "jiti": "^2.7.0",
     "jsonc-parser": "^3.3.1",
     "magic-string": "^1.4.3",
     "picomatch": "^4.0.7",
@@ -51,19 +51,15 @@
     "verbaly": "workspace:*"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": ">=0.110.0",
-    "esbuild": ">=0.18"
+    "@anthropic-ai/sdk": ">=0.110.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
       "optional": true
-    },
-    "esbuild": {
-      "optional": true
     }
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
+    "@anthropic-ai/sdk": "^0.134.0",
     "@types/picomatch": "^4.0.3",
     "esbuild": "^0.28.2",
     "happy-dom": "^21.0.1"

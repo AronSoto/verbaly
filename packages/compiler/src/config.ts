@@ -167,19 +167,20 @@ function readJsonConfig(path: string): VerbalyConfig {
   }
 }
 
+// jiti reads TypeScript and extensionless imports like a bundler, and installs no build script
 async function loadTsConfig(path: string): Promise<VerbalyConfig> {
-  try {
-    const { bundleRequire } = await import('bundle-require');
-    const { mod } = await bundleRequire<{ default?: VerbalyConfig }>({ filepath: path });
-    return mod.default ?? {};
-  } catch (error) {
-    if (isModuleNotFound(error, 'esbuild')) {
-      throw new Error(`[verbaly] ${path} needs esbuild: install it with pnpm add -D esbuild`, {
-        cause: error,
-      });
-    }
-    throw error;
-  }
+  const { createJiti } = await import('jiti');
+  // no caches: nothing is written to disk, and a dev server reads an edited config and its imports
+  const jiti = createJiti(import.meta.url, {
+    fsCache: false,
+    moduleCache: false,
+    interopDefault: false,
+  });
+  const mod = await jiti.import<VerbalyConfig & { default?: VerbalyConfig; __esModule?: true }>(
+    path,
+  );
+  // an ES module without a default export holds no config; module.exports is the config itself
+  return mod.__esModule ? (mod.default ?? {}) : mod;
 }
 
 export function isModuleNotFound(error: unknown, name: string): boolean {

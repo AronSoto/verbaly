@@ -10,7 +10,7 @@ Thanks for your interest! Verbaly is in early development (`0.x`): the API may s
 
 ## Development setup
 
-Requirements: Node ≥ 20 and [pnpm](https://pnpm.io).
+Requirements: Node 22.12 or newer and [pnpm](https://pnpm.io).
 
 ```bash
 git clone https://github.com/AronSoto/verbaly

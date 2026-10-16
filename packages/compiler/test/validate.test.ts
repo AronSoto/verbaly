@@ -149,6 +149,15 @@ describe('validatePair', () => {
     expect(errors(validatePair('one<br/>two', 'uno dos'))[0]).toContain('<br/>');
   });
 
+  // Proved able to fail with the old tag reader: <br> written for <br/> read as broken.
+  it('reads a void tag however it is written, as the runtime does, and still flags losing it', () => {
+    for (const br of ['<br>', '<br />', '<br/>', '<br></br>']) {
+      expect(validatePair('one<br/>two', `uno${br}dos`)).toEqual([]);
+    }
+    expect(validatePair('one<br>two', 'uno<br />dos')).toEqual([]);
+    expect(errors(validatePair('one<br>two', 'uno dos'))).toHaveLength(1);
+  });
+
   it('errors when a plural block is flattened into plain text', () => {
     const issues = validatePair('{count | one: one item | other: # items}', '{count} elementos');
     expect(errors(issues)).toHaveLength(1);

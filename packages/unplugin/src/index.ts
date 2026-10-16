@@ -26,13 +26,16 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
   let cfg: ResolvedConfig;
   let catalogs: Catalogs;
   let included: (id: string) => boolean;
+  // the first build's scan: each file it read unchanged reaches transform already parsed
+  let scan: MessageRegistry | undefined;
   const registry = new MessageRegistry();
   const ready = (async () => {
     cfg = await loadConfig(options.root ?? process.cwd(), options);
     catalogs = loadCatalogs(cfg);
     included = createSourceFilter(cfg);
+    scan = await extractProject(cfg, { keepSource: true });
     // the code's text ships: a text it owns that was edited in the catalog never reaches the bundle
-    syncCatalogs(cfg, catalogs, await extractProject(cfg));
+    syncCatalogs(cfg, catalogs, scan);
   })();
   // buildStart awaits it and reports the failure; unwatched till then, a rejection ends the process
   ready.catch(() => {});
@@ -65,10 +68,12 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
 
     transform(code, id) {
       if (!included(id)) return null;
-      return transformSource(code, id, registry).result;
+      return transformSource(code, id, registry, scan).result;
     },
 
     buildEnd() {
+      // a watch rebuild parses what changed: the scan only ever describes the first build
+      scan = undefined;
       runBuildGate(cfg, registry, options.failOnMissing);
     },
   };

@@ -20,6 +20,7 @@ import {
 } from './check';
 import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
+import { scannedAnalysis } from './extract';
 import { cliReachable } from './init';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
@@ -75,13 +76,14 @@ export function createSourceFilter(cfg: ResolvedConfig): (id: string) => boolean
   };
 }
 
-// analyze + register + rewrite: the per-file transform every bundler plugin runs
+// analyze + register + rewrite per file; a build passes its scan, so no file is parsed twice
 export function transformSource(
   code: string,
   id: string,
   registry: MessageRegistry,
+  scan?: MessageRegistry,
 ): { messages: Catalog; result: TransformResult | null } {
-  const analysis = analyzeFile(code, id);
+  const analysis = (scan && scannedAnalysis(scan, id, code)) ?? analyzeFile(code, id);
   registry.update(id, analysis);
   if (analysis.parseError) warnParseError(id, analysis.parseError);
   // key → text for live extraction; first wins, mirroring the registry's collision rule

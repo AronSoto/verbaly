@@ -2,23 +2,49 @@ import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { glob } from 'tinyglobby';
 import { flatten } from 'verbaly';
+import type { Analysis } from './analyze';
 import { emptyCatalog, own, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
 
-export async function extractProject(cfg: ResolvedConfig): Promise<MessageRegistry> {
+// what a build's scan read, file by file, until its transform takes each one
+const kept = new WeakMap<MessageRegistry, Map<string, { code: string; analysis: Analysis }>>();
+
+// keepSource: a build that transforms next takes these analyses instead of parsing every file again
+export async function extractProject(
+  cfg: ResolvedConfig,
+  options: { keepSource?: boolean } = {},
+): Promise<MessageRegistry> {
   const files = await glob(cfg.include, {
     cwd: cfg.root,
     ignore: cfg.exclude,
     absolute: true,
   });
   const registry = new MessageRegistry();
+  const read = options.keepSource ? new Map<string, { code: string; analysis: Analysis }>() : null;
   // tinyglobby crawls sibling folders in parallel, so its order changes from one run to the next
   for (const file of files.sort()) {
-    registry.update(file, analyzeFile(readFileSync(file, 'utf8'), file));
+    const code = readFileSync(file, 'utf8');
+    const analysis = analyzeFile(code, file);
+    registry.update(file, analysis);
+    read?.set(file.replaceAll('\\', '/'), { code, analysis });
   }
+  if (read) kept.set(registry, read);
   return registry;
+}
+
+// the scan's analysis of a file, handed out once and only when the code is what the scan read
+export function scannedAnalysis(
+  scan: MessageRegistry,
+  file: string,
+  code: string,
+): Analysis | undefined {
+  const read = kept.get(scan);
+  const key = file.replaceAll('\\', '/');
+  const entry = read?.get(key);
+  read?.delete(key);
+  return entry?.code === code ? entry.analysis : undefined;
 }
 
 // root-relative with forward slashes so a translator reads the same path on any OS, one scan

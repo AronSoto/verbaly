@@ -506,12 +506,26 @@ describe('bindDom rich', () => {
     expect(el.innerHTML).toBe('una línea<br>otra línea');
   });
 
-  it('drops what a message nests inside a void tag instead of hiding it in the dom', () => {
+  // Proved able to fail by opening <br> like any tag: the text after it hid inside the break.
+  it('keeps the text a message writes inside a void tag, after the break and never inside it', () => {
     const v = setupRich();
     const el = richEl('voidChildren');
     unbind = bindDom(v);
+    expect(el.querySelectorAll('br')).toHaveLength(1);
     expect(el.querySelector('br')?.childNodes).toHaveLength(0);
-    expect(el.textContent).toBe('una líneaotra');
+    expect(el.textContent).toBe('una líneacolgadaotra');
+  });
+
+  // Proved able to fail with the old tokenizer: <br> vanished and <br /> showed as text.
+  it('breaks the line for <br> and <br /> as well, the ways people write it', () => {
+    const v = setupRich();
+    for (const message of ['una<br>otra', 'una<br />otra', 'una<br/>otra']) {
+      v.addMessages('es', { spelled: message });
+      document.body.innerHTML = '<p data-verbaly="spelled" data-verbaly-rich></p>';
+      const off = bindDom(v);
+      expect(document.querySelector('p')!.innerHTML).toBe('una<br>otra');
+      off();
+    }
   });
 
   it('renders nested tags', () => {

@@ -253,6 +253,30 @@ describe('createVerbalyMcp', () => {
     expect((structured(again) as { lock?: unknown }).lock).toBeUndefined();
   });
 
+  // Proved able to fail by leaving merged out of the answer: the agent saw a lock with no news.
+  it('extract tells the agent it wrote a conflicted lock whole, so the user commits it', async () => {
+    const root = makeProject();
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ bio: 'I write code' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ bio: 'Escribo código' }));
+    const lock = ['{', '"drafts": {', '<<<<<<< HEAD', '"es": ["bio"]', '======='];
+    lock.push('"es": []', '>>>>>>> two', '}', '}');
+    writeFileSync(join(root, 'verbaly.lock'), lock.join('\n'));
+    const client = await connect(root);
+    const result = await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    expect((structured(result) as { lock?: unknown }).lock).toEqual({
+      file: 'verbaly.lock',
+      merged: true,
+    });
+    expect(resultText(result)).toContain(
+      'verbaly.lock had a merge conflict and now holds both sides',
+    );
+    const state = JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8')) as {
+      drafts?: Record<string, string[]>;
+    };
+    expect(state.drafts).toEqual({ es: ['bio'] });
+  });
+
   it('extract dryRun writes nothing', async () => {
     const root = makeProject();
     const client = await connect(root);

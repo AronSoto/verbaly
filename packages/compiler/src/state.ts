@@ -1,7 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
-import { catalogPath, emptyCatalog, own, type Catalog, type Catalogs } from './catalog';
+import {
+  catalogPath,
+  emptyCatalog,
+  own,
+  readCatalog,
+  type Catalog,
+  type Catalogs,
+} from './catalog';
 import { targetLocales, type ResolvedConfig } from './config';
 import { withLineEndings } from './eol';
 import { stableKey } from './key';
@@ -16,6 +23,8 @@ const README =
 const LEGACY_STATE_FILE = '.verbaly-state.json';
 // before 0.67.0 that file held only the drafts
 const LEGACY_DRAFTS_FILE = '.verbaly-drafts.json';
+// locks a save just rewrote over a merge conflict, until the run that saved them reports it
+const resolved = new Set<string>();
 
 export type Drafts = Record<string, string[]>;
 
@@ -38,6 +47,8 @@ export interface OutdatedEntry {
 export interface StateRead {
   state: State;
   problem?: string;
+  // a merge left both sides in the lock: read when they parse, and the next write leaves it whole
+  conflict?: true;
 }
 
 // a translation just written, and the source text it was written for when that is not today's
@@ -53,10 +64,11 @@ export interface TranslationWrite {
   draft?: boolean;
 }
 
-// what a save that made the lock appear reports, once, where it happened
+// what a save that made the lock appear, or resolved a merge conflict in it, reports once
 export interface LockEntry {
   file: string;
   from?: string;
+  merged?: true;
 }
 
 function statePath(cfg: ResolvedConfig): string {
@@ -68,32 +80,57 @@ function legacyPaths(cfg: ResolvedConfig): [state: string, drafts: string] {
 }
 
 export function loadState(cfg: ResolvedConfig): State {
-  const lock = readObject(statePath(cfg));
-  if (lock) checkVersion(statePath(cfg), lock.version);
-  const [legacyState, legacyDrafts] = legacyPaths(cfg).map(readObject);
+  const lock = readSides(statePath(cfg)) ?? [];
+  for (const side of lock) checkVersion(statePath(cfg), side.version);
+  const [legacyState = [], legacyDrafts = []] = legacyPaths(cfg).map(
+    (path) => readSides(path) ?? [],
+  );
   const state: State = { drafts: {}, fingerprints: {} };
+  // two sides that stamped one translation differently: the one the catalog still holds stays
+  const kept = lock.length > 1 ? keptStamp(cfg) : undefined;
   // the lock wins where both files know a translation; the older one only fills what it lacks
-  for (const source of [lock, legacyState]) {
-    if (!source) continue;
+  const sources = [...lock, ...legacyState];
+  sources.forEach((source, index) => {
+    // drafts are joined, never dropped: a side that lost one must not approve it in the merge
     for (const [locale, keys] of Object.entries(readDrafts(source.drafts))) {
       markDrafts(state.drafts, locale, keys);
     }
     for (const [locale, stamps] of Object.entries(readFingerprints(source.fingerprints))) {
       const into = (state.fingerprints[locale] ??= emptyCatalog());
       for (const [key, stamped] of Object.entries(stamps)) {
-        if (own(into, key) === undefined) into[key] = stamped;
+        const held = own(into, key);
+        if (held === undefined) into[key] = stamped;
+        else if (index < lock.length && held !== stamped && kept?.(locale, key, stamped)) {
+          into[key] = stamped;
+        }
       }
     }
     const migrated = readMigrated(source.migrated);
     if (migrated) state.migrated = [...new Set([...(state.migrated ?? []), ...migrated])];
-  }
+  });
   // drafts the 0.66.0 file still lists join the rest, and the next save removes that file
-  if (legacyDrafts) {
-    for (const [locale, keys] of Object.entries(readDrafts(legacyDrafts))) {
+  for (const side of legacyDrafts) {
+    for (const [locale, keys] of Object.entries(readDrafts(side))) {
       markDrafts(state.drafts, locale, keys);
     }
   }
   return state;
+}
+
+// a stamp for the translation the catalog holds now; an unreadable catalog keeps the first side
+function keptStamp(cfg: ResolvedConfig): (locale: string, key: string, stamped: string) => boolean {
+  const read = new Map<string, Catalog | undefined>();
+  return (locale, key, stamped) => {
+    if (!read.has(locale)) {
+      try {
+        read.set(locale, readCatalog(cfg, locale));
+      } catch {
+        read.set(locale, undefined);
+      }
+    }
+    const translated = own(read.get(locale) ?? {}, key);
+    return translated !== undefined && translationOf(stamped) === fingerprint(translated);
+  };
 }
 
 // the file the state lives in right now: the lock, an older file next to the catalogs, or none
@@ -104,6 +141,7 @@ export function stateFile(cfg: ResolvedConfig): string | undefined {
 // a write that brought the lock into being, given where the state lived before it
 export function lockNews(cfg: ResolvedConfig, before: string | undefined): LockEntry | undefined {
   const lock = statePath(cfg);
+  if (resolved.delete(lock)) return { file: lock, merged: true };
   if (before === lock || !existsSync(lock)) return undefined;
   return before ? { file: lock, from: before } : { file: lock };
 }
@@ -119,11 +157,14 @@ function checkVersion(path: string, version: unknown): void {
 
 // read-only paths go on without the state: it only feeds warnings, never a gate they run
 export function readState(cfg: ResolvedConfig): StateRead {
+  const text = readText(statePath(cfg));
+  const lines = text?.split(/\r?\n/) ?? [];
+  const marked = lines.some((line) => CONFLICT.start.test(line)) ? { conflict: true as const } : {};
   try {
-    return { state: loadState(cfg) };
+    return { state: loadState(cfg), ...marked };
   } catch (error) {
     const problem = (error as Error).message.replace(/^\[verbaly\] /, '');
-    return { state: { drafts: {}, fingerprints: {} }, problem };
+    return { state: { drafts: {}, fingerprints: {} }, problem, ...marked };
   }
 }
 
@@ -141,7 +182,10 @@ export function saveState(cfg: ResolvedConfig, state: State): void {
   // a lock that replaces an older file keeps the line endings that file was checked out with
   const template = existing ?? legacy.map(readText).find((text) => text !== undefined);
   const serialized = withLineEndings(fresh, template);
-  if (existing !== serialized) writeFileSync(path, serialized);
+  if (existing !== serialized) {
+    if (existing !== undefined && conflictSides(existing)) resolved.add(path);
+    writeFileSync(path, serialized);
+  }
   // only once the lock holds everything they held
   for (const file of legacy) rmSync(file, { force: true });
 }
@@ -361,23 +405,59 @@ function serializeState(state: State): string | undefined {
 }
 
 // a corrupt state file throws: read as empty, the next save would erase every draft it held
-function readObject(path: string): Record<string, unknown> | undefined {
+function readSides(path: string): Record<string, unknown>[] | undefined {
   const content = readText(path);
   if (content === undefined) return undefined;
+  const body = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  const sides = conflictSides(body);
+  return (sides ?? [body]).map((text) => parseObject(path, text, sides !== undefined));
+}
+
+function parseObject(path: string, text: string, conflicted: boolean): Record<string, unknown> {
   let value: unknown;
   try {
-    value = JSON.parse(content.charCodeAt(0) === 0xfeff ? content.slice(1) : content);
+    value = JSON.parse(text);
   } catch (error) {
-    throw corrupt(path, error);
+    throw corrupt(path, conflicted, error);
   }
-  if (!isObject(value)) throw corrupt(path);
+  if (!isObject(value)) throw corrupt(path, conflicted);
   return value;
 }
 
+// a merge that touched the same lines leaves both versions: each side, rebuilt, is a whole file
+const CONFLICT = {
+  start: /^<{7}(?: |$)/,
+  base: /^\|{7}(?: |$)/,
+  split: /^={7}$/,
+  end: /^>{7}(?: |$)/,
+};
+
+function conflictSides(text: string): [ours: string, theirs: string] | undefined {
+  const lines = text.split(/\r?\n/);
+  if (!lines.some((line) => CONFLICT.start.test(line))) return undefined;
+  const ours: string[] = [];
+  const theirs: string[] = [];
+  let at: 'both' | 'ours' | 'base' | 'theirs' = 'both';
+  for (const line of lines) {
+    if (at === 'both' && CONFLICT.start.test(line)) at = 'ours';
+    else if (at === 'ours' && CONFLICT.base.test(line)) at = 'base';
+    else if ((at === 'ours' || at === 'base') && CONFLICT.split.test(line)) at = 'theirs';
+    else if (at === 'theirs' && CONFLICT.end.test(line)) at = 'both';
+    else if (at !== 'base') {
+      if (at !== 'theirs') ours.push(line);
+      if (at !== 'ours') theirs.push(line);
+    }
+  }
+  // a marker left open is a file someone half edited, and no side of it can be trusted
+  return at === 'both' ? [ours.join('\n'), theirs.join('\n')] : undefined;
+}
+
 // deleting it is the one fix that is not safe: every draft it listed would read as reviewed
-function corrupt(path: string, cause?: unknown): Error {
+function corrupt(path: string, conflicted: boolean, cause?: unknown): Error {
   return new Error(
-    `[verbaly] ${path} is not valid JSON: restore it from git or fix it (deleting it approves every draft)`,
+    conflicted
+      ? `[verbaly] ${path} has a merge conflict Verbaly cannot read: resolve it by hand and keep the entries of both sides (dropping a side, or the file, approves its drafts)`
+      : `[verbaly] ${path} is not valid JSON: restore it from git or fix it (deleting it approves every draft)`,
     { cause },
   );
 }

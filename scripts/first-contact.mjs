@@ -55,23 +55,27 @@ function pack(destination) {
 function fixture(tarballs, shape, pm) {
   const dir = mkdtempSync(join(tmpdir(), `verbaly-first-contact-${pm}-`));
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'probe', private: true }));
-  // pnpm 11 exits non-zero on a blocked postinstall, and esbuild has one
-  let workspace = 'allowBuilds:\n  esbuild: true\n';
   // pnpm goes to the registry for a version not published yet, and npm rejects a direct override
   if (shape.source === 'tarballs') {
     const spec = (name) => `file:${tarballs[name].replaceAll('\\', '/')}`;
-    workspace += `overrides:\n  'verbaly': '${spec('core')}'\n  '@verbaly/compiler': '${spec('compiler')}'\n`;
+    const overrides = `overrides:\n  'verbaly': '${spec('core')}'\n  '@verbaly/compiler': '${spec('compiler')}'\n`;
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), overrides);
   }
-  writeFileSync(join(dir, 'pnpm-workspace.yaml'), workspace);
   writeFileSync(join(dir, 'verbaly.config.json'), CONFIG);
   mkdirSync(join(dir, 'src'), { recursive: true });
   writeFileSync(join(dir, 'src', 'app.js'), SOURCE);
   const specs =
     shape.source === 'tarballs' ? shape.specs.map((name) => tarballs[name]) : shape.specs;
   const install = pm === 'npm' ? ['install', '--no-audit', '--no-fund'] : ['add'];
+  // no allowBuilds: a build script the user has to approve is a first install that exits 1
   const result = tryRun(pm, [...install, ...specs], dir);
   if (!result.ok) {
-    throw new Error(`${pm} install failed: ${result.out.replace(/\s+/g, ' ').slice(0, 400)}`);
+    const blocked = /IGNORED_BUILDS|Ignored build scripts/.test(result.out)
+      ? ' (a dependency ships a build script the user would have to approve)'
+      : '';
+    throw new Error(
+      `${pm} install failed${blocked}: ${result.out.replace(/\s+/g, ' ').slice(0, 400)}`,
+    );
   }
   return dir;
 }

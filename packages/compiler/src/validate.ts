@@ -55,21 +55,26 @@ function collect(nodes: MessageNode[], out: Set<string>): void {
   }
 }
 
-const TAG = /<(\/?)([a-zA-Z][\w-]*)(\/?)>/g;
+const TAG = /<(\/?)([a-zA-Z][\w-]*)\s*(\/?)>/g;
+// the breaks core's parseTags reads whole however they are written: keep the two lists equal
+const BREAK = /^(?:br|wbr)$/;
 
-// markup is only what the message closes (</x>) or self-closes (<x/>): a lone <Enter> is prose
+// markup is a closed (</x>), self-closed (<x/>) or break tag (<br>): a lone <Enter> is prose
 function markupNames(message: string): Set<string> {
   const out = new Set<string>();
   for (const match of message.matchAll(TAG)) {
-    if (match[1] || match[3]) out.add(match[2]!);
+    if (match[1] || match[3] || BREAK.test(match[2]!)) out.add(match[2]!);
   }
   return out;
 }
 
+// read as the runtime reads it: <br>, <br/> and <br /> are one break, and </br> is no tag at all
 function tagTokens(message: string, markup: Set<string>): string[] {
   const out: string[] = [];
-  for (const match of message.matchAll(TAG)) {
-    if (markup.has(match[2]!)) out.push(`${match[1]}${match[2]}${match[3]}`);
+  for (const [, closing, name, selfClose] of message.matchAll(TAG)) {
+    if (!markup.has(name!)) continue;
+    if (!BREAK.test(name!)) out.push(`${closing}${name}${selfClose}`);
+    else if (!closing) out.push(`${name}/`);
   }
   return out.sort();
 }

@@ -6,6 +6,8 @@ type Part =
   | { kind: 'pc'; name: string; openSrc: string; closeSrc: string; children: Part[] };
 
 const OPEN_TAG = /^<([a-zA-Z][a-zA-Z0-9-]*)\s*(\/?)>/;
+// the breaks core's parseTags reads whole however they are written: keep the two lists equal
+const BREAK = /^(?:br|wbr)$/;
 
 export function messageToInline(text: string): string {
   const parsed = parseParts(text, 0);
@@ -119,7 +121,8 @@ function parseParts(text: string, pos: number, closeTag?: string): ParsedParts {
       const open = OPEN_TAG.exec(text.slice(i));
       if (open) {
         const [openSrc, name, selfClose] = open as unknown as [string, string, string];
-        if (selfClose) {
+        // a break is whole on its own, as the runtime reads it: <br> is protected like <br/>
+        if (selfClose || BREAK.test(name)) {
           flush();
           parts.push({ kind: 'ph', name: idSafe(name), src: openSrc });
           i += openSrc.length;

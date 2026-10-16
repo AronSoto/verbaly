@@ -349,12 +349,20 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   }
 
   // the state only feeds warnings, so a broken lock is reported here and never stops a build
-  const { state, problem } = readState(cfg);
+  const { state, problem, conflict } = readState(cfg);
   if (problem) {
     warn(
       'state',
       problem,
-      `restore ${STATE_FILE} from git: deleting it would mark every machine draft as reviewed`,
+      conflict
+        ? 'resolve it by hand, keeping the entries of both sides: taking one side approves the drafts of the other'
+        : `restore ${STATE_FILE} from git: deleting it would mark every machine draft as reviewed`,
+    );
+  } else if (conflict) {
+    warn(
+      'state',
+      `${STATE_FILE} has a merge conflict, and both sides were read`,
+      'run `npx verbaly extract`, which writes both sides into it, then commit it',
     );
   }
   if (catalogsHealthy) {

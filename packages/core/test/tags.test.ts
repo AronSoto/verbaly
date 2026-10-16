@@ -20,6 +20,25 @@ describe('parseTags', () => {
     expect(parseTags('a<br/>b')).toEqual(['a', { name: 'br', children: [] }, 'b']);
   });
 
+  // Proved able to fail with the old tokenizer: <br> swallowed the rest and <br /> stayed text.
+  it('reads a void tag however it is written, and a closing one adds nothing', () => {
+    const br = { name: 'br', children: [] };
+    for (const text of ['a<br>b', 'a<br />b', 'a<br/>b', 'a<br></br>b']) {
+      expect(parseTags(text)).toEqual(['a', br, 'b']);
+    }
+    expect(parseTags('one<br>two<br>three')).toEqual(['one', br, 'two', br, 'three']);
+    expect(parseTags('very<wbr>long')).toEqual(['very', { name: 'wbr', children: [] }, 'long']);
+    expect(parseTags('<em >x</em>')).toEqual([{ name: 'em', children: ['x'] }]);
+  });
+
+  // Proved able to fail by reading every HTML void tag alone: <link>panel</link> lost its text.
+  it('pairs a void HTML name a message uses for a link or a component', () => {
+    expect(parseTags('ve al <link>panel</link>')).toEqual([
+      've al ',
+      { name: 'link', children: ['panel'] },
+    ]);
+  });
+
   it('unclosed tag → keeps inner content, drops wrapper', () => {
     expect(parseTags('a <b>bold')).toEqual(['a ', 'bold']);
   });

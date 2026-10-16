@@ -202,7 +202,8 @@ describe('@verbaly/vue <Trans>', () => {
     const { el } = mount(comp, verbalyPlugin(v));
     expect(el.querySelectorAll('br')).toHaveLength(1);
     expect(el.querySelector('br')!.childNodes).toHaveLength(0);
-    expect(el.textContent).toBe('linebreak');
+    // a <br> stands alone, so the text written before </br> follows the break instead of vanishing
+    expect(el.textContent).toBe('linehungbreak');
   });
 
   it('degrades unknown tags to inner text', () => {

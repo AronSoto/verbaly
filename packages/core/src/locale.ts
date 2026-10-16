@@ -190,12 +190,12 @@ export function resolveLocale(options: ResolveLocaleOptions): string {
 
   if (storageKey) {
     const stored = getStorage()?.getItem(storageKey);
-    const match = stored && matchSupported(stored, supported);
+    const match = stored && matchPreferred(stored, supported);
     if (match) return match;
   }
 
   for (const lang of preferredLanguages()) {
-    const match = matchSupported(lang, supported);
+    const match = matchPreferred(lang, supported);
     if (match) return match;
   }
 
@@ -260,19 +260,41 @@ export function negotiateLocale(
   ranges.sort((a, b) => b.q - a.q);
 
   for (const { tag } of ranges) {
-    const match = matchSupportedLoose(tag, supported);
+    const match = matchPreferred(tag, supported);
     if (match) return match;
   }
   return fallback;
 }
 
-// case-insensitive matchSupported (headers arrive as en-US; configs as en)
-function matchSupportedLoose(lang: string, supported: string[]): string | undefined {
-  for (const candidate of narrowLocales(lang.toLowerCase())) {
-    const match = supported.find((s) => s.toLowerCase() === candidate);
+// a preference, not an address: what a reader of lang reads best (a url segment stays exact)
+function matchPreferred(lang: string, supported: string[]): string | undefined {
+  const tags = narrowLocales(lang);
+  const max = likely(lang);
+  // zh-TW reads zh-Hant before a bare zh, and pt reads pt-BR: script and region, then the language
+  const candidates = [...tags.slice(0, -1)];
+  if (max) candidates.push(`${max.language}-${max.script}`, `${max.language}-${max.region}`);
+  candidates.push(tags[tags.length - 1]!);
+  for (const candidate of candidates) {
+    // headers arrive as en-US and configs as en
+    const match = supported.find((tag) => tag.toLowerCase() === candidate.toLowerCase());
     if (match) return match;
   }
-  return undefined;
+  // a sibling in the same script: pt-PT reads pt-BR, and zh-HK never lands on zh-Hans
+  return max
+    ? supported.find((tag) => {
+        const other = likely(tag);
+        return other?.language === max.language && other.script === max.script;
+      })
+    : undefined;
+}
+
+// the subtags a tag implies (zh-HK is zh-Hant-HK, pt is pt-Latn-BR); none for a malformed tag
+function likely(tag: string): Intl.Locale | undefined {
+  try {
+    return new Intl.Locale(tag.replace(/_/g, '-')).maximize();
+  } catch {
+    return undefined;
+  }
 }
 
 // per-request negotiation for SSR: url → cookie → Accept-Language → fallback

@@ -61,12 +61,13 @@ describe('renderHtml', () => {
     expect(html).not.toContain('</br>');
   });
 
-  it('drops what a message nests inside a void tag, exactly like bindDom', () => {
+  it('keeps what a message nests inside a void tag after the break, exactly like bindDom', () => {
     const { html } = renderHtml('<p data-verbaly="m" data-verbaly-rich></p>', {
       locale: 'es',
       catalogs: { es: { m: 'una<br>colgada</br>otra' } },
     });
-    expect(html).toContain('una<br>otra');
+    expect(html).toContain('una<br>colgadaotra');
+    expect(html).not.toContain('</br>');
   });
 
   it('keeps a link inside the mirror when it points at a page the mirror holds', () => {

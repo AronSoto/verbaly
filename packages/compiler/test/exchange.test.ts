@@ -154,6 +154,16 @@ describe('exportCatalogs: xliff inline codes', () => {
     expect(es).toContain('<ph id="br" disp="&lt;br/&gt;"/>');
   });
 
+  // Proved able to fail with the old scanner: <br> went out as text a translator could drop.
+  it('protects a void tag written without a slash, as the runtime reads it', () => {
+    const config = cfg();
+    const result = exportCatalogs(config, { en: { lines: 'one<br>two<br />three' }, es: {} });
+    const es = readFileSync(result.files[0]!.path, 'utf8');
+    expect(es).toContain(
+      '<source>one<ph id="br" disp="&lt;br&gt;"/>two<ph id="br2" disp="&lt;br /&gt;"/>three</source>',
+    );
+  });
+
   it('round-trips params, tags, formats and escapes losslessly through import', () => {
     const config = cfg();
     const message =

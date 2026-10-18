@@ -5,7 +5,7 @@ import type { ReplacedText } from './extract';
 import type { MessageRegistry } from './registry';
 import type { LockEntry, OutdatedEntry } from './state';
 import { counted, truncate } from './text';
-import { escapedSyntax } from './validate';
+import { escapedSyntax, inlineBlock, shownSlice } from './validate';
 
 // where a text is written in the code: an absolute file, like every path check reports
 export interface SourceSite {
@@ -139,7 +139,7 @@ export function formatFinding(finding: Finding, root?: string): string {
       return `${sourcePlace(finding.site, root)}: ${names} in "${truncate(finding.site.message, 60)}" reaches the translator without a name, put the value in a named variable first`;
     }
     case 'escaped':
-      return `${sourcePlace(finding.site, root)}: ${finding.slice} renders as literal text, a tagged template has no params (use t(key, params) for a plural or format block, or pass a \${…} value)`;
+      return `${sourcePlace(finding.site, root)}: ${shownSlice(finding.slice)} renders as literal text: write ${inlineBlock(finding.slice)}`;
     case 'unparsed':
       return `${sourcePlace(finding, root)}: could not be parsed (${finding.message}), its messages were not extracted`;
     case 'outdated':

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { escapedSyntax, PLURAL_CATEGORIES, validateMessage, validatePair } from '../src/validate';
+import { analyze } from '../src/analyze';
+import {
+  escapedSyntax,
+  inlineBlock,
+  PLURAL_CATEGORIES,
+  validateMessage,
+  validatePair,
+} from '../src/validate';
 
 const errors = (issues: { severity: string; message: string }[]): string[] =>
   issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message);
@@ -239,5 +246,47 @@ describe('escapedSyntax', () => {
   it('ignores braces the author escaped on purpose in the source', () => {
     // t`{{count | one: x}}` extracts as {{{{…}}}}: a deliberate escape is not the mistake
     expect(escapedSyntax('{{{{count | one: x}}}}')).toBeUndefined();
+  });
+
+  it('finds ICU a tagged template escaped, by its argument', () => {
+    const escaped = 'You have {{count, plural, one {{# item}} other {{# items}}}}';
+    expect(escapedSyntax(escaped)).toBe('{{count, plural, …}}');
+    expect(escapedSyntax('{{place, selectordinal, one {{#st}} other {{#th}}}}')).toBe(
+      '{{place, selectordinal, …}}',
+    );
+    expect(escapedSyntax('{{{{count, plural, one {{x}} other {{y}}}}}}')).toBeUndefined();
+  });
+});
+
+describe('inlineBlock', () => {
+  it('writes the remedy a tagged template extracts back as the block', () => {
+    const cases: [string, string, string][] = [
+      [
+        '{{count | one: 1 item | other: # items}}',
+        '{${count} | one: 1 item | other: # items}',
+        '{count | one: 1 item | other: # items}',
+      ],
+      ['{{amount:currency/USD}}', '{${amount}:currency/USD}', '{amount:currency/USD}'],
+      ['{{amount : currency/USD}}', '{${amount}:currency/USD}', '{amount:currency/USD}'],
+      [
+        '{{ role | admin: A | other: B}}',
+        '{${role} | admin: A | other: B}',
+        '{role | admin: A | other: B}',
+      ],
+    ];
+    for (const [slice, remedy, message] of cases) {
+      expect(inlineBlock(slice)).toBe(remedy);
+      expect(analyze(`t\`${remedy}\`;`, 'app.ts').tagged[0]?.message).toBe(message);
+    }
+  });
+
+  it('names the native block for ICU, and the catalog where there is none', () => {
+    expect(inlineBlock('{{count, plural, …}}')).toBe('{${count} | one: … | other: …}');
+    expect(inlineBlock('{{role, select, …}}')).toBe('{${role} | …: … | other: …}');
+    expect(inlineBlock('{{price, number, …}}')).toBe('{${price}:number}');
+    expect(inlineBlock('{{day, date, …}}')).toBe('{${day}:date}');
+    expect(inlineBlock('{{place, selectordinal, …}}')).toBe(
+      't(key, params), with the ICU message in the catalog',
+    );
   });
 });

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { generateDts, generateLocaleModule, generateRuntimeModule, writeDts } from '../src/codegen';
 import { needsIcu, needsRelative } from '../src/catalog';
+import { isIcu } from '../../core/src/icu';
 import { resolveConfig } from '../src/config';
 import { collectParams, renderParamType } from '../src/params';
 
@@ -347,6 +348,27 @@ describe('needsIcu', () => {
     expect(needsIcu({ en: { a: '{price:currency/EUR}' } })).toBe(false);
     expect(needsIcu({ en: { a: 'Use {{ }} to escape' } })).toBe(false);
     expect(needsIcu({ en: { a: 'a, plural, b' } })).toBe(false);
+  });
+
+  it('agrees with the runtime on every message, since its regex is a copy of core', () => {
+    const corpus = [
+      'Hi {name}',
+      '{c, plural, one {#} other {#}}',
+      'x {{c, plural, one {{#}} other {{#}}}}',
+      '{g, select, f {{n, plural, one {#} other {#}}} other {x}}',
+      '{n | one: # x | other: # y}',
+      'Price {p, number}',
+      '{{{d, date}',
+      'a, plural, b',
+    ];
+    for (const message of corpus) expect(needsIcu({ en: { a: message } })).toBe(isIcu(message));
+  });
+
+  it('does not ship the parser for ICU a tagged template escaped, which renders as text', () => {
+    const escaped = 'You have {{count, plural, one {{# item}} other {{# items}}}}';
+    expect(needsIcu({ en: { a: escaped } })).toBe(false);
+    const nested = '{g, select, f {{n, plural, one {# amiga} other {# amigas}}} other {nadie}}';
+    expect(needsIcu({ en: { a: nested } })).toBe(true);
   });
 });
 

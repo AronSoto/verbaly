@@ -1,3 +1,4 @@
+import { createVerbaly } from 'verbaly';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/analyze';
 import { stableKey } from '../src/key';
@@ -116,6 +117,107 @@ describe('analyze', () => {
   it('walks arrays with holes', () => {
     const { tagged } = analyze('const x = [1, , 2]; t`Hola`;', 'app.ts');
     expect(tagged[0]?.message).toBe('Hola');
+  });
+});
+
+describe('a block written around a ${…} value', () => {
+  it('extracts a plural block the way the catalog writes it', () => {
+    const code = 't`Tienes {${count} | one: # mensaje | other: # mensajes}`;';
+    const { tagged } = analyze(code, 'app.ts');
+    expect(tagged[0]?.message).toBe('Tienes {count | one: # mensaje | other: # mensajes}');
+    expect(tagged[0]?.key).toBe(stableKey('Tienes {count | one: # mensaje | other: # mensajes}'));
+    expect(tagged[0]?.params.map((p) => p.name)).toEqual(['count']);
+  });
+
+  it('extracts a select block and a format the same way', () => {
+    const select = analyze('t`{${role} | admin: Administra | other: Mira}`;', 'app.ts');
+    expect(select.tagged[0]?.message).toBe('{role | admin: Administra | other: Mira}');
+    const format = analyze('t`Total: {${total}:currency/EUR}`;', 'app.ts');
+    expect(format.tagged[0]?.message).toBe('Total: {total:currency/EUR}');
+    const fixed = analyze("t.id('inbox.count')`{${count}|one:#|other:#+}`;", 'app.ts');
+    expect(fixed.tagged[0]).toMatchObject({
+      key: 'inbox.count',
+      message: '{count|one:#|other:#+}',
+    });
+  });
+
+  it('reads a value inside a variant as a param, and a block inside one as a block', () => {
+    const friends = analyze(
+      't`{${count} | one: ${name} tiene # amigo | other: ${name} tiene # amigos}`;',
+      'app.ts',
+    );
+    expect(friends.tagged[0]?.message).toBe(
+      '{count | one: {name} tiene # amigo | other: {name} tiene # amigos}',
+    );
+    expect(new Set(friends.tagged[0]?.params.map((p) => p.name))).toEqual(
+      new Set(['count', 'name']),
+    );
+    const spaced = analyze(
+      't`{${gender} | female: {${count} | one: # invitada | other: # invitadas} | other: {${count} | one: # invitado | other: # invitados} }`;',
+      'app.ts',
+    );
+    expect(spaced.tagged[0]?.message).toBe(
+      '{gender | female: {count | one: # invitada | other: # invitadas} | other: {count | one: # invitado | other: # invitados} }',
+    );
+  });
+
+  it('closes two blocks with }}, the way the core reads them, and renders through it', () => {
+    const code =
+      't`{${gender} | female: {${count} | one: # invitada | other: # invitadas} | other: {${count} | one: # invitado | other: # invitados}}`;';
+    const msg = analyze(code, 'app.ts').tagged[0]!;
+    expect(msg.message).toBe(
+      '{gender | female: {count | one: # invitada | other: # invitadas} | other: {count | one: # invitado | other: # invitados}}',
+    );
+    const { t } = createVerbaly({ locale: 'es', messages: { es: { [msg.key]: msg.message } } });
+    expect(t(msg.key, { gender: 'female', count: 2 })).toBe('2 invitadas');
+    const mixed = analyze(
+      't`{${a} | x: lit }} here | y: {${b} | one: uno | other: varios}} after`;',
+      'app.ts',
+    );
+    expect(mixed.tagged[0]?.message).toBe(
+      '{a | x: lit }} here | y: {b | one: uno | other: varios}} after',
+    );
+    // a } of its own inside one block stays the escape it is in a catalog
+    const lone = analyze('t`{${count} | one: a }} b | other: c}`;', 'app.ts');
+    expect(lone.tagged[0]?.message).toBe('{count | one: a }} b | other: c}');
+  });
+
+  it('keeps the escapes of the catalog syntax inside a block and escapes the text around it', () => {
+    const { tagged } = analyze('t`{set} {${count} | one: a || b | other: ##} {on}`;', 'app.ts');
+    expect(tagged[0]?.message).toBe('{{set}} {count | one: a || b | other: ##} {{on}}');
+    const brace = analyze('t`{${count} | one: a {{ b | other: c}`;', 'app.ts');
+    expect(brace.tagged[0]?.message).toBe('{count | one: a {{ b | other: c}');
+  });
+
+  it('leaves text that only looks like a block as text, with the key it always had', () => {
+    const cases: [string, string][] = [
+      ['t`{${a} | ${b}}`;', '{{{a} | {b}}}'],
+      ['t`{${key}: value}`;', '{{{key}: value}}'],
+      ['t`{${h}:${m}}`;', '{{{h}:{m}}}'],
+      ['t`{${count} | one: a | other: b`;', '{{{count} | one: a | other: b'],
+    ];
+    for (const [code, message] of cases) {
+      expect(analyze(code, 'app.ts').tagged[0]?.message).toBe(message);
+    }
+  });
+
+  it('reads a template of any length, a long page of text included', () => {
+    const long = 'a'.repeat(300_000);
+    expect(analyze(`t\`${long} {\${n} | one: # | other: #}\`;`, 'app.ts').tagged[0]?.message).toBe(
+      `${long} {n | one: # | other: #}`,
+    );
+  });
+
+  it('renders through the core once the call is rewritten', () => {
+    const code =
+      'export const f = (count) => t`Tienes {${count} | one: # mensaje | other: # mensajes}`;';
+    const msg = analyze(code, 'app.ts').tagged[0]!;
+    expect(transformCode(code, 'app.ts')?.code).toContain(
+      `t(${JSON.stringify(msg.key)}, { "count": count })`,
+    );
+    const { t } = createVerbaly({ locale: 'es', messages: { es: { [msg.key]: msg.message } } });
+    expect(t(msg.key, { count: 1 })).toBe('Tienes 1 mensaje');
+    expect(t(msg.key, { count: 5 })).toBe('Tienes 5 mensajes');
   });
 });
 

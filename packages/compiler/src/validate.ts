@@ -97,12 +97,49 @@ function list(items: string[]): string {
     : items[0]!;
 }
 
-// a tagged template escapes its own braces, so a block written inside one ships as literal text
-const ESCAPED_SYNTAX = /(?<!\{)\{\{\s*[\w.]+\s*[|:][^{}]*\}\}/;
+// a tagged template escapes a block around a bare name, so it ships as literal text
+const ESCAPED_SYNTAX = /(?<!\{)\{\{\s*([\w.]+)(\s*[|:][^{}]*)\}\}/;
+
+// ICU in a tagged template is escaped the same way; its branches nest, so only its head shows
+const ESCAPED_ICU = /(?<!\{)\{\{\s*([\w.]+)\s*,\s*(plural|selectordinal|select|number|date|time)\b/;
+const ICU_SLICE = /^\{\{([\w.]+), (\w+), …\}\}$/;
+
+// a block written around ${…} that never closes: the whole template is escaped, its head included
+const ESCAPED_OPEN = /(?<!\{)\{\{\{([\w.]+)\}(\s*\|\s*[^\s|{}:]+\s*:|:[A-Za-z_][\w-]*)/;
 
 // the escaped slice of an extracted message, when the author meant a plural or format block
 export function escapedSyntax(message: string): string | undefined {
+  const icu = ESCAPED_ICU.exec(message);
+  if (icu) return `{{${icu[1]}, ${icu[2]}, …}}`;
+  const open = ESCAPED_OPEN.exec(message);
+  if (open) return `{\${${open[1]}}${open[2]}…`;
   return ESCAPED_SYNTAX.exec(message)?.[0];
+}
+
+// the slice as the author wrote it in the template: escaped pairs read as one brace
+export function shownSlice(slice: string): string {
+  return slice.startsWith('{{') ? slice.slice(1, -1) : slice;
+}
+
+// the same block as a tagged template reads it: the value in ${…}, a format right after the colon
+export function inlineBlock(slice: string): string {
+  if (slice.startsWith('{${')) return 'the same block with its closing }';
+  const icu = ICU_SLICE.exec(slice);
+  if (icu) {
+    const [, name = '', type = ''] = icu;
+    if (type === 'plural') return `{\${${name}} | one: … | other: …}`;
+    if (type === 'select') return `{\${${name}} | …: … | other: …}`;
+    // the catalog syntax has no ordinal rules: only ICU, and only from a catalog, can say 1st
+    if (type === 'selectordinal') return 't(key, params), with the ICU message in the catalog';
+    return `{\${${name}}:${type}}`;
+  }
+  const match = ESCAPED_SYNTAX.exec(slice);
+  if (!match) return slice;
+  const [, name = '', tail = ''] = match;
+  const rest = tail.trimStart().startsWith(':')
+    ? `:${tail.trimStart().slice(1).trimStart()}`
+    : tail;
+  return `{\${${name}}${rest}}`;
 }
 
 // one message on its own: defects that need no source to be visible

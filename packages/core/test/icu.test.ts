@@ -134,6 +134,22 @@ describe('ICU without its parser', () => {
     expect(bare('{n | one: # item | other: # items}')('m', { n: 2 })).toBe('2 items');
   });
 
+  it('reads an escaped {{ as text, never as ICU, so a tagged template renders its own braces', () => {
+    // what t`You have {count, plural, …}` extracts as: every brace doubled
+    const escaped = 'You have {{count, plural, one {{# book}} other {{# books}}}}';
+    expect(bare(escaped)('m', { count: 3 })).toBe(
+      'You have {count, plural, one {# book} other {# books}}',
+    );
+    expect(t(escaped)('m', { count: 3 })).toBe(
+      'You have {count, plural, one {# book} other {# books}}',
+    );
+  });
+
+  it('still reads a select whose branch opens a plural with {{ as ICU', () => {
+    const nested = '{g, select, f {{n, plural, one {# amiga} other {# amigas}}} other {nadie}}';
+    expect(t(nested)('m', { g: 'f', n: 2 })).toBe('2 amigas');
+  });
+
   it('does not cache the unparsed shape, so wiring the parser later still works', () => {
     const source = '{v, select, a {A} other {B}}';
     expect(bare(source)('m', { v: 'a' })).toBe(source);

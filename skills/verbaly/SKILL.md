@@ -13,6 +13,7 @@ Verbaly inverts the i18n flow: you write natural text in the source and the comp
    ```ts
    t`Hello ${name}, you have ${count} messages`;
    ```
+   Plurals, selects and formats go in the same template with the value in `${…}`: `` t`You have {${count} | one: # message | other: # messages}` ``, `` t`Total: {${total}:currency/EUR}` ``. Never `t(key, params)` just to get a plural.
    In markup it must sit in expression context: JSX ``{t`…`}``, Vue ``{{ t`…` }}`` or ``:title="t`…`"``, Svelte ``{$t`…`}``, Astro ``{t`…`}``. Display-only text is never extracted.
 2. **Extract**: `npx verbaly extract` scans sources, fills `locales/<locale>.json` and refreshes the generated types. With a bundler plugin (`@verbaly/vite`, `@verbaly/unplugin`, or the framework integrations) dev-mode extraction is automatic.
 3. **Check**: `npx verbaly check` exits 1 while a translation is missing or broken, a key written in the code is in no catalog, or one key is written with two texts (give each text its own `t.id` key). This is the CI gate. A build with the plugin lists the same problems and goes on, broken translations first, so read its output too; `failOnMissing: true` makes the build stop instead.

@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/vite",
-  "version": "0.72.0",
+  "version": "0.73.0",
   "description": "Zero-config Vite plugin for Verbaly: extraction, codegen and HMR.",
   "keywords": [
     "i18n",
@@ -52,6 +52,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "test": "vitest run --passWithNoTests",
+    "bench": "vitest run --config vitest.bench.config.ts",
     "typecheck": "tsc --noEmit"
   }
 }

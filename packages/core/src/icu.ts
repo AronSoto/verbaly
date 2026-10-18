@@ -1,7 +1,10 @@
 import type { MessageNode, ParamNode } from './parse';
 
 // ICU escape-hatch → native MessageNode AST
-const ICU_ARG = /\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
+
+// a brace right after a brace is an escaped {{, not ICU; no lookbehind, Safari 16.3 cannot parse it
+const ICU_ARG =
+  /(^|[^{])\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
 
 export function isIcu(message: string): boolean {
   return ICU_ARG.test(message);

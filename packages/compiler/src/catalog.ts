@@ -202,7 +202,8 @@ function wantsNesting(
 }
 
 // the same test the runtime uses, asked of the catalogs so the parser ships only where it is read
-const ICU_ARG = /\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
+const ICU_ARG =
+  /(^|[^{])\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
 
 export function needsIcu(catalogs: Catalogs): boolean {
   for (const catalog of Object.values(catalogs)) {

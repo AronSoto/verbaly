@@ -524,6 +524,9 @@ interface BuiltMessage {
   params: TaggedParam[];
 }
 
+// after `{${value}`, a variant (`| one:`) or a format right after the colon makes it a block
+const BLOCK_TAIL = /^(?:\s*\|\s*[^\s|{}:]+\s*:|:[A-Za-z_][\w-]*)/;
+
 function buildMessage(
   code: string,
   quasi: AstNode,
@@ -531,12 +534,18 @@ function buildMessage(
 ): BuiltMessage | undefined {
   const quasis = quasi.quasis as AstNode[];
   const expressions = quasi.expressions as AstNode[];
+  const texts = quasis.map(cookedValue);
   const params: TaggedParam[] = [];
   const taken = new Map<string, string>();
+  const tokens: Token[] = [];
 
-  let text = escapeText(cookedValue(quasis[0]));
+  for (let i = 0; i < texts.length; i++) {
+    const chunk = texts[i]!;
+    const head = i < expressions.length && chunk.endsWith('{') && BLOCK_TAIL.test(texts[i + 1]!);
+    // one at a time: spreading a long text into push() overflows the call stack
+    for (const char of head ? chunk.slice(0, -1) : chunk) tokens.push(char);
+    if (i === expressions.length) break;
 
-  for (let i = 0; i < expressions.length; i++) {
     const expr = expressions[i];
     if (!expr) return undefined;
     // a nested t`…` would be extracted on its own: overlapping rewrites; bail the outer
@@ -544,9 +553,58 @@ function buildMessage(
     const source = code.slice(expr.start, expr.end);
     const name = uniqueName(deriveName(expr, i), source, taken);
     params.push({ name, start: expr.start, end: expr.end });
-    text += `{${name}}` + escapeText(cookedValue(quasis[i + 1]));
+    tokens.push({ name, head });
+  }
+
+  let text = '';
+  for (let k = 0; k < tokens.length; k++) {
+    const token = tokens[k]!;
+    if (typeof token === 'string') {
+      text += token === '{' || token === '}' ? token + token : token;
+    } else if (!token.head) {
+      text += `{${token.name}}`;
+    } else {
+      // a block closes where the core's findClose closes it, and its body is catalog syntax
+      const end = blockEnd(tokens, k, false) ?? blockEnd(tokens, k, true);
+      // a block that never closes was never one: the template reads as text, with the key it had
+      if (end === undefined) {
+        const plain = texts.map(
+          (chunk, i) => escapeText(chunk) + (params[i] ? `{${params[i].name}}` : ''),
+        );
+        return { text: plain.join(''), params };
+      }
+      for (let m = k; m <= end; m++) text += tokenText(tokens[m]!);
+      k = end;
+    }
   }
   return { text, params };
+}
+
+// a character of the template, or a ${…} value: `head` when it opens a block (`{${count} |`)
+type Token = string | { name: string; head: boolean };
+
+function tokenText(token: Token): string {
+  if (typeof token === 'string') return token;
+  return token.head ? `{${token.name}` : `{${token.name}}`;
+}
+
+// }} is an escaped brace unless reading it so leaves the block open, as core's findClose reads it
+function blockEnd(tokens: Token[], start: number, pairs: boolean): number | undefined {
+  let depth = 0;
+  for (let k = start; k < tokens.length; k++) {
+    const token = tokens[k]!;
+    if (typeof token !== 'string') {
+      if (token.head) depth += 1;
+    } else if (token === '{' || token === '}') {
+      if (tokens[k + 1] === token && (token === '{' || !(pairs && depth > 1))) {
+        k += 1;
+      } else {
+        depth += token === '{' ? 1 : -1;
+        if (depth === 0) return k;
+      }
+    }
+  }
+  return undefined;
 }
 
 function cookedValue(element: AstNode | undefined): string {

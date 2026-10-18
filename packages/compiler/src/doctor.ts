@@ -15,7 +15,7 @@ import { typesIncluded } from './tsconfig';
 import { counted } from './text';
 import { isLocaleTag, suggestTag } from './tag';
 import { effectiveDrafts, readState, STATE_FILE } from './state';
-import { escapedSyntax } from './validate';
+import { escapedSyntax, inlineBlock, shownSlice } from './validate';
 
 export interface DoctorEntry {
   level: 'ok' | 'warn' | 'error';
@@ -312,8 +312,8 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     if (escaped.length > 0) {
       warn(
         'messages',
-        `a block ships as literal text in ${counted(escaped.length, 'extracted message')} (${escaped[0]!.file}: ${escaped[0]!.slice})`,
-        'a tagged template takes its values from ${…}: use t(key, params) for a plural or format block',
+        `a block ships as literal text in ${counted(escaped.length, 'extracted message')} (${escaped[0]!.file}: ${shownSlice(escaped[0]!.slice!)})`,
+        `in a tagged template, write ${inlineBlock(escaped[0]!.slice!)}`,
       );
     }
   }

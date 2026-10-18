@@ -380,8 +380,8 @@ describe('doctor', () => {
     const result = await doctor(cfg);
     const e = entry(result.entries, 'messages');
     expect(e?.level).toBe('warn');
-    expect(e?.message).toContain('{{count | one: 1 item | other: # items}}');
-    expect(e?.fix).toContain('t(key, params)');
+    expect(e?.message).toContain('(src/app.ts: {count | one: 1 item | other: # items})');
+    expect(e?.fix).toContain('write {${count} | one: 1 item | other: # items}');
   });
 
   it('says nothing about imports or messages when the code is clean', async () => {

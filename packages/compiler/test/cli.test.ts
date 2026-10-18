@@ -465,13 +465,52 @@ describe('runCli: extract', () => {
     expect(process.exitCode).toBeUndefined(); // it is a warn: the extraction itself is correct
     expect(output(warn)).toContain('renders as literal text');
     expect(output(warn)).toContain('src/app.ts');
-    expect(output(warn)).toContain('use t(key, params)');
+    expect(output(warn)).toContain('write {${count} | one: 1 item | other: # items}');
+  });
+
+  it('names the inline form of an escaped format, with the format right after the colon', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      'export const x = t`Total: {total: currency/USD}`;\n',
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).toContain('write {${total}:currency/USD}');
+  });
+
+  it('warns about a block that never closes, which renders as text', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      'export const x = t`You have {${count} | one: # item | other: # items`;\n',
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).toContain('src/app.ts:1: {${count} | one:… renders as literal text');
+    expect(output(warn)).toContain('write the same block with its closing }');
+  });
+
+  it('warns about ICU written in a tagged template and names the block that works there', async () => {
+    const root = makeProject(
+      { en: {}, es: {} },
+      'export const x = t`You have {count, plural, one {# item} other {# items}}`;\n',
+    );
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).toContain('src/app.ts:1: {count, plural, …} renders as literal text');
+    expect(output(warn)).toContain('write {${count} | one: … | other: …}');
   });
 
   it('stays quiet about a message with a real param block', async () => {
     const root = makeProject({ en: {}, es: {} }, 'export const x = t`Hello ${name}`;\n');
     await runCli(['extract', '--root', root]);
     expect(output(warn)).not.toContain('renders as literal text');
+  });
+
+  it('extracts a block written around a ${…} value as a block, without a warning', async () => {
+    const source = 'export const x = t`You have {${count} | one: 1 item | other: # items}`;\n';
+    const root = makeProject({ en: {}, es: {} }, source);
+    await runCli(['extract', '--root', root]);
+    expect(output(warn)).not.toContain('renders as literal text');
+    const text = 'You have {count | one: 1 item | other: # items}';
+    const en = JSON.parse(readFileSync(join(root, 'locales', 'en.json'), 'utf8')) as object;
+    expect(en).toEqual({ [stableKey(text)]: text });
   });
 });
 

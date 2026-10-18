@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createVerbaly, type Params } from '../src/index';
 import { parse } from '../src/parse';
 
 describe('parse edge cases', () => {
@@ -39,6 +40,41 @@ describe('parse edge cases', () => {
     expect(parse('{d: date / long }')).toEqual([
       { kind: 'param', name: 'd', format: 'date', arg: 'long' },
     ]);
+  });
+});
+
+describe('blocks that close together', () => {
+  const render = (message: string, params: Params) =>
+    createVerbaly({ locale: 'es', messages: { es: { m: message } } }).t('m', params);
+
+  it('reads }} as two closes when reading it as an escape leaves the block open', () => {
+    const guests =
+      '{g | f: {c | one: # invitada | other: # invitadas} | other: {c | one: # invitado | other: # invitados}}';
+    expect(render(guests, { g: 'f', c: 2 })).toBe('2 invitadas');
+    expect(render(guests, { g: 'm', c: 1 })).toBe('1 invitado');
+    const three = '{a | x: {b | y: {c | one: uno | other: varios}}}';
+    expect(render(three, { a: 'x', b: 'y', c: 1 })).toBe('uno');
+    // the }} in the middle closes two blocks, so the variant after it still belongs to a
+    const middle = '{a | x: {b | y: {c | one: una | other: varias}} | other: ninguna}';
+    expect(render(middle, { a: 'x', b: 'y', c: 2 })).toBe('varias');
+    expect(render(middle, { a: 'w', b: 'y', c: 2 })).toBe('ninguna');
+  });
+
+  it('closes two blocks with }} only where two are open, so an escape elsewhere stays one', () => {
+    const mixed = '{a | x: lit }} here | y: {b | one: uno | other: varios}}';
+    expect(render(mixed, { a: 'x', b: 1 })).toBe('lit } here');
+    expect(render(mixed, { a: 'y', b: 2 })).toBe('varios');
+    // an unclosed brace stays text even when an escaped }} follows it
+    expect(render('Escribe {nombre y luego {{x}}', {})).toBe('Escribe {nombre y luego {{x}}');
+    expect(render('{a}} texto', { a: 1 })).toBe('{a}} texto');
+  });
+
+  it('keeps }} an escaped brace wherever the block closes without it', () => {
+    // migrate doubles a lone } inside a block, and those catalogs render as they always did
+    expect(render('{count | one: a }} b | other: c }} d}', { count: 1 })).toBe('a } b');
+    expect(render('Escribe {{nombre}} tal cual, {n}', { n: 1 })).toBe(
+      'Escribe {nombre} tal cual, 1',
+    );
   });
 });
 

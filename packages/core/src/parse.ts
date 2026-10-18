@@ -91,7 +91,12 @@ function parseMessage(input: string, inVariant: boolean): MessageNode[] {
   return nodes;
 }
 
-function findClose(input: string, open: number): number {
+// how the last findClose read }}: splitTop runs on that block right after and reads it alike
+let closedPairs: boolean | undefined;
+
+// }} is an escape unless that leaves the block open; then it closes both where two are open
+function findClose(input: string, open: number, pairs?: boolean): number {
+  closedPairs = pairs;
   let depth = 0;
   let i = open;
   while (i < input.length) {
@@ -103,7 +108,7 @@ function findClose(input: string, open: number): number {
       }
       depth += 1;
     } else if (ch === '}') {
-      if (input[i + 1] === '}') {
+      if (input[i + 1] === '}' && !(pairs && depth > 1)) {
         i += 2;
         continue;
       }
@@ -112,7 +117,7 @@ function findClose(input: string, open: number): number {
     }
     i += 1;
   }
-  return -1;
+  return pairs ? -1 : findClose(input, open, true);
 }
 
 function parsePlaceholder(inner: string): MessageNode {
@@ -162,7 +167,7 @@ function splitTop(input: string): string[] {
       depth += 1;
       buf += ch;
     } else if (ch === '}') {
-      if (input[i + 1] === '}') {
+      if (input[i + 1] === '}' && !(closedPairs && depth > 0)) {
         buf += '}}';
         i += 2;
         continue;

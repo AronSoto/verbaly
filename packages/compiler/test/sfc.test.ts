@@ -57,6 +57,14 @@ describe('analyzeSfc svelte', () => {
     expect(code.slice(tagged[0]!.start, tagged[0]!.end)).toBe('$t`Hello ${name}`');
   });
 
+  it('extracts a block written around a ${…} value in markup', () => {
+    const code = '<p>{$t`Tienes {${count} | one: # mensaje | other: # mensajes}`}</p>';
+    const { tagged } = analyzeSfc(code, 'App.svelte');
+    expect(tagged[0]?.message).toBe('Tienes {count | one: # mensaje | other: # mensajes}');
+    const out = transformCode(code, 'App.svelte')!.code;
+    expect(out).toBe(`<p>{$t('${tagged[0]!.key}', { 'count': count })}</p>`);
+  });
+
   it('extracts $t from script blocks too', () => {
     const { tagged } = analyzeSfc('<script>\n  $: msg = $t`Bye`;\n</script>', 'App.svelte');
     expect(tagged[0]?.message).toBe('Bye');
@@ -146,6 +154,12 @@ describe('analyzeSfc vue', () => {
     const { tagged } = analyzeSfc(code, 'App.vue');
     expect(tagged[0]?.message).toBe('Hola {name}');
     expect(tagged[0]?.singleQuote).toBeUndefined();
+  });
+
+  it('extracts a block written around a ${…} value in an interpolation', () => {
+    const code = '<template>\n  <p>{{ t`Total: {${total}:currency/EUR}` }}</p>\n</template>';
+    const { tagged } = analyzeSfc(code, 'App.vue');
+    expect(tagged[0]?.message).toBe('Total: {total:currency/EUR}');
   });
 
   it('extracts from template interpolations', () => {

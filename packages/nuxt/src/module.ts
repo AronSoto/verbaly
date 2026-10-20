@@ -52,7 +52,7 @@ function verbalyModule(inlineOptions: VerbalyNuxtOptions | undefined, nuxt: Nuxt
 
   // the file must exist when the reference lands in .nuxt/nuxt.d.ts or TS reports it missing
   nuxt.hook('prepare:types', async ({ references }) => {
-    const cfg = await loadConfig(nuxt.options.rootDir, vite);
+    const cfg = await loadConfig(nuxt.options.rootDir, vite, { plugin: true });
     if (cfg.dts === false) return;
     writeDts(cfg, loadCatalogs(cfg)[cfg.sourceLocale] ?? {});
     references.push({ path: cfg.dts });

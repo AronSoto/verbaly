@@ -24,7 +24,7 @@ const SURFACES = [
   {
     name: 'tree-shaken createVerbaly',
     code: "export { createVerbaly } from './dist/index.js';",
-    budget: 3.33,
+    budget: 3.36,
     // every way a README states it: the badge, its alt text, the prose and the comparison table
     claims: [
       `gzip-${NUMBER}KB`,
@@ -37,14 +37,14 @@ const SURFACES = [
   {
     name: 'a real app (runtime + dom + locale)',
     code: `export { ${REAL_APP.join(', ')} } from './dist/index.js';`,
-    budget: 6.15,
+    budget: 6.17,
     claims: [`ships [*]{2}${NUMBER} KB[*]{2}`],
   },
   { name: 'devtools', code: "export * from './dist/devtools.js';", budget: 1.75, claims: [] },
   {
     name: 'every export at once (canary, nobody ships this)',
     code: "export * from './dist/index.js';",
-    budget: 7.98,
+    budget: 8.0,
     claims: [],
   },
 ];

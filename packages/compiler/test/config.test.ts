@@ -1,10 +1,17 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { analyze } from '../src/analyze';
 import { loadCatalogs } from '../src/catalog';
 import { loadConfig } from '../src/config';
@@ -151,6 +158,51 @@ describe('loadConfig', () => {
     },
     TS_CONFIG_TIMEOUT,
   );
+});
+
+// what verbaly check and extract read: set only in a plugin, the build and the CLI disagree
+describe('options a plugin passes that the command line never reads', () => {
+  const said = (warn: { mock: { calls: unknown[][] } }) =>
+    warn.mock.calls.map(([text]) => String(text)).filter((text) => text.includes('plugin options'));
+
+  it('says once which ones to move to verbaly.config', async () => {
+    const root = makeRoot();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const options = { locales: ['en', 'es', 'pt'], dir: 'i18n' };
+      const cfg = await loadConfig(root, options, { plugin: true });
+      await loadConfig(root, options, { plugin: true });
+      expect(cfg.locales).toEqual(['en', 'es', 'pt']);
+      expect(said(warn)).toHaveLength(1);
+      expect(said(warn)[0]).toContain('locales and dir are set in the plugin options');
+      expect(said(warn)[0]).toContain('verbaly.config');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('says nothing when the config file has the same values, or for the command line', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.mjs'), "export default { locales: ['en', 'es'] };\n");
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await loadConfig(root, { locales: ['en', 'es'], routing: 'no-prefix' }, { plugin: true });
+      await loadConfig(makeRoot(), { locales: ['en', 'fr'] });
+      // what the command line resolves to anyway: the default source and the catalogs it finds
+      const found = makeRoot();
+      mkdirSync(join(found, 'locales'));
+      writeFileSync(join(found, 'locales', 'en.json'), '{}');
+      writeFileSync(join(found, 'locales', 'es.json'), '{}');
+      await loadConfig(
+        found,
+        { sourceLocale: 'en', locales: ['en', 'es'], dir: './locales' },
+        { plugin: true },
+      );
+      expect(said(warn)).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe('a config edited while the process runs', () => {
@@ -391,4 +443,19 @@ describe('icu', () => {
     expect(resolveConfig({ icu: true }).icu).toBe(true);
     expect(resolveConfig({ icu: false }).icu).toBe(false);
   });
+});
+
+// every integration reaches loadConfig as a plugin, or its users never hear what check cannot see
+describe('the integrations that load a config', () => {
+  const packages = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  for (const pkg of ['vite', 'unplugin', 'next', 'astro', 'nuxt']) {
+    it(`${pkg} passes { plugin: true } at every loadConfig call`, () => {
+      const dir = join(packages, pkg, 'src');
+      const calls = readdirSync(dir)
+        .filter((file) => file.endsWith('.ts'))
+        .flatMap((file) => readFileSync(join(dir, file), 'utf8').match(/loadConfig\(.*$/gm) ?? []);
+      expect(calls.length).toBeGreaterThan(0);
+      for (const call of calls) expect(call).toContain('{ plugin: true }');
+    });
+  }
 });

@@ -110,7 +110,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
   // every write in dev starts from the disk, and re-reads the files behind each text that changes
   async function writeBack(catalogEdit: boolean): Promise<void> {
-    if (catalogEdit) cfg = await loadConfig(cfg.root, options);
+    if (catalogEdit) cfg = await loadConfig(cfg.root, options, { plugin: true });
     const result = await syncProject(cfg, {
       registry,
       catalogs: loadCatalogs(cfg),
@@ -143,7 +143,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
     async configResolved(viteConfig) {
       isBuild = viteConfig.command === 'build';
-      cfg = await loadConfig(options.root ?? viteConfig.root, options);
+      cfg = await loadConfig(options.root ?? viteConfig.root, options, { plugin: true });
       catalogs = loadCatalogs(cfg);
       included = createSourceFilter(cfg);
       if (!isBuild) {

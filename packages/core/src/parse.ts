@@ -110,7 +110,12 @@ function findClose(input: string, open: number, pairs?: boolean): number {
       }
       depth += 1;
     } else if (ch === '}') {
-      if (input[i + 1] === '}' && !(pairs && depth > 1)) {
+      // a name or format holds no brace: in the head, }}} is a close and then an escaped brace
+      if (
+        input[i + 1] === '}' &&
+        !(pairs && depth > 1) &&
+        (depth > 1 || input[i + 2] !== '}' || input.lastIndexOf('|', i) > open)
+      ) {
         i += 2;
         continue;
       }

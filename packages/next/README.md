@@ -19,6 +19,7 @@ Works with **Turbopack** (the Next 16 default) and webpack: the config wrapper g
 
 ```bash
 pnpm add verbaly @verbaly/next @verbaly/react
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
 ```
 
 ## ⚡ Wire it up
@@ -32,10 +33,11 @@ import { withVerbaly } from '@verbaly/next';
 export default withVerbaly({/* your Next config */});
 ```
 
-Locales live in your `verbaly.config` (created by `npx verbaly init`), or inline:
+Locales live in your `verbaly.config` (created by `npx verbaly init`), where `verbaly check` and `extract` read them too:
 
 ```ts
-export default withVerbaly({}, { locales: ['en', 'es', 'pt'] });
+// verbaly.config.ts, created by npx verbaly init: list your languages, the build and `verbaly check` read them
+export default { sourceLocale: 'en', locales: ['en', 'es', 'pt'] };
 ```
 
 **2. The provider**: root layout, Server Component:

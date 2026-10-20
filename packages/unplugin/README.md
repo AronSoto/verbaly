@@ -17,6 +17,7 @@
 
 ```bash
 pnpm add verbaly @verbaly/unplugin
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
 ```
 
 ```js
@@ -24,19 +25,24 @@ pnpm add verbaly @verbaly/unplugin
 import { verbaly } from '@verbaly/unplugin';
 
 export default {
-  plugins: [verbaly.webpack({ sourceLocale: 'en', locales: ['en', 'es', 'pt'] })],
+  plugins: [verbaly.webpack()],
 };
+```
+
+```ts
+// verbaly.config.ts, created by npx verbaly init: list your languages, the build and `verbaly check` read them
+export default { sourceLocale: 'en', locales: ['en', 'es', 'pt'] };
 ```
 
 ```js
 // rollup.config.mjs
 import { verbaly } from '@verbaly/unplugin';
-export default { plugins: [verbaly.rollup({ locales: ['en', 'es'] })] };
+export default { plugins: [verbaly.rollup()] };
 
 // esbuild
-verbaly.esbuild({ locales: ['en', 'es'] });
+verbaly.esbuild();
 // rspack
-verbaly.rspack({ locales: ['en', 'es'] });
+verbaly.rspack();
 ```
 
 Extraction runs via the CLI: add it to your dev loop or CI:

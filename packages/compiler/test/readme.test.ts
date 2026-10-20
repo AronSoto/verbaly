@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -25,6 +25,24 @@ describe('the example the READMEs open with', () => {
       for (const name of (params ?? '').split(', ')) {
         expect(result?.code).toContain(`"${name}": ${name}`);
       }
+    });
+  }
+});
+
+// a README naming the verbaly command installs the package that provides it, or npx finds nothing
+describe('the install line of every README', () => {
+  const readmes = [
+    'README.md',
+    ...readdirSync(join(repo, 'packages')).map((p) => `packages/${p}/README.md`),
+  ];
+  for (const file of readmes.filter(
+    (f) => existsSync(join(repo, f)) && f !== 'packages/compiler/README.md',
+  )) {
+    it(`${file} installs @verbaly/compiler when it names npx verbaly`, () => {
+      const text = readFileSync(join(repo, file), 'utf8');
+      if (!text.includes('npx verbaly ')) return;
+      const install = /```bash\n([^`]*?pnpm add [^`]*?)```/.exec(text)?.[1] ?? '';
+      expect(install).toContain('@verbaly/compiler');
     });
   }
 });

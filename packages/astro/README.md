@@ -19,6 +19,7 @@ One line in `astro.config` wires everything: the Vite plugin (live extraction, t
 
 ```bash
 pnpm add verbaly @verbaly/astro
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
 ```
 
 ## ⚡ Wire it up
@@ -33,10 +34,11 @@ export default defineConfig({
 });
 ```
 
-Locales live in your `verbaly.config` (created by `npx verbaly init`), or inline:
+Locales live in your `verbaly.config` (created by `npx verbaly init`), where `verbaly check` and `extract` read them too:
 
-```js
-integrations: [verbaly({ locales: ['en', 'es', 'pt'] })],
+```ts
+// verbaly.config.ts, created by npx verbaly init: list your languages, the build and `verbaly check` read them
+export default { sourceLocale: 'en', locales: ['en', 'es', 'pt'] };
 ```
 
 ## ✍️ Write the text in place

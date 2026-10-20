@@ -53,6 +53,24 @@ async function setup(
   };
 }
 
+describe('languages set only in the plugin', () => {
+  it('says verbaly check and extract will not see them', async () => {
+    const root = makeProject({ es: {} });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await setup(root, 'build', { locales: ['es', 'en', 'pt'] });
+      const said = warn.mock.calls.map(([text]) => String(text));
+      expect(
+        said.some((text) =>
+          text.includes('sourceLocale and locales are set in the plugin options'),
+        ),
+      ).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 function fakeServer(missingModules: string[] = []) {
   const handlers = new Map<string, ((file: string) => void)[]>();
   const state = { watched: [] as string[], invalidated: [] as string[], reloads: 0 };

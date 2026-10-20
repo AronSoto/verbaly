@@ -17,6 +17,8 @@ The Vite plugin for [Verbaly](https://github.com/AronSoto/verbaly). Write natura
 
 ```bash
 pnpm add verbaly @verbaly/vite
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
+npx verbaly init
 ```
 
 ```ts
@@ -24,8 +26,13 @@ pnpm add verbaly @verbaly/vite
 import verbaly from '@verbaly/vite';
 
 export default {
-  plugins: [verbaly({ sourceLocale: 'en', locales: ['en', 'es', 'pt'] })],
+  plugins: [verbaly()],
 };
+```
+
+```ts
+// verbaly.config.ts, created by npx verbaly init: list your languages, the build and `verbaly check` read them
+export default { sourceLocale: 'en', locales: ['en', 'es', 'pt'] };
 ```
 
 ```ts

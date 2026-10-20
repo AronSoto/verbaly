@@ -8,6 +8,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.75.0] · 2026-10-20
+
+**Braces around a value now show the value, and your languages live where every command sees them.** Writing `{${count}}` or a price followed by a closing brace used to put raw braces on screen. When your languages are set only in your build tool's config, the build now tells you to move them to `verbaly.config`, where `verbaly check` reads them too. Breaking: nothing.
+
+### Highlights
+
+- **Braces around a value show the value.** `` t`Selected {${count}}` `` shows "Selected {5}", and so does a price followed by a closing brace. Before, the braces and the name showed up as text.
+- **Your languages live where every command sees them.** When your languages are set only in the plugin, as the READMEs used to show, the build says once to move them to `verbaly.config`, so `verbaly check` checks every language your site ships.
+- **The install lines bring the `verbaly` command.** Every README that names an `npx verbaly` command now also installs `@verbaly/compiler`, so the command works the first time.
+
+### Fixed
+
+- **A literal `}` right after a value or a format (`verbaly`, `@verbaly/compiler`).** `` t`${count}}` `` extracts as `{count}}}` (the value and an escaped brace), and the runtime read `}}` as an escape first, so the value's own closing brace was eaten: the message showed raw, with a warning that named a param `count}}` that does not exist, and `check` said nothing. The same happened to `` t`{${count}}` ``, `` t`Set {"limit": ${count}}` `` and a format followed by `}`, in 0.72.0, 0.73.0 and 0.74.0. Now, in a placeholder's head (no `|` between its `{` and the brace), a run of three or more `}` closes first, since a name or a format holds no brace; `{a}}` with two braces stays text, as 0.73.0 decided, and inside a block with variants `}}` is still an escape. The compiler reads a format block's head the same way, so `` t`{${total}:currency/EUR}}` `` extracts as a block followed by a brace.
+
+### Changed
+
+- **The build names the options the command line never reads (`@verbaly/compiler`; `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/next`, `@verbaly/astro` and `@verbaly/nuxt` through it).** `loadConfig(root, options, { plugin: true })`, which every integration now passes, says once per project when `sourceLocale`, `locales`, `dir`, `include` or `exclude` resolve differently from `verbaly.config` alone: `` locales is set in the plugin options, which `verbaly check` and `verbaly extract` never read: move it to verbaly.config so the command line checks what the build ships ``. A default or a path written another way that resolves the same says nothing, and the CLI, the MCP server and Studio never pass the flag. Before, a language set only in `verbaly({ locales })` or `withVerbaly(config, { locales })` was one the build listed as untranslated, `extract` never scaffolded and `check` passed without.
+- **The READMEs teach `verbaly.config` and install the CLI (`verbaly`, `@verbaly/compiler`, `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/next`, `@verbaly/astro`, `@verbaly/nuxt`, the root README and the Agent Skill).** The examples call the plugin with no options and list the languages in `verbaly.config.ts`, and every README that names `npx verbaly` installs `pnpm add -D @verbaly/compiler` next to the runtime: with pnpm, `npx verbaly init` answered `could not determine executable to run` without it. The compiler README's minimal plugin passes `{ plugin: true }`. The Agent Skill says where languages go.
+- **The size budgets (`verbaly`, in the repository only)**: the floor from 3.33 to 3.36 KB, the app from 6.15 to 6.17 and the canary from 7.98 to 8.00, Aron's call (Notes).
+- **A property test of the template syntax (`@verbaly/compiler`, in the repository only).** `test/template-render.test.ts` generates tagged templates (text with stray syntax, values, plurals, selects and formats, nested) that each know what they must show, extracts them with the compiler and renders them with the core: they show exactly that, or `extract` names why. It brings `fast-check` as a development dependency of the compiler.
+
+### Notes
+
+- **How these were found.** An audit of the published 0.74.0. A fuzz of the compiler and the core with the exact expected output of each generated template found the brace case in five tries. Two official starters followed to the letter of the docs, `create-vite` with React and `create-next-app` 16.4, found the other two: the README's `verbaly({ locales })` left a language invisible to `check`, and the Next.js install line left `npx verbaly` unresolved under pnpm. The React starter otherwise works end to end, `tsc -b` included.
+- **A template that already had the shape changes key.** One with a format block followed by `}`, like `` t`Total: {${total}:currency/EUR}}` ``, extracted as escaped text before and is a block now, so its text and its key change and its old translations go. A value followed by `}` keeps its key: only its rendering changes. None exists in this repository, verbaly-web or the portfolio.
+- **Sizes** (`pnpm --filter verbaly size`): `createVerbaly` alone 3.35 KB (+26 B), a real app 6.17 KB (+23 B), the canary 8.00 KB (+24 B), devtools 1.60 KB. Measured with tsdown before choosing: a spelling without the run condition cost +17, +15 and +16 B but changed 0.73.0's decision that `{a}}` stays text, and three other spellings were heavier. Aron raised the three budgets for this release; the app sits about 1 B under its own.
+- **The differential** (`.claude/diff-release.mjs`, 0.74.0 from npm against this build): nothing differs on verbaly-web and the portfolio. The fixture, which now writes both brace forms, shows the intended change: `` t`Selected {${count}}` `` renders "Selected {1}" instead of the raw message and its warning, and `` t`Total: {${total}:currency/EUR}}` `` changes key and renders "Total: €1.00}".
+- **The fuzz**, 200 000 generated templates over eight seeds with values and formats followed by `}` included: no silent difference. A block with variants followed by `}` stays as documented, since `}}` inside a block is an escape: write a space between them.
+- **The review** (`/code-review`, high) reported five findings, all fixed: the warning compared what was written instead of what resolves, so a default like `sourceLocale: 'en'` warned; only the Vite plugin had a pin for the flag; the README snippet said `init` writes the languages, which it does not; the head rule inside a variant body had no pin; and the re-key above, which these Notes now say.
+- **Every new pin was seen red before it was trusted: 8 of 8.** Three on the brace (the core case, the compiler case end to end with both rules reverted, and the property test, which caught each reversion on its own), four on the plugin options (the warning, the silence when the file or the CLI says the same, the Vite plugin, and a pin that every integration passes the flag, red through Next and unplugin), and one on the install lines (every README that names `npx verbaly` installs the compiler, red through Nuxt's).
+- **1 856 tests under `pnpm test`, 24 new** (0.74.0: 1 832). Core 389, compiler 926 plus 20 in its DOM config, MCP 39. **1 860 under `pnpm coverage`**, the benches included, with 96.9% of lines covered.
+- **Bench:** 37.1x, 12.4x, 5.8x and 4.0x against i18next, and `t()` cycling 4 000 messages 1.38 µs, 6 000 4.33 µs; the build receipt at 200 modules +70 ms (2.53x), at 1 500 modules +847 ms (4.93x). This machine was loaded during that run (i18next itself measured a fifth slower than in 0.74.0), so the change was measured A/B, HEAD's sources against this build, interleaved: past the cache cap 2.98 and 3.35 µs against 2.94 and 3.28 µs, and the gate within noise. The fix adds no cost.
+- **Dependencies:** `fast-check` ^4.10.2 in the compiler's development dependencies, the same version the core uses. `pnpm outdated -r` is empty. Nothing changes in what ships.
+- **Canonical build and real consumers**, from the tarballs of a Linux build on Node 22: the size gate as above with every README figure in agreement, publint "All good" on all thirteen, attw as `known-ok.md` expects, and `pnpm test` green there too. verbaly-web with `verbaly`, `@verbaly/compiler`, `@verbaly/astro` and `@verbaly/vite` 0.75.0: `pnpm build` and `pnpm check` green, `check-size` naming the two figures that move. The portfolio with `@verbaly/next` and `@verbaly/react`: `verbaly check`, and `next build` with Turbopack and with webpack, green, its OG images still static and no warning, since its languages live in `verbaly.config.ts`. A Vite 8 app built from the tarballs renders "Elegido {5}", "Suma: 12,50 €}", "Tienes 1 archivo" and "Tienes 3 archivos", and the same app with `verbaly({ locales })` gets the warning. The MCP bin answers `initialize` as 0.75.0 and lists its tools in the cycle's order.
+- **First contact** (`pnpm first-contact`, pnpm 12.8.1 and npm 11.19.0, on this build): the four shapes green.
+
+### Docs impact
+
+- **The runtime figures:** `RUNTIME_KB` goes from 3.33 to 3.35 and `RUNTIME_APP_KB` from 6.15 to 6.17 in `src/constants/size.ts`, and so does the figure in `docs_why.q_light_b` in the three catalogs. `sync-audit` checks them.
+- **Languages in `verbaly.config`:** `/docs/frameworks/react`, whose Next.js block offers the languages "or inline" in `withVerbaly`, and any page that shows `verbaly({ locales })` or a plugin with config options: the languages go in `verbaly.config.ts`, and the build now warns when they live only in the plugin.
+- **The install lines:** the Next.js line on `/docs/frameworks/react` and every framework page whose install is followed by an `npx verbaly` command get `pnpm add -D @verbaly/compiler`, as `/docs/init/start` already does.
+- **The format page:** a literal `}` right after a value or a format now works (`` t`{${count}}` `` shows "{5}"); right after a block with variants it still needs a space, because `}}` inside a block is an escape.
+- **`releases.ts` plus `changelog_rel.v0_75_0` in en, es and pt**, with the three highlights and `breaking: 0`.
+
+---
+
 ## [0.74.0] · 2026-10-19
 
 **Big projects build faster, and a rebuild after a save does less work.** Verbaly now reads each of your files once when a build starts, keeps what it already read of your translations between rebuilds, and shows pages with thousands of different texts faster. Breaking: nothing.

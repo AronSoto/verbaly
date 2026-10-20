@@ -141,6 +141,22 @@ describe('a block written around a ${…} value', () => {
     });
   });
 
+  // a literal } right after a value or a format: what the template says is what shows
+  it('keeps a literal closing brace after a value or a format as text', () => {
+    const shows = (code: string, params: Record<string, unknown>) => {
+      const message = analyze(code, 'app.ts').tagged[0]!.message;
+      const v = createVerbaly({ locale: 'en', messages: { en: { m: message } } });
+      return { message, shown: v.t('m', params as never) };
+    };
+    expect(shows('t`${count}}`;', { count: 5 })).toEqual({ message: '{count}}}', shown: '5}' });
+    expect(shows('t`{${count}}`;', { count: 5 }).shown).toBe('{5}');
+    expect(shows('t`Set {"limit": ${count}}`;', { count: 5 }).shown).toBe('Set {"limit": 5}');
+    expect(shows('t`{${total}:number}}`;', { total: 5 })).toEqual({
+      message: '{total:number}}}',
+      shown: '5}',
+    });
+  });
+
   it('reads a value inside a variant as a param, and a block inside one as a block', () => {
     const friends = analyze(
       't`{${count} | one: ${name} tiene # amigo | other: ${name} tiene # amigos}`;',

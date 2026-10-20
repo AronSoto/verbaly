@@ -63,13 +63,13 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         // root pinned to the project dir: Astro's Vite root can differ and discovery finds nothing
         root = vite.root ??= fileURLToPath(config.root);
         updateConfig({ vite: { plugins: [verbalyVite(vite)] } });
-        const cfg = await loadConfig(root, vite);
+        const cfg = await loadConfig(root, vite, { plugin: true });
         if (cfg.render.inlineCatalog === true) injectScript('page', ADOPT_SCRIPT);
       },
       async 'astro:config:done'(options) {
         buildOutput = options.buildOutput;
         // types go to Astro's own slot (.astro/), no file in the project
-        const cfg = await loadConfig(root, vite);
+        const cfg = await loadConfig(root, vite, { plugin: true });
         const url = options.injectTypes({
           filename: 'verbaly.d.ts',
           // the same options writeDts passes, so the CLI and dev write this very content
@@ -81,7 +81,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         vite.dts = fileURLToPath(url);
       },
       async 'astro:build:done'({ dir }) {
-        const cfg = await loadConfig(root, vite);
+        const cfg = await loadConfig(root, vite, { plugin: true });
         // mirror is opt-in: a path-based i18n routing site must never get its pages mirrored on top
         const wanted = render === undefined ? Object.keys(cfg.render).length > 0 : Boolean(render);
         if (!wanted) return;

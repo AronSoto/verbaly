@@ -591,10 +591,16 @@ function tokenText(token: Token): string {
 // }} is an escaped brace unless reading it so leaves the block open, as core's findClose reads it
 function blockEnd(tokens: Token[], start: number, pairs: boolean): number | undefined {
   let depth = 0;
+  // a format block's head has no escapes: its first } closes it, and a } after that is text
+  let head = true;
   for (let k = start; k < tokens.length; k++) {
     const token = tokens[k]!;
     if (typeof token !== 'string') {
       if (token.head) depth += 1;
+    } else if (token === '|' && depth === 1) {
+      head = false;
+    } else if (token === '}' && head && depth === 1) {
+      return k;
     } else if (token === '{' || token === '}') {
       if (tokens[k + 1] === token && (token === '{' || !(pairs && depth > 1))) {
         k += 1;

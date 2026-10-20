@@ -378,7 +378,7 @@ import {
   transformSource,
 } from '@verbaly/compiler';
 
-const cfg = await loadConfig(process.cwd());
+const cfg = await loadConfig(process.cwd(), options, { plugin: true });
 const catalogs = loadCatalogs(cfg);
 const registry = new MessageRegistry();
 
@@ -388,6 +388,8 @@ const { messages, result } = transformSource(code, id, registry);
 // at the end of the build: lists what is missing or broken, and throws only with failOnMissing
 runBuildGate(cfg, registry);
 ```
+
+Your plugin's options go second and `{ plugin: true }` third: when one the command line also reads (`sourceLocale`, `locales`, `dir`, `include`, `exclude`) differs from `verbaly.config`, the build says once to move it there, since `verbaly check` never reads a bundler config.
 
 A build that scans first, as the Vite plugin does to sync the catalogs, keeps that scan with `extractProject(cfg, { keepSource: true })` and passes it as the fourth argument of `transformSource`: a file it read unchanged is not parsed a second time. Call `reportOutsideInclude(cfg)` once when your build starts: it names every file outside `include` that writes a `` t`…` ``, which no build translates. It reads the project itself, so a cached transform never hides one. `writeDts(cfg, catalog)` writes the types where the config resolves them and returns the file and whether it changed.
 

@@ -30,7 +30,7 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
   let scan: MessageRegistry | undefined;
   const registry = new MessageRegistry();
   const ready = (async () => {
-    cfg = await loadConfig(options.root ?? process.cwd(), options);
+    cfg = await loadConfig(options.root ?? process.cwd(), options, { plugin: true });
     catalogs = loadCatalogs(cfg);
     included = createSourceFilter(cfg);
     scan = await extractProject(cfg, { keepSource: true });

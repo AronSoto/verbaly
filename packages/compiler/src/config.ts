@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import type { RichLink, Routing } from 'verbaly';
 import { defaultTypesPath } from './host';
 import { PSEUDO_LOCALE } from './pseudo';
+import { warnOnce } from './warn';
 import type { TranslateProvider } from './translate';
 
 // a term maps to how it must come out: one rendering for every locale, or one per locale
@@ -202,9 +203,32 @@ export function targetLocales(cfg: ResolvedConfig, override?: string[]): string[
 export async function loadConfig(
   root: string,
   overrides: VerbalyConfig = {},
+  from: { plugin?: boolean } = {},
 ): Promise<ResolvedConfig> {
   const fileConfig = await loadConfigFile(root);
+  if (from.plugin) warnPluginOnly(root, fileConfig, overrides);
   return resolveConfig({ ...fileConfig, ...definedOnly(overrides), root });
+}
+
+// what verbaly check and extract read: set only in a plugin, the build and the CLI disagree
+const READ_BY_CLI = ['sourceLocale', 'locales', 'dir', 'include', 'exclude'] as const;
+
+function warnPluginOnly(root: string, file: VerbalyConfig, overrides: VerbalyConfig): void {
+  // resolved on both sides: a default or a path written another way is what the CLI reads too
+  const cli = resolveConfig({ ...file, root });
+  const build = resolveConfig({ ...file, ...definedOnly(overrides), root });
+  const keys = READ_BY_CLI.filter(
+    (key) =>
+      overrides[key] !== undefined && JSON.stringify(cli[key]) !== JSON.stringify(build[key]),
+  );
+  if (keys.length === 0) return;
+  const names = keys.length > 1 ? `${keys.slice(0, -1).join(', ')} and ${keys.at(-1)}` : keys[0];
+  const [verb, pronoun] = keys.length > 1 ? ['are', 'them'] : ['is', 'it'];
+  warnOnce(
+    `${names} ${verb} set in the plugin options, which \`verbaly check\` and \`verbaly extract\` ` +
+      `never read: move ${pronoun} to verbaly.config so the command line checks what the build ships`,
+    `plugin-only:${root}`,
+  );
 }
 
 function definedOnly(config: VerbalyConfig): VerbalyConfig {

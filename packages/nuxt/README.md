@@ -19,6 +19,7 @@ One line in `nuxt.config` wires everything: the Vite plugin (live extraction + t
 
 ```bash
 pnpm add verbaly @verbaly/nuxt @verbaly/vue
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
 ```
 
 ## ⚡ Wire it up

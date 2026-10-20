@@ -69,6 +69,18 @@ describe('blocks that close together', () => {
     expect(render('{a}} texto', { a: 1 })).toBe('{a}} texto');
   });
 
+  // what the compiler writes for t`${count}}`: a name holds no brace, so the first } closes it
+  it('closes a value or a format before the escaped brace that follows it', () => {
+    expect(render('{count}}}', { count: 5 })).toBe('5}');
+    expect(render('{{{count}}}', { count: 5 })).toBe('{5}');
+    expect(render('Fija {{"limit": {count}}}', { count: 5 })).toBe('Fija {"limit": 5}');
+    expect(render('{n:number}}} y {n:number}}}}}', { n: 5 })).toBe('5} y 5}}');
+    expect(render('{c | one: {n}}} | other: x}', { c: 1, n: 5 })).toBe('5}');
+    // a block's variants keep }} an escape: the brace belongs to the text it ends
+    expect(render('{count | one: uno}} | other: varios}', { count: 1 })).toBe('uno}');
+    expect(render('{count | one: uno | other: varios}}}', { count: 2 })).toBe('varios}');
+  });
+
   it('keeps }} an escaped brace wherever the block closes without it', () => {
     // migrate doubles a lone } inside a block, and those catalogs render as they always did
     expect(render('{count | one: a }} b | other: c }} d}', { count: 1 })).toBe('a } b');

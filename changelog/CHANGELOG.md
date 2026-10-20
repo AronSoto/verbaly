@@ -8,6 +8,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.74.0] · 2026-10-19
+
+**Big projects build faster, and a rebuild after a save does less work.** Verbaly now reads each of your files once when a build starts, keeps what it already read of your translations between rebuilds, and shows pages with thousands of different texts faster. Breaking: nothing.
+
+### Highlights
+
+- **Rebuilds after a save do less work.** When your build runs again after you save a file, Verbaly keeps what it already read of your translations instead of reading all of them again.
+- **Builds start sooner.** Verbaly reads each of your files once when a build or a dev server starts. Before, it read the whole project twice.
+- **Pages with thousands of texts are faster.** A page that shows more than 5 000 different texts now spends less time on each one.
+
+### Changed
+
+- **The message cache drops its oldest entry in constant time (`verbaly`).** `parse` keeps up to 5 000 parsed messages and drops the oldest past that. It found the oldest by starting a new iterator on every drop, and a new iterator walks every hole the earlier drops left at the front of the table, so past the cap each new message cost several times what it should. One live iterator now walks the cache in order. The order is the same (the oldest goes, the newest stays), and nothing changes below the cap.
+- **The gate remembers what its last pass read (`@verbaly/compiler`; `@verbaly/vite`, `@verbaly/unplugin`, `@verbaly/mcp` and `@verbaly/studio` through it).** `check()` reads every message through the core's parser several times, and above the core's cap a pass in order swept that cache whole, so every rebuild parsed every text again. A pass now keeps the trees it read, the next pass takes them from there, and a text the last pass did not read is dropped, so memory follows the catalogs. Each text is parsed once per pass. A validation outside `check()` (`translate`, `import`, `writeDrafts`, Studio's save) remembers nothing. Nothing new is exported.
+- **The check for files outside `include` reads only those files (`@verbaly/compiler`; `@verbaly/vite`, `@verbaly/unplugin` and `@verbaly/next` when a build or a dev server starts, and `doctor`).** `filesOutsideInclude` read every source file of the project and only then dropped the ones `include` or `exclude` names. One path predicate now decides before anything is read. What it reports is the same.
+- **The build receipt measures by phase (`@verbaly/vite`, in the repository only).** `pnpm --filter @verbaly/vite bench` builds two apps, of 200 and 1 500 modules (the second holds more texts than the core's cache), with each language's own text. Before, `es.json` was a copy of `en.json`, so the cache saw each text once and its cap never showed. It prints the scan, the gate with its memo empty and the gate on a rebuild next to the build with and without Verbaly. The builds repeat five times in one process, the way watch runs them, so the gate inside them reads from its memo after the first.
+- **A runtime bench case past the cache cap (`verbaly`, in the repository only).** `t() past the AST cache cap` cycles through 4 000 and then 6 000 distinct messages.
+- **The canary's size budget (`verbaly`, in the repository only)** goes from 7.97 to 7.98 KB, Aron's call (Notes).
+
+### Fixed
+
+- **A test that signed its commits with the machine's git config (in the repository only).** The test of a real git merge of `verbaly.lock` commits in a throwaway repository and isolated the identity and the line endings, but not `commit.gpgsign`. On a machine that signs commits, `pnpm test` failed once gpg had no passphrase cached. It now sets `commit.gpgsign=false` there.
+
+### Notes
+
+- **Why this release.** The question was whether to rewrite the compiler in Rust, so it was measured first. Over the sources of this repository, verbaly-web and the portfolio (354 files, 1.9 MB), Babel parses in 112 ms, oxc (the Rust parser Vite 8 uses) in 39 ms, and the whole `analyzeFile` takes 165 ms: parsing is about two thirds of the analysis. In a Vite 8 build of 1 500 modules with 15 000 messages, Verbaly added about 1.2 s, and Babel's share was 51 ms. The gate (about 460 ms) and the scan (about 310 ms) weighed far more, and the profile showed why. The compiler stays in TypeScript, and the three fixes went where the time was. A compiler in Rust would also ship a native binary per platform, the kind Smart App Control blocked on the machine this is built on.
+- **Before and after**, A/B on this machine, HEAD's sources against this build, alternated in one process, at 1 500 modules and 30 000 texts: the gate with nothing remembered went from about 260 to 150 ms, the gate on a rebuild from about 250 to 81 ms, `reportOutsideInclude` from about 46 to 10 ms once the files sit in the system's cache, and a whole Vite 8 build, repeated in one process, from 836 to 613 ms (median of 7). At 200 modules the build went from 107 to 102 ms, inside the noise. The first read of freshly generated files costs 1 to 4 s here (the antivirus) whoever reads first, so it is not counted as a saving.
+- **The runtime past the cap:** `t()` over 6 000 distinct messages in a cycle took about 5.0 µs per call on 0.73.0 and about 3.0 µs now (over 20 000, from 5.0 to 2.9 µs); below the cap, 1.3 µs on both. The new bench case reads 1.23 µs at 4 000 messages and 2.86 µs at 6 000.
+- **Build receipt** (`pnpm --filter @verbaly/vite bench`, median of 5): at 200 modules, 52 ms without Verbaly and 129 ms with it (+77 ms, 2.47x); scan 37 ms, gate 15 ms with its memo empty and 16 ms on a rebuild (under the cap, the core's cache already holds these texts). At 1 500 modules, 159 and 693 ms (+533 ms, 4.35x); scan 220 ms, gate 159 ms with its memo empty and 114 ms on a rebuild. They do not compare with 0.73.0's receipt, which built one app of 200 modules with the same text in both languages.
+- **Sizes** (`pnpm --filter verbaly size`): `createVerbaly` alone 3.33 KB (+7 B), a real app 6.15 KB (+6 B), the canary 7.97 KB (+8 B), devtools 1.60 KB. The delta was first measured from the sources (+5, +5 and +4 B), and Aron approved that; tsdown's build gave +7, +6 and +8 B and put the canary 2.7 B over its budget. Three other spellings did not bring it under, and Aron raised the canary's budget from 7.97 to 7.98 KB. The floor and the app stay inside theirs.
+- **The review** (`/code-review`, high) reported eight findings. Six are fixed: the receipt said "nothing remembered" while the core's cache still held the small app's texts; its build line did not say the builds repeat in one process; the iterator's invariant (the drop is the only delete) was not written; the memo grew in processes that validate without checking (the MCP server, Studio); the path predicate and the relative path ran twice per file; and each round of the receipt scanned twice. Two stay. A second AST cache lives in the compiler, because the core's budgets have no room. And the live iterator, created when the module loads, keeps the cache's superseded tables reachable until its first drop: measured, about 28 KB of heap with 1 000 cached messages and 114 KB with 4 000. Creating it at the first drop costs 3 B more, and Aron kept it as it is.
+- **The differential** (new in the release ritual): 0.73.0 from npm against this build, over verbaly-web, the portfolio and a fixture with every template form, comparing the extracted keys and texts, every list `check` returns and 6 348 renders with sample params. Nothing differs. Against 0.72.0 it finds what 0.73.0 changed: blocks in the template change key and render.
+- **Every new pin was seen red before it was trusted: 9 of 9.** One on the outside check; two on the cache (no new iterator per drop; the oldest goes and the newest stays, sabotaged by removing the drop); five on the gate's memo (the next pass parses nothing, one parse per text per pass, a text the last pass did not read is dropped, the verdict does not change, nothing is kept outside a pass); and one on the test's git isolation, red with gpg unable to sign. The memo's pins were sabotaged again after the review reshaped it.
+- **1 832 tests under `pnpm test`, 8 new** (0.73.0: 1 824). Core 388, compiler 904 plus 20 in its DOM config, MCP 39. **1 836 under `pnpm coverage`**, the benches included, with 96.89% of lines covered.
+- **Bench:** 27.3x, 12.9x, 5.2x and 4.8x against i18next (10.9M lookups per second). The lookup path did not change.
+- **Dependencies**, development only: i18next 26.5.2. 26.5.3 is a day old, and pnpm's release age keeps it for the next one. Nothing changes in what ships.
+- **Canonical build and real consumers**, from the tarballs of a Linux build on Node 22: the size gate as above with every README figure in agreement, publint "All good" on all thirteen, attw as `known-ok.md` expects, and `pnpm test` green there too. verbaly-web with `verbaly`, `@verbaly/compiler`, `@verbaly/astro` and `@verbaly/vite` 0.74.0: `pnpm build` and `pnpm check` green, `check-size` naming the two figures that move (above). The portfolio with `@verbaly/next` and `@verbaly/react`: `verbaly check`, and `next build` with Turbopack and with webpack, green, its OG images still static. A Vite 8 app built from the tarballs renders "Tienes 1 mensaje", "Tienes 5 mensajes", "Total: 12,50 €" and "Hola Ana". The MCP bin answers `initialize` as 0.74.0 and lists its tools in the cycle's order.
+- **First contact** (`pnpm first-contact`, pnpm 12.8.1 and npm 11.19.0, on this build): the four shapes green.
+
+### Docs impact
+
+- **The runtime figures:** `RUNTIME_KB` goes from 3.32 to 3.33 and `RUNTIME_APP_KB` from 6.14 to 6.15 in `src/constants/size.ts`, and so does the figure in `docs_why.q_light_b` and anywhere a page states 3.32 KB. `sync-audit` checks all three.
+- **Nothing else in the docs:** the changes are speed and the repository's own tooling. No API, option, command or message changes.
+- **`releases.ts` plus `changelog_rel.v0_74_0` in en, es and pt**, with the three highlights and `breaking: 0`.
+
+---
+
 ## [0.73.0] · 2026-10-18
 
 **Plurals, choices and prices now work right in the text you write in your code.** Put the number in `${…}` and Verbaly picks the right words for each language, with nothing to add to your translation files by hand. Nested choices in your translation files show the right words too, and text that cannot work as written now tells you how to write it. Breaking: nothing.

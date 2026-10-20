@@ -14,6 +14,8 @@ export interface ParamNode {
 
 const astCache = new Map<string, MessageNode[]>();
 const AST_CACHE_MAX = 5000; // dynamic/CMS messages can't grow it unbounded
+// one live iterator, and the drop below the only delete: a new one walks every hole at the front
+const oldest = astCache.keys();
 
 // ICU is the escape hatch, so its parser is a passenger the app opts into rather than always ships
 export type IcuParser = (message: string) => MessageNode[];
@@ -29,7 +31,7 @@ export function parse(message: string, icu?: IcuParser): MessageNode[] {
       cached = parseMessage(message, false);
     }
     // drop the oldest, never the whole map: clearing threw away the hot set on every overflow
-    if (astCache.size >= AST_CACHE_MAX) astCache.delete(astCache.keys().next().value as string);
+    if (astCache.size >= AST_CACHE_MAX) astCache.delete(oldest.next().value as string);
     astCache.set(message, cached);
   }
   return cached;

@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import fs, { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -87,5 +88,27 @@ describe('a file outside include that writes t`…`', () => {
     const found = await filesOutsideInclude(resolveConfig({ root }));
     const files = found.map((entry) => entry.file.replaceAll('\\', '/'));
     expect(files).toEqual([join(root, 'components', 'save.tsx').replaceAll('\\', '/')]);
+  });
+
+  // every build and dev server runs this at start: the scan already reads what include covers
+  it('never reads a file the config includes or excludes', async () => {
+    const root = nextLayout();
+    mkdirSync(join(root, 'components', 'stories'));
+    writeFileSync(join(root, 'components', 'stories', 'card.tsx'), SAVE);
+    const cfg = resolveConfig({ root, exclude: ['components/stories/**'] });
+    const read = vi.spyOn(fs, 'readFileSync');
+    syncBuiltinESMExports();
+    try {
+      const found = await filesOutsideInclude(cfg);
+      const paths = read.mock.calls.map(([path]) => String(path).replaceAll('\\', '/'));
+      expect(paths.filter((path) => path.endsWith('/app/page.tsx'))).toEqual([]);
+      expect(paths.filter((path) => path.endsWith('/stories/card.tsx'))).toEqual([]);
+      expect(found.map((entry) => entry.pattern)).toEqual([
+        'components/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}',
+      ]);
+    } finally {
+      read.mockRestore();
+      syncBuiltinESMExports();
+    }
   });
 });

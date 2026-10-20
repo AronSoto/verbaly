@@ -1,7 +1,30 @@
 import { parse, parseIcu, type MessageNode } from 'verbaly';
 
+// trees of the last gate pass, read again by the next rebuild: core's cache caps below a big app
+let remembered = new Map<string, MessageNode[]>();
+let reading: Map<string, MessageNode[]> | undefined;
+
 // the gate reads every catalog on disk, so it always has the parser the runtime only opts into
-const read = (message: string): MessageNode[] => parse(message, parseIcu);
+function read(message: string): MessageNode[] {
+  if (!reading) return parse(message, parseIcu);
+  let tree = reading.get(message);
+  if (!tree) {
+    tree = remembered.get(message) ?? parse(message, parseIcu);
+    reading.set(message, tree);
+  }
+  return tree;
+}
+
+// only check() remembers, so memory follows the catalogs: a save outside it keeps nothing
+export function gatePass<T>(run: () => T): T {
+  reading = new Map();
+  try {
+    return run();
+  } finally {
+    remembered = reading;
+    reading = undefined;
+  }
+}
 
 export const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many']);
 export type IssueSeverity = 'error' | 'warning';

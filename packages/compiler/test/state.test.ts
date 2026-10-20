@@ -328,12 +328,18 @@ describe('a merge conflict in verbaly.lock', () => {
     'merges what two real git branches stamped, after git marks the lock as a conflict',
     () => {
       const c = cfg();
+      // a throwaway repository: the developer's identity, line endings and signing never reach it
+      const isolated = [
+        'user.email=t@t',
+        'user.name=t',
+        'core.autocrlf=false',
+        'commit.gpgsign=false',
+      ];
       const git = (...args: string[]) =>
-        execFileSync(
-          'git',
-          ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'core.autocrlf=false', ...args],
-          { cwd: c.root, stdio: 'pipe' },
-        );
+        execFileSync('git', [...isolated.flatMap((setting) => ['-c', setting]), ...args], {
+          cwd: c.root,
+          stdio: 'pipe',
+        });
       const keys = ['a.alpha', 'a.beta', 'a.gamma', 'a.delta', 'a.epsilon', 'a.zeta'];
       const en = Object.fromEntries(keys.map((key) => [key, `${key.slice(2)} text`]));
       const es: Record<string, string> = Object.fromEntries(keys.map((key) => [key, '']));

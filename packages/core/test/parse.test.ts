@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createVerbaly, type Params } from '../src/index';
 import { parse } from '../src/parse';
 
@@ -89,5 +89,26 @@ describe('AST cache cap', () => {
       { kind: 'text', value: 'filler 0 ' },
       { kind: 'param', name: 'n' },
     ]);
+  });
+
+  it('drops the oldest message past the cap and keeps the newest', () => {
+    const oldest = parse('fifo oldest {n}');
+    for (let i = 0; i < 5000; i++) parse(`fifo filler ${i} {n}`);
+    const newest = parse('fifo newest {n}');
+    for (let i = 0; i < 10; i++) parse(`fifo after ${i} {n}`);
+    expect(parse('fifo oldest {n}')).not.toBe(oldest);
+    expect(parse('fifo newest {n}')).toBe(newest);
+  });
+
+  // a new iterator starts at the front of the table and walks every hole the earlier drops left
+  it('drops the oldest without starting a new walk of the cache each time', () => {
+    for (let i = 0; i < 5100; i++) parse(`walk filler ${i} {n}`);
+    const keys = vi.spyOn(Map.prototype, 'keys');
+    try {
+      for (let i = 0; i < 200; i++) parse(`walk past the cap ${i} {n}`);
+      expect(keys).not.toHaveBeenCalled();
+    } finally {
+      keys.mockRestore();
+    }
   });
 });

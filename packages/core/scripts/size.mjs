@@ -44,7 +44,7 @@ const SURFACES = [
   {
     name: 'every export at once (canary, nobody ships this)',
     code: "export * from './dist/index.js';",
-    budget: 7.97,
+    budget: 7.98,
     claims: [],
   },
 ];

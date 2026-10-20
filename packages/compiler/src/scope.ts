@@ -33,18 +33,26 @@ export interface OutsideFile {
   pattern: string;
 }
 
+// the relative path of a project file neither include nor exclude names, judged before any read
+function outsidePath(cfg: ResolvedConfig): (id: string) => string | undefined {
+  const included = picomatch(cfg.include);
+  const excluded = picomatch(cfg.exclude);
+  return (id) => {
+    const rel = relativeId(cfg, id);
+    return rel.startsWith('..') || included(rel) || excluded(rel) ? undefined : rel;
+  };
+}
+
 // a file the build reads and extract never will: its t`…` shows the source text in every language
 export function createOutsideCheck(
   cfg: ResolvedConfig,
 ): (code: string, id: string) => OutsideFile | undefined {
   // include: [] turns scanning off on purpose, so nothing is outside of it
   if (cfg.include.length === 0) return () => undefined;
-  const included = picomatch(cfg.include);
-  const excluded = picomatch(cfg.exclude);
+  const outside = outsidePath(cfg);
   return (code, id) => {
-    const rel = relativeId(cfg, id);
-    if (rel.startsWith('..') || included(rel) || excluded(rel)) return undefined;
-    if (!TAGGED_HINT.test(code)) return undefined;
+    const rel = outside(id);
+    if (rel === undefined || !TAGGED_HINT.test(code)) return undefined;
     // the hint matches prose too: only a real tagged template on t counts
     if (analyzeFile(code, id).tagged.length === 0) return undefined;
     return { file: id, pattern: suggestedPattern(rel) };
@@ -71,6 +79,7 @@ export async function reportOutsideInclude(cfg: ResolvedConfig): Promise<void> {
 export async function filesOutsideInclude(cfg: ResolvedConfig): Promise<OutsideFile[]> {
   if (cfg.include.length === 0) return [];
   const check = createOutsideCheck(cfg);
+  const outside = outsidePath(cfg);
   const files = await glob([`**/*.${SOURCE_EXTENSIONS}`], {
     cwd: cfg.root,
     ignore: [...NOT_SOURCE, ...cfg.exclude],
@@ -78,14 +87,16 @@ export async function filesOutsideInclude(cfg: ResolvedConfig): Promise<OutsideF
   });
   const found: OutsideFile[] = [];
   for (const file of files.sort()) {
+    // the scan reads what include covers; reading it here as well read the project twice
+    if (outside(file) === undefined) continue;
     let code: string;
     try {
       code = readFileSync(file, 'utf8');
     } catch {
       continue;
     }
-    const outside = check(code, file);
-    if (outside) found.push(outside);
+    const entry = check(code, file);
+    if (entry) found.push(entry);
   }
   return found;
 }

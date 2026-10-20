@@ -16,7 +16,13 @@ import { CLI_INSTALL_FIX } from './init';
 import type { MessageRegistry } from './registry';
 import { outdatedTranslations, type Fingerprints, type OutdatedEntry } from './state';
 import { counted, truncate } from './text';
-import { validateMessage, validatePair, type IssueSeverity, type StructureIssue } from './validate';
+import {
+  gatePass,
+  validateMessage,
+  validatePair,
+  type IssueSeverity,
+  type StructureIssue,
+} from './validate';
 
 export interface MissingEntry {
   locale: string;
@@ -89,6 +95,15 @@ export function check(
   catalogs: Catalogs,
   registry: MessageRegistry,
   fingerprints: Fingerprints = {},
+): CheckResult {
+  return gatePass(() => checkPass(cfg, catalogs, registry, fingerprints));
+}
+
+function checkPass(
+  cfg: ResolvedConfig,
+  catalogs: Catalogs,
+  registry: MessageRegistry,
+  fingerprints: Fingerprints,
 ): CheckResult {
   const extracted = registry.messages();
 

@@ -9,3 +9,8 @@ updates:
       interval: weekly
     commit-message:
       prefix: 'chore(ci)'
+    # one pull request a week: CodeQL fails when its init and analyze steps differ in version
+    groups:
+      actions:
+        patterns:
+          - '*'

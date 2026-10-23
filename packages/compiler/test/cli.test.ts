@@ -375,6 +375,28 @@ describe('runCli: extract', () => {
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
   });
 
+  it('counts the messages the catalog holds, and how many the code wrote when that differs', async () => {
+    const keysFirst = makeProject(
+      { en: { 'home.title': 'Home', 'home.lead': 'Lead' }, es: {} },
+      "t('home.title');\n",
+    );
+    await runCli(['extract', '--root', keysFirst]);
+    expect(output(log)).toContain('[verbaly] 2 messages (0 in code) · locales: en, es');
+
+    log.mockClear();
+    const mixed = makeProject(
+      { en: { 'nav.home': 'Home' } },
+      'export const a = t`Counted twice`;\n',
+    );
+    await runCli(['extract', '--root', mixed]);
+    expect(output(log)).toContain('[verbaly] 2 messages (1 in code) · locales: en');
+
+    log.mockClear();
+    const codeFirst = makeProject({ en: {} }, 'export const a = t`Counted once`;\n');
+    await runCli(['extract', '--root', codeFirst]);
+    expect(output(log)).toContain('[verbaly] 1 message · locales: en');
+  });
+
   it('a nested catalog survives extract instead of gaining a flat twin', async () => {
     const root = makeProject(
       { en: { hero: { title: 'Welcome' } }, es: { hero: { title: 'Bienvenido' } } } as never,

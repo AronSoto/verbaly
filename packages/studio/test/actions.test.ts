@@ -79,6 +79,8 @@ describe('extract, which is local and free and answers in the request', () => {
     const result = await runExtract(cfg);
 
     expect(result.found).toBe(1);
+    // the catalog's two plus the code's one, the count the CLI and the MCP server give
+    expect(result.messages).toBe(3);
     expect(JSON.stringify(JSON.parse(readFileSync(join(cfg.dir, 'en.json'), 'utf8')))).toContain(
       'Brand new',
     );

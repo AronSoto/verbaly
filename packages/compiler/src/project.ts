@@ -21,6 +21,8 @@ export interface SyncProjectOptions {
 export interface SyncProjectResult {
   registry: MessageRegistry;
   catalogs: Catalogs;
+  messages: number;
+  inCode: number;
   added: Record<string, string[]>;
   replaced: ReplacedText[];
   pruned: Record<string, string[]>;
@@ -45,6 +47,8 @@ export async function syncProject(
   const result: SyncProjectResult = {
     registry,
     catalogs,
+    messages: Object.keys(catalogs[cfg.sourceLocale] ?? {}).length,
+    inCode: registry.messages().size,
     added,
     replaced,
     pruned,

@@ -20,11 +20,11 @@ export interface VerbalyAstroOptions extends Omit<ViteVerbalyOptions, 'render'> 
 
 interface AstroConfigLike {
   root: URL;
+  trailingSlash?: 'always' | 'never' | 'ignore';
 }
 interface ConfigSetupLike {
   config: AstroConfigLike;
   updateConfig(config: { vite?: { plugins?: unknown } }): unknown;
-  injectScript(stage: 'page', content: string): void;
 }
 interface ConfigDoneLike {
   buildOutput?: 'static' | 'server';
@@ -42,13 +42,6 @@ export interface VerbalyAstroIntegration {
   };
 }
 
-// the ClientRouter swaps the document, so each page's own slice has to reach the runtime with it
-const ADOPT_SCRIPT = `import { adoptPage } from 'virtual:verbaly';
-document.addEventListener('astro:before-swap', (event) => {
-  adoptPage({ root: event.newDocument, path: event.to.pathname });
-});
-`;
-
 export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstroIntegration {
   const { render, ...rest } = options;
   // one shared mutable options object: config:done fills dts, the plugin reads it lazily
@@ -59,12 +52,13 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
   return {
     name: '@verbaly/astro',
     hooks: {
-      async 'astro:config:setup'({ config, updateConfig, injectScript }) {
+      // virtual:verbaly follows the ClientRouter swap itself, so no page gets a script from here
+      async 'astro:config:setup'({ config, updateConfig }) {
         // root pinned to the project dir: Astro's Vite root can differ and discovery finds nothing
         root = vite.root ??= fileURLToPath(config.root);
+        // the site's own form of a url: every href Verbaly writes or navigates to follows it
+        vite.trailingSlash ??= config.trailingSlash;
         updateConfig({ vite: { plugins: [verbalyVite(vite)] } });
-        const cfg = await loadConfig(root, vite, { plugin: true });
-        if (cfg.render.inlineCatalog === true) injectScript('page', ADOPT_SCRIPT);
       },
       async 'astro:config:done'(options) {
         buildOutput = options.buildOutput;

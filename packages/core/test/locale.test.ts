@@ -47,6 +47,23 @@ describe('localePath', () => {
     expect(localePath('pt', { ...opts, path: '/es' })).toBe('/pt');
   });
 
+  it("follows the site's own trailing slash when it has one, the root included", () => {
+    const never = { ...opts, trailingSlash: 'never' as const };
+    // the root was the one url whose form got invented: / became /es/ on a site without the /
+    expect(localePath('es', { ...never, path: '/' })).toBe('/es');
+    expect(localePath('pt', { ...never, path: '/es/docs/' })).toBe('/pt/docs');
+    expect(localePath('en', { ...never, path: '/es' })).toBe('/');
+    expect(localePath('en', { ...never, path: '/docs/es', base: '/docs' })).toBe('/docs');
+    const always = { ...opts, trailingSlash: 'always' as const };
+    expect(localePath('es', { ...always, path: '/docs' })).toBe('/es/docs/');
+    expect(localePath('es', { ...always, path: '/' })).toBe('/es/');
+    expect(localePath('en', { ...always, path: '/es?q=1' })).toBe('/?q=1');
+    // ignore matches both forms, so the page's own form is kept, as it was without a setting
+    expect(localePath('pt', { ...opts, trailingSlash: 'ignore', path: '/es/docs/' })).toBe(
+      '/pt/docs/',
+    );
+  });
+
   it('carries the query and the hash along', () => {
     expect(localePath('pt', { ...opts, path: '/es/docs?q=1#top' })).toBe('/pt/docs?q=1#top');
   });
@@ -559,6 +576,21 @@ describe('alternateLinks', () => {
     ]);
   });
 
+  it("writes every href in the site's own trailing slash, both routing modes", () => {
+    // a folder-style href on a site that never ends in / is an address that redirects
+    expect(alternateLinks({ ...OPTIONS, path: '/', trailingSlash: 'never' })).toEqual([
+      { hreflang: 'en', href: 'https://x.dev/' },
+      { hreflang: 'es', href: 'https://x.dev/es' },
+      { hreflang: 'pt', href: 'https://x.dev/pt' },
+      { hreflang: 'x-default', href: 'https://x.dev/' },
+    ]);
+    const all = { ...OPTIONS, routing: 'prefix-all' as const, trailingSlash: 'always' as const };
+    expect(alternateLinks({ ...all, path: '/en/docs' })[1]).toEqual({
+      hreflang: 'es',
+      href: 'https://x.dev/es/docs/',
+    });
+  });
+
   it('answers the same set from any locale tree, which is what reciprocal means', () => {
     expect(alternateLinks({ ...OPTIONS, path: '/es/docs' })).toEqual(
       alternateLinks({ ...OPTIONS, path: '/docs' }),
@@ -784,6 +816,21 @@ describe('switchLocale: one call, both modes', () => {
     expect(calls).toEqual([]);
     expect(went).toHaveLength(1);
     expect(went[0]).toContain('/pt');
+  });
+
+  it("navigates to the site's own form of the url, the home included", async () => {
+    const { instance } = fake();
+    const went: string[] = [];
+    history.replaceState({}, '', '/');
+    await switchLocale(instance, 'es', {
+      routing: 'prefix-except-source',
+      supported: SUPPORTED,
+      sourceLocale: 'en',
+      trailingSlash: 'never',
+      navigate: (p) => void went.push(p),
+    });
+    // /es/ on a site that never ends in / is one redirect more, and a canonical that disagrees
+    expect(went).toEqual(['/es']);
   });
 
   it('keeps the search and the anchor of the page it leaves', async () => {

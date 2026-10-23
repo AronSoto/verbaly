@@ -222,9 +222,10 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
             : `  ${locale}: -${keys.length} pruned`,
         );
       }
-      const total = result.registry.messages().size;
+      // keys-first code writes none of the messages, so the code's count alone reads as 0
+      const origin = result.inCode === result.messages ? '' : ` (${result.inCode} in code)`;
       console.log(
-        `[verbaly] ${counted(total, 'message')} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
+        `[verbaly] ${counted(result.messages, 'message')}${origin} · locales: ${cfg.locales.join(', ')}${dryRun ? ' (dry run, nothing written)' : ''}`,
       );
       for (const [locale, keys] of Object.entries(result.added)) {
         console.log(`  ${locale}: ${dryRun ? `would add ${keys.length}` : `+${keys.length}`}`);

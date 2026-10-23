@@ -17,6 +17,17 @@ export function own(catalog: Catalog, key: string): string | undefined {
   return Object.hasOwn(catalog, key) ? catalog[key] : undefined;
 }
 
+// readCatalog hands a flat catalog with no prototype, and a reader that only reads needs no copy
+export function flatView(tree: unknown): Catalog {
+  if (typeof tree !== 'object' || tree === null || Object.getPrototypeOf(tree) !== null) {
+    return flatten(tree as MessageTree);
+  }
+  for (const key in tree) {
+    if (typeof (tree as MessageTree)[key] !== 'string') return flatten(tree as MessageTree);
+  }
+  return tree as Catalog;
+}
+
 export function catalogPath(cfg: ResolvedConfig, locale: string): string {
   return join(cfg.dir, `${locale}.json`);
 }
@@ -206,21 +217,27 @@ const ICU_ARG =
   /(^|[^{])\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
 
 export function needsIcu(catalogs: Catalogs): boolean {
-  for (const catalog of Object.values(catalogs)) {
-    for (const message of Object.values(flatten(catalog as MessageTree))) {
-      if (ICU_ARG.test(message)) return true;
-    }
-  }
-  return false;
+  return someMessage(catalogs, ICU_ARG);
 }
 
 // relative time is the one format heavy enough to be worth shipping only where it is written
 const RELATIVE_ARG = /\{[^{}]*:\s*relative\b/;
 
 export function needsRelative(catalogs: Catalogs): boolean {
-  for (const catalog of Object.values(catalogs)) {
-    for (const message of Object.values(flatten(catalog as MessageTree))) {
-      if (RELATIVE_ARG.test(message)) return true;
+  return someMessage(catalogs, RELATIVE_ARG);
+}
+
+// walked in place: a flattened copy of every catalog per detector was most of what they cost
+function someMessage(catalogs: Catalogs, pattern: RegExp): boolean {
+  return Object.values(catalogs).some((catalog) => someLeaf(catalog, pattern));
+}
+
+function someLeaf(tree: MessageTree, pattern: RegExp): boolean {
+  for (const value of Object.values(tree)) {
+    if (typeof value === 'string') {
+      if (pattern.test(value)) return true;
+    } else if (isTree(value) && someLeaf(value, pattern)) {
+      return true;
     }
   }
   return false;

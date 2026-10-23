@@ -531,6 +531,23 @@ describe('createVerbalyMcp: structured output', () => {
     expect(data.added.map((entry) => entry.locale).sort()).toEqual(['en', 'es']);
   });
 
+  it('extract counts what the catalog holds, as status does, and how much of it the code writes', async () => {
+    const root = makeProject();
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'locales', 'en.json'), '{"nav":{"home":"Home","docs":"Docs"}}');
+    writeFileSync(join(root, 'src', 'nav.ts'), "export const n = t('nav.home');\n");
+    const client = await connect(root);
+    const extracted = structured(
+      await client.callTool({ name: 'verbaly_extract', arguments: {} }),
+    ) as { messages: number; inCode: number };
+    const status = structured(await client.callTool({ name: 'verbaly_status', arguments: {} })) as {
+      messages: number;
+    };
+
+    expect(extracted).toMatchObject({ messages: 3, inCode: 1 });
+    expect(status.messages).toBe(3);
+  });
+
   // Proved able to fail without the guard: prune deleted bye, which only the broken file reads.
   it('extract names the files it could not read, and prune waits for them', async () => {
     const root = makeProject();

@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { useSwitchLocale, useT, VerbalyProvider } from '../src/client';
-import { fetched, setRouting } from './mocks/virtual-verbaly';
+import { fetched, setRouting, setTrailingSlash } from './mocks/virtual-verbaly';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -217,6 +217,30 @@ describe('useSwitchLocale: the mode decides what the router does', () => {
     } finally {
       setRouting('no-prefix');
       history.replaceState({}, '', '/');
+    }
+  });
+
+  // Next serves one form and redirects the other, so /es/ from the home was a redirect more
+  it("navigates to the site's own form of the url, the home included", async () => {
+    setRouting('prefix-except-source');
+    setTrailingSlash('never');
+    history.replaceState({}, '', '/');
+    try {
+      act(() => {
+        root.render(
+          <VerbalyProvider locale="en">
+            <Switcher />
+          </VerbalyProvider>,
+        );
+      });
+      await act(async () => {
+        container.querySelector('button')!.click();
+        await Promise.resolve();
+      });
+      expect(push).toHaveBeenCalledWith('/es');
+    } finally {
+      setRouting('no-prefix');
+      setTrailingSlash(undefined);
     }
   });
 });

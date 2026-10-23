@@ -37,7 +37,7 @@ export async function runExtract(cfg: ResolvedConfig): Promise<ExtractResult> {
     added: result.added,
     found: result.added[cfg.sourceLocale]?.length ?? 0,
     replaced: result.replaced.length,
-    messages: result.registry.messages().size,
+    messages: result.messages,
     ...(result.stateProblem && { stateProblem: result.stateProblem }),
   };
 }

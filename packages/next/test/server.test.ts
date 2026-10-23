@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { Routing } from 'verbaly';
+import type { Routing, TrailingSlash } from 'verbaly';
 
 const jar = {
   cookieName: 'verbaly-locale',
@@ -26,13 +26,19 @@ vi.mock('next/headers', () => ({
 
 // the mock by its own path, not through the alias: same module instance, and its real types
 async function load(
-  options: { cookie?: string | false; fallback?: string; routing?: Routing } = {},
+  options: {
+    cookie?: string | false;
+    fallback?: string;
+    routing?: Routing;
+    trailingSlash?: TrailingSlash;
+  } = {},
 ) {
   vi.resetModules();
   const virtual = await import('./mocks/virtual-verbaly');
   virtual.requestOptions.cookie = options.cookie;
   virtual.requestOptions.fallback = options.fallback;
   virtual.setRouting(options.routing ?? 'no-prefix');
+  virtual.setTrailingSlash(options.trailingSlash);
   return import('../src/server');
 }
 
@@ -213,6 +219,15 @@ describe('getAlternates', () => {
         es: 'https://x.dev/es/docs',
         'x-default': 'https://x.dev/docs',
       },
+    });
+  });
+
+  it("writes every href in the site's own form, the homes included", async () => {
+    const server = await load({ routing: 'prefix-except-source', trailingSlash: 'never' });
+    expect(server.getAlternates({ path: '/', baseUrl: 'https://x.dev' }).languages).toEqual({
+      en: 'https://x.dev/',
+      es: 'https://x.dev/es',
+      'x-default': 'https://x.dev/',
     });
   });
 

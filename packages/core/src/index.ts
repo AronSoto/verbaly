@@ -41,6 +41,7 @@ export type {
   Routing,
   StripLocalePathOptions,
   SwitchLocaleOptions,
+  TrailingSlash,
 } from './locale';
 export type { IcuParser, MessageNode, ParamNode } from './parse';
 export type { TagNode } from './tags';

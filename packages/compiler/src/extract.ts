@@ -112,7 +112,8 @@ export function shippedCatalogs(
   // false: only keys the source catalog has, for the commands that run after extract
   options: { newKeys?: boolean } = {},
 ): Catalogs {
-  const source = Object.assign(emptyCatalog(), flatten(catalogs[cfg.sourceLocale] ?? {}));
+  // flatten returns a fresh catalog with no prototype: the code writes into it, never the caller's
+  const source = flatten(catalogs[cfg.sourceLocale] ?? {});
   for (const [key, msg] of registry.messages()) {
     if (options.newKeys !== false || own(source, key) !== undefined) source[key] = msg.message;
   }

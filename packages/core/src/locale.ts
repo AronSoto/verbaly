@@ -66,10 +66,14 @@ export function localeName(locale: string, displayIn: string = locale): string {
 // how the language shows in the url, the one decision every other url answer follows from
 export type Routing = 'prefix-except-source' | 'no-prefix' | 'prefix-all';
 
+// the framework's own setting (Astro's trailingSlash, Next's): ignore keeps the form the page had
+export type TrailingSlash = 'always' | 'never' | 'ignore';
+
 interface LocalePathBase {
   supported: string[];
   path?: string;
   base?: string;
+  trailingSlash?: TrailingSlash;
 }
 
 // sourceLocale is required exactly where it decides the answer, so the old silent default cannot
@@ -97,7 +101,7 @@ export function localePath(locale: string, options: LocalePathOptions): string {
   const base = normalizeBase(options.base);
   const parts = splitLocalePath(full, supported, base);
   if (routing === 'prefix-all' || locale !== sourceLocale) parts.segments.unshift(locale);
-  return joinLocalePath(base, parts);
+  return joinLocalePath(base, parts, options.trailingSlash);
 }
 
 interface PathParts {
@@ -115,9 +119,13 @@ function splitLocalePath(full: string, supported: string[], base: string): PathP
   return { segments, rest: cut < 0 ? '' : full.slice(cut), trailingSlash: path.endsWith('/') };
 }
 
-function joinLocalePath(base: string, parts: PathParts): string {
-  const trailing = parts.segments.length && parts.trailingSlash ? '/' : '';
-  return `${base}/${parts.segments.join('/')}${trailing}${parts.rest}`;
+function joinLocalePath(base: string, parts: PathParts, slash?: TrailingSlash): string {
+  const path = parts.segments.join('/');
+  // the root's own slash is not a trailing one: only never drops it, and a bare / always stays
+  const trailing = path
+    ? slash === 'always' || (slash !== 'never' && parts.trailingSlash)
+    : slash !== 'never' || !base;
+  return base + (path && '/' + path) + (trailing ? '/' : '') + parts.rest;
 }
 
 // which tree this page belongs to: a fact of the url, so it answers undefined instead of guessing
@@ -153,6 +161,7 @@ export interface AlternateLinksOptions {
   routing?: Routing;
   base?: string;
   baseUrl?: string;
+  trailingSlash?: TrailingSlash;
 }
 
 // the reciprocal hreflang set for one page, the same one render writes, for a server that renders
@@ -164,14 +173,14 @@ export function alternateLinks(options: AlternateLinksOptions): AlternateLink[] 
   if (routing === 'no-prefix') return [];
 
   // the union is what makes sourceLocale required exactly where it decides, so the call branches
-  const base = options.base;
+  const { base, trailingSlash } = options;
   const href = (locale: string): string =>
     baseUrl +
     localePath(
       locale,
       routing === 'prefix-all'
-        ? { supported, routing, path, base }
-        : { supported, routing, sourceLocale, path, base },
+        ? { supported, routing, path, base, trailingSlash }
+        : { supported, routing, sourceLocale, path, base, trailingSlash },
     );
 
   const links = supported.map((locale) => ({ hreflang: locale, href: href(locale) }));
@@ -335,6 +344,7 @@ export interface SwitchLocaleOptions {
   supported?: string[];
   sourceLocale?: string;
   base?: string;
+  trailingSlash?: TrailingSlash;
   navigate?: (path: string) => void | Promise<void>;
 }
 
@@ -366,12 +376,11 @@ export async function switchLocale(
   persistLocale(locale, storageKey);
 
   if (!routed) return;
+  // the url half of the options as they came (localePath reads no other field), and never a path
   const target = localePath(locale, {
+    ...options,
     // the current segment has to be known to be stripped: /pt/docs must not become /es/pt/docs
     supported: options.supported ?? instance.locales ?? [locale],
-    sourceLocale: options.sourceLocale,
-    base: options.base,
-    routing: options.routing,
   } as LocalePathOptions);
   await (options.navigate ?? assign)(target);
 }

@@ -18,6 +18,7 @@ import {
   type Params,
   type RichLink,
   type TagNode,
+  type TrailingSlash,
   type Verbaly,
 } from 'verbaly';
 import type { Catalogs } from './catalog';
@@ -37,6 +38,7 @@ export interface MirrorLinks {
   prefix: string;
   base?: string;
   pages: ReadonlySet<string>;
+  trailingSlash?: TrailingSlash;
 }
 
 // the pre-paint script: the locale set it chooses from, and where a saved choice lives
@@ -45,6 +47,7 @@ export interface RedirectScript {
   sourceLocale: string;
   base?: string;
   storageKey?: string | false;
+  trailingSlash?: TrailingSlash;
 }
 
 interface RenderHtmlBase {
@@ -156,7 +159,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       rewriteUrl &&
       tagName === 'link' &&
       attrs.get('rel')?.toLowerCase() === 'canonical' &&
-      decodeEntities(attrs.get('href') ?? '') === sourceUrl
+      sameUrl(decodeEntities(attrs.get('href') ?? ''), sourceUrl)
     ) {
       setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'href', selfUrl!);
     }
@@ -164,7 +167,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       rewriteUrl &&
       tagName === 'meta' &&
       attrs.get('property') === 'og:url' &&
-      decodeEntities(attrs.get('content') ?? '') === sourceUrl
+      sameUrl(decodeEntities(attrs.get('content') ?? ''), sourceUrl)
     ) {
       setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'content', selfUrl!);
     }
@@ -276,6 +279,11 @@ function pageSlice(v: Verbaly, locale: string, used: Set<string>): Record<string
   return slice;
 }
 
+// the author's canonical in either form: /about and /about/ are one page however the site ends
+function sameUrl(written: string, url: string | undefined): boolean {
+  return url !== undefined && written.replace(/\/+$/, '') === url.replace(/\/+$/, '');
+}
+
 // the public path of a built page, the shape both the page set and an author's href reduce to
 export function publicPath(rel: string): string {
   const path = `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
@@ -333,7 +341,9 @@ function mirroredHref(raw: string | undefined, mirror: MirrorLinks): string | un
   const cut = inside.search(/[?#]/);
   const path = cut < 0 ? inside : inside.slice(0, cut);
   if (!mirror.pages.has(publicPath(path.replace(/^\//, '')))) return undefined;
-  return `${base}${mirror.prefix}${inside}`;
+  // the home link: / under a prefix is /es/, a form a site that never ends in / does not serve
+  const home = path === '/' && mirror.trailingSlash === 'never';
+  return `${base}${mirror.prefix}${home ? inside.slice(1) : inside}`;
 }
 
 // the boundary check is what keeps base /app from swallowing /application
@@ -360,7 +370,7 @@ const REDIRECT_BODY =
   'if(M(p.split("/")[1],1))return;' +
   'var w;if(K)try{w=M(localStorage.getItem(K))}catch(e){}' +
   'if(!w){var l=navigator.languages||[navigator.language];for(var i=0;i<l.length&&!w;i++)w=M(l[i])}' +
-  'if(!w||w===D)return;location.replace(B+"/"+w+p+location.search+location.hash)})()';
+  'if(!w||w===D)return;location.replace(B+"/"+w+(N&&p==="/"?"":p)+location.search+location.hash)})()';
 
 // </script> can never appear in a locale code, but a catalog is untrusted and this costs nothing
 function jsLiteral(value: unknown): string {
@@ -374,6 +384,7 @@ function redirectScript(options: RedirectScript): string {
     `D=${jsLiteral(options.sourceLocale)}`,
     `B=${jsLiteral(normalizeBase(options.base))}`,
     `K=${options.storageKey === false ? 'null' : jsLiteral(options.storageKey ?? LOCALE_STORAGE_KEY)}`,
+    `N=${options.trailingSlash === 'never' ? 1 : 0}`,
   ].join(',');
   return `<script>var ${vars};${REDIRECT_BODY};</script>`;
 }
@@ -499,6 +510,7 @@ export async function renderSite(
     sourceLocale: cfg.sourceLocale,
     base,
     storageKey: redirect.storageKey,
+    trailingSlash: cfg.trailingSlash,
   };
   // the text the build ships, or the pre-filled page and the runtime that repaints it disagree
   const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), await extractProject(cfg));
@@ -532,7 +544,9 @@ export async function renderSite(
     if (locales.length > 1 && !headIsBound(html, attribute ?? 'data-verbaly')) {
       untranslatedHead.push(rel);
     }
-    const alternates = wantHreflang ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale) : [];
+    const alternates = wantHreflang
+      ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale, cfg.trailingSlash)
+      : [];
     if (wantHreflang && isIndexable(html) && !excluded(rel)) urls.push({ rel, alternates });
     // only the source tree carries it: the mirror page a visitor reaches is already the answer
     const routed = script && (redirect!.on === 'all' || rel === 'index.html');
@@ -545,7 +559,10 @@ export async function renderSite(
         richTags: options.richTags,
         richLinks: options.richLinks ?? cfg.render.links,
         alternates,
-        mirror: locale === cfg.sourceLocale ? undefined : { prefix: `/${locale}`, base, pages },
+        mirror:
+          locale === cfg.sourceLocale
+            ? undefined
+            : { prefix: `/${locale}`, base, pages, trailingSlash: cfg.trailingSlash },
         redirect: routed && locale === cfg.sourceLocale ? script : undefined,
         inlineCatalog: cfg.render.inlineCatalog === true,
       });
@@ -594,6 +611,7 @@ function pageAlternates(
   rel: string,
   locales: string[],
   sourceLocale: string,
+  trailingSlash: TrailingSlash | undefined,
 ): Alternate[] {
   return alternateLinks({
     supported: locales,
@@ -601,6 +619,7 @@ function pageAlternates(
     path: pagePath(rel),
     routing: 'prefix-except-source',
     baseUrl,
+    trailingSlash,
   });
 }
 

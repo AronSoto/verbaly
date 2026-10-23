@@ -1,9 +1,8 @@
-import type { Catalog, Catalogs } from './catalog';
+import { flatView, type Catalog, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { effectiveDrafts, type Drafts } from './drafts';
 import { shippedCatalogs } from './extract';
 import { outdatedTranslations, type Fingerprints } from './state';
-import { flatten, type MessageTree } from 'verbaly';
 import type { MessageRegistry } from './registry';
 import { counted } from './text';
 import { validateMessage, validatePair } from './validate';
@@ -36,7 +35,7 @@ export function status(
   // one flat view per locale, like check: the shape t() sees, counted leaf by leaf
   const flat: Record<string, Catalog> = {};
   for (const locale of cfg.locales) {
-    flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);
+    flat[locale] = flatView(catalogs[locale] ?? {});
   }
   const source = flat[cfg.sourceLocale] ?? {};
   const needed = new Set<string>([...extracted.keys(), ...Object.keys(source)]);

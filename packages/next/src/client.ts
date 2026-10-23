@@ -11,7 +11,14 @@ import {
 } from 'react';
 import { VerbalyProvider as ReactVerbalyProvider, useVerbaly } from '@verbaly/react';
 import { switchLocale, type SwitchLocaleOptions } from 'verbaly';
-import { createInstance, locales, requestOptions, routing, sourceLocale } from 'virtual:verbaly';
+import {
+  createInstance,
+  locales,
+  requestOptions,
+  routing,
+  sourceLocale,
+  trailingSlash,
+} from 'virtual:verbaly';
 import type { VerbalyProviderProps as SerializableProps } from './server';
 
 export { Trans, useLocale, useT, useVerbaly } from '@verbaly/react';
@@ -62,6 +69,7 @@ export function useSwitchLocale(): (
         routing,
         supported: locales,
         sourceLocale,
+        trailingSlash,
         // a full load would throw away the react tree the app router exists to keep
         navigate: (path) => router.push(path),
         ...options,

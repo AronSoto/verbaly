@@ -35,41 +35,48 @@ async function runBuild(
   await integration.hooks['astro:config:setup']({
     config: { root: pathToFileURL(root + '/') },
     updateConfig: () => undefined,
-    injectScript: () => undefined,
   });
   await integration.hooks['astro:config:done']({ buildOutput, injectTypes: fakeInjectTypes(root) });
   await integration.hooks['astro:build:done']({ dir: pathToFileURL(dist + '/') });
 }
 
 describe('verbaly astro integration', () => {
-  async function setupScripts(root: string, config?: Record<string, unknown>): Promise<string[]> {
-    if (config) writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify(config));
-    const scripts: string[] = [];
-    await verbaly().hooks['astro:config:setup']({
-      config: { root: pathToFileURL(root + '/') },
-      updateConfig: () => undefined,
-      injectScript: (_stage, content) => scripts.push(content),
-    });
-    return scripts;
-  }
-
-  it('hands each swapped-in page its own slice, which the ClientRouter alone cannot do', async () => {
+  it('injects no page script, since virtual:verbaly follows the ClientRouter swap itself', async () => {
     const { root } = makeProject();
-    const scripts = await setupScripts(root, {
-      locales: ['en', 'es'],
-      dir: 'locales',
-      render: { inlineCatalog: true },
-    });
-    expect(scripts).toHaveLength(1);
-    expect(scripts[0]).toContain("import { adoptPage } from 'virtual:verbaly'");
-    // before-swap, not page-load: bindDom repaints the new dom before a page event ever fires
-    expect(scripts[0]).toContain('astro:before-swap');
-    expect(scripts[0]).toContain('root: event.newDocument');
+    writeFileSync(
+      join(root, 'verbaly.config.json'),
+      JSON.stringify({ locales: ['en', 'es'], dir: 'locales', render: { inlineCatalog: true } }),
+    );
+    // a script from here would load the runtime on every page, the ones without client code too
+    const injectScript = vi.fn();
+    const setup = { config: { root: pathToFileURL(root + '/') }, updateConfig: () => undefined };
+    await verbaly().hooks['astro:config:setup']({ ...setup, injectScript } as typeof setup);
+    expect(injectScript).not.toHaveBeenCalled();
   });
 
-  it('injects nothing when no page carries a slice', async () => {
-    const { root } = makeProject();
-    expect(await setupScripts(root, { locales: ['en', 'es'], dir: 'locales' })).toEqual([]);
+  it("mirrors in Astro's own trailing slash, so every hreflang is an address it serves", async () => {
+    const { root, dist } = makeProject();
+    const page = '<html><head></head><body><h1 data-verbaly="greet">Hello</h1></body></html>';
+    writeFileSync(join(dist, 'index.html'), page);
+    writeFileSync(
+      join(root, 'verbaly.config.json'),
+      JSON.stringify({
+        locales: ['en', 'es'],
+        dir: 'locales',
+        render: { baseUrl: 'https://x.dev' },
+      }),
+    );
+    const integration = verbaly();
+    const setup = { config: { root: pathToFileURL(root + '/') }, updateConfig: () => undefined };
+    const config = { ...setup.config, trailingSlash: 'never' as const };
+    await integration.hooks['astro:config:setup']({ ...setup, config });
+    await integration.hooks['astro:config:done']({
+      buildOutput: 'static',
+      injectTypes: fakeInjectTypes(root),
+    });
+    await integration.hooks['astro:build:done']({ dir: pathToFileURL(dist + '/') });
+    const es = readFileSync(join(dist, 'es', 'index.html'), 'utf8');
+    expect(es).toContain('hreflang="es" href="https://x.dev/es"');
   });
 
   it('injects a fresh @verbaly/vite plugin with the project root pinned', async () => {
@@ -80,7 +87,6 @@ describe('verbaly astro integration', () => {
       updateConfig: (config) => {
         plugins = config.vite?.plugins as unknown[];
       },
-      injectScript: () => undefined,
     });
     expect(plugins).toHaveLength(1);
     expect((plugins[0] as { name: string }).name).toBe('verbaly');
@@ -92,7 +98,6 @@ describe('verbaly astro integration', () => {
       updateConfig: (config) => {
         again = config.vite?.plugins as unknown[];
       },
-      injectScript: () => undefined,
     });
     expect(again[0]).not.toBe(plugins[0]); // no shared plugin state across integrations
   });
@@ -108,7 +113,6 @@ describe('verbaly astro integration', () => {
       updateConfig: (config) => {
         plugins = config.vite?.plugins as unknown[];
       },
-      injectScript: () => undefined,
     });
     await integration.hooks['astro:config:done']({
       buildOutput: 'static',
@@ -191,7 +195,6 @@ describe('verbaly astro integration', () => {
     await integration.hooks['astro:config:setup']({
       config: { root: pathToFileURL(root + '/') },
       updateConfig: () => undefined,
-      injectScript: () => undefined,
     });
     await integration.hooks['astro:config:done']({
       buildOutput: 'static',

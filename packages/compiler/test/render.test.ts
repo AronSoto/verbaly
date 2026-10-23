@@ -782,6 +782,13 @@ describe('what the redirect script does when it runs', () => {
     expect(visit(script, { path: '/pt/docs', languages: ['es'] })).toBeUndefined();
   });
 
+  it("lands on the home in the site's own form, never one it would redirect", () => {
+    const never = scriptFor({ trailingSlash: 'never' });
+    expect(visit(never, { path: '/', languages: ['es'] })).toBe('/es');
+    expect(visit(never, { path: '/', search: '?q=1', languages: ['es'] })).toBe('/es?q=1');
+    expect(visit(never, { path: '/docs', languages: ['pt'] })).toBe('/pt/docs');
+  });
+
   it('a saved choice beats the browser, including the choice to stay in the source', () => {
     expect(visit(script, { path: '/', stored: 'pt', languages: ['es'] })).toBe('/pt/');
     expect(visit(script, { path: '/', stored: 'en', languages: ['es'] })).toBeUndefined();
@@ -1131,5 +1138,56 @@ describe('renderSite', () => {
     await renderSite(cfg);
     expect(existsSync(stale)).toBe(false);
     expect(existsSync(join(dist, 'es', 'index.html'))).toBe(true);
+  });
+});
+
+describe('a site whose urls never end in /', () => {
+  // the triage of 0.76.0: Astro with trailingSlash 'never', a page and its home link
+  async function site(trailingSlash?: 'never'): Promise<(...parts: string[]) => string> {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-slash-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(dist, 'about'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ k: 'Hola' }));
+    // the author's canonical in the site's own form, as Astro.url writes it under 'never'
+    const page = (path: string) =>
+      `<html><head><link rel="canonical" href="https://x.dev${path}"></head>` +
+      '<body><a href="/">home</a><p data-verbaly="k"></p></body></html>';
+    writeFileSync(join(dist, 'index.html'), page('/'));
+    writeFileSync(join(dist, 'about', 'index.html'), page('/about'));
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      trailingSlash,
+      render: { baseUrl: 'https://x.dev', sitemap: true, redirect: true },
+    });
+    await renderSite(cfg);
+    return (...parts) => readFileSync(join(dist, ...parts), 'utf8');
+  }
+
+  it('writes hreflang, the sitemap and the home link in that form, the homes included', async () => {
+    const read = await site('never');
+    const about = read('es', 'about', 'index.html');
+    expect(about).toContain('hreflang="en" href="https://x.dev/about"');
+    expect(about).toContain('hreflang="es" href="https://x.dev/es/about"');
+    expect(read('index.html')).toContain('hreflang="es" href="https://x.dev/es"');
+    expect(about).toContain('<a href="/es">home</a>');
+    expect(read('sitemap-i18n.xml')).toContain('<loc>https://x.dev/es/about</loc>');
+  });
+
+  it("gives every mirrored page its own canonical, never the source page's", async () => {
+    const read = await site('never');
+    // before, /es/about kept https://x.dev/about: the english page, whose hreflang it contradicts
+    expect(read('es', 'about', 'index.html')).toContain(
+      '<link rel="canonical" href="https://x.dev/es/about">',
+    );
+  });
+
+  it('recognizes the author canonical in either form even when the site says nothing', async () => {
+    const read = await site();
+    expect(read('es', 'about', 'index.html')).toContain(
+      '<link rel="canonical" href="https://x.dev/es/about/">',
+    );
   });
 });

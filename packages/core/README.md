@@ -16,7 +16,7 @@
 
 ---
 
-Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.35 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.17 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
+Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.35 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.18 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
 
 ```ts
 // You write this:
@@ -139,6 +139,8 @@ const v = createVerbaly({ locale, fallback: 'en', messages });
 import { alternateLinks, localePath, stripLocalePath } from 'verbaly';
 
 localePath('pt', { supported, sourceLocale: 'en', path: '/es/docs' }); // '/pt/docs'
+// your framework's own trailing slash, which the Astro and Next integrations pass for you
+localePath('es', { supported, sourceLocale: 'en', path: '/', trailingSlash: 'never' }); // '/es'
 stripLocalePath({ supported, path: '/es/docs' }); // '/docs', the route behind the url
 alternateLinks({ supported, sourceLocale: 'en', path: '/docs', baseUrl: 'https://x.dev' });
 // one hreflang entry per locale plus x-default, the same set `verbaly render` writes

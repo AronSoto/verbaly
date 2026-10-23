@@ -31,6 +31,17 @@ const COMPILER_TIMEOUT = 30_000;
 
 // every test here loads the real ESM compiler through withVerbaly: not a 5s job under pnpm test
 describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
+  it("hands Next's own trailing slash to the generated module", async () => {
+    const root = makeProject();
+    await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
+    // false is Next's default, and Next redirects /es/ to /es under it
+    const module = () => readFileSync(join(root, '.verbaly', 'index.js'), 'utf8');
+    expect(module()).toContain('export const trailingSlash = "never";');
+    const always = { trailingSlash: true } as NextConfigLike;
+    await withVerbaly<NextConfigLike>(always, { root, ...inline })(BUILD);
+    expect(module()).toContain('export const trailingSlash = "always";');
+  });
+
   it('composes turbopack alias + rules and the webpack fallback', async () => {
     const root = makeProject();
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);

@@ -345,7 +345,12 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         dryRun: z.boolean().optional().describe('Report what would change, write nothing'),
       },
       outputSchema: {
-        messages: z.number(),
+        messages: z.number().describe('Messages the source catalog holds after this run'),
+        inCode: z
+          .number()
+          .describe(
+            'How many of those messages the code writes as text: 0 when the project keeps its text in the catalog and reads it with t(key)',
+          ),
         locales: z.array(z.string()),
         dryRun: z.boolean(),
         added: perLocale,
@@ -408,7 +413,8 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
       });
       // an agent sees no terminal, so what the CLI prints about these has to be in the answer
       const data = {
-        messages: result.registry.messages().size,
+        messages: result.messages,
+        inCode: result.inCode,
         locales: cfg.locales,
         dryRun: dryRun === true,
         added: byLocale(result.added),

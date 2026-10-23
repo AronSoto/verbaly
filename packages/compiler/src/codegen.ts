@@ -65,10 +65,11 @@ import source from '${importPath(cfg.sourceLocale)}';
 export const sourceLocale = ${src};
 export const locales = ${JSON.stringify(cfg.locales)};
 export const routing = ${JSON.stringify(cfg.routing)};
+export const trailingSlash = ${JSON.stringify(cfg.trailingSlash) ?? 'undefined'};
 
-// bound to this project: the locale set, the source and the routing mode are never passed in
+// bound to this project: the locale set, the source, the routing mode and the slash are never passed
 export function localePath(locale, options) {
-  return writePath(locale, { ...options, supported: locales, sourceLocale, routing });
+  return writePath(locale, { ...options, supported: locales, sourceLocale, routing, trailingSlash });
 }
 
 export function localeFromPath(options) {
@@ -82,7 +83,7 @@ export function defineKeys(keys) {
 
 // the whole switch a language control needs, in either mode: catalog or navigation, then persistence
 export function switchLocale(locale, options) {
-  return runSwitch(v, locale, { supported: locales, sourceLocale, routing, ...options });
+  return runSwitch(v, locale, { supported: locales, sourceLocale, routing, trailingSlash, ...options });
 }
 
 const localeLoaders = {
@@ -132,7 +133,7 @@ const v = createInstance();
 
 // a hook with no provider above it (a test, a story) reads this one; a server never registers it
 if (typeof document !== 'undefined') globalThis[Symbol.for('verbaly.app')] = v;
-
+${followSwap(cfg, options.inlineCatalog === true)}
 export const verbaly = v;
 export const t = v.t;
 
@@ -149,6 +150,28 @@ export async function setLocale(locale) {
   v.setLocale(locale);
 }
 ${options.extraExports ?? ''}`;
+}
+
+// a live binding would paint the page the ClientRouter swaps in with the language being left
+function followSwap(cfg: ResolvedConfig, inline: boolean): string {
+  if (cfg.host !== 'astro' || cfg.routing === 'no-prefix') return '';
+  const adopt = inline ? '\n    adoptPage({ root: event.newDocument, path });' : '';
+  // the base render writes under, or a site served from /docs reads "docs" as its language
+  const base = cfg.render.base ? `, base: ${JSON.stringify(cfg.render.base)}` : '';
+  const read = `readPath({ supported: locales, path${base} })`;
+  const follow =
+    cfg.routing === 'prefix-all'
+      ? `\n    const next = ${read};\n    if (next) v.setLocale(next);`
+      : `\n    v.setLocale(${read} ?? sourceLocale);`;
+  return `
+// the ClientRouter swaps this page for the next one: take its language first, so a binding paints
+// the incoming page in its own and never in the one being left
+if (typeof document !== 'undefined') {
+  document.addEventListener('astro:before-swap', (event) => {
+    const path = event.to.pathname;${adopt}${follow}
+  });
+}
+`;
 }
 
 export function generateLocaleModule(catalog: Catalog): string {
@@ -201,6 +224,7 @@ ${lines.join('\n')}
   export const sourceLocale: VerbalyLocale;
   export const locales: string[];
   export const routing: import('verbaly').Routing;
+  export const trailingSlash: import('verbaly').TrailingSlash | undefined;
   export function localePath(
     locale: string,
     options?: { path?: string; base?: string },
@@ -250,7 +274,7 @@ ${lines.join('\n')}
     locale: string,
     options?: Omit<
       import('verbaly').SwitchLocaleOptions,
-      'routing' | 'supported' | 'sourceLocale'
+      'routing' | 'supported' | 'sourceLocale' | 'trailingSlash'
     >,
   ): Promise<void>;
   export function getLocale(): string;

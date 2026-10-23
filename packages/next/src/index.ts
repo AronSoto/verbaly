@@ -90,7 +90,10 @@ export function withVerbaly<C extends object>(
     // dynamic: the compiler is ESM-only and this entry is also consumed as CJS
     const compiler: Compiler = await import('@verbaly/compiler');
 
-    const cfg = await compiler.loadConfig(root, verbalyConfig, { plugin: true });
+    // Next serves one form and redirects the other: false (the default) never ends in /
+    const trailingSlash = (base as { trailingSlash?: boolean }).trailingSlash ? 'always' : 'never';
+    const options = { trailingSlash, ...verbalyConfig } as const;
+    const cfg = await compiler.loadConfig(root, options, { plugin: true });
     const catalogs = compiler.loadCatalogs(cfg);
     const registry = await compiler.extractProject(cfg);
     // once per phase, from the config: a loader result can come from Turbopack's cache

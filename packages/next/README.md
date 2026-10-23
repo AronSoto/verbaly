@@ -184,6 +184,7 @@ Second argument of `withVerbaly`: every [`verbaly.config`](https://www.npmjs.com
 
 - **Negotiation reads `headers()`/`cookies()`, which makes a route dynamic.** Call `setRequestLocale` with your `[locale]` segment and that read never happens, so the route prerenders. For a fully static site with no server at all, [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) mirrors the output per locale.
 - `getAlternates({ path, baseUrl? })` returns `{ canonical, languages }` for `generateMetadata`, the same hreflang set the static mirror writes. It is empty under `no-prefix` routing, where one URL answers every language.
+- Every url Verbaly builds (`getAlternates`, `localePath`, `useSwitchLocale`) follows your `trailingSlash` in `next.config`, so by default the Spanish home is `/es`, the form Next serves, and never `/es/`, which it redirects.
 - The generated `.verbaly/` directory is build output (it ships its own `.gitignore`).
 
 ## 📚 Docs

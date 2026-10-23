@@ -19,6 +19,7 @@ import {
   requestOptions,
   routing,
   sourceLocale,
+  trailingSlash,
 } from 'virtual:verbaly';
 
 interface RequestState {
@@ -111,6 +112,7 @@ export function getAlternates(options: AlternatesOptions): {
     routing,
     path: options.path,
     baseUrl: options.baseUrl,
+    trailingSlash,
   });
   const languages: Record<string, string> = {};
   for (const link of links) languages[link.hreflang] = link.href;

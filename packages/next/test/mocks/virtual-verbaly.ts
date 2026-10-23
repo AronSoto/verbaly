@@ -1,4 +1,10 @@
-import { createVerbaly, type Routing, type Verbaly, type VerbalyOptions } from 'verbaly';
+import {
+  createVerbaly,
+  type Routing,
+  type TrailingSlash,
+  type Verbaly,
+  type VerbalyOptions,
+} from 'verbaly';
 
 export const sourceLocale = 'en';
 export const locales = ['en', 'es'];
@@ -11,6 +17,12 @@ export let routing: Routing = 'no-prefix';
 
 export function setRouting(next: Routing): void {
   routing = next;
+}
+
+export let trailingSlash: TrailingSlash | undefined;
+
+export function setTrailingSlash(next: TrailingSlash | undefined): void {
+  trailingSlash = next;
 }
 
 const en = { greeting: 'Hello', farewell: 'Bye' };

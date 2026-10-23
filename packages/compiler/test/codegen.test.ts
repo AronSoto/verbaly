@@ -304,17 +304,21 @@ describe('declared keys', () => {
 });
 
 describe('the bound switcher', () => {
-  it('hands the mode, the locales and the source to core, leaving only the router', () => {
+  it('hands the mode, the locales, the source and the slash to core, leaving only the router', () => {
     const cfg = resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'], render: {} });
     const mod = generateRuntimeModule(cfg);
     expect(mod).toContain('export function switchLocale(locale, options)');
-    expect(mod).toContain('supported: locales, sourceLocale, routing, ...options');
+    expect(mod).toContain('supported: locales, sourceLocale, routing, trailingSlash, ...options');
+    // a project with no framework setting keeps the form each page has, as before
+    expect(mod).toContain('export const trailingSlash = undefined;');
+    const never = resolveConfig({ sourceLocale: 'en', render: {}, trailingSlash: 'never' });
+    expect(generateRuntimeModule(never)).toContain('export const trailingSlash = "never";');
   });
 
-  it('declares it without the three the project already answered', () => {
+  it('declares it without the four the project already answered', () => {
     const dts = generateDts({ a: 'Hi' });
     expect(dts).toContain('export function switchLocale(');
-    expect(dts).toContain("'routing' | 'supported' | 'sourceLocale'");
+    expect(dts).toContain("'routing' | 'supported' | 'sourceLocale' | 'trailingSlash'");
   });
 });
 
@@ -446,5 +450,53 @@ describe('the inline slice in the generated module', () => {
     const out = generateRuntimeModule(cfg, { inlineCatalog: true });
     const body = out.slice(out.indexOf('export function createInstance'));
     expect(body.indexOf('...options,')).toBeGreaterThan(body.indexOf('partial:'));
+  });
+});
+
+describe('following the ClientRouter swap in the generated module', () => {
+  const cfg = (host: string | undefined, routing: string) =>
+    ({
+      locales: ['en', 'es'],
+      sourceLocale: 'en',
+      routing,
+      dir: 'locales',
+      bundle: {},
+      render: {},
+      host,
+    }) as unknown as Parameters<typeof generateRuntimeModule>[0];
+
+  it('is only in the module of an Astro project whose urls carry the language', () => {
+    expect(generateRuntimeModule(cfg('astro', 'prefix-except-source'))).toContain(
+      "document.addEventListener('astro:before-swap'",
+    );
+    // a vite app, a next app, or an astro site that keeps the language out of the url pay nothing
+    for (const host of ['vite', 'next', 'sveltekit', undefined]) {
+      expect(generateRuntimeModule(cfg(host, 'prefix-except-source'))).not.toContain('astro:');
+    }
+    expect(generateRuntimeModule(cfg('astro', 'no-prefix'))).not.toContain('astro:');
+  });
+
+  it('adopts the next page slice only when pages carry one', () => {
+    const astro = cfg('astro', 'prefix-except-source');
+    expect(generateRuntimeModule(astro)).not.toContain('adoptPage');
+    expect(generateRuntimeModule(astro, { inlineCatalog: true })).toContain(
+      'adoptPage({ root: event.newDocument, path });',
+    );
+  });
+
+  it('reads the language under the base the site is served from', () => {
+    // without it, /docs/es/about read "docs" as no language and every swap went to the source
+    const based = { ...cfg('astro', 'prefix-except-source'), render: { base: '/docs' } };
+    expect(generateRuntimeModule(based as never)).toContain(
+      'readPath({ supported: locales, path, base: "/docs" })',
+    );
+  });
+
+  it('leaves the language alone on a prefix-all url with no prefix, which is no tree at all', () => {
+    const out = generateRuntimeModule(cfg('astro', 'prefix-all'));
+    expect(out).toContain('if (next) v.setLocale(next);');
+    expect(out).not.toContain(
+      'v.setLocale(readPath({ supported: locales, path }) ?? sourceLocale)',
+    );
   });
 });

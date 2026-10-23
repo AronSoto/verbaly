@@ -1,6 +1,5 @@
 import { relative } from 'node:path';
-import { flatten, type MessageTree } from 'verbaly';
-import { catalogPath, type Catalog, type Catalogs } from './catalog';
+import { catalogPath, flatView, type Catalog, type Catalogs } from './catalog';
 import type { ResolvedConfig } from './config';
 import { shippedCatalogs } from './extract';
 import {
@@ -110,7 +109,7 @@ function checkPass(
   // one flat view per locale: the shape t() sees, so nested catalogs compare leaf by leaf
   const flat: Record<string, Catalog> = {};
   for (const locale of cfg.locales) {
-    flat[locale] = flatten((catalogs[locale] ?? {}) as MessageTree);
+    flat[locale] = flatView(catalogs[locale] ?? {});
   }
   const source = flat[cfg.sourceLocale] ?? {};
   // the code's text is the one that ships, so every translation is read against it

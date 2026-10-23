@@ -2,8 +2,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { RichLink, Routing } from 'verbaly';
-import { defaultTypesPath } from './host';
+import type { RichLink, Routing, TrailingSlash } from 'verbaly';
+import { defaultTypesPath, detectHost, type Host } from './host';
 import { PSEUDO_LOCALE } from './pseudo';
 import { warnOnce } from './warn';
 import type { TranslateProvider } from './translate';
@@ -61,6 +61,7 @@ export interface VerbalyConfig {
   translate?: TranslateConfig;
   render?: RenderConfig;
   bundle?: BundleConfig;
+  trailingSlash?: TrailingSlash;
 }
 
 export interface ResolvedConfig {
@@ -78,12 +79,15 @@ export interface ResolvedConfig {
   translate: TranslateConfig;
   render: RenderConfig;
   bundle: BundleConfig;
+  host: Host | undefined;
+  trailingSlash: TrailingSlash | undefined;
 }
 
 export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
   const root = resolve(config.root ?? process.cwd());
   const dir = resolve(root, config.dir ?? 'locales');
   const sourceLocale = config.sourceLocale ?? 'en';
+  const host = detectHost(root)?.name;
 
   const localesDeclared = config.locales !== undefined;
   const locales = new Set<string>([sourceLocale, ...(config.locales ?? [])]);
@@ -115,10 +119,12 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
         ? resolve(root, config.dts)
         : config.dts === false
           ? false
-          : defaultTypesPath(root),
+          : defaultTypesPath(root, host),
     translate: config.translate ?? {},
     render: config.render ?? {},
     bundle: config.bundle ?? {},
+    host,
+    trailingSlash: config.trailingSlash,
   };
 }
 

@@ -22,6 +22,24 @@
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
 </p>
 
+<p align="center">
+  <img src="assets/hero.gif" alt="On the left, a component that writes t`Welcome back, ${name}`, t`You have ${count} new messages` and t`Open inbox`. On the right, the same page in a browser switching from English to Spanish to Portuguese. Below, the four steps: write, extract, translate, check." width="860" />
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/react"><img src="https://cdn.simpleicons.org/react/61DAFB" height="30" alt="" /><br /><sub>React</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/react#next"><img src="https://cdn.simpleicons.org/nextdotjs/888888" height="30" alt="" /><br /><sub>Next.js</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vue"><img src="https://cdn.simpleicons.org/vuedotjs/4FC08D" height="30" alt="" /><br /><sub>Vue</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt"><img src="https://cdn.simpleicons.org/nuxt/00DC82" height="30" alt="" /><br /><sub>Nuxt</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/svelte"><img src="https://cdn.simpleicons.org/svelte/FF3E00" height="30" alt="" /><br /><sub>Svelte & Kit</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/astro"><img src="https://cdn.simpleicons.org/astro/FF5D01" height="30" alt="" /><br /><sub>Astro</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vite"><img src="https://cdn.simpleicons.org/vite/646CFF" height="30" alt="" /><br /><sub>Vite</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin"><img src="https://cdn.simpleicons.org/webpack/8DD6F9" height="30" alt="" /><br /><sub>webpack & co</sub></a></td>
+    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/dom"><img src="https://cdn.simpleicons.org/html5/E34F26" height="30" alt="" /><br /><sub>Plain HTML</sub></a></td>
+  </tr>
+</table>
+
 ## The idea
 
 Most i18n tools ask you to invent a key for every sentence, write it in a file per language and keep the files in step with the code by hand. Verbaly turns that around:
@@ -37,7 +55,7 @@ t`Welcome back, ${name}`;
 t('ESsQIvlA', { name });
 ```
 
-The compiler gives each text a stable key, writes your translation files, types every param, plural and date from the text itself, and splits one module per language. The runtime that ships is **3.35 KB gzip** with zero dependencies, measured on every release by a gate in this repo (`pnpm --filter verbaly size`).
+The runtime that ships is **3.35 KB gzip** with zero dependencies, measured on every release by a gate in this repo (`pnpm --filter verbaly size`).
 
 ## Quick start
 
@@ -62,18 +80,34 @@ t`Hello ${name}`;
 await setLocale('es'); // loads only the Spanish module
 ```
 
-Every framework has a page with its one or two lines: [React](https://verbaly-web.vercel.app/docs/frameworks/react) · [Next.js](https://verbaly-web.vercel.app/docs/frameworks/react#next) · [Vue](https://verbaly-web.vercel.app/docs/frameworks/vue) · [Nuxt](https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt) · [Svelte](https://verbaly-web.vercel.app/docs/frameworks/svelte) · [SvelteKit](https://verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit) · [Astro](https://verbaly-web.vercel.app/docs/frameworks/astro) · [plain HTML](https://verbaly-web.vercel.app/docs/frameworks/dom) · [webpack, Rollup, esbuild, Rspack](https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin)
-
-📖 Full docs: **https://verbaly-web.vercel.app/docs**
+Next.js, Nuxt, SvelteKit and Astro have their own one-line setup: pick yours in the row above, or read the full docs at **https://verbaly-web.vercel.app/docs**.
 
 ## Why Verbaly
 
-- **No key files to maintain.** You write the sentence; the compiler names it and keeps every language file in step.
-- **Typed from the text.** `{name}`, plurals, currency and dates are inferred from the message, so a wrong or missing param fails to compile.
-- **Broken translations never ship.** `verbaly check` rejects a missing translation, and one that lost a `{param}`, a tag or a plural case, with the reason in plain words. A build reports and goes on; CI is where it stops.
-- **Small and fast.** Zero dependencies, one module per language, a memoized hot path benchmarked against i18next on every release.
-- **Plain JSON, any workflow.** XLIFF, CSV and gettext PO round trips for translators, Android and iOS exports, and machine translation that stays a draft until a person approves it.
-- **Ready for coding agents.** An MCP server, an Agent Skill and `llms.txt`, with drafts an agent cannot approve.
+<table>
+  <tr>
+    <td width="33%" valign="top"><h3>✍️ No key files</h3>You write the sentence. The compiler names it and keeps every language file in step with your code.</td>
+    <td width="33%" valign="top"><h3>🧷 Typed from the text</h3><code>{name}</code>, plurals, currency and dates come from the message itself, so a wrong or missing param fails to compile.</td>
+    <td width="33%" valign="top"><h3>🛑 Broken ones never ship</h3><code>verbaly check</code> catches a missing translation, and one that lost a <code>{param}</code>, a tag or a plural case, in plain words.</td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top"><h3>🪶 Small and fast</h3>Zero dependencies, one module per language, and a hot path benchmarked against i18next on every release.</td>
+    <td width="33%" valign="top"><h3>🔄 Any workflow</h3>Plain JSON, XLIFF, CSV and gettext PO for translators, Android and iOS exports, and AI drafts a person approves.</td>
+    <td width="33%" valign="top"><h3>🤖 Agent ready</h3>An MCP server, an Agent Skill and <code>llms.txt</code>, with drafts an agent can write but never approve.</td>
+  </tr>
+</table>
+
+## Review translations in a panel
+
+```bash
+npx verbaly-studio
+```
+
+<p align="center">
+  <img src="assets/studio.png" alt="Verbaly Studio: an overview that says five things are waiting, one translation that breaks the site, two missing messages and two machine translations nobody has read, with the languages and the last commits to the catalogs" width="860" />
+</p>
+
+Studio serves your project over localhost: what is missing, what is broken, what a machine wrote and where each text lives in your code. Your JSON files are the database and git is the history, a save runs the same validations as `verbaly check`, and it never edits your source text.
 
 ## How it compares
 
@@ -91,6 +125,14 @@ Every framework has a page with its one or two lines: [React](https://verbaly-we
 
 Sizes are min+gzip of each library's main entry with React external, measured with the same method on 2026-10-15.
 
+## Coding agents
+
+```bash
+claude mcp add verbaly -- npx -y @verbaly/mcp
+```
+
+The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx degit AronSoto/verbaly/skills/verbaly .claude/skills/verbaly`), and the docs publish [llms.txt](https://verbaly-web.vercel.app/llms.txt).
+
 ## Packages
 
 | Package                                                                                                          | What it is                                                               |
@@ -102,27 +144,9 @@ Sizes are min+gzip of each library's main entry with React external, measured wi
 | [`@verbaly/next`](packages/next) · [`@verbaly/nuxt`](packages/nuxt) · [`@verbaly/sveltekit`](packages/sveltekit) | Server rendering: the language per request, hydration with no flash      |
 | [`@verbaly/astro`](packages/astro)                                                                               | Astro integration: `.astro` extraction and a static build per language   |
 | [`@verbaly/mcp`](packages/mcp)                                                                                   | MCP server: the translation cycle as tools for an agent                  |
-| [`@verbaly/studio`](packages/studio)                                                                             | A local review panel over your translation files                         |
+| [`@verbaly/studio`](packages/studio)                                                                             | The local review panel above                                             |
 
 All of them share one version number, and every release is published from CI with npm provenance.
-
-## Coding agents
-
-Give your agent the whole cycle as tools, with structured output and resources to read your config and catalogs:
-
-```bash
-claude mcp add verbaly -- npx -y @verbaly/mcp
-```
-
-Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio), so an agent can fill gaps without shipping unreviewed text: approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx degit AronSoto/verbaly/skills/verbaly .claude/skills/verbaly`), and the docs publish [llms.txt](https://verbaly-web.vercel.app/llms.txt).
-
-## Review translations locally
-
-```bash
-npx verbaly-studio
-```
-
-A panel over localhost with every message, what is missing, what is broken, what a machine wrote and where each text lives in your code. Your JSON files are the database and git is the history, a save runs the same validations as `verbaly check`, and it never edits your source text.
 
 <details>
 <summary><strong>Editor: see the text behind a key on hover</strong></summary>

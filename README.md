@@ -12,12 +12,14 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
+  <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.77.0" alt="Socket supply chain security" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://www.npmjs.com/package/verbaly#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <img src="https://img.shields.io/badge/gzip-3.35KB-3fb950" alt="3.35KB gzip runtime" />
+  <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero runtime dependencies" />
+  <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
-</p>
-
-<p align="center">
-  <img src="assets/demo.gif" alt="A terminal session: the code writes t`Welcome back, ${name}`, verbaly extract writes the catalogs, verbaly check fails on the missing Spanish, then on a translation that dropped {name}, and passes once it is fixed" width="820" />
 </p>
 
 ## The idea
@@ -102,11 +104,7 @@ Sizes are min+gzip of each library's main entry with React external, measured wi
 | [`@verbaly/mcp`](packages/mcp)                                                                                   | MCP server: the translation cycle as tools for an agent                  |
 | [`@verbaly/studio`](packages/studio)                                                                             | A local review panel over your translation files                         |
 
-All of them share one version number. Every release is published from CI with [npm provenance](https://www.npmjs.com/package/verbaly#provenance), and the supply chain is watched by [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly) and [Socket](https://socket.dev/npm/package/verbaly):
-
-<a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
-<a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.77.0" alt="Socket supply chain security" /></a>
-<a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
+All of them share one version number, and every release is published from CI with npm provenance.
 
 ## Coding agents
 

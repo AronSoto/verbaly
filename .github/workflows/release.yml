@@ -118,3 +118,63 @@ jobs:
           } >> /tmp/release-notes.md
           gh release create "v$V" --title "Release v$V" \
             --notes-file /tmp/release-notes.md --target "$GITHUB_SHA"
+
+  # @verbaly/mcp in the official MCP Registry (packages/mcp/server.json), logged in through OIDC:
+  # no token. It runs on every push and lists only a version npm has and the registry lacks, so a
+  # version released before this job existed goes out on the next push.
+  mcp-registry:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC: the registry's login for io.github.AronSoto/*
+    env:
+      # pinned on purpose, never releases/latest: the binary is checked against its sigstore bundle
+      MCP_PUBLISHER_VERSION: v1.8.7
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Decide whether this version still has to be listed
+        id: check
+        run: |
+          cd packages/mcp
+          V=$(node -p "require('./server.json').version")
+          NAME=$(node -p "encodeURIComponent(require('./server.json').name)")
+          if ! npm view "@verbaly/mcp@$V" version > /dev/null 2>&1; then
+            echo "@verbaly/mcp@$V is not on npm, so the registry has nothing to point at"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          elif [ "$(curl -s -o /dev/null -w '%{http_code}' "https://registry.modelcontextprotocol.io/v0.1/servers/$NAME/versions/$V")" = "200" ]; then
+            echo "$V is already in the registry"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "listing $V"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: steps.check.outputs.go == 'true'
+
+      - name: Download mcp-publisher and verify it
+        if: steps.check.outputs.go == 'true'
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+
+      - name: List the version in the MCP Registry
+        if: steps.check.outputs.go == 'true'
+        working-directory: packages/mcp
+        run: |
+          ../../mcp-publisher login github-oidc
+          ../../mcp-publisher publish

@@ -8,6 +8,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.77.0] · 2026-10-31
+
+**Next.js pages under a language folder always show that language, and switching languages keeps working after you move around an Astro site.** You can also keep the dev server from touching your translation files. Breaking: nothing.
+
+### Highlights
+
+- **Every Next.js page shows the language in its address.** With Next 16.3 or later, a page in `app/[locale]/` reads its language by itself, even inside cached parts. Before, a page could come out in the language the visitor chose last time, or stop the build.
+- **Switching languages keeps working after you navigate.** On sites that swap the whole page as you move around, like Astro with page transitions, the text no longer stays in the old language. The page title follows too.
+- **You choose when your translation files change.** With `liveExtraction: false`, the dev server shows your new texts without writing them, and `npx verbaly extract` saves them when you decide.
+
+### Added
+
+- **The language segment, read from Next itself (`@verbaly/next`).** On Next 16.3 and later, with the language segment in the root layout (`app/[locale]/layout.tsx`), the server API reads it through `next/root-params` wherever `setRequestLocale` did not reach: a page, a nested layout, `generateMetadata` and a `'use cache'` function, whose cache key then carries the language. It comes from a generated server-only module, `.verbaly/server.js` (`virtual:verbaly/server`), which imports the segment only when Next can answer and one dynamic segment sits above every root layout. `setRequestLocale` still goes first.
+- **`liveExtraction` (`@verbaly/vite`, `@verbaly/next`, typed in `@verbaly/compiler`'s `PluginOptions`).** `false` keeps dev from writing the translation files: the code's texts are synced in memory, as a build does, and only the types are written.
+- **`funding` in every `package.json` (all thirteen),** pointing at GitHub Sponsors, so npm shows the button.
+- **`mcpName` and `server.json` (`@verbaly/mcp`),** the entry for the official MCP Registry, with a test that keeps its name and versions equal to the package's.
+
+### Fixed
+
+- **A page under `[locale]` no longer ignores the address (`@verbaly/next`).** Next renders a page without running its layout, so the `setRequestLocale` the README taught in the layout never reached the page: under `cacheComponents` (what `create-next-app` turns on) `next build` stopped on a request read, and without it `/es` with an English cookie rendered `<html lang="es">` around English text, on a route that came out dynamic. `getT()` inside `'use cache'` failed in both. Next 16.3 and later now read the segment as above; on Next 15 up to 16.2 the README and the Agent Skill say to call `setRequestLocale` in every layout and page, and a request that falls back to the cookie under a prefixed `routing` warns once.
+- **`bindDom` survives a router that replaces the body (`verbaly`).** Its default root is now the whole document instead of `document.body`: Astro's ClientRouter and Turbo put a new `<body>` element in place of the old one, and the observer stayed on the element that left. The head is bound by default as a result, so `<title>` and the meta description translate with no option; a root passed as the body still warns when the head has bound elements.
+
+### Changed
+
+- **Dependencies, including the transitive ones (in the repository only).** Every direct dependency at its latest, and `pnpm update -r` inside the ranges, closed the security advisories on the lockfile (Notes). `minimatch` 11 through an override, since eslint and typescript-eslint still ask for 10; deepmerge, with no fix published, is listed with its reason and an expiry date in `osv-scanner.toml` for Scorecard and in `audit.ignore` for `pnpm audit`.
+- **The README and the npm page of `verbaly`:** shorter, with a recorded terminal demo, the before and after of a key, a link per framework and the supply chain badges further down. The figures the size gate reads stay where it reads them.
+
+### Notes
+
+- **How these were found.** The body swap, from verifying 0.76.0's ClientRouter fix (plan row 10). The `[locale]` page, while measuring `next/root-params` for this release: a Next 16.4.3 app from `create-next-app` with 0.76.0 from npm, built exactly as the README says, failed `next build`, and with `cacheComponents` off rendered the wrong language under a conflicting cookie. The same app, with this build's tarball, prerenders `/en` and `/es` with Turbopack and with webpack, and `next start` serves `/es` in Spanish to an English cookie, the cached part included. Route handlers and a `'use server'` module that import `@verbaly/next/server` build on both bundlers, and `/og` stays static. The advisories, from Scorecard's Vulnerabilities check (18 on 2026-10-26, 29 by `pnpm audit` on 2026-10-31).
+- **Measured and left out.** `Vary` from `withVerbaly` under `no-prefix` (#29 of the portfolio report): in Next 16.4.3 a `Vary` from `headers()` never reaches the HTML, where Next writes its own, and on RSC responses it replaces Next's `Vary: rsc, next-router-state-tree, …`, the header that keeps a cache from serving one for the other; the negotiated pages already go out `Cache-Control: private, no-cache, no-store`. Moving `@verbaly/compiler` to a peer of `@verbaly/next`: with npm 11 and pnpm 12, a required peer is installed in production all the same, and an optional one only leaves with `pnpm --prod`, while a project that does not declare it loses dev and build; it would save about 2.9 MB of install, never a byte a visitor downloads. Both are in the plan with their reopening condition.
+- **Sizes** (`pnpm --filter verbaly size`, measured with tsdown): `createVerbaly` alone 3.35 KB, a real app 6.17 KB (−5 B, the document as `bindDom`'s root), the canary 8.01 KB (−2 B), devtools 1.60 KB. Observing `<html>` and reading the live body instead would have cost +10 B on the app, over its budget.
+- **1 899 tests under `pnpm test`, 19 new** (0.76.0: 1 880). Core 394, compiler 940 plus 23 in its DOM config, Next 99, MCP 43. **1 903 under `pnpm coverage`**, the benches included, with 96.9% of lines covered.
+- **Every pin that guards a fix was seen red before it was trusted: 12 of 12.** Two on the body swap and the head with no root, seven on the root segment (a page with no `setRequestLocale`, the warning under a prefixed routing, Next 16.2, a 16.3.0 canary, `no-prefix`, a throw from a route handler, a segment that is not a locale), two on `liveExtraction` (Vite and Next) and one on `server.json` following the version. The other new tests describe what both sides share (route groups, two root layouts, the layout above the segment, `setRequestLocale` first) and the webpack test now pins both replacements.
+- **The review** (`/code-review`, high) reported six findings. Four were fixed: the warning under a prefixed routing named a fix that only applies under the locale segment, the server module read Next's version on every dev save, a 16.3.0 canary from before the default read as supported, and the release did not bump `server.json`. One was dismissed by building it: a route handler or a server action that imports `@verbaly/next/server` does build. One was kept: `liveExtraction` travels as a positional boolean through two internal calls, both pinned.
+- **The differential** (`.claude/diff-release.mjs`, 0.76.0 from npm against this build): nothing differs on verbaly-web, the portfolio and the fixture, none of which binds the DOM with its default root under a swap, routes through `app/[locale]/` or turns live extraction off.
+- **Bench:** 34.0x, 11.7x, 5.3x and 4.4x against i18next (0.76.0: 27.6x, 12.0x, 5.1x and 4.4x); this diff does not touch the path `t()` runs. The build receipt at 200 modules +184 ms (2.61x), at 1 500 modules +1 128 ms (3.63x), with the scan at 958 ms and the gate at 215 ms with its memo empty and 149 ms on a rebuild. That is well above 0.76.0's +490 ms, so HEAD was measured right before on the same machine, from a clean copy with its own lockfile: +1 276 ms (4.10x), scan 905 ms. The machine moved, not the code.
+- **Dependencies:** `@babel/parser` 8.0.10, `magic-string` 1.4.5 and `@modelcontextprotocol/sdk` 1.32.2 in what ships, and in development `eslint` 10.14.0, `typescript-eslint` 8.72.1, `tsdown` 0.23.4, `unplugin` 3.7.0, `astro` 7.4.4, `next` 16.4.3, `@sveltejs/kit` 3.1.1, `svelte` 5.57.3, `preact` 11.1.0, `i18next` 26.5.12 and `@anthropic-ai/sdk` 1.3.0. `pnpm audit`: 29 advisories (9 high) before, 1 low and ignored after. `pnpm outdated -r` is empty. Nothing changes in what the core ships.
+- **Canonical build and real consumers:** from the tarballs of a Linux build on Node 22: the size gate as above, publint "All good" on all thirteen, attw as `known-ok.md` expects, every tarball shipping only `dist/`, LICENSE and the README (plus `loader.d.cts` in Next), no `workspace:` left, `mcpName` in `@verbaly/mcp` and `server.json` kept out. verbaly-web with `verbaly`, `@verbaly/compiler` and `@verbaly/astro` 0.77.0: `pnpm build` and `pnpm check` green, `check-size` naming the app figure that moves. The portfolio with `@verbaly/next` and `@verbaly/react`: `verbaly check` green and `next build` green with Turbopack and with webpack. The `create-next-app` 16.4.3 app above, set up as the README says, with TypeScript checked: `/en` and `/es` prerendered in their own language on both bundlers, the cached part included. The MCP bin, installed from its tarball, answers `initialize` as 0.77.0 and lists its tools in the cycle's order.
+- **First contact** (`pnpm first-contact`, pnpm 12.8.1 and npm 11.19.0, on this build): the four shapes green.
+
+### Docs impact
+
+- **`/docs/frameworks/react#next`:** with the segment in the root layout, Next 16.3 and later need no `setRequestLocale`, and `getT()` works inside `'use cache'`; on Next 15 up to 16.2, `setRequestLocale` goes in every layout and page, and `getT({ locale })` inside `'use cache'`. The claim that the layout call alone keeps the route static goes. The options table gains `liveExtraction`.
+- **`/docs/frameworks/vite`:** `liveExtraction: false` keeps the dev server from writing the translation files.
+- **`/docs/frameworks/dom` and `/docs/frameworks/astro`:** `bindDom(v)` binds the whole document by default, the head included, and keeps working under `<ClientRouter />`; `{ root: document }` is no longer needed for either. `src/scripts/i18n.ts` can drop its `root` (optional).
+- **The runtime figure:** `RUNTIME_APP_KB` goes from 6.18 to 6.17 in `src/constants/size.ts`, and any catalog text that states it. `RUNTIME_KB` stays 3.35. `sync-audit` checks them.
+- **`releases.ts` plus `changelog_rel.v0_77_0` in en, es and pt**, with the three highlights and `breaking: 0`.
+
+---
+
 ## [0.76.0] · 2026-10-23
 
 **Pages keep their language when you move around an Astro site, and every address Verbaly writes ends the way yours do.** The packages also install at less than a third of their old size. Breaking: nothing.

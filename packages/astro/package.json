@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/astro",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "Astro integration for Verbaly: write-in-source extraction for .astro files plus automatic per-locale static rendering.",
   "keywords": [
     "i18n",
@@ -20,6 +20,10 @@
   "homepage": "https://verbaly-web.vercel.app/docs/frameworks/astro",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "types": "./dist/index.d.ts",
@@ -48,7 +52,7 @@
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "astro": "^7.4.2",
+    "astro": "^7.4.4",
     "verbaly": "workspace:^"
   },
   "scripts": {

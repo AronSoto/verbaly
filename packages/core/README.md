@@ -1,31 +1,37 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="340" />
+  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
+<h3 align="center">Write your text in the code. Ship it in every language.</h3>
+
 <p align="center">
-  <em>Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.</em>
+  The runtime of Verbaly: an i18n compiler and a tiny runtime for React, Vue, Svelte, Next.js, Nuxt, SvelteKit, Astro and plain HTML.
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <img src="https://img.shields.io/badge/gzip-3.35KB-3fb950" alt="3.35KB gzip" />
   <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero dependencies" />
-  <img src="https://img.shields.io/badge/types-included-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/verbaly?color=blue" alt="MIT" /></a>
 </p>
 
----
+<p align="center">
+  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/demo.gif" alt="A terminal session: the code writes t`Welcome back, ${name}`, verbaly extract writes the catalogs, verbaly check fails on the missing Spanish, then on a translation that dropped {name}, and passes once it is fixed" width="760" />
+</p>
 
-Most i18n tools make you maintain key files by hand: keys drift from the code, no type-safety, heavy setup. **Verbaly inverts the flow:** write the source text in your code, a build plugin extracts stable keys, types and per-locale modules. Compiler-grade safety, a **3.35 KB** runtime, zero dependencies. That is `createVerbaly` on its own; a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.18 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
+Most i18n tools ask you to invent a key for every sentence and keep a file per language in step with the code by hand. **Verbaly turns that around:** you write the sentence where it is used, and the compiler gives it a stable key, writes your translation files, types every param and splits one module per language. This package is the runtime: **a 3.35 KB runtime** on its own (`createVerbaly`), and a site with no framework, which also pulls the DOM interpreter and the url helpers, ships **6.17 KB**. Both are measured on every release by `pnpm --filter verbaly size`, never estimated.
 
 ```ts
-// You write this:
-t`Hello ${name}, you have ${count} messages`;
+// with key files: name it, write it in en.json, es.json, pt.json, keep them in sync
+t('dashboard.welcome_back', { name });
 
-// The compiler generates: a stable key + inferred types + per-locale entries.
-t('usNGUet6', { name, count }); //  ← fully typed, tree-shakeable
+// with Verbaly: write the sentence where it is used
+t`Welcome back, ${name}`;
 
-// Prefer readable keys? Opt in per message:
+// and the compiler writes a stable key and a typed call for you
+t('ESsQIvlA', { name });
+
+// prefer a readable key? Opt in per message
 t.id('inbox.title')`Hello ${name}`; // → t('inbox.title', { name })
 ```
 
@@ -99,7 +105,7 @@ const v = createVerbaly({
   locale: resolveLocale({ supported: ['en', 'es', 'pt'] }), // storage → navigator → fallback
   /* … */
 });
-// { root: document } so the <title> and the meta description translate with the page
+// the whole document by default: the <title> and the meta description translate with the page
 bindDom(v, {
   richLinks: { docs: { href: '/docs', target: '_blank', rel: 'noopener' } }, // named links
 }); // renders + re-renders on locale change
@@ -148,17 +154,13 @@ alternateLinks({ supported, sourceLocale: 'en', path: '/docs', baseUrl: 'https:/
 
 ## ✨ What you get
 
-- **Hybrid compiler + runtime**: static text compiled (types + tree-shaking), dynamic content via a real runtime path.
-- **Type-safe params**: `{name}`, plurals, currency and dates inferred from the message; wrong/missing params fail to compile.
-- **`Intl`-powered format**: number/currency/date/time/relative/list/unit + CLDR plurals and select/gender, tiny surface. `'Updated {when:relative}'` · `'{langs:list}'` · `'{d:unit/kilometer}'`.
-- **Plain, portable JSON catalogs**: no proprietary format, no lock-in.
-- **A custom formatter knows which message it was called for**: the fourth argument carries the param name and the message key, so its own errors can name them.
-- **ICU and relative time are weight you only carry when you use them**: the compiler sees them in your catalogs and wires what is needed, so an app whose messages use neither never ships those 862 bytes. A message that arrives after the build with ICU syntax shows its own source and says why, rather than rendering something that looks almost right.
-- **DOM interpreter** for framework-less HTML, with opt-in rich text (whitelist-based, XSS-safe) and named links (`richLinks` / `data-verbaly-links`; hrefs come from the caller, `javascript:` blocked).
-- **Lazy catalogs**: `loaders` + `loadLocale` load per-locale JSON on demand, in the runtime itself.
-- **RTL and locale names built in**: `localeDirection` keeps `<html dir>` right when you add Arabic or Hebrew (applied by `switchLocale`/`persistLocale` and `verbaly render`), and `localeName` gives your locale switcher real language names via `Intl.DisplayNames`.
-- **Runtime devtools**: opt-in `verbaly/devtools` answers "what key is this text?" in the browser: hover to see any element's key/locale/source, plus a live missing-keys panel. Tree-shaken out of production (its own chunk). Or wire the `onResolve` hook yourself.
-- **Fast, with receipts**: fully memoized hot path, benchmarked every release: 5-35× faster than i18next on lookup, interpolation and plurals.
+- **Type-safe params**: `{name}`, plurals, currency and dates inferred from the message; a wrong or missing param fails to compile.
+- **`Intl` all the way**: number, currency, date, time, relative time, lists and units, CLDR plurals and select, with zero dependencies. ICU and relative time are wired only when your catalogs use them.
+- **Static text compiled, dynamic text at runtime**: a real runtime path for CMS content, with lazy catalogs per language.
+- **Plain HTML**: a DOM interpreter with opt-in rich text (a whitelist, never `innerHTML`) and named links whose hrefs come from your code.
+- **RTL and language names built in**: `localeDirection` keeps `<html dir>` right, and `localeName` gives your switcher real names through `Intl.DisplayNames`.
+- **Devtools**: opt-in `verbaly/devtools` answers "what key is this text?" in the browser, tree-shaken out of production.
+- **Fast, with receipts**: a memoized hot path, benchmarked against i18next on every release (`pnpm --filter verbaly bench`).
 
 ## 🧩 Ecosystem
 

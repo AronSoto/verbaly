@@ -11,3 +11,7 @@ declare module 'virtual:verbaly' {
   export function createRequestInstance(locale: string): Promise<Verbaly>;
   export function loadMessages(locale: string): Promise<Record<string, string>>;
 }
+
+declare module 'virtual:verbaly/server' {
+  export const rootLocale: (() => Promise<string | undefined>) | undefined;
+}

@@ -16,7 +16,7 @@ export default defineConfig([
     dts: true,
     fixedExtension: false,
     clean: false,
-    deps: { neverBundle: ['virtual:verbaly'] },
+    deps: { neverBundle: ['virtual:verbaly', 'virtual:verbaly/server'] },
   },
   {
     // no dts: the runtime is module.exports = fn, declared by the hand-written loader.d.cts

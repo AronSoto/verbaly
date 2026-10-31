@@ -82,7 +82,7 @@ export default {
 
 Force it on or off with the integration option: `verbaly({ render: true })`.
 
-Every url the mirror and `virtual:verbaly` write (hreflang, sitemap, canonical, links and `localePath`) follows Astro's own `trailingSlash`, so with `'never'` the Spanish home is `/es`, never `/es/`. With `<ClientRouter />`, `virtual:verbaly` takes the language of each page before the swap, so a live `bindDom` paints the incoming page in its own language: bind it with `{ root: document }`, since the router replaces the `body`.
+Every url the mirror and `virtual:verbaly` write (hreflang, sitemap, canonical, links and `localePath`) follows Astro's own `trailingSlash`, so with `'never'` the Spanish home is `/es`, never `/es/`. With `<ClientRouter />`, `virtual:verbaly` takes the language of each page before the swap, so a live `bindDom` paints the incoming page in its own language. Its default root is the whole document, so it keeps working after the router replaces the `body`.
 
 ## 📚 Docs
 

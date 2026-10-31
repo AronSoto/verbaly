@@ -48,6 +48,7 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
 
     const alias = config.turbopack?.resolveAlias as Record<string, string>;
     expect(alias['virtual:verbaly']).toBe('./.verbaly/index.js');
+    expect(alias['virtual:verbaly/server']).toBe('./.verbaly/server.js');
     const rules = config.turbopack?.rules as Record<
       string,
       { loaders: unknown[]; condition: unknown }
@@ -199,6 +200,19 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     }
   });
 
+  it('dev phase with liveExtraction off renders the text and leaves the catalogs alone', async () => {
+    const root = makeProject({ source: 'export const s = t`Hello`;' });
+    try {
+      await withVerbaly({}, { root, ...inline, liveExtraction: false })(DEV);
+      expect(readFileSync(join(root, 'locales', 'en.json'), 'utf8')).toBe('{}');
+      expect(readFileSync(join(root, '.verbaly', 'locale', 'en.js'), 'utf8')).toContain('Hello');
+      // no next in package.json here, so the types go where any src/ project keeps them
+      expect(existsSync(join(root, 'src', 'verbaly.d.ts'))).toBe(true);
+    } finally {
+      stopWatcher(root);
+    }
+  });
+
   it('names a file outside include once, however many times the config is evaluated', async () => {
     // create-next-app with no src/: components/ sits outside the default include
     const root = makeProject({ source: 'export const s = t`Hello`;' });
@@ -255,9 +269,13 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     (config.webpack as (c: WebpackConfigLike, ctx: unknown) => unknown)(webpackConfig, {
       webpack: { NormalModuleReplacementPlugin: FakePlugin },
     });
-    expect(webpackConfig.plugins).toHaveLength(1);
+    expect(webpackConfig.plugins).toHaveLength(2);
     expect(created[0]![0]).toEqual(/^virtual:verbaly$/);
     expect(created[0]![1]).toBe(join(root, '.verbaly', 'index.js'));
+    // the server half: next/root-params never reaches a client bundle through the bare id
+    expect(created[1]![0].test('virtual:verbaly/server')).toBe(true);
+    expect(created[1]![0].test('virtual:verbaly')).toBe(false);
+    expect(created[1]![1]).toBe(join(root, '.verbaly', 'server.js'));
   });
 
   it('appends to a turbopack "*" rule that is already an array', async () => {

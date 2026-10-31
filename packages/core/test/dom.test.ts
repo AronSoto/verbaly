@@ -395,6 +395,26 @@ describe('bindDom over a pre-rendered page', () => {
     expect(document.querySelector('h2')!.textContent).toBe('Otra pagina');
   });
 
+  it('follows a router that replaces the whole body, with no root given', async () => {
+    document.body.innerHTML = '<h1 data-verbaly="docs">Documentation</h1>';
+    const v = createVerbaly({
+      locale: 'en',
+      messages: {
+        en: { docs: 'Documentation', home: 'Home' },
+        es: { docs: 'Documentos', home: 'Inicio' },
+      },
+    });
+    unbind = bindDom(v);
+    // Astro's ClientRouter and Turbo put a new body element in place of the old one
+    const next = document.createElement('body');
+    next.innerHTML = '<h1 data-verbaly="home">Home</h1>';
+    document.body.replaceWith(next);
+    await tick();
+    v.setLocale('es');
+    await tick();
+    expect(document.querySelector('h1')!.textContent).toBe('Inicio');
+  });
+
   it('still paints a swapped-in node once the locale itself answers', async () => {
     const page = mirrorPage();
     unbind = bindDom(page.instance);
@@ -702,19 +722,32 @@ describe('bindDom rich links', () => {
 });
 
 describe('bindDom and the head', () => {
-  it('names the head it cannot reach instead of leaving the title in the source language', () => {
+  it('names the head a body root cannot reach instead of leaving the title untranslated', () => {
     document.head.innerHTML = '<title data-verbaly="greet">Hello</title>';
     document.body.innerHTML = '<p data-verbaly="greet">Hello</p>';
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const v = createVerbaly({ locale: 'es', messages: { es: { greet: 'Hola' } } });
 
-    const stop = bindDom(v);
+    const stop = bindDom(v, { root: document.body });
 
     expect(document.body.textContent).toBe('Hola');
     expect(document.title).toBe('Hello');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('{ root: document }'));
     stop();
     warn.mockRestore();
+    document.head.innerHTML = '';
+  });
+
+  it('reaches the title with no root at all, the default being the whole document', () => {
+    document.head.innerHTML = '<title data-verbaly="welcome">Welcome</title>';
+    document.body.innerHTML = '<p data-verbaly="welcome">Welcome</p>';
+    const v = createVerbaly({ locale: 'es', messages: { es: { welcome: 'Bienvenida' } } });
+
+    const stop = bindDom(v);
+
+    expect(document.title).toBe('Bienvenida');
+    expect(document.body.textContent).toBe('Bienvenida');
+    stop();
     document.head.innerHTML = '';
   });
 

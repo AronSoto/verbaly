@@ -2,6 +2,7 @@ import type { Catalogs, ResolvedConfig } from '@verbaly/compiler';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { reportDev, type CodeTexts } from './report';
+import { generateServerModule } from './root-params';
 
 export type Compiler = typeof import('@verbaly/compiler');
 export type Registry = Awaited<ReturnType<Compiler['extractProject']>>;
@@ -36,9 +37,17 @@ export async function syncAndWrite(
   registry: Registry,
   requestOptions: RequestOptions,
   previous?: CodeTexts,
+  live = true,
 ): Promise<CodeTexts> {
   // 'changed': a catalog nothing happened to keeps the formatting its author gave it
-  const result = await compiler.syncProject(cfg, { registry, catalogs, write: 'changed' });
+  const result = await compiler.syncProject(cfg, {
+    registry,
+    catalogs,
+    write: 'changed',
+    dryRun: !live,
+  });
+  // a dry run writes no types, and a key a catalog edit added still has to type-check
+  if (!live) compiler.writeDts(cfg, result.catalogs[cfg.sourceLocale] ?? {});
   writeGeneratedModules(compiler, cfg, result.catalogs, requestOptions);
   return reportDev(compiler, cfg, result, previous);
 }
@@ -66,6 +75,7 @@ export function writeGeneratedModules(
     inlineCatalog: cfg.render.inlineCatalog === true,
   });
   changed = writeIfChanged(join(dir, 'index.js'), runtime) || changed;
+  changed = writeIfChanged(join(dir, 'server.js'), generateServerModule(cfg)) || changed;
 
   const expected = new Set(cfg.locales.map((locale) => `${locale}.js`));
   for (const locale of cfg.locales) {

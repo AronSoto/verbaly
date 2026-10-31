@@ -8,3 +8,9 @@ overrides:
   qs: '^6.16.0'
   # kit asks ^0.6.0, so this one IS outside its range: scoped to kit, dev-only, pinned by the suite
   '@sveltejs/kit>cookie': '^0.7.2'
+  # eslint and typescript-eslint ask ^10, outside their range: only lint loads it, pnpm lint pins it
+  minimatch: '^11.0.1'
+audit:
+  # osv-scanner.toml carries the same list for Scorecard, each entry with its reason and its date
+  ignore:
+    - GHSA-gcqx-w48m-w2h4

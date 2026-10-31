@@ -21,6 +21,7 @@ import {
   sourceLocale,
   trailingSlash,
 } from 'virtual:verbaly';
+import { rootLocale } from 'virtual:verbaly/server';
 
 interface RequestState {
   locale: string;
@@ -57,13 +58,31 @@ export function setRequestLocale(locale: string): void {
 }
 
 // a route segment is a url segment, so it narrows like one: a slug must never become a locale
-function declaredLocale(): string | undefined {
+async function declaredLocale(): Promise<string | undefined> {
   const raw = holder().locale;
-  if (raw === undefined) return undefined;
-  const match = localeFromPath({ supported: locales, path: `/${raw}` });
+  if (raw !== undefined) {
+    const match = localeFromPath({ supported: locales, path: `/${raw}` });
+    if (match) return match;
+    warnOnce(`setRequestLocale was given a locale the project does not have, so it was ignored`);
+    return undefined;
+  }
+  const segment = await rootSegment();
+  if (segment === undefined) return undefined;
+  const match = localeFromPath({ supported: locales, path: `/${segment}` });
   if (match) return match;
-  warnOnce(`setRequestLocale was given a locale the project does not have, so it was ignored`);
+  warnOnce(
+    `the locale segment of the url holds a locale the project does not have, so it was ignored`,
+  );
   return undefined;
+}
+
+// next/root-params answers in every segment and inside 'use cache', and throws in a route handler
+async function rootSegment(): Promise<string | undefined> {
+  try {
+    return await rootLocale?.();
+  } catch {
+    return undefined;
+  }
 }
 
 // a locale asked for by name narrows the same way, and one the project lacks falls to the source
@@ -79,6 +98,14 @@ const instanceFor = perRequest((locale: string) => createRequestInstance(locale)
 
 // only reached when no segment declared it: this read is what opts a route out of static
 async function negotiate(): Promise<string> {
+  // the url carries the locale and nothing here can read it: the cookie would beat the url
+  if (routing !== 'no-prefix' && !rootLocale) {
+    warnOnce(
+      `getT() found no locale for this segment, so it read the cookie: under your locale ` +
+        `segment, call setRequestLocale in this page or layout too, or pass getT({ locale }) ` +
+        `(Next 16.3 and later read the segment by themselves)`,
+    );
+  }
   const cookieName = requestOptions?.cookie ?? LOCALE_STORAGE_KEY;
   const headerStore = await headers();
   const cookieValue = cookieName === false ? undefined : (await cookies()).get(cookieName)?.value;
@@ -92,7 +119,7 @@ async function negotiate(): Promise<string> {
 }
 
 const getRequestState = perRequest(async (): Promise<RequestState> => {
-  const locale = declaredLocale() ?? (await negotiate());
+  const locale = (await declaredLocale()) ?? (await negotiate());
   return { locale, instance: await createRequestInstance(locale) };
 });
 

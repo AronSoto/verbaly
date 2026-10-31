@@ -1,0 +1,9 @@
+# Scorecard's Vulnerabilities check runs osv-scanner over pnpm-lock.yaml and reads this file.
+# Each entry is an advisory with no fixed version that only reaches development tooling, never what
+# the packages ship. It expires, so the next scan after that date asks the question again.
+# pnpm-workspace.yaml lists the same IDs under audit.ignore for pnpm audit.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-01-31
+reason = "deepmerge through 4.3.1, no fix published: only @sveltejs/vite-plugin-svelte loads it, a dev dependency of the svelte, sveltekit and studio builds and tests, merging its own options. Nothing published depends on it."

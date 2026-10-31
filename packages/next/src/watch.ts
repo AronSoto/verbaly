@@ -11,6 +11,7 @@ export function startWatcher(
   cfg: ResolvedConfig,
   requestOptions: RequestOptions,
   startTexts?: CodeTexts,
+  live = true,
 ): () => void {
   const existing = active.get(cfg.root);
   if (existing) return existing;
@@ -30,7 +31,7 @@ export function startWatcher(
     try {
       const catalogs = compiler.loadCatalogs(cfg);
       const registry = await compiler.extractProject(cfg);
-      texts = await syncAndWrite(compiler, cfg, catalogs, registry, requestOptions, texts);
+      texts = await syncAndWrite(compiler, cfg, catalogs, registry, requestOptions, texts, live);
     } catch (error) {
       // a catalog saved half-typed is broken JSON for a moment: one line, never a stack trace
       const reason = compiler.formatCliError(error).replace(/^\[verbaly\] /, '');

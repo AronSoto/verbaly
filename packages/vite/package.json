@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/vite",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "Zero-config Vite plugin for Verbaly: extraction, codegen and HMR.",
   "keywords": [
     "i18n",
@@ -17,6 +17,10 @@
   "homepage": "https://verbaly-web.vercel.app/docs/frameworks/vite",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "types": "./dist/index.d.ts",

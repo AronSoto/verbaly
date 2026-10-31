@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/sveltekit",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "SvelteKit SSR integration for Verbaly: per-request locale negotiation and flash-free hydration.",
   "keywords": [
     "i18n",
@@ -19,6 +19,10 @@
   "homepage": "https://verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "types": "./dist/index.d.ts",
@@ -43,8 +47,8 @@
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^3.1.0",
-    "svelte": "^5.57.2",
+    "@sveltejs/kit": "^3.1.1",
+    "svelte": "^5.57.3",
     "verbaly": "workspace:^"
   },
   "scripts": {

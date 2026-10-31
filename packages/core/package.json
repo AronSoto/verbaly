@@ -1,6 +1,6 @@
 {
   "name": "verbaly",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "Effortless i18n: write natural text, ship type-safe, tree-shakeable translations.",
   "keywords": [
     "i18n",
@@ -28,6 +28,10 @@
   "homepage": "https://verbaly-web.vercel.app/",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "main": "./dist/index.cjs",
@@ -70,7 +74,7 @@
     "esbuild": "^0.28.2",
     "fast-check": "^4.10.2",
     "happy-dom": "^21.0.4",
-    "i18next": "^26.5.4",
+    "i18next": "^26.5.12",
     "tinybench": "^6.2.2"
   },
   "scripts": {

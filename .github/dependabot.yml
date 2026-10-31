@@ -1,6 +1,6 @@
 # Scorecard checks for an update tool, and an unmaintained action pin is a real supply chain risk.
-# Dependencies themselves stay on the release ritual (`pnpm outdated -r` must be empty), so this
-# watches the one surface that ritual does not: the actions the workflows run.
+# Dependencies themselves stay on the release ritual (`pnpm update -r`, then `pnpm outdated -r` empty
+# and `pnpm audit` clean), so this watches the one surface that ritual does not: the actions.
 version: 2
 updates:
   - package-ecosystem: github-actions

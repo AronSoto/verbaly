@@ -1,7 +1,5 @@
 import type { PluginOptions } from '@verbaly/compiler';
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import {
   GENERATED_DIR,
   generatedDir,
@@ -11,6 +9,7 @@ import {
   type RequestOptions,
 } from './codegen';
 import type { LoaderOptions } from './loader';
+import { resolveFromNext } from './root-params';
 import { startWatcher } from './watch';
 
 export type { VerbalyConfig } from '@verbaly/compiler';
@@ -65,6 +64,8 @@ const BUILD_PHASE = 'phase-production-build';
 const ANALYZE_PHASE = 'phase-analyze';
 
 const LOADER = '@verbaly/next/loader';
+// server only: it may import next/root-params, which a client bundle refuses
+const SERVER_ID = 'virtual:verbaly/server';
 // matched via condition.path: a bare extension glob also hits Next's App Router entry
 const SOURCE_PATH_RE = /\.[cm]?[jt]sx?$/;
 
@@ -72,7 +73,7 @@ export function withVerbaly<C extends object>(
   nextConfig?: NextConfigInput<C>,
   options: NextVerbalyOptions = {},
 ): (phase: string, context?: { defaultConfig?: unknown }) => Promise<C> {
-  const { failOnMissing, cookie, fallback, ...verbalyConfig } = options;
+  const { failOnMissing, liveExtraction, cookie, fallback, ...verbalyConfig } = options;
   const requestOptions: RequestOptions = { cookie, fallback };
 
   return async (phase, context = {}) => {
@@ -101,8 +102,17 @@ export function withVerbaly<C extends object>(
     let gate: (() => void) | undefined;
 
     if (phase === DEV_PHASE) {
-      const texts = await syncAndWrite(compiler, cfg, catalogs, registry, requestOptions);
-      startWatcher(compiler, cfg, requestOptions, texts);
+      const live = liveExtraction !== false;
+      const texts = await syncAndWrite(
+        compiler,
+        cfg,
+        catalogs,
+        registry,
+        requestOptions,
+        undefined,
+        live,
+      );
+      startWatcher(compiler, cfg, requestOptions, texts, live);
     } else {
       // the code's text ships, as it does in dev: a catalog edit of a text it owns never wins
       compiler.syncCatalogs(cfg, catalogs, registry);
@@ -127,20 +137,7 @@ const HOOK_FILE = 'next/dist/build/after-production-compile.js';
 
 // next build calls compiler.runAfterProductionCompile since 15.4; NODE_PATH may name another next
 function hasAfterCompileHook(root: string): boolean {
-  for (let dir = root; ; dir = dirname(dir)) {
-    const next = join(dir, 'node_modules', 'next');
-    if (existsSync(join(next, 'package.json')))
-      return existsSync(join(dir, 'node_modules', HOOK_FILE));
-    if (dirname(dir) === dir) break;
-  }
-  // Yarn PnP has no node_modules, and its resolver finds the project's own next, never NODE_PATH's
-  if (!process.versions.pnp) return false;
-  try {
-    createRequire(join(root, 'package.json')).resolve(HOOK_FILE);
-    return true;
-  } catch {
-    return false;
-  }
+  return resolveFromNext(root, HOOK_FILE) !== undefined;
 }
 
 function composeConfig<C extends object>(
@@ -150,6 +147,7 @@ function composeConfig<C extends object>(
   gate?: () => void,
 ): C {
   const runtimeModule = join(generatedDir(root), 'index.js');
+  const serverModule = join(generatedDir(root), 'server.js');
   const { webpack: userWebpack, turbopack, compiler: userCompiler } = base as NextConfigLike;
   const loader = scope ? { loader: LOADER, options: scope } : LOADER;
 
@@ -187,6 +185,7 @@ function composeConfig<C extends object>(
       resolveAlias: {
         ...turbopack?.resolveAlias,
         'virtual:verbaly': `./${GENERATED_DIR}/index.js`,
+        [SERVER_ID]: `./${GENERATED_DIR}/server.js`,
       },
       rules,
     },
@@ -197,11 +196,16 @@ function composeConfig<C extends object>(
         config.plugins ??= [];
         config.plugins.push(
           new webpackInstance.NormalModuleReplacementPlugin(/^virtual:verbaly$/, runtimeModule),
+          new webpackInstance.NormalModuleReplacementPlugin(
+            /^virtual:verbaly[/]server$/,
+            serverModule,
+          ),
         );
       }
       config.resolve ??= {};
       config.resolve.alias ??= {};
       (config.resolve.alias as Record<string, unknown>)['virtual:verbaly'] = runtimeModule;
+      (config.resolve.alias as Record<string, unknown>)[SERVER_ID] = serverModule;
       config.module ??= {};
       config.module.rules ??= [];
       config.module.rules.push({

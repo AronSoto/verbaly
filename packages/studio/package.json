@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/studio",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "Local review server for Verbaly: read, edit and approve translations over the JSON files already in your repo. No account, no database.",
   "keywords": [
     "i18n",
@@ -19,6 +19,10 @@
   "homepage": "https://verbaly-web.vercel.app/docs/guide/studio",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "types": "./dist/index.d.ts",
@@ -47,8 +51,8 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@types/node": "^26.6.5",
-    "svelte": "^5.57.2",
+    "@types/node": "^26.6.6",
+    "svelte": "^5.57.3",
     "svelte-check": "^4.7.7",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "verbaly": "workspace:^",

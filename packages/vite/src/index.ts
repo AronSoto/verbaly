@@ -116,8 +116,11 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       catalogs: loadCatalogs(cfg),
       confirm: true,
       write: 'changed',
+      dryRun: options.liveExtraction === false,
     });
     catalogs = result.catalogs;
+    // a dry run writes no types, and a key a catalog edit added still has to type-check
+    if (options.liveExtraction === false) flushDts();
     for (const [locale, serialized] of Object.entries(result.written)) {
       selfWrites.set(locale, serialized);
     }

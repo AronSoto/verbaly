@@ -110,7 +110,8 @@ export function bindDom<D extends DictionaryInput>(
     throw new Error('[verbaly] bindDom requires a DOM');
   }
   const t = instance.t as unknown as (key: string, params?: Params) => string;
-  const root = options.root ?? document.body;
+  // the document: a client router replaces the body element, and the head is bound too
+  const root = options.root ?? document;
   const attr = options.attribute ?? 'data-verbaly';
   const argsAttr = `${attr}-args`;
   const attrsAttr = `${attr}-attr`;
@@ -266,7 +267,7 @@ export function bindDom<D extends DictionaryInput>(
   };
 }
 
-// the head is the half a search result shows, and the default body root never reaches it
+// the head is the half a search result shows, and a root given as the body never reaches it
 function warnOnUnboundHead(root: ParentNode, selector: string): void {
   if (root === document || root === document.documentElement) return;
   if (!document.head?.querySelector(selector)) return;

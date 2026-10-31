@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/unplugin",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "Verbaly for webpack, Rollup, esbuild and Rspack: extraction, virtual modules and build gate via unplugin.",
   "keywords": [
     "i18n",
@@ -21,6 +21,10 @@
   "homepage": "https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "types": "./dist/index.d.ts",
@@ -43,7 +47,7 @@
   },
   "dependencies": {
     "@verbaly/compiler": "workspace:*",
-    "unplugin": "^3.4.0"
+    "unplugin": "^3.7.0"
   },
   "peerDependencies": {
     "verbaly": "workspace:^"

@@ -32,6 +32,8 @@ import { warnOnce, warnParseError } from './warn';
 export interface PluginOptions extends VerbalyConfig {
   // true stops the build on whatever fails check; by default the build reports and goes on
   failOnMissing?: boolean;
+  // false: dev applies the code's texts in memory, as a build does, and verbaly extract writes them
+  liveExtraction?: boolean;
 }
 
 export const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;

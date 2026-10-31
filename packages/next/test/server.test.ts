@@ -31,10 +31,12 @@ async function load(
     fallback?: string;
     routing?: Routing;
     trailingSlash?: TrailingSlash;
+    rootLocale?: () => Promise<string | undefined>;
   } = {},
 ) {
   vi.resetModules();
   const virtual = await import('./mocks/virtual-verbaly');
+  (await import('./mocks/virtual-verbaly-server')).setRootLocale(options.rootLocale);
   virtual.requestOptions.cookie = options.cookie;
   virtual.requestOptions.fallback = options.fallback;
   virtual.setRouting(options.routing ?? 'no-prefix');
@@ -165,10 +167,14 @@ describe('setRequestLocale', () => {
   });
 
   it('still negotiates when no segment declared a locale', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     jar.header = 'es';
     const server = await load();
     expect(await server.getRequestLocale()).toBe('es');
     expect(jar.reads).toBe(1);
+    // no-prefix: the cookie and the header are where the locale lives, so nothing to say
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('narrows a regional segment the way a url segment narrows', async () => {
@@ -205,6 +211,53 @@ describe('setRequestLocale', () => {
     server.setRequestLocale('es');
     expect(await server.getRequestLocale()).toBe('es');
     expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('the root segment, through next/root-params', () => {
+  it('answers in a page that never called setRequestLocale, reading no header', async () => {
+    jar.cookie = 'en';
+    jar.header = 'en';
+    const server = await load({ routing: 'prefix-all', rootLocale: async () => 'es' });
+    expect(await server.getRequestLocale()).toBe('es');
+    expect((await server.getT())('greeting')).toBe('Hola');
+    expect(jar.reads).toBe(0);
+  });
+
+  it('negotiates where next/root-params throws, as it does in a route handler', async () => {
+    jar.header = 'es';
+    const server = await load({
+      routing: 'prefix-all',
+      rootLocale: () => Promise.reject(new Error('used in a Route Handler')),
+    });
+    expect(await server.getRequestLocale()).toBe('es');
+    expect(jar.reads).toBe(1);
+  });
+
+  it('keeps setRequestLocale first, so a layout that declares one is never second-guessed', async () => {
+    const server = await load({ routing: 'prefix-all', rootLocale: async () => 'en' });
+    server.setRequestLocale('es');
+    expect(await server.getRequestLocale()).toBe('es');
+  });
+
+  it('ignores a segment that is not one of the locales, and says so', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    jar.header = 'es';
+    const server = await load({ routing: 'prefix-all', rootLocale: async () => 'favicon.ico' });
+    expect(await server.getRequestLocale()).toBe('es');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('the locale segment of the url'));
+    warn.mockRestore();
+  });
+
+  it('warns when the url carries the locale and nothing in this segment can read it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    jar.cookie = 'en';
+    const server = await load({ routing: 'prefix-all' });
+    expect(await server.getRequestLocale()).toBe('en');
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('found no locale for this segment, so it read the cookie'),
+    );
     warn.mockRestore();
   });
 });

@@ -202,6 +202,19 @@ describe('dev transform', () => {
     expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(true);
   });
 
+  it('renders new text from memory and writes no catalog with liveExtraction off', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const before = readFileSync(join(root, 'locales', 'es.json'), 'utf8');
+    const { transform, load } = await setup(root, 'serve', { liveExtraction: false });
+
+    transform(CODE, save(root, CODE));
+    expect(load('\0virtual:verbaly/locale/es')).toContain('Hola {name}');
+
+    await sleep(150);
+    expect(readFileSync(join(root, 'locales', 'es.json'), 'utf8')).toBe(before);
+    expect(existsSync(join(root, 'verbaly.lock'))).toBe(false);
+  });
+
   it('skips node_modules and non-source files', async () => {
     const root = makeProject({ es: {} });
     const { transform } = await setup(root, 'serve');

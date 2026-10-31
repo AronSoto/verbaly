@@ -138,8 +138,13 @@ export default {
 };
 ```
 
-Then hand Verbaly the segment. This is what keeps the route statically rendered, because the
-alternative is reading request headers:
+Then hand Verbaly the segment. **On Next 16.3 and later there is nothing to write**: with the
+segment in your root layout (`app/[locale]/layout.tsx`), Verbaly reads it through
+`next/root-params` in every layout, page, `generateMetadata` and `'use cache'` function, so the
+route prerenders and no request header is read. **On Next 15 up to 16.2, call `setRequestLocale` in
+every layout and every page of the tree**: Next can render a page without running its layout, and
+a page that finds no locale reads the cookie instead of the url (it warns once when that happens).
+Inside a `'use cache'` function there, pass the language: `getT({ locale })`.
 
 ```tsx
 // app/[locale]/layout.tsx
@@ -158,13 +163,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default async function LocaleLayout({ children, params }) {
   const { locale } = await params;
-  setRequestLocale(locale); // before any getT() in this tree
+  setRequestLocale(locale); // Next 15 to 16.2: in every layout and page of the tree
   return <VerbalyProvider {...await getVerbalyProps()}>{children}</VerbalyProvider>;
 }
 ```
 
-Without `setRequestLocale`, Verbaly negotiates from the cookie and `Accept-Language`, and that read
-is what makes the route dynamic. With it, no header is read at all.
+Where neither declares the language, Verbaly negotiates from the cookie and `Accept-Language`, and
+that read is what makes the route dynamic. With either, no header is read at all.
 
 **Keys are typed.** `getT()` and `useT()` check every key and its params against your catalog, and `getRequestLocale()` returns one of your locales, so `ogLocale[await getRequestLocale()]` needs no cast. The types live in `.verbaly/types.d.ts`, next to the generated modules and never committed; TypeScript skips a dot folder, so Verbaly adds that file to the `include` of your `tsconfig.json`, the way Next adds `.next/types`. On a fresh clone, `next typegen && tsc --noEmit` writes them before it checks them.
 
@@ -176,13 +181,14 @@ The report rides on `compiler.runAfterProductionCompile`, and `withVerbaly` keep
 
 Second argument of `withVerbaly`: every [`verbaly.config`](https://www.npmjs.com/package/@verbaly/compiler) option, plus:
 
-| Option          | What it does                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `cookie`        | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only. |
-| `fallback`      | Locale when nothing matches (defaults to the source locale).                                            |
-| `failOnMissing` | `true` stops `next build` on whatever fails `verbaly check`; by default the build reports and goes on.  |
+| Option           | What it does                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cookie`         | Cookie read/written for the user's choice (default `verbaly-locale`); `false` = `Accept-Language` only.                                           |
+| `fallback`       | Locale when nothing matches (defaults to the source locale).                                                                                      |
+| `failOnMissing`  | `true` stops `next build` on whatever fails `verbaly check`; by default the build reports and goes on.                                            |
+| `liveExtraction` | `false` keeps `next dev` from writing your translation files: new texts render from memory, as in a build, and `npx verbaly extract` writes them. |
 
-- **Negotiation reads `headers()`/`cookies()`, which makes a route dynamic.** Call `setRequestLocale` with your `[locale]` segment and that read never happens, so the route prerenders. For a fully static site with no server at all, [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) mirrors the output per locale.
+- **Negotiation reads `headers()`/`cookies()`, which makes a route dynamic.** With your `[locale]` segment in the root layout (read by itself on Next 16.3 and later, or declared with `setRequestLocale` before that) that read never happens, so the route prerenders. For a fully static site with no server at all, [`verbaly render`](https://www.npmjs.com/package/@verbaly/compiler) mirrors the output per locale.
 - `getAlternates({ path, baseUrl? })` returns `{ canonical, languages }` for `generateMetadata`, the same hreflang set the static mirror writes. It is empty under `no-prefix` routing, where one URL answers every language.
 - Every url Verbaly builds (`getAlternates`, `localePath`, `useSwitchLocale`) follows your `trailingSlash` in `next.config`, so by default the Spanish home is `/es`, the form Next serves, and never `/es/`, which it redirects.
 - The generated `.verbaly/` directory is build output (it ships its own `.gitignore`).

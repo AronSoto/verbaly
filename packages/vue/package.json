@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/vue",
-  "version": "0.76.0",
+  "version": "0.77.0",
   "description": "Vue 3 bindings for Verbaly: composables over the reactive core.",
   "keywords": [
     "i18n",
@@ -18,6 +18,10 @@
   "homepage": "https://verbaly-web.vercel.app/docs/frameworks/vue",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/AronSoto"
   },
   "type": "module",
   "main": "./dist/index.cjs",

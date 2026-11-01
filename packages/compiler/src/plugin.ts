@@ -18,9 +18,10 @@ import {
   warningCount,
   type CheckResult,
 } from './check';
-import { VIRTUAL_ID, generateLocaleModule, generateRuntimeModule } from './codegen';
+import { generateLocaleModule, generateRuntimeModule } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from './config';
 import { scannedAnalysis } from './extract';
+import { LOCALE_IMPORT, VIRTUAL_ID, isAppModule } from './ids';
 import { cliReachable } from './init';
 import type { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
@@ -41,7 +42,10 @@ export const LOCALE_MODULE_PREFIX = `${RESOLVED_VIRTUAL_ID}/locale/`;
 export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue|astro)$/;
 
 export function resolveVirtualId(id: string): string | undefined {
-  if (id === VIRTUAL_ID || id.startsWith(`${VIRTUAL_ID}/`)) return '\0' + id;
+  // one resolved id for both names, so verbaly/app and virtual:verbaly share one instance
+  if (isAppModule(id)) return RESOLVED_VIRTUAL_ID;
+  if (id.startsWith(LOCALE_IMPORT)) return LOCALE_MODULE_PREFIX + id.slice(LOCALE_IMPORT.length);
+  if (id.startsWith(`${VIRTUAL_ID}/`)) return '\0' + id;
   return undefined;
 }
 

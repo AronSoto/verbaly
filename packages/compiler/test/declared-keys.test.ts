@@ -69,7 +69,7 @@ describe('defineKeys constrains what a key module may declare', () => {
     'accepts keys the catalog has and keeps them literal, so t() still takes them',
     () => {
       const errors = typecheck(
-        `import { defineKeys, t } from 'virtual:verbaly';\n` +
+        `import { defineKeys, t } from 'verbaly/app';\n` +
           `export const Text = defineKeys({ title: 'inbox_title', body: 'inbox_body' });\n` +
           `export const a = t(Text.title);\n`,
       );
@@ -82,7 +82,7 @@ describe('defineKeys constrains what a key module may declare', () => {
     'rejects a key no catalog has, where it is declared and not where it is used',
     () => {
       const errors = typecheck(
-        `import { defineKeys } from 'virtual:verbaly';\n` +
+        `import { defineKeys } from 'verbaly/app';\n` +
           `export const Text = defineKeys({ title: 'inbox_title', body: 'ghost_key' });\n`,
       );
       expect(errors).toContain('is not assignable to type');
@@ -97,7 +97,7 @@ describe('defineKeys constrains what a key module may declare', () => {
     'reaches a nested group, because one entry can hold a whole dialog',
     () => {
       const errors = typecheck(
-        `import { defineKeys } from 'virtual:verbaly';\n` +
+        `import { defineKeys } from 'verbaly/app';\n` +
           `export const Text = defineKeys({ dialog: { title: 'inbox_title', ok: 'ghost_key' } });\n`,
       );
       expect(errors).toContain('ghost_key');
@@ -111,8 +111,27 @@ describe('the generated types reach every t a project holds', () => {
     'has no errors of its own, the ones skipLibCheck hides',
     () => {
       expect(
-        typecheck(`import { t } from 'virtual:verbaly';\nexport const a = t('inbox_title');\n`),
+        typecheck(`import { t } from 'verbaly/app';\nexport const a = t('inbox_title');\n`),
       ).toBe('');
+    },
+    TSC_TIMEOUT,
+  );
+
+  it(
+    'gives virtual:verbaly, the old name, every type of verbaly/app, so no import breaks',
+    () => {
+      const errors = typecheck(
+        `import { t, createRequestInstance, type VerbalyKey } from 'virtual:verbaly';\n` +
+          `import * as app from 'verbaly/app';\n` +
+          `const same: typeof app.t = t;\n` +
+          `const key: app.VerbalyKey = 'inbox_title' satisfies VerbalyKey;\n` +
+          `// @ts-expect-error a key no catalog has, through the old name\n` +
+          `t('ghost_key');\n` +
+          `// @ts-expect-error greet needs its name, through the old name\n` +
+          `t('greet');\n` +
+          `export const out = [same, key, createRequestInstance];\n`,
+      );
+      expect(errors).toBe('');
     },
     TSC_TIMEOUT,
   );
@@ -121,9 +140,12 @@ describe('the generated types reach every t a project holds', () => {
     'checks keys and params on an instance from the generated module, as on its t',
     () => {
       const errors = typecheck(
-        `import { createInstance, createRequestInstance, verbaly } from 'virtual:verbaly';\n` +
+        `import { createInstance, createRequestInstance, switchLocale, verbaly } from 'verbaly/app';\n` +
           `export async function page(): Promise<string> {\n` +
           `  const v = await createRequestInstance('es');\n` +
+          `  await switchLocale('es', { instance: v });\n` +
+          `  // @ts-expect-error the project already answered the routing\n` +
+          `  await switchLocale('es', { routing: 'prefix-all' });\n` +
           `  // @ts-expect-error a key no catalog has\n` +
           `  v.t('ghost_key');\n` +
           `  // @ts-expect-error greet needs its name\n` +
@@ -163,7 +185,7 @@ describe('the generated types reach every t a project holds', () => {
     'names the key a typo got wrong, on every TypeScript, and still asks for params',
     () => {
       const errors = typecheck(
-        `import { t } from 'virtual:verbaly';\n` +
+        `import { t } from 'verbaly/app';\n` +
           `export const typo = t('inbox_titel');\n` +
           `export const bare = t('greet');\n` +
           `export const fine = t('greet', { name: 'Ana' }) + t\`tagged \${1}\` + t.id('x')\`y\`;\n`,
@@ -181,7 +203,7 @@ describe('the generated types reach every t a project holds', () => {
     'takes a key that comes from data as it is, through every t a project holds',
     () => {
       const errors = typecheck(
-        `import { createRequestInstance, t } from 'virtual:verbaly';\n` +
+        `import { createRequestInstance, t } from 'verbaly/app';\n` +
           `import type { Translate, Verbaly } from 'verbaly';\n` +
           `declare const slug: string;\n` +
           `declare const tr: Translate;\n` +
@@ -203,7 +225,7 @@ describe('the generated types reach every t a project holds', () => {
     'takes a union of keys from data with the params at hand, and still names a key nobody has',
     () => {
       const errors = typecheck(
-        `import { t, type VerbalyKey } from 'virtual:verbaly';\n` +
+        `import { t, type VerbalyKey } from 'verbaly/app';\n` +
           `import { createVerbaly } from 'verbaly';\n` +
           `declare const reason: VerbalyKey;\n` +
           `declare const detail: string | undefined;\n` +
@@ -226,7 +248,7 @@ describe('the generated types reach every t a project holds', () => {
     'still checks a key written as a literal, through a const and a template of literals',
     () => {
       const errors = typecheck(
-        `import { t } from 'virtual:verbaly';\n` +
+        `import { t } from 'verbaly/app';\n` +
           `declare const part: 'title' | 'body';\n` +
           `declare const bad: 'title' | 'nope';\n` +
           `const typo = 'inbox_titel';\n` +

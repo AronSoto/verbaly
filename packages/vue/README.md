@@ -22,7 +22,7 @@ pnpm add verbaly @verbaly/vue
 ```ts
 // main.ts
 import { verbalyPlugin } from '@verbaly/vue';
-import { verbaly } from 'virtual:verbaly';
+import { verbaly } from 'verbaly/app';
 
 app.use(verbalyPlugin(verbaly));
 ```
@@ -39,9 +39,9 @@ app.use(verbalyPlugin(verbaly));
 </template>
 ```
 
-**The plugin is optional in the browser.** With none above it, a hook reads the instance `virtual:verbaly` creates, so a single-page app can skip it and a component test renders with no wrapper. On a server it is required, since every request has its own instance.
+**The plugin is optional in the browser.** With none above it, a hook reads the instance `verbaly/app` creates, so a single-page app can skip it and a component test renders with no wrapper. On a server it is required, since every request has its own instance.
 
-**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app, `.nuxt/verbaly.d.ts` in Nuxt): a key no catalog has does not compile. A key that comes from data, like `t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `virtual:verbaly` when you want `check` to verify it exists.
+**Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app, `.nuxt/verbaly.d.ts` in Nuxt): a key no catalog has does not compile. A key that comes from data, like `t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `verbaly/app` when you want `check` to verify it exists.
 
 Or skip the keys entirely: write the source text in place and the compiler extracts it, right in your `.vue` files (script and template):
 

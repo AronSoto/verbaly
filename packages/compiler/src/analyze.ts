@@ -1,4 +1,5 @@
 import { parse } from '@babel/parser';
+import { isAppModule } from './ids';
 import { stableKey } from './key';
 
 export interface TaggedParam {
@@ -178,8 +179,8 @@ function lineOf(node: AstNode): number {
   return (node.loc as { start: { line: number } } | undefined)?.start.line ?? 1;
 }
 
-// a module whose exports hand out verbaly's t: the core, every adapter and virtual:verbaly
-const VERBALY_SOURCE = /^(?:verbaly|virtual:verbaly|@verbaly\/[\w-]+(?:\/[\w-]+)*)$/;
+// what hands out verbaly's t: the core and every adapter; isAppModule covers the project's
+const VERBALY_SOURCE = /^(?:verbaly|@verbaly\/[\w-]+(?:\/[\w-]+)*)$/;
 
 // how each factory hands out t: useT() returns it, getT() resolves to it
 const T_FACTORIES = new Map([
@@ -208,7 +209,7 @@ class Bindings {
       const imported =
         spec.type === 'ImportSpecifier' ? importedName(spec.imported as AstNode) : spec.type;
       this.imports.set(local, { source, imported });
-      if (source === 'virtual:verbaly' && imported === 't') this.direct.add(local);
+      if (isAppModule(source) && imported === 't') this.direct.add(local);
     }
   }
 
@@ -270,7 +271,8 @@ class Bindings {
   private origin(local: string): { verbaly: boolean | undefined; imported: string } {
     const found = this.imports.get(local);
     if (!found) return { verbaly: undefined, imported: local };
-    return { verbaly: VERBALY_SOURCE.test(found.source), imported: found.imported };
+    const verbaly = VERBALY_SOURCE.test(found.source) || isAppModule(found.source);
+    return { verbaly, imported: found.imported };
   }
 }
 
@@ -343,7 +345,7 @@ function collectStrayImports(node: AstNode, file: string, out: StrayImport[]): v
     const imported = spec.imported as AstNode;
     if (imported.type !== 'Identifier') continue;
     const name = imported.name as string;
-    // both come from virtual:verbaly, which is the project's module and never a package export
+    // both come from verbaly/app, which is the project's module and never a package export
     if (name === 't' || name === DEFINE_KEYS) out.push({ name, source: source.value, file });
   }
 }

@@ -13,7 +13,7 @@
 
 Write your text in place, in the frontmatter or right in the markup of your `.astro` files. The compiler extracts the messages, generates stable keys, typed params and one catalog per language, and the dev server keeps them in sync while you code.
 
-One line in `astro.config` wires everything: the Vite plugin (live extraction, the `virtual:verbaly` module and the build report) and, if you use the mirror flow, `verbaly render` runs by itself after every build. The generated types live inside Astro's own `.astro` folder (via `injectTypes`), so no extra file lands in your project.
+One line in `astro.config` wires everything: the Vite plugin (live extraction, the `verbaly/app` module and the build report) and, if you use the mirror flow, `verbaly render` runs by itself after every build. The generated types live inside Astro's own `.astro` folder (via `injectTypes`), so no extra file lands in your project.
 
 ## 🚀 Install
 
@@ -61,7 +61,7 @@ Every message becomes a stable key with typed params. A build lists what `verbal
 
 ```astro
 ---
-import { createRequestInstance, sourceLocale } from 'virtual:verbaly';
+import { createRequestInstance, sourceLocale } from 'verbaly/app';
 const { t } = await createRequestInstance(Astro.currentLocale ?? sourceLocale);
 ---
 ```
@@ -82,7 +82,7 @@ export default {
 
 Force it on or off with the integration option: `verbaly({ render: true })`.
 
-Every url the mirror and `virtual:verbaly` write (hreflang, sitemap, canonical, links and `localePath`) follows Astro's own `trailingSlash`, so with `'never'` the Spanish home is `/es`, never `/es/`. With `<ClientRouter />`, `virtual:verbaly` takes the language of each page before the swap, so a live `bindDom` paints the incoming page in its own language. Its default root is the whole document, so it keeps working after the router replaces the `body`.
+Every url the mirror and `verbaly/app` write (hreflang, sitemap, canonical, links and `localePath`) follows Astro's own `trailingSlash`, so with `'never'` the Spanish home is `/es`, never `/es/`. With `<ClientRouter />`, `verbaly/app` takes the language of each page before the swap, so a live `bindDom` paints the incoming page in its own language. Its default root is the whole document, so it keeps working after the router replaces the `body`.
 
 ## 📚 Docs
 

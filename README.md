@@ -13,7 +13,7 @@
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
   <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
-  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.77.0" alt="Socket supply chain security" /></a>
+  <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly/0.78.0" alt="Socket supply chain security" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/verbaly#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <img src="https://img.shields.io/badge/gzip-3.35KB-3fb950" alt="3.35KB gzip runtime" />
@@ -26,19 +26,17 @@
   <img src="assets/hero.gif" alt="On the left, a component that writes t`Welcome back, ${name}`, t`You have ${count} new messages` and t`Open inbox`. On the right, the same page in a browser switching from English to Spanish to Portuguese. Below, the four steps: write, extract, translate, check." width="860" />
 </p>
 
-<table align="center">
-  <tr>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/react"><img src="https://cdn.simpleicons.org/react/61DAFB" height="30" alt="" /><br /><sub>React</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/react#next"><img src="https://cdn.simpleicons.org/nextdotjs/888888" height="30" alt="" /><br /><sub>Next.js</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vue"><img src="https://cdn.simpleicons.org/vuedotjs/4FC08D" height="30" alt="" /><br /><sub>Vue</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt"><img src="https://cdn.simpleicons.org/nuxt/00DC82" height="30" alt="" /><br /><sub>Nuxt</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/svelte"><img src="https://cdn.simpleicons.org/svelte/FF3E00" height="30" alt="" /><br /><sub>Svelte & Kit</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/astro"><img src="https://cdn.simpleicons.org/astro/FF5D01" height="30" alt="" /><br /><sub>Astro</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vite"><img src="https://cdn.simpleicons.org/vite/646CFF" height="30" alt="" /><br /><sub>Vite</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin"><img src="https://cdn.simpleicons.org/webpack/8DD6F9" height="30" alt="" /><br /><sub>webpack & co</sub></a></td>
-    <td align="center" width="96"><a href="https://verbaly-web.vercel.app/docs/frameworks/dom"><img src="https://cdn.simpleicons.org/html5/E34F26" height="30" alt="" /><br /><sub>Plain HTML</sub></a></td>
-  </tr>
-</table>
+<p align="center">
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/react"><img src="https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB" alt="React" title="React" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/react#next"><img src="https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js" title="Next.js" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/vue"><img src="https://img.shields.io/badge/Vue-35495E?style=flat&logo=vuedotjs&logoColor=4FC08D" alt="Vue" title="Vue" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt"><img src="https://img.shields.io/badge/Nuxt-0B1E1A?style=flat&logo=nuxt&logoColor=00DC82" alt="Nuxt" title="Nuxt" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/svelte"><img src="https://img.shields.io/badge/Svelte-2A1A14?style=flat&logo=svelte&logoColor=FF3E00" alt="Svelte and SvelteKit" title="Svelte and SvelteKit" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/astro"><img src="https://img.shields.io/badge/Astro-17191E?style=flat&logo=astro&logoColor=FF5D01" alt="Astro" title="Astro" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/vite"><img src="https://img.shields.io/badge/Vite-1B1C2E?style=flat&logo=vite&logoColor=646CFF" alt="Vite" title="Vite" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin"><img src="https://img.shields.io/badge/webpack-1C2B34?style=flat&logo=webpack&logoColor=8DD6F9" alt="webpack, Rollup, esbuild and Rspack" title="webpack, Rollup, esbuild and Rspack" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/dom"><img src="https://img.shields.io/badge/HTML-2B1A16?style=flat&logo=html5&logoColor=E34F26" alt="Plain HTML, no framework" title="Plain HTML, no framework" /></a>
+</p>
 
 ## The idea
 
@@ -74,13 +72,13 @@ export default { plugins: [verbaly()] };
 
 ```ts
 // anywhere in your app: extracted and typed on save
-import { t, setLocale } from 'virtual:verbaly';
+import { t, setLocale } from 'verbaly/app';
 
 t`Hello ${name}`;
 await setLocale('es'); // loads only the Spanish module
 ```
 
-Next.js, Nuxt, SvelteKit and Astro have their own one-line setup: pick yours in the row above, or read the full docs at **https://verbaly-web.vercel.app/docs**.
+`verbaly/app` is your project's own module: the plugin writes it from your config, with your languages and catalogs already in it. Next.js, Nuxt, SvelteKit and Astro have their own one-line setup: pick yours in the row above, or read the full docs at **https://verbaly-web.vercel.app/docs**.
 
 ## Why Verbaly
 

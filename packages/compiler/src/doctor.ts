@@ -281,7 +281,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
       error(
         'imports',
         `t is imported from a verbaly package, which never exports it, in ${counted(files.length, 'file')} (${preview(files)})`,
-        't comes from your instance (React: const t = useT()) or from virtual:verbaly',
+        't comes from your instance (React: const t = useT()) or from verbaly/app',
       );
     }
     // a t under another name reads fine at runtime, and its texts stay in the source language

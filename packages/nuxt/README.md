@@ -13,7 +13,7 @@
 
 Server-rendered pages arrive already translated in the visitor's language (the address first when your URLs carry it, then the cookie, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
 
-One line in `nuxt.config` wires everything: the Vite plugin (live extraction + the `virtual:verbaly` module), the per-request negotiation and `<html lang>`/`<html dir>`.
+One line in `nuxt.config` wires everything: the Vite plugin (live extraction + the `verbaly/app` module), the per-request negotiation and `<html lang>`/`<html dir>`.
 
 ## 🚀 Install
 
@@ -54,17 +54,18 @@ const t = useT();
 
 `useT()` is typed by your catalog: the types go to `.nuxt/verbaly.d.ts`, where Nuxt links them, and `npx verbaly extract` writes that same file. A key no catalog has fails `nuxi typecheck`.
 
-**3. Switching languages** (client): persists the cookie the server reads:
+**3. Switching languages** (client): with a prefix in your URLs it goes to the same page in the other language; without one it loads the catalog and switches this page. Either way it saves the choice in the cookie the server reads:
 
 ```vue
 <script setup>
-import { switchLocale } from 'verbaly';
+import { switchLocale } from 'verbaly/app';
 import { useVerbaly } from '@verbaly/vue';
+// the instance this page renders with: the module builds one per request
 const verbaly = useVerbaly();
 </script>
 
 <template>
-  <button @click="switchLocale(verbaly, 'es')">Español</button>
+  <button @click="switchLocale('es', { instance: verbaly })">Español</button>
 </template>
 ```
 

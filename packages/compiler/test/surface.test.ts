@@ -5,6 +5,8 @@ import * as compiler from '../src/index';
 
 // Adding an export must change this list too: the rule it has to pass lives in the dev skill.
 const VALUES = [
+  'APP_ID',
+  'LOCALE_IMPORT',
   'LOCALE_MODULE_PREFIX',
   'MessageRegistry',
   'RESOLVED_VIRTUAL_ID',

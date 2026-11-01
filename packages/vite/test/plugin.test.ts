@@ -101,8 +101,17 @@ describe('virtual modules', () => {
     expect(resolveId('virtual:verbaly')).toBe('\0virtual:verbaly');
     const code = load('\0virtual:verbaly');
     expect(code).toContain('createVerbaly');
-    expect(code).toContain("import('virtual:verbaly/locale/en')");
-    expect(code).toContain("import('virtual:verbaly/locale/pt')");
+    expect(code).toContain("import('@verbaly/app/locale/en')");
+    expect(code).toContain("import('@verbaly/app/locale/pt')");
+  });
+
+  it('resolves verbaly/app, the name the docs teach, to the very same module', async () => {
+    const root = makeProject({ es: {}, en: {} });
+    const { resolveId } = await setup(root, 'serve');
+    // one id for both names: two would build two instances, and a switch would reach only one
+    expect(resolveId('verbaly/app')).toBe('\0virtual:verbaly');
+    expect(resolveId('verbaly')).toBeUndefined();
+    expect(resolveId('verbaly/application')).toBeUndefined();
   });
 
   it('serves locale catalogs as modules', async () => {
@@ -126,8 +135,13 @@ describe('hook filters', () => {
   it('hands each hook only the ids it acts on, as rolldown reads them before calling JS', () => {
     const plugin = verbalyPlugin();
     expect(passes(plugin.resolveId, 'virtual:verbaly')).toBe(true);
+    expect(passes(plugin.resolveId, '@verbaly/app/locale/es')).toBe(true);
     expect(passes(plugin.resolveId, 'virtual:verbaly/locale/es')).toBe(true);
+    expect(passes(plugin.resolveId, 'verbaly/app/locale/es')).toBe(false);
     expect(passes(plugin.resolveId, 'virtual:verbalyish')).toBe(false);
+    expect(passes(plugin.resolveId, 'verbaly/app')).toBe(true);
+    expect(passes(plugin.resolveId, 'verbaly')).toBe(false);
+    expect(passes(plugin.resolveId, 'verbaly/apple')).toBe(false);
     expect(passes(plugin.resolveId, '/app/src/main.ts')).toBe(false);
     expect(passes(plugin.load, '\0virtual:verbaly')).toBe(true);
     expect(passes(plugin.load, '\0virtual:verbaly/locale/es')).toBe(true);
@@ -247,7 +261,7 @@ describe('dev server', () => {
     configureServer(server);
 
     expect(state.watched).toContain(join(root, 'locales'));
-    expect(resolveId('virtual:verbaly/locale/en')).toBe('\0virtual:verbaly/locale/en');
+    expect(resolveId('@verbaly/app/locale/en')).toBe('\0virtual:verbaly/locale/en');
     expect(resolveId('src/app.ts')).toBeUndefined();
     expect(load('\0other')).toBeUndefined();
   });

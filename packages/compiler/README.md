@@ -112,13 +112,13 @@ A message keeps its text in exactly one place, and that place is where you edit 
 **Keys first** is the third row: the text lives only in the catalog, and a literal `t('settings.save')` counts as a use, so `--prune` keeps it. When a key comes from data instead of a literal, declare the keys with `defineKeys`, so the compiler sees them and TypeScript checks them where you write them:
 
 ```ts
-import { defineKeys } from 'virtual:verbaly';
+import { defineKeys } from 'verbaly/app';
 
 const titles = defineKeys({ verbaly: 'project.verbaly.title', blog: 'project.blog.title' });
 t(titles[slug]);
 ```
 
-`defineKeys` is detected by name, like `t`. It comes from `virtual:verbaly`, the module generated for your project, which is the one the framework provider already loads.
+`defineKeys` is detected by name, like `t`. It comes from `verbaly/app`, the module generated for your project, which is the one the framework provider already loads.
 
 **A translation knows which source text it was written for.** For readable keys, the second and third rows, Verbaly keeps a short fingerprint of the source text and of the translation in `verbaly.lock`, next to your config. It is taken the moment the translation is written, by `translate`, `import`, Studio or an agent, so a source that changes right after is still caught; `import` takes it from the source text the translator's file carries, so a file made for an older text reads as outdated at once. When the source text changes and the translation does not, the translation is **outdated**: `status`, `check` and `doctor` say so, `review` lists it with both texts, and `review --approve` keeps it if it still holds. Editing the translation clears it on its own. Hash keys never need this, because a new text is a new key.
 
@@ -133,7 +133,7 @@ Four details that catch people out:
 
 ## 🔑 Typed keys, and where the types live
 
-Every `t` your project holds checks its keys and their params: the one from `virtual:verbaly`, `useT()` in React, Vue and Svelte, `getT()` in Next, and the `t` of an instance from `createInstance` or `createRequestInstance`. A key no catalog has does not compile, a message with a `{name}` asks for it, and Next's `getRequestLocale()` returns one of your locales instead of any string:
+Every `t` your project holds checks its keys and their params: the one from `verbaly/app`, `useT()` in React, Vue and Svelte, `getT()` in Next, and the `t` of an instance from `createInstance` or `createRequestInstance`. A key no catalog has does not compile, a message with a `{name}` asks for it, and Next's `getRequestLocale()` returns one of your locales instead of any string:
 
 ```ts
 const t = useT();
@@ -223,10 +223,10 @@ export default {
 
 Pick by surface, not by taste: [Google recommends a different URL per language](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites) rather than cookies or browser settings, so anything people reach through search wants the language in the address. An app behind a login loses nothing with `no-prefix`.
 
-`virtual:verbaly` exports `routing`, `localePath`, `localeFromPath` and **`switchLocale`, already bound** to your locales, source and mode. The switcher is one line and it is the same line in every mode:
+`verbaly/app` exports `routing`, `localePath`, `localeFromPath` and **`switchLocale`, already bound** to your locales, source and mode. The switcher is one line and it is the same line in every mode:
 
 ```ts
-import { switchLocale } from 'virtual:verbaly';
+import { switchLocale } from 'verbaly/app';
 
 await switchLocale('es');
 ```
@@ -325,7 +325,7 @@ export default {
 **Use it for text `render` covers.** A key that is excluded and then asked for at runtime resolves to itself, like any absent key, and `bindDom` leaves the pre-rendered text alone rather than painting the key over it. The build says so when a prefix matches nothing, and when your code reads an excluded key through `t()`. To use an excluded group at runtime anyway, load it yourself:
 
 ```ts
-import { verbaly } from 'virtual:verbaly';
+import { verbaly } from 'verbaly/app';
 
 const extra = await import(`./i18n/changelog/${locale}.json`);
 verbaly.addMessages(locale, extra.default);
@@ -357,7 +357,7 @@ The package exports two layers, and **nothing else is public**. Anything you can
 | Config & catalogs | `loadConfig` `resolveConfig` `targetLocales` `loadCatalogs` `readCatalog` `parseCatalog` `writeCatalog` `clientCatalogs` `needsIcu` `needsRelative` · types `Catalog` `Catalogs`                                                                                                                                                                                   |
 | Extraction        | `syncProject` `extractProject` `collectOrigins` `syncCatalogs` `shippedCatalogs` `pruneCatalogs` `MessageRegistry` `stableKey` `watchTree` · types `SyncProjectResult` `SyncResult` `TreeOptions`                                                                                                                                                                  |
 | Codegen           | `generateDts` `writeDts` `generateRuntimeModule` `generateLocaleModule` · types `DtsOptions` `RuntimeModuleOptions`                                                                                                                                                                                                                                                |
-| Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `reportOutsideInclude` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult`                                                                                                    |
+| Bundler plumbing  | `transformSource` `transformCode` `runBuildGate` `createSourceFilter` `reportOutsideInclude` `isTransformTarget` `resolveVirtualId` `loadVirtualModule` `APP_ID` `LOCALE_IMPORT` `RESOLVED_VIRTUAL_ID` `LOCALE_MODULE_PREFIX` `SOURCE_FILE_RE` · types `PluginOptions` `TransformResult`                                                                           |
 | The gate          | `check` `validateMessage` `validatePair` `formatCheckResult` `formatCheckWarnings` `collisionEntries` `formatCollision` `formatFinding` `createDevReporter` · types `Finding` `DevReporter` `CheckResult` `MissingEntry` `UnknownEntry` `BrokenEntry` `ExtraEntry` `CollisionEntry` `DivergentEntry` `OutdatedEntry` `SourceSite` `StructureIssue` `IssueSeverity` |
 | Coverage          | `status` `formatStatusResult` `counted` · types `StatusResult` `LocaleStatus`                                                                                                                                                                                                                                                                                      |
 | Review state      | `loadDrafts` `saveDrafts` `markDrafts` `clearDrafts` `effectiveDrafts` `loadState` `readState` `updateState` `recordTranslations` `outdatedTranslations` `STATE_FILE` · types `Drafts` `State` `Fingerprints` `TranslationWrite`                                                                                                                                   |

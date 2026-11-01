@@ -64,6 +64,8 @@ const BUILD_PHASE = 'phase-production-build';
 const ANALYZE_PHASE = 'phase-analyze';
 
 const LOADER = '@verbaly/next/loader';
+// the name the docs teach; virtual:verbaly stays an alias of the same generated file
+const APP_ID = 'verbaly/app';
 // server only: it may import next/root-params, which a client bundle refuses
 const SERVER_ID = 'virtual:verbaly/server';
 // matched via condition.path: a bare extension glob also hits Next's App Router entry
@@ -184,6 +186,7 @@ function composeConfig<C extends object>(
       ...turbopack,
       resolveAlias: {
         ...turbopack?.resolveAlias,
+        [APP_ID]: `./${GENERATED_DIR}/index.js`,
         'virtual:verbaly': `./${GENERATED_DIR}/index.js`,
         [SERVER_ID]: `./${GENERATED_DIR}/server.js`,
       },
@@ -204,6 +207,8 @@ function composeConfig<C extends object>(
       }
       config.resolve ??= {};
       config.resolve.alias ??= {};
+      // not a URI scheme, so a plain exact alias is enough
+      (config.resolve.alias as Record<string, unknown>)[`${APP_ID}$`] = runtimeModule;
       (config.resolve.alias as Record<string, unknown>)['virtual:verbaly'] = runtimeModule;
       (config.resolve.alias as Record<string, unknown>)[SERVER_ID] = serverModule;
       config.module ??= {};

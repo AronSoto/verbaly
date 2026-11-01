@@ -52,7 +52,7 @@ describe('virtual modules', () => {
     expect(p.loadInclude('\0virtual:verbaly')).toBe(true);
     const code = p.load('\0virtual:verbaly');
     expect(code).toContain('createVerbaly');
-    expect(code).toContain("import('virtual:verbaly/locale/en')");
+    expect(code).toContain("import('@verbaly/app/locale/en')");
   });
 
   it('serves locale catalogs as modules', async () => {
@@ -65,6 +65,13 @@ describe('virtual modules', () => {
     const root = makeProject({ es: {} });
     const p = await setup(root);
     expect(p.resolveId('src/app.ts')).toBeNull();
+    expect(p.resolveId('verbaly')).toBeNull();
+  });
+
+  it('resolves verbaly/app, the name the docs teach, to the same module as virtual:verbaly', async () => {
+    const root = makeProject({ es: {} });
+    const p = await setup(root);
+    expect(p.resolveId('verbaly/app')).toBe('\0virtual:verbaly');
     expect(p.loadInclude('src/app.ts')).toBe(false);
     expect(p.load('\0other')).toBeNull();
   });

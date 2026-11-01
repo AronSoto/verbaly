@@ -11,7 +11,7 @@
 
 ---
 
-[Verbaly](https://github.com/AronSoto/verbaly) beyond Vite: the same compiler (typed `virtual:verbaly` module, per-locale code-splitting and the **build report** of what `verbaly check` would fail on) wrapped with [unplugin](https://github.com/unjs/unplugin) so it runs on **webpack 5, Rollup, esbuild, Rspack** (and Vite, though [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) is richer there: live extraction + HMR).
+[Verbaly](https://github.com/AronSoto/verbaly) beyond Vite: the same compiler (typed `verbaly/app` module, per-locale code-splitting and the **build report** of what `verbaly check` would fail on) wrapped with [unplugin](https://github.com/unjs/unplugin) so it runs on **webpack 5, Rollup, esbuild, Rspack** (and Vite, though [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) is richer there: live extraction + HMR).
 
 ## 🚀 Install
 
@@ -52,7 +52,7 @@ npx verbaly extract           # scan sources, sync catalogs, write the types (sr
 npx verbaly extract --watch   # keep extracting as you code (dev loop)
 ```
 
-- **Same virtual module**: `import { t, setLocale } from 'virtual:verbaly'`.
+- **Same project module**: `import { t, setLocale } from 'verbaly/app'`. With webpack, write that name: webpack reads `virtual:verbaly`, the old one, as a URI scheme and stops before any plugin sees it.
 - **Build report**: each build, and each rebuild of a watch, says what `verbaly check` would fail on and goes on. A problem is said once while it lasts, so a watch does not repeat it on every save. `failOnMissing: true` stops the build instead.
 - **Files outside `include`**: the build names once, when it starts, every file outside your `include` that writes a `` t`…` ``, since that text ships untranslated.
 - ESM-only, like the compiler. Use `webpack.config.mjs` (or `"type": "module"`).

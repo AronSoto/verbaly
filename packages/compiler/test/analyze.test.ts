@@ -535,6 +535,11 @@ describe('stray imports', () => {
     const code = "import { createVerbaly, bindDom } from 'verbaly';";
     expect(analyze(code, 'app.ts').strayImports).toEqual([]);
   });
+
+  it('never flags t or defineKeys from verbaly/app, the project module the docs teach', () => {
+    const code = "import { t, defineKeys } from 'verbaly/app';";
+    expect(analyze(code, 'app.ts').strayImports).toEqual([]);
+  });
 });
 
 describe('a t under another name', () => {
@@ -548,6 +553,14 @@ describe('a t under another name', () => {
     ]);
     expect(names('const { t: tr } = useVerbaly(); tr.id("k")`Hola`;')).toEqual(['tr']);
     expect(names("import { t as tr } from 'virtual:verbaly'; tr`Hola`;")).toEqual(['tr']);
+  });
+
+  it('follows the project module by the name the docs teach, verbaly/app', () => {
+    expect(names("import { t as tr } from 'verbaly/app'; tr`Hola app`;")).toEqual(['tr']);
+    const astro =
+      "import { createRequestInstance } from 'verbaly/app';\n" +
+      "const { t: tr } = await createRequestInstance('es');\ntr`Hola astro`;";
+    expect(names(astro, 'page.ts')).toEqual(['tr']);
   });
 
   it('extracts nothing from it: the report is how its text reaches the catalogs', () => {

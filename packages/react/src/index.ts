@@ -14,7 +14,7 @@ export type { TransOptions, TransProps } from './render';
 
 const VerbalyContext = createContext<Verbaly | null>(null);
 
-// what virtual:verbaly registers in a browser; a server holds one instance per request instead
+// what verbaly/app registers in a browser; a server holds one instance per request instead
 const APP_INSTANCE = Symbol.for('verbaly.app');
 
 function appInstance(): Verbaly | null {
@@ -42,7 +42,7 @@ export function useVerbaly<D extends DictionaryInput = DictionaryInput>(): Verba
   const instance = useContext(VerbalyContext) ?? appInstance();
   if (!instance) {
     throw new Error(
-      '[verbaly] useVerbaly requires a <VerbalyProvider>: on a server, or before virtual:verbaly loads',
+      '[verbaly] useVerbaly requires a <VerbalyProvider>: on a server, or before verbaly/app loads',
     );
   }
   return instance as unknown as Verbaly<D>;

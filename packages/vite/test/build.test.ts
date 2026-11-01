@@ -1,0 +1,61 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build, type Rolldown } from 'vite';
+import { describe, expect, it, vi } from 'vitest';
+import verbalyPlugin from '../src/index';
+
+// real builds: an alias runs before every plugin, so only a bundler shows what it swallows
+const BUILD_TIMEOUT = 60_000;
+const core = fileURLToPath(new URL('../../core/src/index.ts', import.meta.url));
+
+function project(main: string): string {
+  const root = mkdtempSync(join(tmpdir(), 'verbaly-vite-build-'));
+  mkdirSync(join(root, 'locales'));
+  mkdirSync(join(root, 'src'));
+  writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ sourceLocale: 'en' }));
+  writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ hello: 'Hello' }));
+  writeFileSync(join(root, 'locales', 'es.json'), JSON.stringify({ hello: 'Hola desde vite' }));
+  writeFileSync(join(root, 'src', 'main.js'), main);
+  writeFileSync(join(root, 'index.html'), '<script type="module" src="/src/main.js"></script>\n');
+  return root;
+}
+
+type Alias = Record<string, string> | { find: RegExp; replacement: string }[];
+
+async function shipped(root: string, alias: Alias): Promise<string> {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const result = (await build({
+    root,
+    configFile: false,
+    logLevel: 'silent',
+    plugins: [verbalyPlugin()],
+    resolve: { alias },
+    build: { write: false },
+  })) as Rolldown.RolldownOutput;
+  return result.output.map((file) => ('code' in file ? file.code : '')).join('\n');
+}
+
+describe('a vite build of the project module', () => {
+  // Proved able to fail by importing the languages as verbaly/app/locale/* again.
+  it(
+    'keeps building an app that aliases verbaly as a string, as a monorepo does',
+    async () => {
+      const root = project("import { t } from 'virtual:verbaly';\nconsole.log(t('hello'));\n");
+      expect(await shipped(root, { verbaly: core })).toContain('Hola desde vite');
+    },
+    BUILD_TIMEOUT,
+  );
+
+  it(
+    'builds verbaly/app with each language in a chunk of its own',
+    async () => {
+      const root = project("import { t } from 'verbaly/app';\nconsole.log(t('hello'));\n");
+      // an exact alias: verbaly alone, so verbaly/app still reaches the plugin
+      const exact = [{ find: /^verbaly$/, replacement: core }];
+      expect(await shipped(root, exact)).toContain('Hola desde vite');
+    },
+    BUILD_TIMEOUT,
+  );
+});

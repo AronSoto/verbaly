@@ -16,9 +16,9 @@ describe('generateRuntimeModule', () => {
       locales: ['es', 'en', 'pt'],
     });
     const code = generateRuntimeModule(cfg);
-    expect(code).toContain("import source from 'virtual:verbaly/locale/es'");
-    expect(code).toContain('"en": () => import(\'virtual:verbaly/locale/en\')');
-    expect(code).toContain('"pt": () => import(\'virtual:verbaly/locale/pt\')');
+    expect(code).toContain("import source from '@verbaly/app/locale/es'");
+    expect(code).toContain('"en": () => import(\'@verbaly/app/locale/en\')');
+    expect(code).toContain('"pt": () => import(\'@verbaly/app/locale/pt\')');
     expect(code).not.toContain('"es": () =>');
     expect(code).toContain('locale: "es"');
   });
@@ -238,7 +238,9 @@ describe('generateDts', () => {
     expect(dts).toContain('"greeting": { "name": unknown };');
     expect(dts).toContain('"inbox": { "count": number };');
     expect(dts).toContain('"plain": never;');
-    expect(dts).toContain("declare module 'virtual:verbaly'");
+    expect(dts).toContain("declare module 'verbaly/app' {");
+    // the old name stays a whole alias of the new one, so an import written before keeps its types
+    expect(dts).toContain("declare module 'virtual:verbaly' {\n  export * from 'verbaly/app';\n}");
     expect(dts).toContain('setLocale(locale: string): Promise<void>');
     expect(dts).toContain('export const t: {');
     expect(dts).toContain(
@@ -308,7 +310,9 @@ describe('the bound switcher', () => {
     const cfg = resolveConfig({ sourceLocale: 'en', locales: ['en', 'es'], render: {} });
     const mod = generateRuntimeModule(cfg);
     expect(mod).toContain('export function switchLocale(locale, options)');
-    expect(mod).toContain('supported: locales, sourceLocale, routing, trailingSlash, ...options');
+    expect(mod).toContain('supported: locales, sourceLocale, routing, trailingSlash, ...rest');
+    // the page's instance where the framework builds its own, the module's everywhere else
+    expect(mod).toContain('return runSwitch(instance ?? v, locale,');
     // a project with no framework setting keeps the form each page has, as before
     expect(mod).toContain('export const trailingSlash = undefined;');
     const never = resolveConfig({ sourceLocale: 'en', render: {}, trailingSlash: 'never' });

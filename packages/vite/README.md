@@ -11,7 +11,7 @@
 
 ---
 
-The Vite plugin for [Verbaly](https://github.com/AronSoto/verbaly). Write natural text in your code; on save it extracts stable keys, syncs per-locale JSON catalogs, generates typed `virtual:verbaly` + `verbaly.d.ts`, and **fails `vite build` when a translation is missing**.
+The Vite plugin for [Verbaly](https://github.com/AronSoto/verbaly). Write natural text in your code; on save it extracts stable keys, syncs per-locale JSON catalogs, generates `verbaly/app` (your project's typed module), and tells you in every build what `verbaly check` would fail on.
 
 ## 🚀 Install
 
@@ -37,9 +37,10 @@ export default { sourceLocale: 'en', locales: ['en', 'es', 'pt'] };
 
 ```ts
 // anywhere in your app, extracted + typed on save
-import { t, setLocale } from 'virtual:verbaly';
+import { t, setLocale } from 'verbaly/app';
 ```
 
+- **`verbaly/app` is your project**: the plugin writes it from your config and catalogs, so `locales`, `routing` and a bound `switchLocale` are already there. Its old name, `virtual:verbaly`, still works and is the same module.
 - **Live extraction** with debounced catalog writes + HMR, from `.js/.ts/.jsx/.tsx` and `.svelte`/`.vue` files (script and markup). Every write starts from the files on disk, so a checkout or an `extract` run in another terminal is never undone with an older text, and a catalog saved half-typed is reported in one line while the server keeps running. The terminal says what `next dev` says, once each: a hand edit of a text your code owns, a key with two texts, a `t` under another name, a translation older than its source. To keep the dev server from writing your translation files, pass `liveExtraction: false`: new texts still render from memory, as in a build, and `npx verbaly extract` writes them when you choose.
 - **Typed keys**: the types go to `src/verbaly.d.ts` (the root when there is no `src/`), the folder the Vite and SvelteKit templates' `tsconfig` includes, so `tsc -b` sees them with nothing to configure. `npx verbaly typegen` writes them on a fresh clone.
 - **Per-locale code-splitting**: `setLocale` lazy-loads only what's used.

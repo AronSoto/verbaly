@@ -25,7 +25,7 @@ pnpm add @verbaly/svelte
 <!-- +layout.svelte -->
 <script>
   import { provideVerbaly } from '@verbaly/svelte';
-  import { verbaly } from 'virtual:verbaly';
+  import { verbaly } from 'verbaly/app';
 
   provideVerbaly(verbaly);
 </script>
@@ -48,9 +48,9 @@ pnpm add @verbaly/svelte
 </select>
 ```
 
-**`provideVerbaly` is optional in the browser.** With none above it, a hook reads the instance `virtual:verbaly` creates, so a single-page app can skip it and a component test renders with no wrapper. On a server it is required, since every request has its own instance.
+**`provideVerbaly` is optional in the browser.** With none above it, a hook reads the instance `verbaly/app` creates, so a single-page app can skip it and a component test renders with no wrapper. On a server it is required, since every request has its own instance.
 
-**Keys are typed.** `$t` from `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts`): a key no catalog has does not compile. A key that comes from data, like `$t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `virtual:verbaly` when you want `check` to verify it exists.
+**Keys are typed.** `$t` from `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts`): a key no catalog has does not compile. A key that comes from data, like `$t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `verbaly/app` when you want `check` to verify it exists.
 
 Or skip the keys entirely: write the source text in place and the compiler extracts it, right in your `.svelte` files (script and markup):
 

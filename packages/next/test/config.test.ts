@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { APP_ID } from '@verbaly/compiler';
 import { describe, expect, it, vi } from 'vitest';
 import { withVerbaly, type NextConfigLike, type WebpackConfigLike } from '../src/index';
 import { stopWatcher } from '../src/watch';
@@ -47,6 +48,8 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     const config = await withVerbaly<NextConfigLike>({}, { root, ...inline })(BUILD);
 
     const alias = config.turbopack?.resolveAlias as Record<string, string>;
+    // the name the docs teach and the old one land on one file, so the app holds one instance
+    expect(alias[APP_ID]).toBe('./.verbaly/index.js');
     expect(alias['virtual:verbaly']).toBe('./.verbaly/index.js');
     expect(alias['virtual:verbaly/server']).toBe('./.verbaly/server.js');
     const rules = config.turbopack?.rules as Record<
@@ -72,6 +75,10 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     const webpackConfig: WebpackConfigLike = {};
     (config.webpack as (c: WebpackConfigLike, ctx: unknown) => unknown)(webpackConfig, {});
     expect((webpackConfig.resolve?.alias as Record<string, string>)['virtual:verbaly']).toBe(
+      join(root, '.verbaly', 'index.js'),
+    );
+    // exact match ($): a prefix alias would also catch verbaly/app/anything
+    expect((webpackConfig.resolve?.alias as Record<string, string>)[`${APP_ID}$`]).toBe(
       join(root, '.verbaly', 'index.js'),
     );
     expect(webpackConfig.module?.rules).toHaveLength(1);

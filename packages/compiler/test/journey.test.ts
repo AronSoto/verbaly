@@ -8,7 +8,7 @@ import { bindDom, createVerbaly, localePath, resolveLocale, type Verbaly } from 
 import { clientCatalogs } from '../src/bundle';
 import { loadCatalogs } from '../src/catalog';
 import { generateLocaleModule, generateRuntimeModule } from '../src/codegen';
-import { resolveConfig, type VerbalyConfig } from '../src/config';
+import { resolveConfig, type ResolvedConfig, type VerbalyConfig } from '../src/config';
 import { renderSite } from '../src/render';
 
 // end to end: build a site and walk a visitor through the mirror, because the units add up here
@@ -192,10 +192,16 @@ async function astroSite(
     ...config,
   });
   await renderSite(cfg);
+  return {
+    read: (...parts) => readFileSync(join(site, 'dist', ...parts), 'utf8'),
+    mod: await runModule<VirtualModule>(cfg),
+  };
+}
 
-  // what the vite plugin serves as virtual:verbaly, with its locale modules as files
+// what the vite plugin serves as verbaly/app, its locale modules as files, run in this document
+async function runModule<M>(cfg: ResolvedConfig): Promise<M> {
   const client = clientCatalogs(cfg, loadCatalogs(cfg));
-  const out = join(site, 'module');
+  const out = join(cfg.root, 'module');
   mkdirSync(out);
   for (const locale of cfg.locales) {
     writeFileSync(join(out, `${locale}.js`), generateLocaleModule(client[locale] ?? {}));
@@ -205,7 +211,7 @@ async function astroSite(
     inlineCatalog: cfg.render.inlineCatalog === true,
   });
   writeFileSync(join(out, 'index.js'), code);
-  // bundled as a browser gets it, lazy locales included, and run in this document
+  // bundled as a browser gets it, lazy locales included
   const bundle = await build({
     entryPoints: [join(out, 'index.js')],
     bundle: true,
@@ -215,11 +221,7 @@ async function astroSite(
     write: false,
     alias: { verbaly: CORE_SRC },
   });
-  const run = new Function(`${bundle.outputFiles[0]!.text}\nreturn virtualVerbaly;`);
-  return {
-    read: (...parts) => readFileSync(join(site, 'dist', ...parts), 'utf8'),
-    mod: run() as VirtualModule,
-  };
+  return new Function(`${bundle.outputFiles[0]!.text}\nreturn virtualVerbaly;`)() as M;
 }
 
 // the ClientRouter: before-swap with the next document, then the body changes under the binding
@@ -292,5 +294,53 @@ describe('a visitor whose client router swaps the page under a live binding', ()
     expect(mod.verbaly.t('rel.v1')).toBe('Primera versión');
     unbind();
     warn.mockRestore();
+  });
+});
+
+// SvelteKit and Nuxt render with an instance of their own per request, never the module's
+interface ProjectModule extends VirtualModule {
+  createInstance(): Verbaly;
+  switchLocale(locale: string, options?: object): Promise<void>;
+}
+
+async function projectModule(
+  routing: 'no-prefix' | 'prefix-except-source',
+): Promise<ProjectModule> {
+  const site = mkdtempSync(join(tmpdir(), 'verbaly-switch-'));
+  sites.push(site);
+  mkdirSync(join(site, 'locales'));
+  for (const [locale, catalog] of Object.entries(CHANGELOG)) {
+    writeFileSync(join(site, 'locales', `${locale}.json`), JSON.stringify(catalog));
+  }
+  return runModule<ProjectModule>(resolveConfig({ root: site, sourceLocale: 'en', routing }));
+}
+
+describe('a language control in a framework that builds the page instance itself', () => {
+  // Proved able to fail by switching the module's own instance again: the page stayed in English.
+  it('switches the instance it is handed, and the module keeps its own, without a prefix', async () => {
+    const mod = await projectModule('no-prefix');
+    const page = mod.createInstance();
+    await mod.switchLocale('es', { instance: page });
+    expect(page.locale).toBe('es');
+    expect(page.t('title')).toBe('Documentación');
+    expect(mod.verbaly.locale).toBe('en');
+  });
+
+  it('goes to the same page in the other language with a prefix, leaving the instance alone', async () => {
+    const mod = await projectModule('prefix-except-source');
+    const page = mod.createInstance();
+    const navigate = vi.fn();
+    history.replaceState(null, '', '/changelog');
+    await mod.switchLocale('es', { instance: page, navigate });
+    // the destination document arrives in Spanish: this one's catalog is not what it needs
+    expect(navigate).toHaveBeenCalledWith('/es/changelog');
+    expect(page.locale).toBe('en');
+    history.replaceState(null, '', '/');
+  });
+
+  it('falls back to the module instance when it is handed none, null included', async () => {
+    const mod = await projectModule('no-prefix');
+    await mod.switchLocale('es', { instance: null });
+    expect(mod.verbaly.locale).toBe('es');
   });
 });

@@ -150,7 +150,7 @@ Inside a `'use cache'` function there, pass the language: `getT({ locale })`.
 // app/[locale]/layout.tsx
 import { setRequestLocale, getVerbalyProps, getAlternates } from '@verbaly/next/server';
 import { VerbalyProvider } from '@verbaly/next/client';
-import { locales } from 'virtual:verbaly';
+import { locales } from 'verbaly/app';
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));

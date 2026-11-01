@@ -147,7 +147,7 @@ export function getAlternates(options: AlternatesOptions): {
   return { canonical: languages[self], languages };
 }
 
-// request-scoped instance: never the virtual:verbaly singleton (locale would leak between requests)
+// request-scoped instance: never the verbaly/app singleton (locale would leak between requests)
 export async function getVerbaly(): Promise<Verbaly> {
   return (await getRequestState()).instance;
 }

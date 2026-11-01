@@ -41,7 +41,8 @@ export default { plugins: [verbaly()] };
 ```
 
 ```ts
-import { t, setLocale } from 'virtual:verbaly';
+// verbaly/app is your project's module: the plugin writes it from your config
+import { t, setLocale } from 'verbaly/app';
 
 t`Hello ${name}`;
 await setLocale('es'); // loads only the Spanish module

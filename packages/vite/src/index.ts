@@ -1,4 +1,6 @@
 import {
+  APP_ID,
+  LOCALE_IMPORT,
   LOCALE_MODULE_PREFIX,
   MessageRegistry,
   RESOLVED_VIRTUAL_ID,
@@ -41,7 +43,9 @@ export type { VerbalyConfig } from '@verbaly/compiler';
 export type ViteVerbalyOptions = PluginOptions;
 
 // built from the constant, so the NUL that marks a resolved virtual id never sits in the source
-const VIRTUAL_ID_FILTER = new RegExp(`^${RESOLVED_VIRTUAL_ID.slice(1)}(?:/|$)`);
+const VIRTUAL_ID_FILTER = new RegExp(
+  `^(?:${RESOLVED_VIRTUAL_ID.slice(1)}(?:/|$)|${APP_ID}$|${LOCALE_IMPORT})`,
+);
 const RESOLVED_ID_FILTER = new RegExp(`^${RESOLVED_VIRTUAL_ID}(?:/|$)`);
 const ANY_RESOLVED_ID = new RegExp(`^${RESOLVED_VIRTUAL_ID.charAt(0)}`);
 

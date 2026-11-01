@@ -52,7 +52,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
   return {
     name: '@verbaly/astro',
     hooks: {
-      // virtual:verbaly follows the ClientRouter swap itself, so no page gets a script from here
+      // verbaly/app follows the ClientRouter swap itself, so no page gets a script from here
       async 'astro:config:setup'({ config, updateConfig }) {
         // root pinned to the project dir: Astro's Vite root can differ and discovery finds nothing
         root = vite.root ??= fileURLToPath(config.root);
@@ -81,7 +81,7 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         if (!wanted) return;
         if (buildOutput === 'server') {
           console.warn(
-            "[verbaly] render skipped: only static output can be mirrored per locale. In server output, build the instance per request: `createRequestInstance(Astro.currentLocale ?? sourceLocale)` from 'virtual:verbaly'",
+            "[verbaly] render skipped: only static output can be mirrored per locale. In server output, build the instance per request: `createRequestInstance(Astro.currentLocale ?? sourceLocale)` from 'verbaly/app'",
           );
           return;
         }

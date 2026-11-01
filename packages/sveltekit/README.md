@@ -21,7 +21,7 @@ pnpm add verbaly @verbaly/sveltekit @verbaly/svelte @verbaly/vite
 
 ## ⚡ Wire it up
 
-**1. Vite plugin** (extraction + the `virtual:verbaly` module):
+**1. Vite plugin** (extraction + the `verbaly/app` module):
 
 ```ts
 // vite.config.ts
@@ -42,7 +42,7 @@ export default { plugins: [verbaly(), sveltekit()] };
 ```ts
 // src/hooks.server.ts
 import { verbalyHandle } from '@verbaly/sveltekit';
-import { locales, routing } from 'virtual:verbaly';
+import { locales, routing } from 'verbaly/app';
 
 export const handle = verbalyHandle({ locales, routing });
 ```
@@ -65,7 +65,7 @@ right answer only when your URLs carry no language.
 ```ts
 // src/hooks.ts
 import { verbalyReroute } from '@verbaly/sveltekit';
-import { locales } from 'virtual:verbaly';
+import { locales } from 'verbaly/app';
 
 export const reroute = verbalyReroute({ locales });
 ```
@@ -84,7 +84,7 @@ export const load = ({ locals }) => ({ locale: locals.verbalyLocale });
 
 ```ts
 // src/routes/+layout.ts
-import { createRequestInstance } from 'virtual:verbaly';
+import { createRequestInstance } from 'verbaly/app';
 
 export const load = async ({ data }) => ({
   ...data,
@@ -108,17 +108,18 @@ export const load = async ({ data }) => ({
 {@render children()}
 ```
 
-**6. Switching languages** (client): persists the cookie the server hook reads:
+**6. Switching languages** (client): with a prefix in your URLs it goes to the same page in the other language; without one it loads the catalog and switches this page. Either way it saves the choice in the cookie the server hook reads:
 
 ```svelte
 <script>
-  import { switchLocale } from '@verbaly/sveltekit';
+  import { switchLocale } from 'verbaly/app';
   import { useVerbaly } from '@verbaly/svelte';
 
+  // the instance this page renders with: SvelteKit builds one per request in +layout.ts
   const verbaly = useVerbaly();
 </script>
 
-<button onclick={() => switchLocale(verbaly, 'es')}>Español</button>
+<button onclick={() => switchLocale('es', { instance: verbaly })}>Español</button>
 ```
 
 ## 📖 API
@@ -127,7 +128,7 @@ export const load = async ({ data }) => ({
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `verbalyHandle({ locales, routing?, base?, fallback?, cookie? })` | SvelteKit `handle` hook: resolves the request locale (URL → cookie → `Accept-Language` → fallback), sets `event.locals.verbalyLocale`, fills `%verbaly.lang%` and `%verbaly.dir%` in `app.html`. |
 | `verbalyReroute({ locales, base? })`                              | Universal `reroute` hook for `hooks.ts`: `/es/docs` routes as `/docs`, so one route tree serves every language.                                                                                  |
-| `switchLocale(instance, locale, { cookie?, maxAge? })`            | Awaits the catalog, switches the locale, writes the cookie and syncs `<html lang>`. SSR-safe.                                                                                                    |
+| `switchLocale(instance, locale, options?)`                        | The core's switch, which knows nothing of your project: pass `routing`, `supported` and `sourceLocale` yourself, or use the one from `verbaly/app` above, which already has them.                |
 | `LOCALE_COOKIE`                                                   | Default cookie name (`verbaly-locale`), shared with core's `localStorage` key.                                                                                                                   |
 
 - **`routing` decides whether the URL is consulted.** With `prefix-except-source`, a prefixed URL is the answer and an unprefixed one means your source language, so a saved choice can never translate your source tree. Without `routing`, only the cookie and the header are read.

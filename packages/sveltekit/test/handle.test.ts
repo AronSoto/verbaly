@@ -145,7 +145,7 @@ describe('verbalyHandle', () => {
   it('throws an actionable error without locales (old virtual module)', () => {
     // an outdated @verbaly/vite exports no `locales`: the import arrives undefined
     expect(() => verbalyHandle({ locales: undefined as unknown as string[] })).toThrow(
-      'virtual:verbaly',
+      'verbaly/app',
     );
     expect(() => verbalyHandle({ locales: [] })).toThrow('@verbaly/vite');
   });
@@ -181,7 +181,7 @@ describe('verbalyReroute', () => {
   });
 
   it('throws an actionable error without locales', () => {
-    expect(() => verbalyReroute({ locales: [] })).toThrow('virtual:verbaly');
+    expect(() => verbalyReroute({ locales: [] })).toThrow('verbaly/app');
   });
 
   it('is assignable to @sveltejs/kit Reroute (type-level)', () => {

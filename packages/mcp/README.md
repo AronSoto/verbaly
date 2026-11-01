@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/mcp"><img src="https://img.shields.io/npm/v/@verbaly/mcp?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/mcp?color=blue" alt="MIT" /></a>
+  <a href="https://glama.ai/mcp/servers/AronSoto/verbaly"><img src="https://glama.ai/mcp/servers/AronSoto/verbaly/badges/score.svg" alt="verbaly MCP server on Glama" /></a>
 </p>
 
 ---

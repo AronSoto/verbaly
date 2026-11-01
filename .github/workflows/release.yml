@@ -24,6 +24,9 @@ jobs:
     permissions:
       contents: write # create the vX.Y.Z tag + GitHub Release
       id-token: write # OIDC for npm provenance
+    outputs:
+      # mcp-registry waits for npm only when this run is the one that published
+      new: ${{ steps.version.outputs.new }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -138,11 +141,25 @@ jobs:
 
       - name: Decide whether this version still has to be listed
         id: check
+        env:
+          PUBLISHED_HERE: ${{ needs.release.outputs.new }}
         run: |
           cd packages/mcp
           V=$(node -p "require('./server.json').version")
           NAME=$(node -p "encodeURIComponent(require('./server.json').name)")
-          if ! npm view "@verbaly/mcp@$V" version > /dev/null 2>&1; then
+          on_npm() { npm view "@verbaly/mcp@$V" version > /dev/null 2>&1; }
+          # npm is not read-after-write: a version published minutes ago may not show yet (0.78.0)
+          if [ "$PUBLISHED_HERE" = "true" ] && ! on_npm; then
+            for attempt in $(seq 1 30); do
+              echo "waiting for npm to show @verbaly/mcp@$V ($attempt of 30)"
+              sleep 20
+              if on_npm; then break; fi
+            done
+          fi
+          if ! on_npm; then
+            if [ "$PUBLISHED_HERE" = "true" ]; then
+              echo "::warning::@verbaly/mcp@$V still not on npm after 10 minutes: the next push lists it"
+            fi
             echo "@verbaly/mcp@$V is not on npm, so the registry has nothing to point at"
             echo "go=false" >> "$GITHUB_OUTPUT"
           elif [ "$(curl -s -o /dev/null -w '%{http_code}' "https://registry.modelcontextprotocol.io/v0.1/servers/$NAME/versions/$V")" = "200" ]; then

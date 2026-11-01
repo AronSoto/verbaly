@@ -49,6 +49,13 @@ const reply = (body: string, data: Record<string, unknown>): CallToolResult => (
   structuredContent: data,
 });
 
+// a client that gets no hints must assume the spec defaults: destructive and reaching the internet
+const READS = { readOnlyHint: true, openWorldHint: false } as const;
+function writes(destructiveHint: boolean, openWorldHint = false) {
+  // every writer here is safe to repeat, which a second call in the tests proves
+  return { readOnlyHint: false, destructiveHint, idempotentHint: true, openWorldHint };
+}
+
 const rootInput = z
   .string()
   .optional()
@@ -192,7 +199,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Set up Verbaly in a project',
       description:
-        'Create the config file and the locale catalogs, and detect the bundler or meta-framework so the answer names the package to add and the line to wire (what `verbaly init` does). Writes files, and a file already there is kept rather than overwritten. Run this when doctor says there is no config.',
+        'Create the config file and the locale catalogs, and detect the bundler or meta-framework so the answer names the package to add and the line to wire (what `verbaly init` does). A file already there is kept, never overwritten, so running it again is safe. Use it when verbaly_doctor finds no config; once the project is set up, verbaly_doctor is the one to run.',
       inputSchema: {
         root: rootInput,
         dir: z.string().optional().describe('Directory for the catalogs (default: locales)'),
@@ -219,6 +226,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .optional()
           .describe('Catalogs the project already had, which the new config points at'),
       },
+      annotations: writes(false),
     },
     guarded(async ({ root, dir, sourceLocale, locales }) => {
       const result = await init({ root: root ?? options.root, dir, sourceLocale, locales });
@@ -241,7 +249,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Diagnose the setup',
       description:
-        'Diagnose a Verbaly project end to end (what `verbaly doctor` does): the config file, the catalog files and their JSON, the bundler plugin for the detected framework, the generated types, files the parser could not read, t imported from a package that never exports it, orphan keys, and every failure `verbaly check` would report. Run this first when something does not work. Read-only.',
+        'Diagnose a Verbaly project end to end (what `verbaly doctor` does). It checks the config file, the catalogs and their JSON, the bundler plugin for the detected framework, the generated types, files the parser could not read, a t imported from a package that never exports it, orphan keys, and every failure `verbaly check` would report, and it reports them all at once instead of stopping at the first. Run it first when something does not work. Read-only. For the missing or broken translations themselves, use verbaly_missing.',
       inputSchema: { root: rootInput },
       outputSchema: {
         ok: z.boolean().describe('False when an entry is an error, which is when the CLI exits 1'),
@@ -254,7 +262,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           }),
         ),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READS,
     },
     guarded(async ({ root }) => {
       const cfg = await config(root);
@@ -269,7 +277,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Wrap hardcoded JSX text',
       description:
-        'Find hardcoded user-visible text in JSX/TSX files and wrap it in a t tagged template so the compiler can extract it (what `verbaly wrap` does). This is how an existing codebase is onboarded. Reports only unless write is set. Text it cannot wrap safely (a sentence split across markup, an expression rendering JSX) is listed as needing a human and never rewritten. A file that does not bind t is never written either, because the rewrite would not compile: those come back in blocked, with whether the file is a client component, so you can add the binding and run again.',
+        'Find hardcoded user-visible text in JSX/TSX files and wrap it in a t tagged template so the compiler can extract it (what `verbaly wrap` does). This is how an existing codebase is onboarded, and verbaly_extract then adds the wrapped texts to the catalogs. It only reports unless write is set, and text already wrapped is skipped, so running it again is safe. Text it cannot wrap safely (a sentence split across markup, an expression rendering JSX) is listed as needing a human. A file that does not bind t is never written, because the rewrite would not compile. It comes back in blocked, with whether it is a client component, so you can add the binding and run again.',
       inputSchema: {
         root: rootInput,
         write: z.boolean().optional().describe('Apply the rewrites instead of only reporting'),
@@ -292,6 +300,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
         ),
         blocked: z.array(z.object({ file: z.string(), texts: z.number(), client: z.boolean() })),
       },
+      annotations: writes(true),
     },
     guarded(async ({ root, write }) => {
       const cfg = await config(root);
@@ -335,7 +344,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Extract messages',
       description:
-        'Scan the source files, add new messages to the locale catalogs and refresh the generated types (what `verbaly extract` does). Writes catalog files unless dryRun is set. prune drops keys no longer referenced in the code, translations included.',
+        'Scan the source files, add new messages to the locale catalogs and refresh the generated types (what `verbaly extract` does). It writes the catalogs unless dryRun is set, and with the same code a second run changes nothing. prune also drops keys the code no longer references, translations included, and waits while any source file fails to parse. In a project without Verbaly, run verbaly_init first; for text still hardcoded in JSX, verbaly_wrap.',
       inputSchema: {
         root: rootInput,
         prune: z
@@ -402,6 +411,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
             'This run created verbaly.lock, moved an older state file (from) into it, or rewrote it whole after a merge conflict (merged): it belongs in git with the catalogs, so tell the user to commit it',
           ),
       },
+      annotations: writes(true),
     },
     guarded(async ({ root, prune, dryRun }) => {
       const cfg = await config(root);
@@ -474,7 +484,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Translation coverage',
       description:
-        'Translation coverage of the Verbaly project: total messages, translated count per locale, machine translations awaiting review (drafts) and translations written for an older source text (outdated). Read-only.',
+        'Translation coverage of the Verbaly project as numbers per locale: total messages, translated, machine translations awaiting review (drafts), broken, and translations written for an older source text (outdated). It scans the source like verbaly_extract but writes nothing. Read-only. For the entries behind the numbers, use verbaly_missing (what is missing or broken) or verbaly_drafts (each draft with its source text).',
       inputSchema: { root: rootInput },
       outputSchema: {
         messages: z.number().describe('Messages the project has, source catalog plus code'),
@@ -496,7 +506,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .optional()
           .describe('The state file could not be read, so drafts and outdated are counted as zero'),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READS,
     },
     guarded(async ({ root }) => {
       const cfg = await config(root);
@@ -517,7 +527,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Missing and broken translations',
       description:
-        'List missing translations, unknown keys, keys written with two texts (collisions: every place shows the first text) and translations that exist but cannot render what the source renders (a dropped {param}, a lost rich tag, a flattened plural block), the same gate `verbaly check` runs in CI. Warnings never fail the gate and are listed too: an incomplete plural set for the locale, keys a translation carries that the source catalog does not (extra), texts the code and the source catalog disagree on (divergent, the text in the code ships) and translations written for an older source text (outdated). Optionally also lists machine translations awaiting review. Read-only.',
+        'The gate `verbaly check` runs in CI, as lists: missing translations, unknown keys, keys written with two texts (collisions: every place shows the first text) and translations that cannot render what the source renders. A dropped {param}, a lost rich tag or a flattened plural block is that last kind. Warnings never fail the gate and are listed too: an incomplete plural set for the locale, keys only a translation has (extra), texts the code and the source catalog disagree on (divergent: the text in the code ships) and translations written for an older source text (outdated). With drafts set, it also lists the machine translations awaiting review. Read-only. For counts use verbaly_status, to review drafts with their source text verbaly_drafts, and for setup problems verbaly_doctor.',
       inputSchema: {
         root: rootInput,
         drafts: z
@@ -563,7 +573,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .optional()
           .describe('The state file could not be read, so outdated translations are not listed'),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READS,
     },
     guarded(async ({ root, drafts }) => {
       const cfg = await config(root);
@@ -597,7 +607,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Machine-translate missing entries',
       description:
-        'Fill missing translations with the configured provider (default: Claude, needs @anthropic-ai/sdk and ANTHROPIC_API_KEY). New translations are saved as drafts awaiting human review (`verbaly review`), which no tool here can approve. A batch the provider never answers is reported in failed and leaves everything else written, so a retry only asks for what is left. dryRun lists what would be translated without calling the provider.',
+        'Fill missing translations with the configured provider (what `verbaly translate` does). The default provider is Claude, which needs @anthropic-ai/sdk and ANTHROPIC_API_KEY. Every new translation is saved as a draft awaiting human review (`verbaly review`), which no tool here can approve. A batch the provider never answers is reported in failed and everything else stays written, so a retry only asks for what is left. dryRun lists what would be translated without calling the provider. To see what is missing first, use verbaly_missing; to save translations you wrote yourself, verbaly_write_drafts.',
       inputSchema: {
         root: rootInput,
         locales: z.array(z.string()).optional().describe('Target locales (default: all)'),
@@ -618,6 +628,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .describe('Batches the provider never answered, safe to retry'),
         pending: perLocale.describe('dryRun only: what would be translated'),
       },
+      annotations: writes(false, true),
     },
     guarded(async ({ root, locales, dryRun }) => {
       const cfg = await config(root);
@@ -696,7 +707,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Save translations an agent wrote',
       description:
-        'Save translations you wrote yourself, so neither a catalog nor the state file is ever edited by hand. Each one is checked the way `verbaly translate` checks a provider (params, rich tags and plural cases must survive), written only for keys the source catalog has, and marked as a draft awaiting human review. Existing translations are kept unless overwrite is set, which is how an outdated one gets rewritten. Approving is not a tool here: a human runs `verbaly review --approve`.',
+        'Save translations you wrote yourself, so neither a catalog nor the state file is ever edited by hand. Each one is checked the way verbaly_translate checks a provider (params, rich tags and plural cases must survive), written only for keys the source catalog has, and marked as a draft awaiting human review. Existing translations are kept unless overwrite is set, which is how an outdated one gets rewritten. Approving is not a tool here: a human reads the drafts (verbaly_drafts lists them) and runs `verbaly review --approve`.',
       inputSchema: {
         root: rootInput,
         locale: z.string().describe("Target locale, one of the project's non-source locales"),
@@ -718,6 +729,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           .describe('Rejected: empty, or the params, tags or plural cases were not preserved'),
         unknown: z.array(z.string()).describe('Not in the source catalog, so nothing was written'),
       },
+      annotations: writes(true),
     },
     guarded(async ({ root, locale, entries, overwrite }) => {
       const cfg = await config(root);
@@ -752,7 +764,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
     {
       title: 'Machine translations awaiting review',
       description:
-        'Every machine translation still waiting for a human, each with the source text and what the provider wrote, so a person can read both and decide. Read-only. Approving is deliberately not a tool here and never will be: a machine translation is unreviewed by definition, so accepting one is `verbaly review --approve`, run by a human.',
+        'Every machine translation still waiting for a human, each with the source text and what the provider wrote, so a person can read both and decide. Read-only. Approving is deliberately not a tool here and never will be: a machine translation is unreviewed by definition, so accepting one is `verbaly review --approve`, run by a human. For how many drafts each locale has, verbaly_status is enough; verbaly_missing lists them next to the gate.',
       inputSchema: {
         root: rootInput,
         locales: z.array(z.string()).optional().describe('Target locales (default: all)'),
@@ -768,7 +780,7 @@ export function createVerbalyMcp(options: VerbalyMcpOptions = {}): McpServer {
           }),
         ),
       },
-      annotations: { readOnlyHint: true },
+      annotations: READS,
     },
     guarded(async ({ root, locales }) => {
       const cfg = await config(root);

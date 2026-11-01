@@ -1,8 +1,16 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createVerbalyMcp } from '../src/server';
 
@@ -97,6 +105,51 @@ describe('createVerbalyMcp', () => {
     expect(tools.map((tool) => tool.name)).not.toContain('verbaly_review');
     const drafts = tools.find((tool) => tool.name === 'verbaly_drafts');
     expect(drafts?.description).toContain('never will be');
+  });
+
+  // without these a client must assume the spec defaults: destructive, and reaching the internet
+  it('declares what each tool does to the project, so a client can tell a read from a rewrite', async () => {
+    const client = await connect(makeProject());
+    const { tools } = await client.listTools();
+    const read = { readOnlyHint: true, openWorldHint: false };
+    const write = (destructiveHint: boolean, openWorldHint = false) => ({
+      readOnlyHint: false,
+      destructiveHint,
+      idempotentHint: true,
+      openWorldHint,
+    });
+    expect(Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))).toEqual({
+      verbaly_init: write(false),
+      verbaly_doctor: read,
+      verbaly_wrap: write(true),
+      verbaly_extract: write(true),
+      verbaly_status: read,
+      verbaly_missing: read,
+      verbaly_translate: write(false, true),
+      verbaly_write_drafts: write(true),
+      verbaly_drafts: read,
+    });
+  });
+
+  it('names the sibling an agent should reach for, and never a tool that does not exist', async () => {
+    const client = await connect(makeProject());
+    const { tools } = await client.listTools();
+    const names = new Set(tools.map((tool) => tool.name));
+    const said = (name: string) => tools.find((tool) => tool.name === name)?.description ?? '';
+    for (const tool of tools) {
+      for (const named of tool.description?.match(/verbaly_[a-z_]+/g) ?? []) {
+        expect(names, `${tool.name} names ${named}`).toContain(named);
+      }
+    }
+    // three tools show drafts and two write them: each one says which of the others is for what
+    const views = ['verbaly_status', 'verbaly_missing', 'verbaly_drafts'];
+    for (const view of views) {
+      for (const other of views.filter((name) => name !== view)) {
+        expect(said(view), `${view} names ${other}`).toContain(other);
+      }
+    }
+    expect(said('verbaly_translate')).toContain('verbaly_write_drafts');
+    expect(said('verbaly_write_drafts')).toContain('verbaly_translate');
   });
 
   it('serves the project shape as a resource, so reading it costs no tool call', async () => {
@@ -753,5 +806,60 @@ describe('createVerbalyMcp: the same pipeline and the same answers as the CLI (0
     };
     expect(missing.collisions[0]?.sites.map((at) => at.file)).toEqual(['src/dup.ts', 'src/dup.ts']);
     expect(missing.divergent[0]?.code.file).toBe('src/app.ts');
+  });
+});
+
+describe('createVerbalyMcp: idempotentHint is a promise a second call keeps', () => {
+  // every file under the project, byte for byte: what a client may assume a repeat leaves alone
+  function snapshot(root: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else out[relative(root, path)] = readFileSync(path, 'utf8');
+      }
+    };
+    walk(root);
+    return out;
+  }
+
+  async function twice(root: string, name: string, args: Record<string, unknown> = {}) {
+    const client = await connect(root);
+    const first = await client.callTool({ name, arguments: args });
+    expect(first.isError, `${name} failed: ${resultText(first)}`).toBeFalsy();
+    const after = snapshot(root);
+    const second = await client.callTool({ name, arguments: args });
+    expect(second.isError).toBeFalsy();
+    expect(snapshot(root), `${name} changed the project on its second call`).toEqual(after);
+  }
+
+  it('init, extract and wrap change nothing the second time', async () => {
+    const fresh = mkdtempSync(join(tmpdir(), 'verbaly-mcp-twice-'));
+    tempDirs.push(fresh);
+    await twice(fresh, 'verbaly_init', { locales: ['en', 'es'] });
+    await twice(makeProject(), 'verbaly_extract');
+    const root = makeProject();
+    writeFileSync(
+      join(root, 'src', 'Page.jsx'),
+      'const t = useT();\nexport const Page = () => <p title="Open me">Hello there</p>;\n',
+    );
+    await twice(root, 'verbaly_wrap', { write: true });
+  });
+
+  it('translate and write_drafts change nothing the second time', async () => {
+    const root = makeProject(
+      'translate: { provider: async ({ messages }) => Object.fromEntries(Object.entries(messages).map(([k, v]) => [k, "ES " + v])) }',
+    );
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    await twice(root, 'verbaly_translate');
+    const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
+    const [key] = Object.keys(es);
+    await twice(root, 'verbaly_write_drafts', {
+      locale: 'es',
+      entries: [{ key, text: 'Hola {name}' }],
+      overwrite: true,
+    });
   });
 });

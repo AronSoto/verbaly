@@ -25,7 +25,8 @@ import type { Catalogs } from '../catalog/catalog';
 import { loadCatalogs } from '../catalog/catalog';
 import { extractProject, shippedCatalogs } from '../scan/extract';
 import type { RedirectConfig, ResolvedConfig } from '../config/config';
-import { counted } from '../util/text';
+import { blocks, type BlockShape } from '../util/blocks';
+import { counted, trimTrailingSlashes } from '../util/text';
 import { warnOnce } from '../util/warn';
 
 export interface Alternate {
@@ -281,13 +282,13 @@ function pageSlice(v: Verbaly, locale: string, used: Set<string>): Record<string
 
 // the author's canonical in either form: /about and /about/ are one page however the site ends
 function sameUrl(written: string, url: string | undefined): boolean {
-  return url !== undefined && written.replace(/\/+$/, '') === url.replace(/\/+$/, '');
+  return url !== undefined && trimTrailingSlashes(written) === trimTrailingSlashes(url);
 }
 
 // the public path of a built page, the shape both the page set and an author's href reduce to
 export function publicPath(rel: string): string {
   const path = `/${rel.replace(/(^|\/)index\.html$/, '$1')}`;
-  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+  return path.length > 1 ? trimTrailingSlashes(path) : path;
 }
 
 // own entries only: a tag named constructor in a message must not find the one on Object
@@ -356,7 +357,7 @@ function stripBase(path: string, base: string): string {
 
 // 'app', '/app' and '/app/' all read as '/app'; nothing means the site sits at the root
 function normalizeBase(base: string | undefined): string {
-  const trimmed = base?.replace(/^\/+/, '').replace(/\/+$/, '');
+  const trimmed = trimTrailingSlashes(base?.replace(/^\/+/, '') ?? '');
   return trimmed ? `/${trimmed}` : '';
 }
 
@@ -495,7 +496,8 @@ export async function renderSite(
   const locales = options.locales ?? cfg.locales;
   const attribute = options.attribute ?? cfg.render.attribute;
   const base = normalizeBase(options.base ?? cfg.render.base);
-  const baseUrl = (options.baseUrl ?? cfg.render.baseUrl)?.replace(/\/+$/, '');
+  const wantedUrl = options.baseUrl ?? cfg.render.baseUrl;
+  const baseUrl = typeof wantedUrl === 'string' ? trimTrailingSlashes(wantedUrl) : undefined;
   const wantHreflang = (options.hreflang ?? cfg.render.hreflang ?? true) && baseUrl !== undefined;
   // the escape hatch for a page that is indexable and still not ours to list
   const patterns = options.exclude ?? cfg.render.exclude ?? [];
@@ -662,17 +664,20 @@ function parseArgs(raw: string | undefined, attribute: string): Params | undefin
   }
 }
 
+// where a browser ends each: </name before whitespace, / or >, and a comment at -->, --!> or <!-->
+export const OPAQUE_BLOCKS: BlockShape[] = [
+  { open: '<!--', close: /(?<=<!--)-?>|--!?>/g },
+  { open: /<script\b/gi, close: /<\/script(?=[\t\n\f\r />])/gi, closeTag: true },
+  { open: /<style\b/gi, close: /<\/style(?=[\t\n\f\r />])/gi, closeTag: true },
+];
+
 // comments and script/style bodies are opaque to the scanner
 function protectedRanges(html: string): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
-  const re = /<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
+  return blocks(html, OPAQUE_BLOCKS).map(({ start, end }) => {
     // keep script/style open tags scannable; protect only their bodies
-    const openEnd = m[0].startsWith('<!--') ? m.index : html.indexOf('>', m.index) + 1;
-    ranges.push([openEnd, m.index + m[0].length]);
-  }
-  return ranges;
+    const openEnd = html.startsWith('<!--', start) ? start : html.indexOf('>', start) + 1;
+    return [openEnd, end];
+  });
 }
 
 function findClose(

@@ -124,6 +124,31 @@ describe('generateRuntimeModule', () => {
     }
   });
 
+  // saving would freeze a language read from the browser at startup into the visitor's choice
+  it("takes <html lang> along on setLocale, and saves no choice, which is switchLocale's job", async () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toMatch(/^import \{[^}]*\bpersistLocale\b[^}]*\} from 'verbaly';/m);
+    const body = /export async function setLocale\(locale\) \{([\s\S]*?)\n\}/.exec(code)![1]!;
+    const calls: string[] = [];
+    const v = {
+      loadLocale: async (locale: string) => void calls.push(`load ${locale}`),
+      setLocale: (locale: string) => void calls.push(`set ${locale}`),
+    };
+    const persistLocale = (locale: string, storageKey?: string | false) =>
+      void calls.push(`persist ${locale} ${String(storageKey)}`);
+    const setLocale = new Function('v', 'persistLocale', `return async (locale) => {${body}\n};`)(
+      v,
+      persistLocale,
+    ) as (locale: string) => Promise<void>;
+    await setLocale('es');
+    expect(calls).toEqual(['load es', 'set es', 'persist es false']);
+  });
+
   it('supports custom locale imports and extra exports', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),

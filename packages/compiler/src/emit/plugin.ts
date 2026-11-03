@@ -19,7 +19,7 @@ import {
   type CheckResult,
 } from '../gate/check';
 import { generateLocaleModule, generateRuntimeModule, writeDts } from './codegen';
-import type { ResolvedConfig, VerbalyConfig } from '../config/config';
+import { pluginOnlyOptions, type ResolvedConfig, type VerbalyConfig } from '../config/config';
 import { scannedAnalysis } from '../scan/extract';
 import { LOCALE_IMPORT, VIRTUAL_ID, isAppModule } from '../util/ids';
 import { cliReachable } from '../config/host';
@@ -82,7 +82,7 @@ export function createSourceFilter(cfg: ResolvedConfig): (id: string) => boolean
   };
 }
 
-// analyze + register + rewrite per file; a build passes its scan, so no file is parsed twice
+// analyze, register, rewrite and load verbaly/app for adapters; a build's scan skips a reparse
 export function transformSource(
   code: string,
   id: string,
@@ -95,7 +95,7 @@ export function transformSource(
   // key → text for live extraction; first wins, mirroring the registry's collision rule
   const messages = emptyCatalog();
   for (const msg of analysis.tagged) messages[msg.key] ??= msg.message;
-  return { messages, result: transformCode(code, id, analysis) ?? null };
+  return { messages, result: transformCode(code, id, analysis, { appImport: true }) ?? null };
 }
 
 // a build writes the types of the text it ships, as next build does, so a clone typechecks after it
@@ -136,11 +136,22 @@ export function runBuildGate(
   // a warning never stops a build, so the build says they exist in one line and check reads them
   const warnings = warningCount(found);
   if (warnings > 0) {
+    const once = onceMoved(cfg.root);
+    const read = once
+      ? `\`npx verbaly check\` reads them${once}`
+      : 'run `npx verbaly check` to read them';
     warnOnce(
-      `check has ${counted(warnings, 'warning')}, and the build still passes: run \`npx verbaly check\` to read them`,
+      `check has ${counted(warnings, 'warning')}, and the build still passes: ${read}`,
       'gate:warnings',
     );
   }
+}
+
+// check reads verbaly.config alone: while the plugin sets more, pointing at it would lead nowhere
+function onceMoved(root: string): string {
+  const moved = pluginOnlyOptions(root);
+  if (!moved) return '';
+  return ` once ${moved} ${moved.includes(' and ') ? 'move' : 'moves'} to verbaly.config`;
 }
 
 // per project, what the last report said: a watch rebuilds, and client and server builds share it
@@ -173,7 +184,7 @@ function reportGate(cfg: ResolvedConfig, found: CheckResult): void {
     ...lines.map((line) => (line.startsWith('  ') ? line : `[verbaly] ${line}`)),
     '[verbaly] to fix them:',
     ...steps.split('\n').map((step) => `  ${step}`),
-    '[verbaly] `npx verbaly check` lists every one, and in your CI it stops a release on them',
+    `[verbaly] \`npx verbaly check\` lists every one${onceMoved(cfg.root)}, and in your CI it stops a release on them`,
   ];
   console.warn(block.join('\n'));
 }

@@ -60,6 +60,24 @@ describe('a vite build of the project module', () => {
   );
 
   it(
+    'ships the project module when the app only imports an adapter, as a provider-less app does',
+    async () => {
+      const root = project("import { useT } from '@verbaly/react';\nconsole.log(useT());\n");
+      const adapter = join(root, 'src', 'adapter.js');
+      // the hook reads what verbaly/app registers, as @verbaly/react does with no provider
+      writeFileSync(adapter, "export const useT = () => globalThis[Symbol.for('verbaly.app')];\n");
+      const alias = [
+        { find: /^verbaly$/, replacement: core },
+        { find: /^@verbaly\/react$/, replacement: adapter },
+      ];
+      const code = await shipped(root, alias);
+      expect(code).toContain('verbaly.app');
+      expect(code).toContain('Hola desde vite');
+    },
+    BUILD_TIMEOUT,
+  );
+
+  it(
     'writes the types a fresh clone needs, with the keys the code adds (0.79.0)',
     async () => {
       const root = project(

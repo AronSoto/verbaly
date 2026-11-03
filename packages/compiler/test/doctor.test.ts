@@ -468,6 +468,43 @@ describe('doctor: the url mode has a name now', () => {
     expect(entry?.fix).toContain('prefix-except-source');
   });
 
+  it("reads Astro's i18n routing, which @verbaly/astro follows in dev and build", async () => {
+    const astro = { pkg: { dependencies: { astro: '^7.0.0' } } };
+    const config = (i18n: string) =>
+      `import { defineConfig } from 'astro/config';\nexport default defineConfig({ ${i18n} });\n`;
+
+    const prefixed = makeProject(astro);
+    writeFileSync(
+      join(prefixed.root, 'astro.config.mjs'),
+      config("i18n: { defaultLocale: 'es', locales: ['es', 'en'] }"),
+    );
+    const entry = await routingOf(prefixed);
+    expect(entry?.message).toContain("prefix-except-source (from Astro's i18n in astro.config.mjs");
+
+    const all = makeProject(astro);
+    writeFileSync(
+      join(all.root, 'astro.config.ts'),
+      config(
+        "i18n: { defaultLocale: 'es', locales: ['es', 'en'], routing: { prefixDefaultLocale: true } }",
+      ),
+    );
+    expect((await routingOf(all))?.message).toContain("prefix-all (from Astro's i18n");
+
+    const manual = makeProject(astro);
+    writeFileSync(
+      join(manual.root, 'astro.config.mjs'),
+      config("i18n: { defaultLocale: 'es', locales: ['es', 'en'], routing: 'manual' }"),
+    );
+    expect((await routingOf(manual))?.message).toContain('from your setup, no routing set');
+
+    // a prefix mode verbaly.config names stays, as the integration keeps it
+    const chosen = makeProject(astro);
+    writeFileSync(join(chosen.root, 'astro.config.mjs'), config("i18n: { defaultLocale: 'es' }"));
+    writeFileSync(join(chosen.root, 'verbaly.config.json'), '{"routing":"prefix-all"}');
+    const kept = await routingOf({ ...chosen, routing: 'prefix-all' });
+    expect(kept?.message).toMatch(/^prefix-all: /);
+  });
+
   it('a no-prefix project without render is simply in that mode', async () => {
     const base = makeProject();
     const entry = await routingOf({ ...base, routing: 'no-prefix' });

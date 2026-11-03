@@ -55,6 +55,10 @@ export interface Analysis {
   strayImports: StrayImport[];
   missed: MissedCall[];
   parseError?: string;
+  // where the first adapter import starts: its hooks read verbaly/app's instance with no provider
+  adapterImport?: number;
+  // the file loads verbaly/app itself, under either name
+  appImported?: true;
 }
 
 // babel's message carries the position but never the path: every caller adds the file itself
@@ -108,11 +112,23 @@ export function analyzeScript(
   const strayImports: StrayImport[] = [];
   const bindings = new Bindings(names);
   const candidates: Candidate[] = [];
+  let adapterImport: number | undefined;
+  let appImported = false;
 
   walk(ast.program as unknown as AstNode, (node) => {
     if (node.type === 'ImportDeclaration') {
       collectStrayImports(node, file, strayImports);
       bindings.addImport(node);
+      const source = (node.source as { value?: unknown }).value;
+      if (typeof source === 'string' && loadsAtRuntime(node)) {
+        if (isAppModule(source)) appImported = true;
+        else if (ADAPTER_SOURCE.test(source)) adapterImport ??= node.start;
+      }
+    } else if (node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') {
+      const source = (node.source as { value?: unknown } | null)?.value;
+      if (typeof source === 'string' && isAppModule(source) && node.exportKind !== 'type') {
+        appImported = true;
+      }
     } else if (node.type === 'VariableDeclarator') {
       bindings.addDeclarator(node);
     } else if (node.type === 'TaggedTemplateExpression') {
@@ -172,7 +188,20 @@ export function analyzeScript(
     if (key !== undefined) usedKeys.push({ key, file, loose: true });
   }
 
-  return { analysis: { tagged, usedKeys, strayImports, missed }, renamed: [...renamed] };
+  const analysis: Analysis = { tagged, usedKeys, strayImports, missed };
+  if (adapterImport !== undefined) analysis.adapterImport = adapterImport;
+  if (appImported) analysis.appImported = true;
+  return { analysis, renamed: [...renamed] };
+}
+
+// the adapters whose hooks fall back to verbaly/app's instance; a server entry takes one passed in
+const ADAPTER_SOURCE = /^@verbaly\/(?:react|vue|svelte)(?:\/Trans\.svelte)?$/;
+
+// what survives compilation: not `import type`, and not an import of `{ type X }` alone
+function loadsAtRuntime(node: AstNode): boolean {
+  if (node.importKind === 'type') return false;
+  const specifiers = node.specifiers as AstNode[];
+  return specifiers.length === 0 || specifiers.some((spec) => spec.importKind !== 'type');
 }
 
 function lineOf(node: AstNode): number {

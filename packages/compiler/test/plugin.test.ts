@@ -56,6 +56,72 @@ describe('transformSource', () => {
   });
 });
 
+describe('transformSource and the project module', () => {
+  const rewrite = (code: string, file: string) =>
+    transformSource(code, file, new MessageRegistry()).result?.code;
+
+  it('loads verbaly/app where an adapter is imported, so a hook with no provider finds it', () => {
+    const code =
+      "import { useT } from '@verbaly/react';\nexport const App = () => useT()('home');\n";
+    expect(rewrite(code, 'src/App.tsx')).toBe(
+      "import 'verbaly/app'; import { useT } from '@verbaly/react';\n" +
+        "export const App = () => useT()('home');\n",
+    );
+  });
+
+  it('keeps every line where it was, so a stack trace still points at the source', () => {
+    const code = "// header\nimport { useT } from '@verbaly/vue';\nconst t = useT();\n";
+    const out = rewrite(code, 'src/use.ts')!;
+    expect(out.split('\n')).toHaveLength(code.split('\n').length);
+    expect(out.split('\n')[1]).toBe("import 'verbaly/app'; import { useT } from '@verbaly/vue';");
+  });
+
+  it('loads it inside the script block of a Svelte or Vue component', () => {
+    const svelte =
+      '<script lang="ts">\n  import { useT } from \'@verbaly/svelte\';\n  const t = useT();\n</script>\n\n<p>{$t`Hi`}</p>\n';
+    const out = rewrite(svelte, 'src/Hi.svelte')!;
+    expect(out).toContain('<script lang="ts">\n  import \'verbaly/app\'; import { useT }');
+    expect(out).toContain(`{$t('${stableKey('Hi')}')}`);
+    const vue =
+      '<script setup lang="ts">\nimport { useT } from \'@verbaly/vue\';\nconst t = useT();\n</script>\n';
+    expect(rewrite(vue, 'src/Hi.vue')).toContain(
+      "<script setup lang=\"ts\">\nimport 'verbaly/app'; import { useT } from '@verbaly/vue';",
+    );
+  });
+
+  it("counts Svelte's Trans, which reads the same instance", () => {
+    const code = "<script>\n  import Trans from '@verbaly/svelte/Trans.svelte';\n</script>\n";
+    expect(rewrite(code, 'src/Rich.svelte')).toContain("import 'verbaly/app'; import Trans");
+  });
+
+  it('adds nothing where the file already loads the module, under either name', () => {
+    for (const app of ['verbaly/app', 'virtual:verbaly']) {
+      const code = `import { useT } from '@verbaly/react';\nimport { locales } from '${app}';\n`;
+      expect(rewrite(code, 'src/App.tsx')).toBeUndefined();
+    }
+  });
+
+  it('adds nothing for an import that only brings types, since it never reaches the browser', () => {
+    const typesOnly =
+      "import type { TransProps } from '@verbaly/react';\nexport type P = TransProps;\n";
+    expect(rewrite(typesOnly, 'src/types.ts')).toBeUndefined();
+    const inline =
+      "import { type TransProps } from '@verbaly/react';\nexport type P = TransProps;\n";
+    expect(rewrite(inline, 'src/types.ts')).toBeUndefined();
+    // a type-only import of the module does not load it either
+    const typedApp =
+      "import { useT } from '@verbaly/react';\nimport type { VerbalyKey } from 'verbaly/app';\n";
+    expect(rewrite(typedApp, 'src/App.tsx')).toContain("import 'verbaly/app'; import { useT }");
+  });
+
+  it('leaves the core, the server entries and Next alone, where an instance is passed in', () => {
+    for (const source of ['verbaly', '@verbaly/react/server', '@verbaly/next/client']) {
+      const code = `import { useT } from '${source}';\n`;
+      expect(rewrite(code, 'src/app.tsx')).toBeUndefined();
+    }
+  });
+});
+
 describe('transformSource with a build scan', () => {
   function scanned() {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-scan-'));
@@ -164,6 +230,35 @@ describe('runBuildGate: what a build says about warnings', () => {
   });
 });
 
+describe('runBuildGate: an option only the plugin has', () => {
+  // the build reads the plugin's sourceLocale and check reads the file's: the two lists differ
+  async function split() {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-split-'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'verbaly.config.json'), '{"sourceLocale":"en","locales":["en","es"]}');
+    writeFileSync(join(root, 'locales', 'en.json'), '{"a":"A"}');
+    writeFileSync(join(root, 'locales', 'es.json'), '{"a":"","stray":"Sobra"}');
+    const { loadConfig } = await import('../src/config/config');
+    return loadConfig(root, { sourceLocale: 'es' }, { plugin: true });
+  }
+
+  it('never sends you to a check that reads another config, and names what to move', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      runBuildGate(await split(), new MessageRegistry());
+      const said = warn.mock.calls.map(([text]) => String(text));
+      const pointers = said.filter((text) => text.includes('npx verbaly check'));
+      expect(pointers.length).toBeGreaterThan(0);
+      for (const text of pointers) {
+        expect(text).toContain('once sourceLocale moves to verbaly.config');
+        expect(text).not.toContain('run `npx verbaly check` to read them');
+      }
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 describe('runBuildGate: a text never stops the build unless asked (0.70.0)', () => {
   function project(en: Record<string, string>, es: Record<string, string>, code = '') {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-report-'));
@@ -207,7 +302,11 @@ describe('runBuildGate: a text never stops the build unless asked (0.70.0)', () 
       '⚠ the build goes on with 1 key no catalog has, so the key itself shows:',
     );
     expect(block).toContain('  nowhere (used in src/app.ts)');
-    expect(block).toContain('[verbaly] to fix them:\n  missing: run `npx verbaly extract`');
+    // extract writes "" for a new key, so after it the step is filling, which the line leads with
+    expect(block).toContain(
+      '[verbaly] to fix them:\n  missing: fill the empty translations in your catalogs, or run `npx verbaly translate`',
+    );
+    expect(block).not.toContain('to scaffold the keys');
     expect(block.split('\n').at(-1)).toBe(
       '[verbaly] `npx verbaly check` lists every one, and in your CI it stops a release on them',
     );

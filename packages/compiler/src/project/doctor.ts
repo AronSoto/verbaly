@@ -46,6 +46,30 @@ function readRoutingChoice(root: string, configFile: string): boolean {
   }
 }
 
+// the mode @verbaly/astro takes from Astro's i18n, read like the config above: no Astro to run
+function readAstroRouting(
+  root: string,
+): { mode: ResolvedConfig['routing']; file: string } | undefined {
+  // Astro's own lookup order: the first file it would load is the one it reads
+  for (const file of [
+    'astro.config.mjs',
+    'astro.config.js',
+    'astro.config.ts',
+    'astro.config.mts',
+  ]) {
+    let text: string;
+    try {
+      text = readFileSync(join(root, file), 'utf8');
+    } catch {
+      continue;
+    }
+    if (!/\bi18n\s*:/.test(text) || /\brouting\s*:\s*['"]manual['"]/.test(text)) return undefined;
+    const all = /\bprefixDefaultLocale\s*:\s*true\b/.test(text);
+    return { mode: all ? 'prefix-all' : 'prefix-except-source', file };
+  }
+  return undefined;
+}
+
 const ROUTING_SAYS: Record<ResolvedConfig['routing'], string> = {
   'prefix-except-source': 'the source locale has no prefix, every other locale does',
   'prefix-all': 'every locale has a prefix, the source included',
@@ -191,8 +215,16 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     );
   } else {
     const named = configFile ? readRoutingChoice(cfg.root, configFile) : false;
-    const how = named ? '' : ' (from your setup, no routing set)';
-    ok('routing', `${cfg.routing}${how}: ${ROUTING_SAYS[cfg.routing]}`);
+    // the rule @verbaly/astro applies: Astro's i18n replaces no-prefix, a prefix mode stays
+    const replaced = cfg.host === 'astro' && cfg.routing === 'no-prefix';
+    const astro = replaced ? readAstroRouting(cfg.root) : undefined;
+    if (astro) {
+      const how = ` (from Astro's i18n in ${astro.file}, which @verbaly/astro follows)`;
+      ok('routing', `${astro.mode}${how}: ${ROUTING_SAYS[astro.mode]}`);
+    } else {
+      const how = named ? '' : ' (from your setup, no routing set)';
+      ok('routing', `${cfg.routing}${how}: ${ROUTING_SAYS[cfg.routing]}`);
+    }
   }
 
   const deps = readDependencies(cfg.root);

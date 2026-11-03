@@ -44,5 +44,15 @@ describe('the install line of every README', () => {
       const install = /```bash\n([^`]*?pnpm add [^`]*?)```/.exec(text)?.[1] ?? '';
       expect(install).toContain('@verbaly/compiler');
     });
+
+    // Proved able to fail on the 0.79.0 Svelte and SvelteKit READMEs, which a first try followed
+    it(`${file} installs what generates verbaly/app, and the CLI, when its code imports it`, () => {
+      const text = readFileSync(join(repo, file), 'utf8');
+      if (!text.includes("from 'verbaly/app'")) return;
+      const install = /```bash\n([^`]*?pnpm add [^`]*?)```/.exec(text)?.[1] ?? '';
+      expect(install).toMatch(/@verbaly\/(?:vite|unplugin|next|nuxt|astro)\b/);
+      expect(install).toContain('@verbaly/compiler');
+      expect(install).toMatch(/pnpm add verbaly /);
+    });
   }
 });

@@ -17,7 +17,11 @@ Server-rendered pages arrive already translated in the visitor's language (cooki
 
 ```bash
 pnpm add verbaly @verbaly/sveltekit @verbaly/svelte @verbaly/vite
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
+npx verbaly init
 ```
+
+`init` writes `verbaly.config.ts` and your source catalog. List your languages there (`locales: ['en', 'es']`): the build, `verbaly extract` and `verbaly check` all read them.
 
 ## ⚡ Wire it up
 

@@ -1,6 +1,12 @@
 import { getContext, setContext } from 'svelte';
 import type { Readable, Writable } from 'svelte/store';
-import type { DictionaryInput, Params, TFunction, Verbaly } from 'verbaly';
+import {
+  persistLocale,
+  type DictionaryInput,
+  type Params,
+  type TFunction,
+  type Verbaly,
+} from 'verbaly';
 
 const KEY = {};
 
@@ -39,13 +45,18 @@ export function tStore<D extends DictionaryInput>(instance: Verbaly<D>): Readabl
 }
 
 export function localeStore(instance: Verbaly): Writable<string> {
+  // synchronous, so the last write wins; the page follows: <html lang>, dir and the stored choice
+  const set = (locale: string): void => {
+    instance.setLocale(locale);
+    persistLocale(locale);
+  };
   return {
     subscribe(run) {
       run(instance.locale);
       return instance.subscribe(() => run(instance.locale));
     },
-    set: (locale) => instance.setLocale(locale),
-    update: (fn) => instance.setLocale(fn(instance.locale)),
+    set,
+    update: (fn) => set(fn(instance.locale)),
   };
 }
 

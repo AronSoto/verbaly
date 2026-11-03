@@ -158,6 +158,25 @@ describe('@verbaly/react', () => {
     expect(container.textContent).toBe('en');
     expect(v.locale).toBe('en');
   });
+
+  it("useLocale's setter takes the page along and remembers it, as switchLocale does", () => {
+    const v = makeInstance();
+    document.documentElement.lang = 'es';
+    localStorage.removeItem('verbaly-locale');
+    act(() => {
+      root.render(
+        <VerbalyProvider instance={v}>
+          <Switcher />
+        </VerbalyProvider>,
+      );
+    });
+    act(() => {
+      container.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.documentElement.dir).toBe('ltr');
+    expect(localStorage.getItem('verbaly-locale')).toBe('en');
+  });
 });
 
 describe('@verbaly/react <Trans>', () => {

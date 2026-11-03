@@ -267,6 +267,43 @@ describe('runCli: wrap', () => {
     expect(readFileSync(file, 'utf8')).toContain('<h1>Welcome back</h1>');
   });
 
+  it('counts what it can wrap now apart from what waits for t, before writing anything', async () => {
+    const root = makeProject({ en: {} });
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'App.tsx'), 'export const x = <h1>Welcome back</h1>;\n');
+    await runCli(['wrap', '--root', root]);
+    expect(output(log)).toContain(
+      'would wrap 0 texts in 0 files, and 1 text in 1 file once t is in scope',
+    );
+    expect(output(log)).toContain('src/App.tsx:1  "Welcome back"');
+  });
+
+  it("names the binding the project's framework hands out, with the package it comes from", async () => {
+    const vite = makeProject({ en: {} });
+    writeFileSync(
+      join(vite, 'package.json'),
+      JSON.stringify({ dependencies: { react: '^19.0.0' }, devDependencies: { vite: '^8.0.0' } }),
+    );
+    mkdirSync(join(vite, 'src'), { recursive: true });
+    writeFileSync(join(vite, 'src', 'App.tsx'), 'export const x = <h1>Welcome back</h1>;\n');
+    await runCli(['wrap', '--root', vite]);
+    const said = output(log);
+    expect(said).toContain('`const t = useT()` from @verbaly/react');
+    expect(said).not.toContain('use client');
+
+    log.mockClear();
+    const next = makeProject({ en: {} });
+    writeFileSync(
+      join(next, 'package.json'),
+      JSON.stringify({ dependencies: { next: '^16.0.0' } }),
+    );
+    mkdirSync(join(next, 'app'), { recursive: true });
+    writeFileSync(join(next, 'app', 'page.tsx'), 'export default () => <h1>Welcome back</h1>;\n');
+    await runCli(['wrap', '--root', next]);
+    expect(output(log)).toContain('`const t = await getT()` from @verbaly/next/server');
+    expect(output(log)).toContain('`const t = useT()` from @verbaly/next/client');
+  });
+
   it('says so when there is nothing to wrap', async () => {
     const root = makeProject({ en: {} }, 'export const x = 1;\n');
     await runCli(['wrap', '--root', root]);

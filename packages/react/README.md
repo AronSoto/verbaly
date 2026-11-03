@@ -18,8 +18,12 @@ React hooks for [Verbaly](https://github.com/AronSoto/verbaly): a thin layer (Re
 ## 🚀 Install
 
 ```bash
-pnpm add verbaly @verbaly/react
+pnpm add verbaly @verbaly/react @verbaly/vite   # @verbaly/unplugin on webpack, Rollup, esbuild or Rspack
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
+npx verbaly init
 ```
+
+Add `verbaly()` to the plugins in `vite.config` (the [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) README shows it). It writes `verbaly/app`, the module these hooks read. In Next.js, use [`@verbaly/next`](https://www.npmjs.com/package/@verbaly/next) instead, which re-exports them.
 
 ```tsx
 import { VerbalyProvider, useT, useLocale } from '@verbaly/react';
@@ -33,9 +37,33 @@ function Inbox() {
   const t = useT();
   return <p>{t('inbox', { count: 3 })}</p>;
 }
+
+function LanguagePicker() {
+  const [locale, setLocale] = useLocale();
+  return (
+    <select value={locale} onChange={(event) => setLocale(event.target.value)}>
+      <option value="en">English</option>
+      <option value="es">Español</option>
+    </select>
+  );
+}
 ```
 
-**The provider is optional in the browser.** With none above it, a hook reads the instance `verbaly/app` creates, so a single-page app can skip it and a component test renders with no wrapper, as with react-i18next. On a server it is required, since every request has its own instance.
+**The provider is optional in the browser.** With none above it, a hook reads the instance `verbaly/app` creates, so a single-page app can skip it and a component test renders with no wrapper, as with react-i18next. The Vite plugin and unplugin load `verbaly/app` in every file that imports `@verbaly/react`, so that instance is there before the first render. On a server the provider is required, since every request has its own instance.
+
+**Switching languages.** `setLocale` from `useLocale()` switches every component, and the page follows: `<html lang>`, `<html dir>` and the choice, saved in the browser. Where a server renders the page, as in Next.js, switch with `useSwitchLocale` from `@verbaly/next/client` instead: it also sets the cookie the server reads. A single-page app starts in its source language, so read that choice back before the first render:
+
+```tsx
+// main.tsx: the saved choice, else the browser's, loaded before anything renders
+import { resolveLocale } from 'verbaly';
+import { locales, setLocale } from 'verbaly/app';
+
+setLocale(resolveLocale({ supported: locales, path: false })).then(() => {
+  createRoot(document.getElementById('root')!).render(<App />);
+});
+```
+
+`.then` rather than a top-level `await`, which can split the entry into more chunks.
 
 **Keys are typed.** `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts` in a Vite app): a key no catalog has does not compile. A key that comes from data, like `t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `verbaly/app` when you want `check` to verify it exists.
 

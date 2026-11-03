@@ -45,6 +45,11 @@ export default { sourceLocale: 'en', locales: ['en', 'es', 'pt'] };
 
 ```astro
 ---
+import { createRequestInstance, sourceLocale } from 'verbaly/app';
+
+const { t } = await createRequestInstance(Astro.currentLocale ?? sourceLocale);
+const name = 'Ada';
+const count = 3;
 const title = t`Search and find`;
 ---
 
@@ -69,6 +74,24 @@ const { t } = await createRequestInstance(Astro.currentLocale ?? sourceLocale);
 `createRequestInstance` awaits the catalog before it returns, which is what makes the page arrive
 translated instead of flashing. `Astro.currentLocale` is `undefined` outside a localized route, so
 the fallback is not decoration.
+
+The integration reads Astro's `i18n` too, so `switchLocale` and `localePath` from `verbaly/app`
+go to the page Astro serves in the other language: `prefix-except-source` by default, or
+`prefix-all` with `prefixDefaultLocale: true`. That needs Astro's `defaultLocale` to be your
+`sourceLocale`, and each language's path to be its code; the dev server and the build say so
+when it is not. A prefix mode your `verbaly.config` names stays as it is, and `npx verbaly doctor`
+shows the mode in use.
+
+```astro
+<button data-lang="es">Español</button>
+<script>
+  import { switchLocale } from 'verbaly/app';
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-lang]')) {
+    button.addEventListener('click', () => switchLocale(button.dataset.lang!)); // goes to /es/…
+  }
+</script>
+```
 
 **Mirror mode** (one tree, pre-translated copies): keep your markup bound with `data-verbaly` attributes and add a `render` section to your `verbaly.config`. After `astro build`, the integration mirrors `dist/` into `dist/<locale>/` with every message pre-filled, plus hreflang and a per-locale sitemap if you configure `baseUrl`. No flash of untranslated content, no client work.
 

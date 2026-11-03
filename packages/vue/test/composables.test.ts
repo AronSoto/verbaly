@@ -112,6 +112,18 @@ describe('@verbaly/vue', () => {
     expect(v.locale).toBe('en');
   });
 
+  it("useLocale's setter takes the page along and remembers it, as switchLocale does", async () => {
+    const v = makeInstance();
+    document.documentElement.lang = 'es';
+    localStorage.removeItem('verbaly-locale');
+    const { el } = mount(Switcher, verbalyPlugin(v));
+    el.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await nextTick();
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.documentElement.dir).toBe('ltr');
+    expect(localStorage.getItem('verbaly-locale')).toBe('en');
+  });
+
   it('cleans up on unmount', () => {
     const v = makeInstance();
     const { app } = mount(Hello, verbalyPlugin(v));

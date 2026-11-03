@@ -1,6 +1,7 @@
 import MagicString from 'magic-string';
 import type { Analysis } from './analyze';
 import { analyzeFile } from './sfc';
+import { APP_ID } from '../util/ids';
 import { warnParseError } from '../util/warn';
 
 export interface TransformResult {
@@ -17,13 +18,18 @@ export function transformCode(
   code: string,
   file: string,
   analysis?: Analysis,
+  // appImport: load verbaly/app where an adapter is imported, for a bundler that generates it
+  options: { appImport?: boolean } = {},
 ): TransformResult | null {
   const own = analysis ?? analyzeFile(code, file);
   if (!analysis && own.parseError) warnParseError(file, own.parseError);
   const { tagged } = own;
-  if (tagged.length === 0) return null;
+  const appAt = options.appImport && !own.appImported ? own.adapterImport : undefined;
+  if (tagged.length === 0 && appAt === undefined) return null;
 
   const s = new MagicString(code);
+  // on the import's own line: every line after it keeps its number
+  if (appAt !== undefined) s.appendLeft(appAt, `import '${APP_ID}'; `);
   for (const msg of tagged) {
     const seen = new Set<string>();
     const entries = msg.params.filter((p) => !seen.has(p.name) && seen.add(p.name));

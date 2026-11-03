@@ -45,6 +45,8 @@ export function analyzeSfc(code: string, file: string): Analysis {
   const renamed = new Set<string>();
   const lineAt = lineCounter(code);
   let parseError: string | undefined;
+  let adapterImport: number | undefined;
+  let appImported = false;
 
   // a script block is structural: if it does not parse, the file is reported, unlike a markup slice
   const block = (content: string, offset: number): void => {
@@ -84,10 +86,17 @@ export function analyzeSfc(code: string, file: string): Analysis {
     consumedTo = end;
   }
 
-  return { tagged, usedKeys, strayImports, missed, ...(parseError && { parseError }) };
+  const analysis: Analysis = { tagged, usedKeys, strayImports, missed };
+  if (parseError) analysis.parseError = parseError;
+  if (adapterImport !== undefined) analysis.adapterImport = adapterImport;
+  if (appImported) analysis.appImported = true;
+  return analysis;
 
   function merge(analysis: Analysis | undefined, offset: number, markupSegment: boolean): void {
     if (!analysis) return;
+    // blocks arrive in file order, so the first one seen is the earliest in the file
+    if (analysis.adapterImport !== undefined) adapterImport ??= analysis.adapterImport + offset;
+    if (analysis.appImported) appImported = true;
     const lines = lineAt(offset) - 1;
     for (const msg of analysis.tagged) {
       tagged.push({

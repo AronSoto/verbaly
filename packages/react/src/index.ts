@@ -7,7 +7,13 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import type { DictionaryInput, Params, TFunction, Verbaly } from 'verbaly';
+import {
+  persistLocale,
+  type DictionaryInput,
+  type Params,
+  type TFunction,
+  type Verbaly,
+} from 'verbaly';
 import { renderTrans, type TransProps } from './render';
 
 export type { TransOptions, TransProps } from './render';
@@ -66,7 +72,16 @@ function bound<T extends Pick<TFunction, 'id'>>(t: T): T {
 export function useLocale(): [string, (locale: string) => void] {
   const instance = useVerbaly();
   useVersion(instance);
-  return [instance.locale, instance.setLocale];
+  const set = useMemo(() => switcher(instance), [instance]);
+  return [instance.locale, set];
+}
+
+// synchronous, so the last call wins; the page follows: <html lang>, dir and the stored choice
+function switcher(instance: Verbaly): (locale: string) => void {
+  return (locale) => {
+    instance.setLocale(locale);
+    persistLocale(locale);
+  };
 }
 
 function useVersion<D extends DictionaryInput>(instance: Verbaly<D>): number {

@@ -145,6 +145,18 @@ describe('localeStore', () => {
     expect(run).toHaveBeenLastCalledWith('en');
   });
 
+  it('set takes the page along and remembers it, as switchLocale does', () => {
+    const v = setup();
+    document.documentElement.lang = 'es';
+    localStorage.removeItem('verbaly-locale');
+    localeStore(v).set('en');
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.documentElement.dir).toBe('ltr');
+    expect(localStorage.getItem('verbaly-locale')).toBe('en');
+    localeStore(v).update(() => 'es');
+    expect(document.documentElement.lang).toBe('es');
+  });
+
   it('update derives from the current value', () => {
     const v = setup();
     const store = localeStore(v);

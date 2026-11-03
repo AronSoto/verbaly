@@ -60,6 +60,39 @@ describe('verbaly/app through a real bundler', () => {
   );
 
   it(
+    'ships the project module with webpack when the app only imports an adapter',
+    async () => {
+      const root = project();
+      const adapter = join(root, 'src', 'adapter.js');
+      writeFileSync(adapter, "export const useT = () => globalThis[Symbol.for('verbaly.app')];\n");
+      writeFileSync(
+        join(root, 'src', 'main.js'),
+        "import { useT } from '@verbaly/react';\nconsole.log(useT());\n",
+      );
+      const out = join(root, 'out');
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const stats = await new Promise<webpack.Stats>((resolve, reject) =>
+        webpack(
+          {
+            mode: 'production',
+            target: 'node',
+            context: root,
+            entry: './src/main.js',
+            output: { path: out, filename: 'main.js' },
+            externals: { verbaly: 'commonjs verbaly' },
+            resolve: { alias: { '@verbaly/react$': adapter } },
+            plugins: [verbaly.webpack({ root })],
+          },
+          (error, result) => (error || !result ? reject(error) : resolve(result)),
+        ),
+      );
+      expect(stats.toString('errors-only').trim()).toBe('');
+      expect(emitted(out)).toContain('Hola desde es');
+    },
+    BUILD_TIMEOUT,
+  );
+
+  it(
     'builds with esbuild, each language in a chunk of its own',
     async () => {
       const root = project();

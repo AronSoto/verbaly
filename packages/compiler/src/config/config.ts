@@ -221,6 +221,14 @@ export async function loadConfig(
 // what verbaly check and extract read: set only in a plugin, the build and the CLI disagree
 const READ_BY_CLI = ['sourceLocale', 'locales', 'dir', 'include', 'exclude'] as const;
 
+// per project root, the options only the plugin sets: what the build report points check at
+const pluginOnly = new Map<string, string>();
+
+// '' when the build and verbaly check read the same options, else the names that differ
+export function pluginOnlyOptions(root: string): string {
+  return pluginOnly.get(root) ?? '';
+}
+
 function warnPluginOnly(root: string, file: VerbalyConfig, overrides: VerbalyConfig): void {
   // resolved on both sides: a default or a path written another way is what the CLI reads too
   const cli = resolveConfig({ ...file, root });
@@ -229,8 +237,12 @@ function warnPluginOnly(root: string, file: VerbalyConfig, overrides: VerbalyCon
     (key) =>
       overrides[key] !== undefined && JSON.stringify(cli[key]) !== JSON.stringify(build[key]),
   );
-  if (keys.length === 0) return;
-  const names = keys.length > 1 ? `${keys.slice(0, -1).join(', ')} and ${keys.at(-1)}` : keys[0];
+  if (keys.length === 0) {
+    pluginOnly.delete(cli.root);
+    return;
+  }
+  const names = keys.length > 1 ? `${keys.slice(0, -1).join(', ')} and ${keys.at(-1)}` : keys[0]!;
+  pluginOnly.set(cli.root, names);
   const [verb, pronoun] = keys.length > 1 ? ['are', 'them'] : ['is', 'it'];
   warnOnce(
     `${names} ${verb} set in the plugin options, which \`verbaly check\` and \`verbaly extract\` ` +

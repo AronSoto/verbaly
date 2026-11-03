@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { stableKey } from '../src/key';
-import { analyzeFile, analyzeSfc } from '../src/sfc';
-import { transformCode } from '../src/transform';
+import { stableKey } from '../src/util/key';
+import { analyzeFile, analyzeSfc } from '../src/scan/sfc';
+import { transformCode } from '../src/scan/transform';
 
 describe('analyzeFile', () => {
   it('dispatches plain files to analyze', () => {

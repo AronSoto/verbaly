@@ -3,10 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadCatalogs, type Catalogs } from '../src/catalog';
-import { resolveConfig } from '../src/config';
-import { formatFinding } from '../src/findings';
-import { stableKey } from '../src/key';
+import { loadCatalogs, type Catalogs } from '../src/catalog/catalog';
+import { resolveConfig } from '../src/config/config';
+import { formatFinding } from '../src/gate/findings';
+import { stableKey } from '../src/util/key';
 import {
   acceptOutdated,
   loadState,
@@ -18,7 +18,7 @@ import {
   STATE_FILE,
   stateFile,
   updateState,
-} from '../src/state';
+} from '../src/catalog/state';
 
 function cfg(locales = ['en', 'es']) {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-state-'));
@@ -553,7 +553,7 @@ describe('recordTranslations', () => {
 
 describe('saving drafts', () => {
   it('keeps the fingerprints, so approving a draft never erases what outdated compares against', async () => {
-    const { loadDrafts, saveDrafts } = await import('../src/drafts');
+    const { loadDrafts, saveDrafts } = await import('../src/catalog/drafts');
     const c = cfg();
     refresh(c, { en: { bio: 'I write code' }, es: { bio: 'Escribo código' } });
     const stamped = loadState(c).fingerprints;

@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { generateDts, writeDts } from '../src/codegen';
-import { resolveConfig } from '../src/config';
-import { doctor, type DoctorEntry } from '../src/doctor';
-import { stableKey } from '../src/key';
+import { generateDts, writeDts } from '../src/emit/codegen';
+import { resolveConfig } from '../src/config/config';
+import { doctor, type DoctorEntry } from '../src/project/doctor';
+import { stableKey } from '../src/util/key';
 
 const KEY = stableKey('Hola {name}');
 

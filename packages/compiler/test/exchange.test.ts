@@ -2,9 +2,9 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Catalogs } from '../src/catalog';
-import { resolveConfig } from '../src/config';
-import { exportCatalogs, importCatalogs, parseExchangeFile } from '../src/exchange';
+import type { Catalogs } from '../src/catalog/catalog';
+import { resolveConfig } from '../src/config/config';
+import { exportCatalogs, importCatalogs, parseExchangeFile } from '../src/exchange/exchange';
 
 function cfg(locales: string[] = ['en', 'es']) {
   return resolveConfig({

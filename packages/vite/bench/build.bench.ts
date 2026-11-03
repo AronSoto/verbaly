@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { check, extractProject, loadCatalogs, resolveConfig, syncProject } from '@verbaly/compiler';
 import { build, type Plugin } from 'vite';
 import { test } from 'vitest';
-import { gatePass } from '../../compiler/src/validate';
+import { gatePass } from '../../compiler/src/gate/validate';
 import verbaly from '../src/index';
 
 // the small app runs on every release; the big one holds more texts than the core's AST cache

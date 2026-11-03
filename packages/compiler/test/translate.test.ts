@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import type { Catalogs } from '../src/catalog';
-import { resolveConfig } from '../src/config';
-import { batchFormat, buildPrompt } from '../src/providers/claude';
+import type { Catalogs } from '../src/catalog/catalog';
+import { resolveConfig } from '../src/config/config';
+import { batchFormat, buildPrompt } from '../src/exchange/providers/claude';
 import {
   formatTranslateFailures,
   mergeTranslations,
@@ -12,7 +12,7 @@ import {
   translateCatalogs,
   type TranslateProgress,
   type TranslateProvider,
-} from '../src/translate';
+} from '../src/exchange/translate';
 
 function cfg(locales: string[] = ['en', 'es']) {
   return resolveConfig({

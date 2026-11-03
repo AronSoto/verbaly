@@ -2,9 +2,9 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { MessageRegistry } from '../src/registry';
-import { formatStatusResult, status } from '../src/status';
+import { resolveConfig } from '../src/config/config';
+import { MessageRegistry } from '../src/scan/registry';
+import { formatStatusResult, status } from '../src/gate/status';
 
 function cfg(locales: string[] = ['en', 'es']) {
   return resolveConfig({

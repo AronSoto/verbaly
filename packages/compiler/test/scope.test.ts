@@ -3,13 +3,13 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveConfig } from '../src/config';
+import { resolveConfig } from '../src/config/config';
 import {
   createOutsideCheck,
   filesOutsideInclude,
   formatOutside,
   reportOutsideInclude,
-} from '../src/scope';
+} from '../src/scan/scope';
 
 // create-next-app with no src/, plus shadcn: app/ is included by default and components/ is not
 function nextLayout(): string {

@@ -2,11 +2,16 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { generateDts, generateLocaleModule, generateRuntimeModule, writeDts } from '../src/codegen';
-import { needsIcu, needsRelative } from '../src/catalog';
+import {
+  generateDts,
+  generateLocaleModule,
+  generateRuntimeModule,
+  writeDts,
+} from '../src/emit/codegen';
+import { needsIcu, needsRelative } from '../src/catalog/catalog';
 import { isIcu } from '../../core/src/icu';
-import { resolveConfig } from '../src/config';
-import { collectParams, renderParamType } from '../src/params';
+import { resolveConfig } from '../src/config/config';
+import { collectParams, renderParamType } from '../src/emit/params';
 
 describe('generateRuntimeModule', () => {
   it('inlines source and lazy-loads the rest', () => {

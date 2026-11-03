@@ -2,18 +2,18 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { analyze } from '../src/analyze';
-import { auditBundle, clientCatalogs } from '../src/bundle';
-import type { Catalogs } from '../src/catalog';
-import { resolveConfig, type VerbalyConfig } from '../src/config';
+import { analyze } from '../src/scan/analyze';
+import { auditBundle, clientCatalogs } from '../src/emit/bundle';
+import type { Catalogs } from '../src/catalog/catalog';
+import { resolveConfig, type VerbalyConfig } from '../src/config/config';
 import {
   LOCALE_MODULE_PREFIX,
   RESOLVED_VIRTUAL_ID,
   loadVirtualModule,
   runBuildGate,
-} from '../src/plugin';
-import { MessageRegistry } from '../src/registry';
-import { renderSite } from '../src/render';
+} from '../src/emit/plugin';
+import { MessageRegistry } from '../src/scan/registry';
+import { renderSite } from '../src/emit/render';
 
 const CATALOGS: Catalogs = {
   en: {

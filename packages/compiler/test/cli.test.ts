@@ -10,13 +10,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { generateDts } from '../src/codegen';
-import { stableKey } from '../src/key';
-import { COMMAND_FLAGS, formatCliError, runCli } from '../src/run';
-import { watchProject } from '../src/watch';
+import { generateDts } from '../src/emit/codegen';
+import { stableKey } from '../src/util/key';
+import { COMMAND_FLAGS, formatCliError, runCli } from '../src/cli/run';
+import { watchProject } from '../src/emit/watch';
 
 // the CLI never exposes the watcher's dispose, a real one would leak across tests
-vi.mock('../src/watch', () => ({ watchProject: vi.fn(() => () => {}) }));
+vi.mock('../src/emit/watch', () => ({ watchProject: vi.fn(() => () => {}) }));
 
 function makeProject(catalogs: Record<string, Record<string, string>>, source?: string): string {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-cli-'));
@@ -90,6 +90,17 @@ describe('runCli: dispatch and exit codes', () => {
     await runCli(['frobnicate']);
     expect(output(error)).toContain('unknown command "frobnicate"');
     expect(process.exitCode).toBe(1);
+  });
+
+  // a command name is data: the names every object inherits are no command either
+  it('reports a name every object inherits as an unknown command', async () => {
+    for (const name of ['constructor', 'toString', '__proto__']) {
+      error.mockClear();
+      process.exitCode = undefined;
+      await runCli([name]);
+      expect(output(error)).toContain(`unknown command "${name}"`);
+      expect(process.exitCode).toBe(1);
+    }
   });
 
   it('import without files exits 1 with a usage hint', async () => {
@@ -1153,7 +1164,9 @@ describe('the commands the tool tells people to run', () => {
   // a remedy that names a command is a promise, and the gate's promise was unreachable in pnpm
   it('never names a command the CLI does not accept', () => {
     const named = new Map<string, string>();
-    for (const file of readdirSync(src).filter((name) => name.endsWith('.ts'))) {
+    for (const file of readdirSync(src, { recursive: true, encoding: 'utf8' }).filter((name) =>
+      name.endsWith('.ts'),
+    )) {
       const code = readFileSync(join(src, file), 'utf8');
       for (const match of code.matchAll(/npx verbaly ([a-z][a-z-]*)/g)) {
         named.set(match[1]!, file);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { pseudoCatalogs, pseudoLocalize } from '../src/pseudo';
-import { structureMatches } from '../src/translate';
-import { resolveConfig } from '../src/config';
+import { pseudoCatalogs, pseudoLocalize } from '../src/catalog/pseudo';
+import { structureMatches } from '../src/exchange/translate';
+import { resolveConfig } from '../src/config/config';
 
 describe('pseudoLocalize', () => {
   it('accents letters and wraps with markers + padding', () => {

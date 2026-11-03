@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { build } from 'esbuild';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { generateRuntimeModule } from '../src/codegen';
+import { resolveConfig } from '../src/config/config';
+import { generateRuntimeModule } from '../src/emit/codegen';
 
 // esbuild runs twice against the real core build, so this file pays for a bundler, not a unit
 const BUNDLE_TIMEOUT = 30_000;

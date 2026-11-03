@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bindDom, createVerbaly, localePath, resolveLocale, type Verbaly } from 'verbaly';
-import { clientCatalogs } from '../src/bundle';
-import { loadCatalogs } from '../src/catalog';
-import { generateLocaleModule, generateRuntimeModule } from '../src/codegen';
-import { resolveConfig, type ResolvedConfig, type VerbalyConfig } from '../src/config';
-import { renderSite } from '../src/render';
+import { clientCatalogs } from '../src/emit/bundle';
+import { loadCatalogs } from '../src/catalog/catalog';
+import { generateLocaleModule, generateRuntimeModule } from '../src/emit/codegen';
+import { resolveConfig, type ResolvedConfig, type VerbalyConfig } from '../src/config/config';
+import { renderSite } from '../src/emit/render';
 
 // end to end: build a site and walk a visitor through the mirror, because the units add up here
 const CATALOGS = {

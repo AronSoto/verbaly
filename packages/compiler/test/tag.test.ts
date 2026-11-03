@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLocaleTag, projectLocale, suggestTag } from '../src/tag';
+import { isLocaleTag, projectLocale, suggestTag } from '../src/util/tag';
 
 describe('a locale is a tag Intl can read', () => {
   it('accepts what Intl accepts, scripts, regions and extensions included', () => {

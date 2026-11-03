@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { DTS_HEADER, generateDts, writeDts } from '../src/codegen';
-import { resolveConfig } from '../src/config';
-import { includeTypes, typesIncluded } from '../src/tsconfig';
+import { DTS_HEADER, generateDts, writeDts } from '../src/emit/codegen';
+import { resolveConfig } from '../src/config/config';
+import { includeTypes, typesIncluded } from '../src/config/tsconfig';
 
 function nextProject(tsconfig?: string): string {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-dts-'));

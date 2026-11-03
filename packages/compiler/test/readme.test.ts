@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { transformSource } from '../src/plugin';
-import { MessageRegistry } from '../src/registry';
+import { transformSource } from '../src/emit/plugin';
+import { MessageRegistry } from '../src/scan/registry';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 

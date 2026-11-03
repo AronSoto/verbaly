@@ -19,6 +19,8 @@ pnpm --filter <package> test   # one package
 ## Layout
 
 - `packages/<name>/{src,test}`: one folder per published package.
+- `packages/compiler/src/` is split by job, and each folder imports only from the ones listed before it: `util`, `config`, `catalog` (catalog files and `verbaly.lock`), `scan` (reading code), `gate`, `exchange` (translator files and machine translation), `emit` (what reaches the bundler and the browser), `project` (`syncProject`, `init`, `doctor`) and `cli` (one file per command). `index.ts` and `cli.ts` are the two entries, and `test/layers.test.ts` pins the order.
+- `packages/mcp/src/tools/`: one file per tool, registered in the order of the cycle by `server.ts`.
 - `changelog/CHANGELOG.md`: one entry per version, newest first.
 - `skills/verbaly/SKILL.md`: the Agent Skill Verbaly ships to its users, not instructions for working on this repo.
 - `scripts/`: the test runner, the first-contact check and the lint rule for comments.

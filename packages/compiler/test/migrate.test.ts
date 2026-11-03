@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createVerbaly } from 'verbaly';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig, type ResolvedConfig } from '../src/config';
-import { migrateCatalogs } from '../src/migrate';
-import { loadState, STATE_FILE, updateState } from '../src/state';
+import { resolveConfig, type ResolvedConfig } from '../src/config/config';
+import { migrateCatalogs } from '../src/catalog/migrate';
+import { loadState, STATE_FILE, updateState } from '../src/catalog/state';
 
 function project(
   catalogs: Record<string, unknown>,

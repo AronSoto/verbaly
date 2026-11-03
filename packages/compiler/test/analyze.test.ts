@@ -1,8 +1,8 @@
 import { createVerbaly } from 'verbaly';
 import { describe, expect, it } from 'vitest';
-import { analyze } from '../src/analyze';
-import { stableKey } from '../src/key';
-import { transformCode } from '../src/transform';
+import { analyze } from '../src/scan/analyze';
+import { stableKey } from '../src/util/key';
+import { transformCode } from '../src/scan/transform';
 
 describe('analyze', () => {
   it('extracts tagged templates', () => {

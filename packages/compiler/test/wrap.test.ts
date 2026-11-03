@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { analyzeFile } from '../src/sfc';
-import { wrapCode, wrapProject } from '../src/wrap';
+import { resolveConfig } from '../src/config/config';
+import { analyzeFile } from '../src/scan/sfc';
+import { wrapCode, wrapProject } from '../src/scan/wrap';
 
 const APP_WITH_T = 'const t = useT();\nexport const x = <h1>Welcome back</h1>;\n';
 

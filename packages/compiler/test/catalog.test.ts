@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { analyze } from '../src/analyze';
+import { analyze } from '../src/scan/analyze';
 import {
   catalogPath,
   loadCatalogs,
@@ -10,13 +10,13 @@ import {
   readCatalog,
   serializeCatalog,
   writeCatalog,
-} from '../src/catalog';
-import { check, formatCheckResult } from '../src/check';
-import { resolveConfig } from '../src/config';
-import { syncCatalogs } from '../src/extract';
-import { stableKey } from '../src/key';
-import { MessageRegistry } from '../src/registry';
-import { formatStatusResult, status } from '../src/status';
+} from '../src/catalog/catalog';
+import { check, formatCheckResult } from '../src/gate/check';
+import { resolveConfig } from '../src/config/config';
+import { syncCatalogs } from '../src/scan/extract';
+import { stableKey } from '../src/util/key';
+import { MessageRegistry } from '../src/scan/registry';
+import { formatStatusResult, status } from '../src/gate/status';
 
 function makeProject(locales: Record<string, Record<string, string>>) {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-'));

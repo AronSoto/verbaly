@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'verbaly';
 import { describe, expect, it, vi } from 'vitest';
-import type { Catalogs } from '../src/catalog';
-import { check } from '../src/check';
-import { resolveConfig } from '../src/config';
-import { MessageRegistry } from '../src/registry';
-import { validateMessage } from '../src/validate';
+import type { Catalogs } from '../src/catalog/catalog';
+import { check } from '../src/gate/check';
+import { resolveConfig } from '../src/config/config';
+import { MessageRegistry } from '../src/scan/registry';
+import { validateMessage } from '../src/gate/validate';
 
 // the core's parse, counted: past its cap, a rebuild that reads through it parses everything again
 vi.mock('verbaly', async (importOriginal) => {

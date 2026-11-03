@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { extractProject } from '../src/extract';
-import { stableKey } from '../src/key';
+import { resolveConfig } from '../src/config/config';
+import { extractProject } from '../src/scan/extract';
+import { stableKey } from '../src/util/key';
 
 describe('extractProject', () => {
   it('globs source files and skips excluded paths', async () => {

@@ -5,8 +5,8 @@ import {
   loadSdk,
   systemPrompt,
   thinkingFor,
-} from '../src/providers/claude';
-import type { TranslateRequest } from '../src/translate';
+} from '../src/exchange/providers/claude';
+import type { TranslateRequest } from '../src/exchange/translate';
 
 const request: TranslateRequest = {
   sourceLocale: 'en',

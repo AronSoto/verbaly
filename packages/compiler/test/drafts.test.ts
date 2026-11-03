@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config';
+import { resolveConfig } from '../src/config/config';
 import {
   clearDrafts,
   STATE_FILE,
@@ -11,7 +11,7 @@ import {
   markDrafts,
   saveDrafts,
   type Drafts,
-} from '../src/drafts';
+} from '../src/catalog/drafts';
 
 function cfg() {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-drafts-'));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { stableKey } from '../src/key';
-import { transformCode } from '../src/transform';
+import { stableKey } from '../src/util/key';
+import { transformCode } from '../src/scan/transform';
 
 describe('transformCode', () => {
   it('rewrites tagged templates to keyed calls', () => {

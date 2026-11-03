@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { generateDts } from '../src/codegen';
+import { generateDts } from '../src/emit/codegen';
 
 // this file runs the real compiler, so it pays for a type checker and not for a unit
 const TSC_TIMEOUT = 60_000;

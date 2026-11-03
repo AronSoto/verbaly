@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { flatten } from 'verbaly';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { analyze } from '../src/analyze';
-import { emptyCatalog, needsIcu, needsRelative, type Catalogs } from '../src/catalog';
-import { check } from '../src/check';
-import { resolveConfig } from '../src/config';
-import { shippedCatalogs } from '../src/extract';
-import { MessageRegistry } from '../src/registry';
-import { status } from '../src/status';
+import { analyze } from '../src/scan/analyze';
+import { emptyCatalog, needsIcu, needsRelative, type Catalogs } from '../src/catalog/catalog';
+import { check } from '../src/gate/check';
+import { resolveConfig } from '../src/config/config';
+import { shippedCatalogs } from '../src/scan/extract';
+import { MessageRegistry } from '../src/scan/registry';
+import { status } from '../src/gate/status';
 
 // the core's flatten, counted: copying a catalog readCatalog already flattened is the whole cost
 vi.mock('verbaly', async (importOriginal) => {

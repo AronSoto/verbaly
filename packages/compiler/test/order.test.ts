@@ -2,8 +2,8 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { catalogPath, readCatalog, writeCatalog } from '../src/catalog';
-import { resolveConfig } from '../src/config';
+import { catalogPath, readCatalog, writeCatalog } from '../src/catalog/catalog';
+import { resolveConfig } from '../src/config/config';
 
 // the file is written as a string so its key order is exactly what the test means
 function project(files: Record<string, string>) {

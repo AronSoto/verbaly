@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { defaultTypesPath, installCommand, packageManager } from '../src/host';
+import { resolveConfig } from '../src/config/config';
+import { defaultTypesPath, installCommand, packageManager } from '../src/config/host';
 
 function makeRoot(deps: Record<string, string> = {}, options: { src?: boolean } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-host-'));

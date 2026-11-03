@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { analyze } from '../src/analyze';
+import { analyze } from '../src/scan/analyze';
 import {
   check,
   checkNextSteps,
@@ -11,12 +11,12 @@ import {
   gatePasses,
   githubCheckAnnotations,
   warningCount,
-} from '../src/check';
-import type { CheckResult } from '../src/check';
-import type { Catalogs } from '../src/catalog';
-import { resolveConfig } from '../src/config';
-import { stableKey } from '../src/key';
-import { MessageRegistry } from '../src/registry';
+} from '../src/gate/check';
+import type { CheckResult } from '../src/gate/check';
+import type { Catalogs } from '../src/catalog/catalog';
+import { resolveConfig } from '../src/config/config';
+import { stableKey } from '../src/util/key';
+import { MessageRegistry } from '../src/scan/registry';
 
 // the stamp a translation gets when it is written: source and translation fingerprints
 const stamp = (source: string, translated: string): string =>

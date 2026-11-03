@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateMessage, validatePair } from '../src/validate';
+import { validateMessage, validatePair } from '../src/gate/validate';
 
 const errors = (issues: { severity: string; message: string }[]): string[] =>
   issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message);

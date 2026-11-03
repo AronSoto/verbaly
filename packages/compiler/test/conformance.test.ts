@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bindDom, createVerbaly, type RichLink } from 'verbaly';
-import { renderHtml } from '../src/render';
+import { renderHtml } from '../src/emit/render';
 
 // render == runtime is the whole point of the feature: any divergence IS the FOUC it exists to kill
 const MESSAGES: Record<string, string> = {

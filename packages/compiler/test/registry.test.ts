@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { analyze } from '../src/analyze';
-import { MessageRegistry } from '../src/registry';
-import { stableKey } from '../src/key';
+import { analyze } from '../src/scan/analyze';
+import { MessageRegistry } from '../src/scan/registry';
+import { stableKey } from '../src/util/key';
 
 describe('MessageRegistry', () => {
   it('drops a removed file from messages and usedKeys', () => {

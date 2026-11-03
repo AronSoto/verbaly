@@ -1,8 +1,8 @@
 import fc from 'fast-check';
 import { createVerbaly, parseIcu } from 'verbaly';
 import { describe, expect, it } from 'vitest';
-import { analyze } from '../src/analyze';
-import { escapedSyntax } from '../src/validate';
+import { analyze } from '../src/scan/analyze';
+import { escapedSyntax } from '../src/gate/validate';
 
 // a generated template knows what it must show: the compiler and the core together must show it
 interface Piece {

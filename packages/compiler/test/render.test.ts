@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { renderHtml, renderSite } from '../src/render';
+import { resolveConfig } from '../src/config/config';
+import { renderHtml, renderSite } from '../src/emit/render';
 
 const CATALOGS = {
   en: {

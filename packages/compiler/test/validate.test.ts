@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { analyze } from '../src/analyze';
+import { analyze } from '../src/scan/analyze';
 import {
   escapedSyntax,
   inlineBlock,
   PLURAL_CATEGORIES,
   validateMessage,
   validatePair,
-} from '../src/validate';
+} from '../src/gate/validate';
 
 const errors = (issues: { severity: string; message: string }[]): string[] =>
   issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message);

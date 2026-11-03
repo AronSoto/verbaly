@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config';
-import { detectHost } from '../src/host';
-import { init } from '../src/init';
+import { loadConfig } from '../src/config/config';
+import { detectHost } from '../src/config/host';
+import { init } from '../src/project/init';
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-init-'));

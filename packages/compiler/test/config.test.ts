@@ -12,13 +12,13 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { describe, expect, it, vi } from 'vitest';
-import { analyze } from '../src/analyze';
-import { loadCatalogs } from '../src/catalog';
-import { loadConfig } from '../src/config';
-import { pruneCatalogs } from '../src/extract';
-import { MessageRegistry } from '../src/registry';
-import { analyzeFile } from '../src/sfc';
-import { resolveConfig } from '../src/config';
+import { analyze } from '../src/scan/analyze';
+import { loadCatalogs } from '../src/catalog/catalog';
+import { loadConfig } from '../src/config/config';
+import { pruneCatalogs } from '../src/scan/extract';
+import { MessageRegistry } from '../src/scan/registry';
+import { analyzeFile } from '../src/scan/sfc';
+import { resolveConfig } from '../src/config/config';
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-cfg-'));
@@ -242,7 +242,7 @@ describe('a config edited while the process runs', () => {
     async () => {
       const bundle = join(makeRoot(), 'config.mjs');
       await build({
-        entryPoints: [fileURLToPath(new URL('../src/config.ts', import.meta.url))],
+        entryPoints: [fileURLToPath(new URL('../src/config/config.ts', import.meta.url))],
         bundle: true,
         format: 'esm',
         platform: 'node',

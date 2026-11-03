@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { extractProject } from '../src/extract';
-import { stableKey } from '../src/key';
-import { runBuildGate, transformSource } from '../src/plugin';
-import { MessageRegistry } from '../src/registry';
+import { resolveConfig } from '../src/config/config';
+import { extractProject } from '../src/scan/extract';
+import { stableKey } from '../src/util/key';
+import { runBuildGate, transformSource } from '../src/emit/plugin';
+import { MessageRegistry } from '../src/scan/registry';
 
 const KEY = stableKey('Hola {name}');
 

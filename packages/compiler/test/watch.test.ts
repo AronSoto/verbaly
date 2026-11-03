@@ -3,8 +3,8 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveConfig } from '../src/config';
-import { watchProject, watchTree } from '../src/watch';
+import { resolveConfig } from '../src/config/config';
+import { watchProject, watchTree } from '../src/emit/watch';
 
 function makeProject() {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-watch-'));

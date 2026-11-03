@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { validateMessage, validatePair } from '../src/validate';
+import { validateMessage, validatePair } from '../src/gate/validate';
 
 // alone in its file: warnOnce is module state, so an earlier ICU message eats the one call
 describe('the gate never blames the app for a parser it was not passing', () => {

@@ -35,10 +35,29 @@ async function quiet(count: () => number, window = 600, limit = 10_000): Promise
   }
 }
 
+// macOS starts FSEvents after watch() returns and drops what changed before: probe until heard
+async function startLive(base: typeof compiler, cfg: compiler.ResolvedConfig): Promise<void> {
+  const heard: string[] = [];
+  const watchTree: typeof compiler.watchTree = (root, options, onFile) =>
+    base.watchTree(root, options, (file) => {
+      heard.push(file.replaceAll('\\', '/'));
+      onFile(file);
+    });
+  startWatcher({ ...base, watchTree } as typeof compiler, cfg, {});
+  // a .txt is neither code nor a catalog, so the probe itself never starts a run
+  await vi.waitFor(
+    () => {
+      writeFileSync(join(cfg.root, 'src', 'probe.txt'), String(Date.now()));
+      expect(heard).toContain('src/probe.txt');
+    },
+    { timeout: 5000, interval: 100 },
+  );
+}
+
 describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
   it('re-extracts on a source change and regenerates the runtime modules', async () => {
     const cfg = makeProject();
-    startWatcher(compiler, cfg, {});
+    await startLive(compiler, cfg);
     writeFileSync(join(cfg.root, 'src', 'page.tsx'), 'export const x = t`Fresh text`;\n');
     await vi.waitFor(
       () => {
@@ -74,7 +93,7 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
         return compiler.extractProject(config);
       },
     } as typeof compiler;
-    startWatcher(failing, cfg, {});
+    await startLive(failing, cfg);
     writeFileSync(join(cfg.root, 'src', 'a.tsx'), 'export const a = t`One`;\n');
     await vi.waitFor(
       () =>
@@ -91,7 +110,7 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
   it('says in one line why a catalog saved with broken JSON paused it', async () => {
     const cfg = makeProject();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    startWatcher(compiler, cfg, {});
+    await startLive(compiler, cfg);
     writeFileSync(join(cfg.root, 'locales', 'en.json'), '{ "half": ');
     await vi.waitFor(() => expect(warn).toHaveBeenCalled(), { timeout: 5000 });
     const [line, ...rest] = warn.mock.calls[0]!;
@@ -113,7 +132,7 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
         return compiler.extractProject(config);
       },
     } as typeof compiler;
-    startWatcher(slow, cfg, {});
+    await startLive(slow, cfg);
     writeFileSync(join(cfg.root, 'src', 'a.tsx'), 'export const a = t`One`;\n');
     await vi.waitFor(() => expect(runs).toBe(1), { timeout: 5000 });
     // first run sleeps: this change must queue and produce a second run
@@ -131,7 +150,7 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
         return compiler.extractProject(config);
       },
     } as typeof compiler;
-    startWatcher(counting, cfg, {});
+    await startLive(counting, cfg);
     writeFileSync(join(cfg.root, 'src', 'a.tsx'), 'export const a = t`One`;\n');
     await vi.waitFor(() => expect(runs).toBeGreaterThan(0), { timeout: 5000 });
     const settled = await quiet(() => runs);
@@ -156,7 +175,7 @@ describe('startWatcher', { timeout: COMPILER_TIMEOUT }, () => {
         return compiler.extractProject(config);
       },
     } as typeof compiler;
-    startWatcher(counting, cfg, {});
+    await startLive(counting, cfg);
     writeFileSync(join(cfg.root, 'locales', 'en.json'), '{"hand":"Edited"}');
     await vi.waitFor(() => expect(runs).toBeGreaterThan(0), { timeout: 5000 });
   });

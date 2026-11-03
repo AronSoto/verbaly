@@ -65,6 +65,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
+    # pwsh runs pnpm 12's shim without waiting on Windows: every step passed and ran nothing
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -75,6 +79,16 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      - name: diagnose pwsh (temporary)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-Command pnpm -All | Format-Table CommandType, Source -AutoSize
+          Get-Content "$env:PNPM_HOME\pnpm.ps1"
+          Get-ChildItem "$env:PNPM_HOME\..\pnpm" | Format-Table Name, Length -AutoSize
+          pnpm --version
+          "exit code: $LASTEXITCODE"
 
       - run: pnpm install --frozen-lockfile
 

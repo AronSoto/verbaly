@@ -11,7 +11,7 @@ export class HttpError extends Error {
 
 export const badRequest = (message: string) => new HttpError(400, message);
 
-// Every catch comes here, so a message names the project's files from `.`, never by absolute path.
+// Every error the panel reads comes here, so it names the project's files from `.`, not by root.
 export function scrub(error: unknown, root: string): string {
   const message = error instanceof Error ? error.message : String(error);
   return root ? message.split(root).join('.') : message;

@@ -56,7 +56,8 @@ export interface StudioState {
 
 // A locale nobody can parse must not take the panel down: Studio is what you open to fix it.
 function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioProblem[] } {
-  const catalogs: Catalogs = {};
+  // no prototype, as the runtime keeps them: a locale named __proto__ is a name like any other
+  const catalogs: Catalogs = Object.create(null);
   const problems: StudioProblem[] = [];
   // an empty green panel and a wrong --root look identical, and only this line tells them apart
   if (!existsSync(cfg.dir)) {
@@ -104,16 +105,19 @@ export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const registry = await extractProject(cfg);
   // a lock nobody can parse is the other file Studio is there to fix: it degrades like a catalog
   const { state: sidecar, problem } = readState(cfg);
-  if (problem) problems.push({ scope: STATE_FILE, message: problem });
+  if (problem) problems.push({ scope: STATE_FILE, message: scrub(problem, cfg.root) });
   const live = effectiveDrafts(sidecar.drafts, catalogs);
   const source = (catalogs[cfg.sourceLocale] ?? {}) as Catalog;
   const targets = targetLocales(cfg);
 
   for (const { file, message } of registry.parseErrors()) {
-    problems.push({ scope: relative(cfg.root, file).replaceAll('\\', '/'), message });
+    problems.push({
+      scope: relative(cfg.root, file).replaceAll('\\', '/'),
+      message: scrub(message, cfg.root),
+    });
   }
 
-  const perLocale: Record<string, TriageResult> = {};
+  const perLocale: Record<string, TriageResult> = Object.create(null);
   for (const locale of targets) {
     perLocale[locale] = triage({
       source,

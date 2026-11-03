@@ -210,6 +210,15 @@ describe('routes', () => {
     expect(problem.message).toContain('es.json is not valid JSON');
     expect(problem.message).not.toContain(root);
   });
+  // Proved able to fail by passing the lock's problem through raw: it named verbaly.lock by root.
+  it('writes the problem of a lock it cannot read the way an error answer writes it', async () => {
+    writeFileSync(join(root, 'verbaly.lock'), '{ not json');
+    const res = await call(withToken('/api/state'));
+    const { problems } = (await res.json()) as { problems: { scope: string; message: string }[] };
+    const problem = problems.find((entry) => entry.scope === 'verbaly.lock')!;
+    expect(problem.message).toContain('verbaly.lock is not valid JSON');
+    expect(problem.message).not.toContain(root);
+  });
   // the fixture is a temporary directory with no repository, which is a real project state
   it('answers the row menu about a key, and says so when there is no git to ask', async () => {
     const res = await call(withToken('/api/commit/hello'));

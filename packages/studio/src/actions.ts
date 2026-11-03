@@ -77,7 +77,7 @@ export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): P
         concurrency: cfg.translate.concurrency,
         retries: cfg.translate.retries,
         origins: await collectOrigins(cfg, registry),
-        onProgress: (p) => advance(id, p.keys, p.locale, p.error),
+        onProgress: (p) => advance(id, p.keys, p.locale, p.error && scrub(p.error, cfg.root)),
       });
       // what a machine wrote stays a draft: the panel does not get to change that rule
       const writes: TranslationWrite[] = [];
@@ -102,7 +102,7 @@ export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): P
         written,
         kept,
         message: failed
-          ? `${counted(written, 'message')} translated, but ${counted(result.failed.length, 'batch', 'batches')} did not answer (${failed.error}): run it again for the rest`
+          ? `${counted(written, 'message')} translated, but ${counted(result.failed.length, 'batch', 'batches')} did not answer (${scrub(failed.error, cfg.root)}): run it again for the rest`
           : undefined,
       });
     } catch (error) {

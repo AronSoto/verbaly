@@ -302,6 +302,16 @@ describe('runCli: wrap', () => {
     await runCli(['wrap', '--root', next]);
     expect(output(log)).toContain('`const t = await getT()` from @verbaly/next/server');
     expect(output(log)).toContain('`const t = useT()` from @verbaly/next/client');
+
+    // a client component in Next has one answer, so it gets only that one
+    log.mockClear();
+    writeFileSync(
+      join(next, 'app', 'page.tsx'),
+      "'use client';\nexport default () => <h1>Welcome back</h1>;\n",
+    );
+    await runCli(['wrap', '--root', next]);
+    expect(output(log)).toContain('"use client", so `const t = useT()` from @verbaly/next/client');
+    expect(output(log)).not.toContain('getT()');
   });
 
   it('says so when there is nothing to wrap', async () => {

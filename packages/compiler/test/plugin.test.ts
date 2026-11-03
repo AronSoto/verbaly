@@ -257,6 +257,38 @@ describe('runBuildGate: an option only the plugin has', () => {
       warn.mockRestore();
     }
   });
+
+  // fresh modules: the warnings line is said once per process, and an earlier test said it
+  async function warningsLine(overrides: Record<string, unknown>): Promise<string | undefined> {
+    vi.resetModules();
+    const { loadConfig } = await import('../src/config/config');
+    const { runBuildGate: gate } = await import('../src/emit/plugin');
+    const { MessageRegistry: Registry } = await import('../src/scan/registry');
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-split-'));
+    mkdirSync(join(root, 'locales'));
+    writeFileSync(join(root, 'verbaly.config.json'), '{"sourceLocale":"en","locales":["en","es"]}');
+    writeFileSync(join(root, 'locales', 'en.json'), '{"a":"A"}');
+    // a key only a translation has: a warning, which the build counts in one line
+    writeFileSync(join(root, 'locales', 'es.json'), '{"a":"Una","stray":"Sobra"}');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      gate(await loadConfig(root, overrides, { plugin: true }), new Registry());
+      return warn.mock.calls
+        .map(([text]) => String(text))
+        .find((text) => text.includes('check has'));
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  it('says in the warnings line what check needs first, for one option or several', async () => {
+    expect(await warningsLine({ include: ['lib/**/*.ts'] })).toBe(
+      '[verbaly] check has 1 warning, and the build still passes: `npx verbaly check` reads them once include moves to verbaly.config',
+    );
+    expect(await warningsLine({ include: ['lib/**/*.ts'], exclude: ['lib/old/**'] })).toBe(
+      '[verbaly] check has 1 warning, and the build still passes: `npx verbaly check` reads them once include and exclude move to verbaly.config',
+    );
+  });
 });
 
 describe('runBuildGate: a text never stops the build unless asked (0.70.0)', () => {

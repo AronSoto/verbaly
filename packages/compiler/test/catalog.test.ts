@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { analyze } from '../src/scan/analyze';
 import {
   catalogPath,
@@ -13,7 +13,7 @@ import {
 } from '../src/catalog/catalog';
 import { check, formatCheckResult } from '../src/gate/check';
 import { resolveConfig } from '../src/config/config';
-import { syncCatalogs } from '../src/scan/extract';
+import { pruneCatalogs, syncCatalogs } from '../src/scan/extract';
 import { stableKey } from '../src/util/key';
 import { MessageRegistry } from '../src/scan/registry';
 import { formatStatusResult, status } from '../src/gate/status';
@@ -218,6 +218,56 @@ describe('syncCatalogs', () => {
     expect(catalogs.en?.[key]).toBe('');
     expect(added.es).toEqual([key]);
     expect(added.en).toEqual([key]);
+  });
+});
+
+// a file named __proto__.json in the catalogs folder makes it one of the project's locales
+describe('a locale named __proto__', () => {
+  const key = stableKey('Hola');
+  const project = () => makeProject({ es: {}, ['__proto__']: {} });
+  const outcome = (run: () => unknown): unknown => {
+    try {
+      return run();
+    } catch (error) {
+      return error;
+    }
+  };
+
+  // Proved able to fail by reading catalogs[locale] without own(): Object.prototype gained the key.
+  it('is synced as a catalog of its own, never as Object.prototype', () => {
+    const cfg = project();
+    expect(cfg.locales).toContain('__proto__');
+    onTestFinished(() => {
+      delete (Object.prototype as Record<string, unknown>)[key];
+    });
+    // the map a caller hands in can be a plain object, as the public signature allows
+    const result = outcome(() => syncCatalogs(cfg, { es: {} }, registryFor('t`Hola`;')));
+    expect(Object.hasOwn(Object.prototype, key), 'Object.prototype gained the key').toBe(false);
+    expect(result).not.toBeInstanceOf(Error);
+
+    const catalogs = loadCatalogs(cfg);
+    const { added } = syncCatalogs(cfg, catalogs, registryFor('t`Hola`;'));
+    expect(Object.hasOwn(catalogs, '__proto__')).toBe(true);
+    expect(catalogs['__proto__']).toEqual({ [key]: '' });
+    expect(added['__proto__']).toEqual([key]);
+  });
+
+  // Proved able to fail by reading catalogs[locale] without own(): prune deleted Object's member.
+  it('is pruned as a catalog of its own, never by deleting from Object.prototype', () => {
+    const cfg = project();
+    // what a library that adds an enumerable member to Object.prototype leaves behind
+    Object.defineProperty(Object.prototype, 'planted', {
+      value: 'x',
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    onTestFinished(() => {
+      delete (Object.prototype as Record<string, unknown>).planted;
+    });
+    const result = outcome(() => pruneCatalogs(cfg, { es: {} }, registryFor('t`Hola`;')));
+    expect(Object.hasOwn(Object.prototype, 'planted'), 'prune deleted it').toBe(true);
+    expect(result).not.toBeInstanceOf(Error);
   });
 });
 

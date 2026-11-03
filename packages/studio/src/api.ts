@@ -31,7 +31,7 @@ import type {
   ResolvedConfig,
   StatusResult,
 } from '@verbaly/compiler';
-import { badRequest } from './http';
+import { badRequest, scrub } from './http';
 import { triage, type TriageResult } from './triage';
 
 export interface StudioProblem {
@@ -73,7 +73,7 @@ function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioPro
       catalogs[locale] = {};
       problems.push({
         scope: locale,
-        message: error instanceof Error ? error.message : String(error),
+        message: scrub(error, cfg.root),
       });
     }
   }

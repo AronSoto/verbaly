@@ -193,6 +193,24 @@ describe('translate, the one action that spends money', () => {
     );
   });
 
+  // Proved able to fail by keeping the job's error.message raw: the panel read the root.
+  it('reports a run that broke without the absolute path of the project', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const cfg = project({
+      provider: async (request) => {
+        await gate;
+        return echo(request);
+      },
+    });
+    const job = await startTranslate(cfg);
+    writeFileSync(join(cfg.dir, 'es.json'), '{ not json');
+    release();
+    await vi.waitFor(() => expect(read(job.id).state).toBe('failed'));
+    expect(read(job.id).message).toContain('es.json is not valid JSON');
+    expect(read(job.id).message).not.toContain(cfg.root);
+  });
+
   it('answers 404 for a job id it never handed out', () => {
     expect(() => read('translate-does-not-exist')).toThrow(/no job called/);
   });

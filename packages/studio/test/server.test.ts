@@ -199,6 +199,17 @@ describe('routes', () => {
     expect(error).toContain('es.json');
     expect(error).not.toContain(root);
   });
+
+  // Proved able to fail by keeping the problem's error.message raw: the message named the root.
+  it('writes a problem the state reports the way an error answer writes it', async () => {
+    writeFileSync(join(root, 'locales', 'es.json'), '{ not json');
+    const res = await call(withToken('/api/state'));
+    expect(res.status).toBe(200);
+    const { problems } = (await res.json()) as { problems: { scope: string; message: string }[] };
+    const problem = problems.find((entry) => entry.scope === 'es')!;
+    expect(problem.message).toContain('es.json is not valid JSON');
+    expect(problem.message).not.toContain(root);
+  });
   // the fixture is a temporary directory with no repository, which is a real project state
   it('answers the row menu about a key, and says so when there is no git to ask', async () => {
     const res = await call(withToken('/api/commit/hello'));

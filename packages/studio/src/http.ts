@@ -11,7 +11,8 @@ export class HttpError extends Error {
 
 export const badRequest = (message: string) => new HttpError(400, message);
 
-// The absolute path of someone's project is not the browser's business.
-export function scrub(message: string, root: string): string {
+// Every catch comes here, so a message names the project's files from `.`, never by absolute path.
+export function scrub(error: unknown, root: string): string {
+  const message = error instanceof Error ? error.message : String(error);
   return root ? message.split(root).join('.') : message;
 }

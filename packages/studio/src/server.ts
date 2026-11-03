@@ -171,8 +171,7 @@ export function createStudioApp(cfg: ResolvedConfig, port: number, token: string
       send(res, 404, { error: `[verbaly] no route for ${req.method} ${url.pathname}` });
     } catch (error) {
       const status = error instanceof HttpError ? error.status : 500;
-      const message = error instanceof Error ? error.message : String(error);
-      send(res, status, { error: scrub(message, cfg.root) });
+      send(res, status, { error: scrub(error, cfg.root) });
     }
   };
 }

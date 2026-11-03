@@ -12,7 +12,7 @@ import {
   translateCatalogs,
 } from '@verbaly/compiler';
 import type { ResolvedConfig, TranslationWrite } from '@verbaly/compiler';
-import { badRequest } from './http';
+import { badRequest, scrub } from './http';
 import { advance, finish, start, type Job } from './jobs';
 
 export interface ExtractResult {
@@ -106,7 +106,7 @@ export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): P
           : undefined,
       });
     } catch (error) {
-      finish(id, 'failed', { message: error instanceof Error ? error.message : String(error) });
+      finish(id, 'failed', { message: scrub(error, cfg.root) });
     }
   })();
 

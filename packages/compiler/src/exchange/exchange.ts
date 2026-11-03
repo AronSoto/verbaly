@@ -148,13 +148,13 @@ export function importCatalogs(
 ): ImportResult {
   const source = catalogs[cfg.sourceLocale] ?? {};
   const result: ImportResult = {
-    imported: {},
-    rejected: {},
-    skipped: {},
-    unknown: {},
+    imported: emptyCatalog(),
+    rejected: emptyCatalog(),
+    skipped: emptyCatalog(),
+    unknown: emptyCatalog(),
     unmatched: [],
     mapped: [],
-    sources: {},
+    sources: emptyCatalog(),
   };
 
   for (const file of files) {
@@ -201,7 +201,7 @@ export function importCatalogs(
       if (!options.dryRun) catalog[key] = text;
       (result.imported[locale] ??= []).push(key);
       const seen = parsed.sources[key];
-      if (seen) (result.sources[locale] ??= {})[key] = seen;
+      if (seen) (result.sources[locale] ??= emptyCatalog())[key] = seen;
     }
   }
   return result;

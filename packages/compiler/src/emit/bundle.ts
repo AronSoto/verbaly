@@ -1,4 +1,4 @@
-import { emptyCatalog, type Catalogs } from '../catalog/catalog';
+import { emptyCatalog, type Catalog, type Catalogs } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import type { MessageRegistry } from '../scan/registry';
 import { counted } from '../util/text';
@@ -12,7 +12,7 @@ function isExcluded(key: string, prefixes: string[]): boolean {
 export function clientCatalogs(cfg: ResolvedConfig, catalogs: Catalogs): Catalogs {
   const prefixes = cfg.bundle.exclude ?? [];
   if (prefixes.length === 0) return catalogs;
-  const out: Catalogs = {};
+  const out = emptyCatalog<Catalog>();
   for (const [locale, catalog] of Object.entries(catalogs)) {
     const kept = emptyCatalog();
     for (const [key, message] of Object.entries(catalog)) {

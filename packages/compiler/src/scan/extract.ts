@@ -3,7 +3,7 @@ import { relative } from 'node:path';
 import { glob } from 'tinyglobby';
 import { flatten } from 'verbaly';
 import type { Analysis } from './analyze';
-import { emptyCatalog, own, type Catalogs } from '../catalog/catalog';
+import { emptyCatalog, own, type Catalog, type Catalogs } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
@@ -117,7 +117,7 @@ export function shippedCatalogs(
   for (const [key, msg] of registry.messages()) {
     if (options.newKeys !== false || own(source, key) !== undefined) source[key] = msg.message;
   }
-  return { ...catalogs, [cfg.sourceLocale]: source };
+  return Object.assign(emptyCatalog<Catalog>(), catalogs, { [cfg.sourceLocale]: source });
 }
 
 // drops keys no longer referenced

@@ -22,7 +22,7 @@ import {
   type Verbaly,
 } from 'verbaly';
 import type { Catalogs } from '../catalog/catalog';
-import { loadCatalogs } from '../catalog/catalog';
+import { emptyCatalog, loadCatalogs } from '../catalog/catalog';
 import { extractProject, shippedCatalogs } from '../scan/extract';
 import type { RedirectConfig, ResolvedConfig } from '../config/config';
 import { blocks, type BlockShape } from '../util/blocks';
@@ -536,7 +536,7 @@ export async function renderSite(
   // every page the mirror will hold, so a link into one of them can keep the visitor inside
   const pages = new Set(files.map((file) => publicPath(relative(site, file).replace(/\\/g, '/'))));
 
-  const missing: Record<string, string[]> = {};
+  const missing = emptyCatalog<string[]>();
   const untranslatedHead: string[] = [];
   const urls: Array<{ rel: string; alternates: Alternate[] }> = [];
   for (const file of files) {

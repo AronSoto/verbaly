@@ -1,4 +1,4 @@
-import { flatView, type Catalog, type Catalogs } from '../catalog/catalog';
+import { emptyCatalog, flatView, type Catalog, type Catalogs } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { effectiveDrafts, type Drafts } from '../catalog/drafts';
 import { shippedCatalogs } from '../scan/extract';
@@ -27,13 +27,13 @@ export function status(
   cfg: ResolvedConfig,
   catalogs: Catalogs,
   registry: MessageRegistry,
-  drafts: Drafts = {},
-  fingerprints: Fingerprints = {},
+  drafts: Drafts = emptyCatalog(),
+  fingerprints: Fingerprints = emptyCatalog(),
 ): StatusResult {
   const extracted = registry.messages();
 
   // one flat view per locale, like check: the shape t() sees, counted leaf by leaf
-  const flat: Record<string, Catalog> = {};
+  const flat = emptyCatalog<Catalog>();
   for (const locale of cfg.locales) {
     flat[locale] = flatView(catalogs[locale] ?? {});
   }

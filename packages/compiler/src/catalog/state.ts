@@ -372,7 +372,7 @@ function translationOf(stamped: string): string {
 
 // a caller may hand nested groups, and every key here is the dotted one t() reads
 function flatCatalogs(catalogs: Catalogs): Catalogs {
-  const out: Catalogs = {};
+  const out = emptyCatalog<Catalog>();
   for (const [locale, catalog] of Object.entries(catalogs)) {
     out[locale] = flatten(catalog as unknown as MessageTree);
   }

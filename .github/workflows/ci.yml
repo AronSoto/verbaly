@@ -65,7 +65,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
-    # pwsh runs pnpm 12's shim without waiting on Windows: every step passed and ran nothing
+    # pwsh's pnpm.ps1 starts pnpm 12's extensionless binary without waiting: steps passed empty
     defaults:
       run:
         shell: bash
@@ -79,16 +79,6 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-
-      - name: diagnose pwsh (temporary)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-Command pnpm -All | Format-Table CommandType, Source -AutoSize
-          Get-Content "$env:PNPM_HOME\pnpm.ps1"
-          Get-ChildItem "$env:PNPM_HOME\..\pnpm" | Format-Table Name, Length -AutoSize
-          pnpm --version
-          "exit code: $LASTEXITCODE"
 
       - run: pnpm install --frozen-lockfile
 

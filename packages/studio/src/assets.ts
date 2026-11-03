@@ -26,7 +26,7 @@ export const uiBuilt = (): boolean => existsSync(join(UI, 'index.html'));
 export function readAsset(pathname: string): Asset | undefined {
   const wanted = pathname === '/' ? '/index.html' : pathname;
   const target = resolve(join(UI, normalize(wanted)));
-  if (target !== UI && !target.startsWith(UI + '/')) {
+  if (target !== UI && !target.startsWith(UI + (process.platform === 'win32' ? '\\' : '/'))) {
     return undefined;
   }
   if (!existsSync(target) || !statSync(target).isFile()) return undefined;

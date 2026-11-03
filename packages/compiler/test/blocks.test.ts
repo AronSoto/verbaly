@@ -82,6 +82,17 @@ describe('blocks, the scan that replaced the lazy regexes', () => {
     expect(close.starts).toEqual([2, 8, 14]);
   });
 
+  // Proved able to fail by closing every shape before picking one: 5000 close searches, not 0.
+  it('looks for a close only once its open is the earliest of every shape', () => {
+    const close = new Counted('</b>', 'g');
+    const shapes = [
+      { open: '<!--', close: '-->' },
+      { open: '<b>', close },
+    ];
+    expect(blocks(`${'<!--<b>-->'.repeat(5000)}</b>`, shapes)).toHaveLength(5000);
+    expect(close.starts).toEqual([]);
+  });
+
   // the regexes sfc.ts held, text for text, with their parts in groups: open, body, close
   it.each([
     ['script', SCRIPT_BLOCK, String.raw`(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)`, 'gi'],

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stableKey } from '@verbaly/compiler';
@@ -101,11 +101,24 @@ describe('transform', () => {
   });
 
   it('defaults the root to the process cwd when none is given', async () => {
-    const plugin = rawPlugin({ sourceLocale: 'es' });
-    await (plugin.buildStart as () => Promise<void>).call({});
-    expect((plugin.resolveId as (id: string) => string | null).call({}, 'virtual:verbaly')).toBe(
-      '\0virtual:verbaly',
-    );
+    // a project of its own: a build writes its types there, never into this package
+    const root = makeProject({ es: {} });
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(root);
+    try {
+      const plugin = rawPlugin({ sourceLocale: 'es' });
+      await (plugin.buildStart as () => Promise<void>).call({});
+      expect((plugin.resolveId as (id: string) => string | null).call({}, 'virtual:verbaly')).toBe(
+        '\0virtual:verbaly',
+      );
+      // no src/ in this project, so the types go to its root
+      expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(true);
+      // a watch rebuild reads the catalogs the first build synced: nothing to write again
+      rmSync(join(root, 'verbaly.d.ts'));
+      await (plugin.buildStart as () => Promise<void>).call({});
+      expect(existsSync(join(root, 'verbaly.d.ts'))).toBe(false);
+    } finally {
+      cwd.mockRestore();
+    }
   });
 });
 

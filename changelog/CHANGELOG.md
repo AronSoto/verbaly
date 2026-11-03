@@ -8,6 +8,56 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.79.0] · 2026-11-02
+
+**A fresh copy of your project checks its types after its first build, and coding agents know which Verbaly tools change files.** Nothing you already wrote has to change. Breaking: nothing.
+
+### Highlights
+
+- **A fresh copy of your project checks its types after the first build.** Building with Vite, SvelteKit, webpack, Rollup, esbuild or Rspack now writes the file TypeScript reads for your texts. Before, only the dev server and Next wrote it.
+- **Coding agents pick the right Verbaly tool.** Each tool says whether it only reads or changes files, and names the one to use instead when another fits better.
+- **A mistyped command gets a clear answer.** Typing `verbaly constructor` now says the command does not exist, instead of showing a JavaScript error.
+
+### Added
+
+- **`writeBuildTypes(cfg, catalogs)` (`@verbaly/compiler`),** the one way a build writes the types: `writeDts` with the source catalog the build has synced, and a file it cannot write (a read-only checkout) is a warning that names `npx verbaly typegen`, never a failed build. Any other error still throws. Pinned in the surface test and listed in the README's programmatic API.
+
+### Fixed
+
+- **`vite build` never wrote `src/verbaly.d.ts`, and neither did a webpack, Rollup, esbuild or Rspack build (`@verbaly/vite`, `@verbaly/unplugin`).** The Vite plugin wrote the types only in dev, and unplugin never did, so a project cloned fresh and built before anything else ran `svelte-check` or `tsc` into `Cannot find module` until `typegen`. The Vite plugin now writes them in `buildStart`, after the catalogs are synced, so a key the code adds is typed; unplugin writes them on the first build start, never when the plugin is only constructed, and never again on a watch rebuild, which reads the same catalogs. `next build` already wrote them and now goes through the same function, so a file it cannot write warns there too instead of throwing. A script that checks types before it builds (`tsc -b && vite build`, the React template) still runs before any of this: on a fresh clone it needs `npx verbaly typegen` first, which the READMEs now say.
+- **`verbaly constructor`, `verbaly toString` and `verbaly __proto__` printed `own is not iterable` (`@verbaly/compiler`).** The flag check looked a command up in a plain object and found what every object inherits. Dispatch and the flag check now look a command name up with `Object.hasOwn`, so those names are an unknown command like any other.
+
+### Changed
+
+- **The MCP tools declare their hints and name their siblings (`@verbaly/mcp`).** Every tool declares its four hints: the four that read say so, and the five that write say whether they can delete or replace (extract with `prune`, write_drafts with `overwrite`, wrap rewriting source) and that a second call changes nothing; only translate reaches the network. Without hints, a client must assume every tool is destructive and open-world. status, missing and drafts name one another, translate and write_drafts name each other, and doctor, init, extract and wrap name the next step of the cycle.
+- **The compiler's source is organized by job (`@verbaly/compiler`, no change to what it exports or ships).** Nine folders in layer order (`util`, `config`, `catalog`, `scan`, `gate`, `exchange`, `emit`, `project`, `cli`), and a folder imports values only from itself and the ones before it, which `test/layers.test.ts` pins. Getting there moved four values down to where their callers can reach them: `cliReachable` and `CLI_INSTALL_FIX` to the host table, `PSEUDO_LOCALE` to the config, and the param types to the code generator. The CLI is one file per command under `cli/commands/`, with `cli/run.ts` keeping the help, the flags and the dispatch.
+- **The MCP server is one file per tool (`@verbaly/mcp`),** registered in the order of the cycle by `server.ts`, with the shared shapes in `tools/shared.ts`.
+- **The `@verbaly/mcp` README** carries the Glama badge, and the repository a `glama.json`.
+- **The Release workflow (repository only):** the `mcp-registry` job waits up to ten minutes for npm to show the version in the run that publishes it, since npm is not read-after-write and 0.78.0 was skipped three minutes after its publish; a push that publishes nothing decides at once, as before.
+- **Dependencies (in the repository only):** `svelte-check` 4.7.8, `tinybench` 6.2.3 and `i18next` 26.7.1, the one the bench compares against.
+
+### Notes
+
+- **How this was found.** #34 came from the SvelteKit consumer of 0.78.0, where a build after deleting the types left `svelte-check` red; tracing it showed unplugin had the same gap. The restructure came from Aron asking whether the flat `src/` folders hurt the project as it grows. Measured first: no import cycle in the core or the compiler, and with the files sorted into folders by job only four value imports pointed the wrong way, so the folders show an order the code already had. The core stays flat: fourteen files, one idea each, and moving them changes no byte. The `constructor` crash turned up while splitting the CLI.
+- **Sizes** (`pnpm --filter verbaly size`): unchanged, `createVerbaly` alone 3.35 KB, a real app 6.17 KB, the canary 8.01 KB, devtools 1.60 KB.
+- **1 925 tests under `pnpm test`, 14 new** (0.78.0: 1 911). Core 394, compiler 950 plus 26 in its DOM config, Next 100, MCP 47, Vite 40, unplugin 20. **1 929 under `pnpm coverage`**, the benches included, with 96.9% of lines covered.
+- **Every pin that guards a change was seen red before it was trusted, through 18 sabotages.** The MCP hints, sibling names and second calls (four), the layer test (an upward import, a stray file at the root), the inherited command names (each half of the fix), the Vite and unplugin builds writing the types (unplugin twice, before and after the write moved to the build start), the guard that turns a disk error into a warning and lets any other error through, Next going through that guard, unplugin writing once, and the break list (one sabotage per copy).
+- **The review** (`/code-review`, high) reported six findings. Four were fixed: Next wrote the build types without the guard, the guard swallowed errors that were not the disk, unplugin rewrote the types on every watch rebuild, and the layer test misread an aliased type-only import and missed a double-quoted `import()`. Two were dismissed: under Astro the build now writes the synced types over the ones `astro:config:done` injects, which is what dev already did and lives in `.astro/`, never committed; and the Vite dev server keeps an unguarded write, because a dev server that cannot write the types cannot write the catalogs either.
+- **The differential** (`.claude/diff-release.mjs`, 0.78.0 from npm against this build): nothing differs on verbaly-web, the portfolio and the fixture. The restructure changes no key, text or render, and the types a build writes are outside what it compares.
+- **Bench:** 27.3x, 11.7x, 5.1x and 4.5x against i18next 26.7.1 (0.78.0: 33.7x, 11.2x, 5.2x and 3.4x against 26.5.12); this diff does not touch the path `t()` runs, so the plain lookup moving is the machine and the new i18next. The build receipt at 200 modules +130 ms (2.44x), at 1 500 modules +886 ms (3.89x), with the scan at 678 ms and the gate at 134 ms with its memo empty and 94 ms on a rebuild, writing the types included.
+- **Dependencies:** `pnpm outdated -r` listed the three above; after them, empty. `pnpm audit`: 1 low, ignored, as before. Nothing changes in what the core ships.
+- **First contact** (`pnpm first-contact`, on this build): the four shapes green.
+- **Canonical build and real consumers:** from the tarballs of a Linux build on Node 22: the size gate as above, publint "All good" on all thirteen, attw as `known-ok.md` expects, every tarball shipping only `dist/`, LICENSE and the README (plus `loader.d.cts` in Next), no `workspace:` left; the folders of the compiler leave no trace in what it ships. verbaly-web: `pnpm build` (Astro, 34 pages in 3 languages) and `pnpm check` green. The portfolio: `verbaly check` and `next build` with Turbopack and with webpack green. A `sv create` SvelteKit 3 app built before anything else had run: `svelte-check` read `Cannot find module 'verbaly/app'` before the build and was green after it, with the key the code adds in the types. A `nuxi init` Nuxt 4 app: `nuxt build` green, with the types in `.nuxt/verbaly.d.ts` and nothing written beside the source. webpack 5.112.2 and esbuild 0.28.2 through `@verbaly/unplugin`: both bundles run and load the Spanish chunk, and the build wrote `src/verbaly.d.ts`. The MCP bin, installed from its tarball, answers `initialize` as 0.79.0 and lists its tools in the cycle's order; `mcp-tdqs` 0.2.0 on that list: 0 errors and 1 warning, the shadow guess between write_drafts and doctor it has always printed (0.78.0: 6).
+- **Found while checking the SvelteKit app, and left for the next release.** After the build, the starter's `pnpm check` rewrote `src/verbaly.d.ts` without the key the code had added: `svelte-check` resolves the Vite config in serve mode, and the plugin writes the types from the catalog alone when the config resolves outside a build, as it did before this release. It only touches a key the code writes that no catalog has yet, and `extract` or the dev server put it back.
+
+### Docs impact
+
+- **`/docs/guide/troubleshooting` (`docs_trouble.p_types`, en, es and pt):** every build now writes the types (Vite, SvelteKit, webpack, Rollup, esbuild, Rspack, as Next already did), so the 0.78.0 wording that a build does not write them goes. What stays: a script that type-checks before it builds (`tsc -b && vite build`, the React template) needs `npx verbaly typegen` first on a fresh clone.
+- **`/docs/frameworks/vite` and `#unplugin`:** the types are written by the dev server and by every build; the same `typegen` line for type-check-first scripts.
+- **The MCP page:** each tool now says whether it reads or writes (and for the writers, whether an option deletes or replaces), and its description names the tool to use instead. If the page lists the tools, mark read-only and writing.
+- **The compiler's programmatic API, if the web lists it:** `writeBuildTypes` under bundler plumbing.
+- **`releases.ts` and the three catalogs:** the 0.79.0 block with three highlights.
+
 ## [0.78.0] · 2026-11-01
 
 **The one import your app writes now reads as Verbaly, switching languages in SvelteKit and Nuxt keeps the address right, and webpack builds work.** Nothing you already wrote has to change. Breaking: nothing.

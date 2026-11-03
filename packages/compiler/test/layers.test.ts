@@ -22,10 +22,15 @@ function valueImports(file: string): string[] {
   const specifiers: string[] = [];
   for (const match of code.matchAll(/^\s*(?:import|export)\b([^;]*?)\bfrom\s+'(\.[^']+)'/gm)) {
     const clause = match[1]!.trim();
-    const typeOnly = clause.startsWith('type ') || /^\{(\s*type\s+\w+\s*,?)+\s*\}$/.test(clause);
+    const names = clause.startsWith('{') ? clause.slice(1, -1).split(',') : [clause];
+    const typeOnly =
+      clause.startsWith('type ') ||
+      names.filter((name) => name.trim()).every((name) => name.trim().startsWith('type '));
     if (!typeOnly) specifiers.push(match[2]!);
   }
-  for (const match of code.matchAll(/\bimport\(\s*'(\.[^']+)'\s*\)/g)) specifiers.push(match[1]!);
+  for (const match of code.matchAll(/\bimport\(\s*['"`](\.[^'"`]+)['"`]\s*\)/g)) {
+    specifiers.push(match[1]!);
+  }
   return specifiers.map((spec) =>
     relative(src, resolve(dirname(join(src, file)), `${spec}.ts`)).replaceAll('\\', '/'),
   );

@@ -74,6 +74,7 @@ const VALUES = [
   'validatePair',
   'watchTree',
   'wrapProject',
+  'writeBuildTypes',
   'writeCatalog',
   'writeDrafts',
   'writeDts',

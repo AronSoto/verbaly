@@ -12,6 +12,7 @@ import {
   runBuildGate,
   syncCatalogs,
   transformSource,
+  writeBuildTypes,
   type Catalogs,
   type PluginOptions,
   type ResolvedConfig,
@@ -28,6 +29,7 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
   let included: (id: string) => boolean;
   // the first build's scan: each file it read unchanged reaches transform already parsed
   let scan: MessageRegistry | undefined;
+  let typesWritten = false;
   const registry = new MessageRegistry();
   const ready = (async () => {
     cfg = await loadConfig(options.root ?? process.cwd(), options, { plugin: true });
@@ -46,6 +48,9 @@ const factory: UnpluginFactory<UnpluginVerbalyOptions | undefined> = (options = 
 
     async buildStart() {
       await ready;
+      // on a build, never when the plugin is made, and once: a rebuild reads the same catalogs
+      if (!typesWritten) writeBuildTypes(cfg, catalogs);
+      typesWritten = true;
       // a file outside include writes a t`…` that no build translates: said once, at the start
       await reportOutsideInclude(cfg);
     },

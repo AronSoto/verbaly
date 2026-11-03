@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,6 +55,20 @@ describe('a vite build of the project module', () => {
       // an exact alias: verbaly alone, so verbaly/app still reaches the plugin
       const exact = [{ find: /^verbaly$/, replacement: core }];
       expect(await shipped(root, exact)).toContain('Hola desde vite');
+    },
+    BUILD_TIMEOUT,
+  );
+
+  it(
+    'writes the types a fresh clone needs, with the keys the code adds (0.79.0)',
+    async () => {
+      const root = project(
+        "import { t } from 'verbaly/app';\nconsole.log(t('hello'), t.id('signedIn')`Signed in`);\n",
+      );
+      await shipped(root, [{ find: /^verbaly$/, replacement: core }]);
+      const dts = readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8');
+      expect(dts).toContain('signedIn');
+      expect(dts).toContain('hello');
     },
     BUILD_TIMEOUT,
   );

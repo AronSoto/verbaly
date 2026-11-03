@@ -20,6 +20,7 @@ import {
   syncCatalogs,
   syncProject,
   transformSource,
+  writeBuildTypes,
   writeDts,
   type Catalogs,
   type DevReporter,
@@ -191,6 +192,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       if (!isBuild) return;
       scan = await extractProject(cfg, { keepSource: true });
       syncCatalogs(cfg, catalogs, scan);
+      writeBuildTypes(cfg, catalogs);
     },
 
     // filtered: without them Vite 8 hands every module to JS, which tripled a real app's build

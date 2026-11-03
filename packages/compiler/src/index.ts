@@ -58,6 +58,7 @@ export {
   resolveVirtualId,
   runBuildGate,
   transformSource,
+  writeBuildTypes,
 } from './emit/plugin';
 export type { PluginOptions } from './emit/plugin';
 export { transformCode } from './scan/transform';

@@ -80,4 +80,24 @@ describe('verbaly/app through a real bundler', () => {
     },
     BUILD_TIMEOUT,
   );
+
+  it(
+    'writes the types a fresh clone needs (0.79.0)',
+    async () => {
+      const root = project();
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await build({
+        absWorkingDir: root,
+        entryPoints: ['src/main.js'],
+        bundle: true,
+        write: false,
+        format: 'esm',
+        external: ['verbaly'],
+        logLevel: 'silent',
+        plugins: [verbaly.esbuild({ root })],
+      });
+      expect(readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8')).toContain('hello');
+    },
+    BUILD_TIMEOUT,
+  );
 });

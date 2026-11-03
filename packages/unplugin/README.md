@@ -55,6 +55,7 @@ npx verbaly extract --watch   # keep extracting as you code (dev loop)
 - **Same project module**: `import { t, setLocale } from 'verbaly/app'`. With webpack, write that name: webpack reads `virtual:verbaly`, the old one, as a URI scheme and stops before any plugin sees it.
 - **Build report**: each build, and each rebuild of a watch, says what `verbaly check` would fail on and goes on. A problem is said once while it lasts, so a watch does not repeat it on every save. `failOnMissing: true` stops the build instead.
 - **Files outside `include`**: the build names once, when it starts, every file outside your `include` that writes a `` t`…` ``, since that text ships untranslated.
+- **Typed keys**: each build writes the types to `src/verbaly.d.ts` too, with the texts the code adds, so a fresh clone typechecks after its first build. A script that checks types first needs `npx verbaly typegen` before it.
 - ESM-only, like the compiler. Use `webpack.config.mjs` (or `"type": "module"`).
 
 📖 Docs: **https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin**

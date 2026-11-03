@@ -120,7 +120,7 @@ export function withVerbaly<C extends object>(
       compiler.syncCatalogs(cfg, catalogs, registry);
       writeGeneratedModules(compiler, cfg, catalogs, requestOptions);
       // next build and next typegen check types, and .verbaly/ is never committed
-      compiler.writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+      compiler.writeBuildTypes(cfg, catalogs);
       if (phase === BUILD_PHASE) {
         const runGate = (): void => compiler.runBuildGate(cfg, registry, failOnMissing);
         // typegen loads this config in the build phase too, and only a real build runs the hook

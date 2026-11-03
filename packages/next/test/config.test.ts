@@ -249,6 +249,21 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
     );
   });
 
+  it('builds on, with a warning, when the types cannot be written (0.79.0)', async () => {
+    const root = makeProject({ catalogs: { en: { greet: 'Hello' }, es: { greet: '' } } });
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ dependencies: { next: '^16.0.0' } }),
+    );
+    // a folder where the file goes, as a read-only checkout refuses it
+    mkdirSync(join(root, '.verbaly', 'types.d.ts'), { recursive: true });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await withVerbaly({}, { root, ...inline, failOnMissing: false })(BUILD);
+    expect(warn.mock.calls.flat().join('\n')).toContain('could not write the types');
+    expect(existsSync(join(root, '.verbaly', 'index.js'))).toBe(true);
+    warn.mockRestore();
+  });
+
   it('embeds cookie/fallback into the generated module', async () => {
     const root = makeProject();
     await withVerbaly({}, { root, ...inline, cookie: 'lang', fallback: 'es' })(BUILD);

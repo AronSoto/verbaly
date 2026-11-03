@@ -18,7 +18,7 @@ import {
   warningCount,
   type CheckResult,
 } from '../gate/check';
-import { generateLocaleModule, generateRuntimeModule } from './codegen';
+import { generateLocaleModule, generateRuntimeModule, writeDts } from './codegen';
 import type { ResolvedConfig, VerbalyConfig } from '../config/config';
 import { scannedAnalysis } from '../scan/extract';
 import { LOCALE_IMPORT, VIRTUAL_ID, isAppModule } from '../util/ids';
@@ -96,6 +96,23 @@ export function transformSource(
   const messages = emptyCatalog();
   for (const msg of analysis.tagged) messages[msg.key] ??= msg.message;
   return { messages, result: transformCode(code, id, analysis) ?? null };
+}
+
+// a build writes the types of the text it ships, as next build does, so a clone typechecks after it
+export function writeBuildTypes(cfg: ResolvedConfig, catalogs: Catalogs): void {
+  try {
+    writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+  } catch (error) {
+    // only the disk is forgiven: a bug in the types themselves must still surface
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (typeof code !== 'string') throw error;
+    // types never stop a build: a read-only checkout still ships, and typegen writes them later
+    const file = cfg.dts === false ? '' : relative(cfg.root, cfg.dts).replaceAll('\\', '/');
+    warnOnce(
+      `could not write the types to ${file} (${code}): run \`npx verbaly typegen\` where the project can be written`,
+      `types:${cfg.root}`,
+    );
+  }
 }
 
 // a text never stops a build unless the project asks: check in CI is the strict gate

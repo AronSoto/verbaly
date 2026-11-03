@@ -1,11 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveConfig } from '../src/config/config';
 import { extractProject } from '../src/scan/extract';
 import { stableKey } from '../src/util/key';
-import { runBuildGate, transformSource } from '../src/emit/plugin';
+import { runBuildGate, transformSource, writeBuildTypes } from '../src/emit/plugin';
 import { MessageRegistry } from '../src/scan/registry';
 
 const KEY = stableKey('Hola {name}');
@@ -95,6 +95,42 @@ describe('transformSource with a build scan', () => {
     const registry = new MessageRegistry();
     transformSource(code, file, registry, scan);
     expect(registry.messages().get(KEY)).not.toBe(scan.messages().get(KEY));
+  });
+});
+
+describe('writeBuildTypes: a build writes the types it ships (0.79.0)', () => {
+  function project(): string {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-build-types-'));
+    mkdirSync(join(root, 'src'));
+    return root;
+  }
+
+  it('writes the source catalog it is handed where the host reads types', () => {
+    const root = project();
+    writeBuildTypes(resolveConfig({ root }), { en: { 'build.greeting': 'Hello' } });
+    expect(readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8')).toContain('greeting');
+  });
+
+  it('warns and lets the build go on when the file cannot be written', () => {
+    const root = project();
+    // a folder where the file goes: no platform writes a file over it
+    mkdirSync(join(root, 'src', 'verbaly.d.ts'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(() => writeBuildTypes(resolveConfig({ root }), { en: { a: 'A' } })).not.toThrow();
+    expect(warn.mock.calls.flat().join('\n')).toContain(
+      'could not write the types to src/verbaly.d.ts',
+    );
+    warn.mockRestore();
+  });
+
+  it('lets an error that is not the disk surface', () => {
+    const root = project();
+    const catalogs = {
+      get en(): Record<string, string> {
+        throw new TypeError('a bug while reading the catalog');
+      },
+    };
+    expect(() => writeBuildTypes(resolveConfig({ root }), catalogs)).toThrow(TypeError);
   });
 });
 

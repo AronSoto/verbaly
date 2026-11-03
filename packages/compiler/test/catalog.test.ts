@@ -252,6 +252,18 @@ describe('a locale named __proto__', () => {
     expect(added['__proto__']).toEqual([key]);
   });
 
+  // Proved able to fail by reading the source catalog without own(): Object.prototype gained a key.
+  it('is synced as a source catalog of its own, never as Object.prototype', () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-proto-'));
+    const cfg = resolveConfig({ root, sourceLocale: '__proto__', locales: ['__proto__', 'es'] });
+    onTestFinished(() => {
+      delete (Object.prototype as Record<string, unknown>)[key];
+    });
+    const result = outcome(() => syncCatalogs(cfg, { es: {} }, registryFor('t`Hola`;')));
+    expect(Object.hasOwn(Object.prototype, key), 'Object.prototype gained the key').toBe(false);
+    expect(result).not.toBeInstanceOf(Error);
+  });
+
   // Proved able to fail by reading catalogs[locale] without own(): prune deleted Object's member.
   it('is pruned as a catalog of its own, never by deleting from Object.prototype', () => {
     const cfg = project();

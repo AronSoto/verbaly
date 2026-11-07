@@ -335,3 +335,26 @@ describe('undo, because the flag records who wrote the text', () => {
     expect(() => unapprove(cfg, 'fr', ['hello'])).toThrow(/not one of this project/);
   });
 });
+
+// the runtime keeps locales in a map with no prototype, and the panel reads the same names
+describe('a locale named __proto__', () => {
+  // Proved able to fail with {} as the map: the panel got neither its catalog nor its triage.
+  it('reaches the panel with its catalog and its triage', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-studio-proto-'));
+    made.push(root);
+    const dir = join(root, 'locales');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'en.json'), JSON.stringify({ hello: 'Hello' }));
+    writeFileSync(join(dir, '__proto__.json'), JSON.stringify({ hello: 'Hola' }));
+    const cfg = resolveConfig({ root, dir: 'locales', sourceLocale: 'en', include: [] });
+    const sent = JSON.parse(JSON.stringify(await buildState(cfg))) as {
+      locales: string[];
+      catalogs: Record<string, unknown>;
+      triage: Record<string, unknown>;
+    };
+    expect(sent.locales).toEqual(['en', '__proto__']);
+    expect(Object.hasOwn(sent.catalogs, '__proto__')).toBe(true);
+    expect(sent.catalogs['__proto__']).toEqual({ hello: 'Hola' });
+    expect(Object.hasOwn(sent.triage, '__proto__')).toBe(true);
+  });
+});

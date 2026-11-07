@@ -3,7 +3,7 @@ import { relative } from 'node:path';
 import { glob } from 'tinyglobby';
 import { flatten } from 'verbaly';
 import type { Analysis } from './analyze';
-import { emptyCatalog, own, type Catalogs } from '../catalog/catalog';
+import { emptyCatalog, own, type Catalog, type Catalogs } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
@@ -78,9 +78,9 @@ export function syncCatalogs(
   catalogs: Catalogs,
   registry: MessageRegistry,
 ): SyncResult {
-  const added: Record<string, string[]> = {};
+  const added = emptyCatalog<string[]>();
   const replaced: ReplacedText[] = [];
-  const source = (catalogs[cfg.sourceLocale] ??= emptyCatalog());
+  const source = own(catalogs, cfg.sourceLocale) ?? (catalogs[cfg.sourceLocale] = emptyCatalog());
 
   for (const [key, msg] of registry.messages()) {
     const before = own(source, key);
@@ -93,7 +93,7 @@ export function syncCatalogs(
   const needed = Object.keys(source);
   for (const locale of cfg.locales) {
     if (locale === cfg.sourceLocale) continue;
-    const catalog = (catalogs[locale] ??= emptyCatalog());
+    const catalog = own(catalogs, locale) ?? (catalogs[locale] = emptyCatalog());
     for (const key of needed) {
       if (own(catalog, key) === undefined) {
         catalog[key] = '';
@@ -117,7 +117,7 @@ export function shippedCatalogs(
   for (const [key, msg] of registry.messages()) {
     if (options.newKeys !== false || own(source, key) !== undefined) source[key] = msg.message;
   }
-  return { ...catalogs, [cfg.sourceLocale]: source };
+  return Object.assign(emptyCatalog<Catalog>(), catalogs, { [cfg.sourceLocale]: source });
 }
 
 // drops keys no longer referenced
@@ -126,12 +126,12 @@ export function pruneCatalogs(
   catalogs: Catalogs,
   registry: MessageRegistry,
 ): Record<string, string[]> {
-  const removed: Record<string, string[]> = {};
+  const removed = emptyCatalog<string[]>();
   // a file the parser could not read still uses its keys, so pruning now deletes live translations
   if (registry.parseErrors().length > 0) return removed;
   const keep = new Set([...registry.messages().keys(), ...registry.usedKeys().keys()]);
   for (const locale of cfg.locales) {
-    const catalog = catalogs[locale];
+    const catalog = own(catalogs, locale);
     if (!catalog) continue;
     for (const key of Object.keys(catalog)) {
       if (!keep.has(key)) {

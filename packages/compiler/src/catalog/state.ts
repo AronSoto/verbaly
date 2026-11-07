@@ -85,7 +85,7 @@ export function loadState(cfg: ResolvedConfig): State {
   const [legacyState = [], legacyDrafts = []] = legacyPaths(cfg).map(
     (path) => readSides(path) ?? [],
   );
-  const state: State = { drafts: {}, fingerprints: {} };
+  const state: State = { drafts: emptyCatalog(), fingerprints: emptyCatalog() };
   // two sides that stamped one translation differently: the one the catalog still holds stays
   const kept = lock.length > 1 ? keptStamp(cfg) : undefined;
   // the lock wins where both files know a translation; the older one only fills what it lacks
@@ -164,7 +164,7 @@ export function readState(cfg: ResolvedConfig): StateRead {
     return { state: loadState(cfg), ...marked };
   } catch (error) {
     const problem = (error as Error).message.replace(/^\[verbaly\] /, '');
-    return { state: { drafts: {}, fingerprints: {} }, problem, ...marked };
+    return { state: { drafts: emptyCatalog(), fingerprints: emptyCatalog() }, problem, ...marked };
   }
 }
 
@@ -214,7 +214,7 @@ function refreshState(cfg: ResolvedConfig, catalogs: Catalogs, previous: State):
       (locale) => Object.hasOwn(flat, locale) && existsSync(catalogPath(cfg, locale)),
     ),
   );
-  const drafts: Drafts = {};
+  const drafts: Drafts = emptyCatalog();
   for (const [locale, keys] of Object.entries(previous.drafts)) {
     if (!shown.has(locale)) {
       drafts[locale] = keys;
@@ -224,7 +224,7 @@ function refreshState(cfg: ResolvedConfig, catalogs: Catalogs, previous: State):
     const live = keys.filter((key) => own(flat[locale]!, key));
     if (live.length) drafts[locale] = live;
   }
-  const fingerprints: Fingerprints = {};
+  const fingerprints: Fingerprints = emptyCatalog();
   for (const [locale, stamps] of Object.entries(previous.fingerprints)) {
     if (!shown.has(locale)) fingerprints[locale] = stamps;
   }
@@ -285,7 +285,7 @@ export function recordTranslations(
 
 // a draft counts only while its translation is present: a pruned key is missing, not a draft
 export function effectiveDrafts(drafts: Drafts, catalogs: Catalogs): Drafts {
-  const out: Drafts = {};
+  const out: Drafts = emptyCatalog();
   for (const [locale, keys] of Object.entries(drafts)) {
     const catalog = catalogs[locale] ?? {};
     const live = keys.filter((key) => own(catalog, key));
@@ -372,7 +372,7 @@ function translationOf(stamped: string): string {
 
 // a caller may hand nested groups, and every key here is the dotted one t() reads
 function flatCatalogs(catalogs: Catalogs): Catalogs {
-  const out: Catalogs = {};
+  const out = emptyCatalog<Catalog>();
   for (const [locale, catalog] of Object.entries(catalogs)) {
     out[locale] = flatten(catalog as unknown as MessageTree);
   }
@@ -380,12 +380,12 @@ function flatCatalogs(catalogs: Catalogs): Catalogs {
 }
 
 function serializeState(state: State): string | undefined {
-  const drafts: Drafts = {};
+  const drafts: Drafts = emptyCatalog();
   for (const locale of Object.keys(state.drafts).sort()) {
     const keys = [...new Set(state.drafts[locale])].sort();
     if (keys.length) drafts[locale] = keys;
   }
-  const fingerprints: Fingerprints = {};
+  const fingerprints: Fingerprints = emptyCatalog();
   for (const locale of Object.keys(state.fingerprints).sort()) {
     const entries = state.fingerprints[locale] ?? {};
     const keys = Object.keys(entries).sort();
@@ -467,7 +467,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 function readDrafts(value: unknown): Drafts {
-  const out: Drafts = {};
+  const out: Drafts = emptyCatalog();
   if (!isObject(value)) return out;
   for (const [locale, keys] of Object.entries(value)) {
     if (Array.isArray(keys))
@@ -484,7 +484,7 @@ function readMigrated(value: unknown): string[] | undefined {
 }
 
 function readFingerprints(value: unknown): Fingerprints {
-  const out: Fingerprints = {};
+  const out: Fingerprints = emptyCatalog();
   if (!isObject(value)) return out;
   for (const [locale, entries] of Object.entries(value)) {
     if (!isObject(entries)) continue;

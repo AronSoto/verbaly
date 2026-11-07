@@ -259,6 +259,35 @@ describe('renderHtml', () => {
     expect(html).toContain('>Busca y encuentra<');
   });
 
+  // Proved able to fail with </script\s*> as the end: the message was written into the script.
+  it.each([
+    ['attributes', '</script foo>'],
+    ['a slash', '</script/>'],
+    ['whitespace a browser reads', '</script\t\n bar>'],
+  ])('leaves a script alone up to an end tag with %s, which a browser ends it at', (_, end) => {
+    const script = `<script>const s = '<b data-verbaly="home.intro"></b>';${end}`;
+    const { html } = render(`${script}<p data-verbaly="home.hint"></p>`);
+    expect(html).toContain(script);
+    expect(html).toContain('<p data-verbaly="home.hint">Busca y encuentra</p>');
+  });
+
+  // Proved able to fail with </script\s*> as the end: \v closed the script a browser keeps open.
+  it('keeps reading a script past an end tag a browser does not read as one', () => {
+    const input =
+      "<script>const a = '</script\v>'; const b = '<b data-verbaly=\"home.intro\"></b>';</script>";
+    expect(render(input).html).toBe(input);
+  });
+
+  // Proved able to fail with --> as the only end: the paragraph after each comment stayed empty.
+  it.each([
+    ['--!>', '<!-- note --!>'],
+    ['<!-->', '<!-->'],
+    ['<!--->', '<!--->'],
+  ])('ends a comment at %s, as a browser does', (_, comment) => {
+    const { html } = render(`${comment}<p data-verbaly="home.hint"></p><!-- later -->`);
+    expect(html).toContain('<p data-verbaly="home.hint">Busca y encuentra</p>');
+  });
+
   it('escapes HTML-sensitive chars from messages', () => {
     const { html } = render('<p data-verbaly="home.hint"></p>', 'en');
     expect(html).toContain('Search &amp; find');
@@ -623,6 +652,42 @@ describe('a site served under a base path', () => {
     await renderSite(cfg);
 
     expect(readFileSync(join(dist, 'es', 'index.html'), 'utf8')).toContain('href="/app/es/docs"');
+  });
+});
+
+// sized so the regexes they replace took seconds: each reads the text once
+describe('input that made the mirror slow', () => {
+  const elapsed = async (run: () => unknown): Promise<number> => {
+    const from = performance.now();
+    await run();
+    return performance.now() - from;
+  };
+
+  function site(): string {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(join(root, 'dist'), { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), '{}');
+    writeFileSync(join(root, 'locales', 'es.json'), '{}');
+    writeFileSync(join(root, 'dist', 'index.html'), '<html><head></head><body></body></html>');
+    return root;
+  }
+
+  // Proved able to fail with /\/+$/ back in normalizeBase and on baseUrl: about 6 seconds each.
+  it('trims the slashes of a base and a baseUrl in linear time', async () => {
+    const cfg = resolveConfig({ root: site(), sourceLocale: 'en', include: [] });
+    const slashes = '/'.repeat(120_000);
+    const base = await elapsed(() => renderSite(cfg, { base: `a${slashes}a` }));
+    const baseUrl = await elapsed(() =>
+      renderSite(cfg, { baseUrl: `https://example.com${slashes}x`, hreflang: false }),
+    );
+    expect({ base: base < 1000, baseUrl: baseUrl < 1000 }).toEqual({ base: true, baseUrl: true });
+  });
+
+  // Proved able to fail with the lazy comment regex back in protectedRanges: about 5 seconds.
+  it('reads a page of comments that never close in linear time', async () => {
+    const ms = await elapsed(() => render('<!--'.repeat(80_000)));
+    expect(ms).toBeLessThan(1000);
   });
 });
 

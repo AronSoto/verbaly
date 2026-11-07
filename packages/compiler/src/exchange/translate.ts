@@ -120,7 +120,12 @@ export async function translateCatalogs(
   const retryDelay = options.retryDelay ?? 500;
   const targets = targetLocales(cfg, options.locales);
   const source = catalogs[cfg.sourceLocale] ?? {};
-  const result: TranslateResult = { translated: {}, invalid: {}, pending: {}, failed: [] };
+  const result: TranslateResult = {
+    translated: emptyCatalog(),
+    invalid: emptyCatalog(),
+    pending: emptyCatalog(),
+    failed: [],
+  };
 
   const jobs: Batch[] = [];
   for (const locale of targets) {

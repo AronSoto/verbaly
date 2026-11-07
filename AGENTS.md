@@ -38,7 +38,7 @@ pnpm --filter <package> test   # one package
 
 - **The core ships zero dependencies, and its size is gated.** Logic an adapter needs moves to the core; adapters only bridge reactivity.
 - **The public surface is pinned by tests.** A new export from `verbaly` or `@verbaly/compiler` edits `packages/core/test/index.test.ts` or `packages/compiler/test/surface.test.ts` in the same change.
-- **A catalog is untrusted input.** It reaches the runtime only through `flatten`; in the compiler, every map keyed by catalog keys starts as `emptyCatalog()` and is read through `own()`.
+- **A catalog is untrusted input.** It reaches the runtime only through `flatten`; in the compiler, every map keyed by catalog keys or by locale starts as `emptyCatalog()`, as the runtime's own maps have no prototype, and a map a caller hands in is read through `own()`.
 - **Nothing crashes on bad data, and nothing degrades in silence.** Every fallback warns once through `warnOnce`, naming the message and never the value.
 - **One path per job.** `analyzeFile` reads every file type, `syncProject` writes the catalogs, `shippedCatalogs` reads the text that ships, `gatePasses` decides what fails, `writeDts` writes the types, `safeAttribute` guards attributes. Extend the path; never add a second one.
 - **`verbaly check` is the strict gate.** A build lists what is missing or broken and finishes, unless the project sets `failOnMissing: true`. Anything that builds and renders is a warning, never an error.

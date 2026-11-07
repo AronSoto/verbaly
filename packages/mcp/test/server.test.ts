@@ -399,6 +399,22 @@ describe('createVerbalyMcp', () => {
     ).toContain('unreviewed');
   });
 
+  // Proved able to fail with {} as the map of what landed: the answer said nothing for __proto__.
+  it('translate reports a locale named __proto__ like any other', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-mcp-'));
+    tempDirs.push(root);
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(root, 'src', 'app.ts'), 'export const msg = t`Hello ${name}`;\n');
+    writeFileSync(
+      join(root, 'verbaly.config.mjs'),
+      'export default { locales: ["__proto__"], translate: { provider: async ({ messages }) => Object.fromEntries(Object.entries(messages).map(([k, v]) => [k, "X " + v])) } };\n',
+    );
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    const result = await client.callTool({ name: 'verbaly_translate', arguments: {} });
+    expect(resultText(result)).toContain('__proto__: +1 translated (draft)');
+  });
+
   // Proved able to fail by writing the run's own copy back: the text written by hand is replaced.
   it('translate keeps a message someone wrote while the provider was working', async () => {
     const root = makeProject(

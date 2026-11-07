@@ -37,6 +37,29 @@ describe('analyzeFile', () => {
   });
 });
 
+// sized so the lazy regexes took seconds on each: the scan reads every opening once and stops
+describe('a component full of openings that never close', () => {
+  const elapsed = (run: () => unknown): number => {
+    const from = performance.now();
+    run();
+    return performance.now() - from;
+  };
+
+  // Proved able to fail with the regexes back in sfc.ts: 3 to 6 seconds each, against milliseconds.
+  it('is read in linear time, whichever block is left open', () => {
+    const openings: Array<[string, number]> = [
+      ['<!--', 80_000],
+      ['{{', 80_000],
+      ['<script', 30_000],
+      ['<style', 40_000],
+    ];
+    const slow = openings
+      .filter(([open, times]) => elapsed(() => analyzeFile(open.repeat(times), 'a.vue')) > 1000)
+      .map(([open]) => open);
+    expect(slow).toEqual([]);
+  });
+});
+
 describe('analyzeSfc svelte', () => {
   it('extracts tagged templates from script blocks', () => {
     const code = '<script>\n  const msg = t`Hola ${name}`;\n</script>\n<p>{msg}</p>';

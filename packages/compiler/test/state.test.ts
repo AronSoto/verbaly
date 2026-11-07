@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { loadCatalogs, type Catalogs } from '../src/catalog/catalog';
 import { resolveConfig } from '../src/config/config';
 import { formatFinding } from '../src/gate/findings';
@@ -548,6 +548,27 @@ describe('recordTranslations', () => {
     ]);
     recordTranslations(c, source, [{ locale: 'es', entries: [{ key: 'b', text: 'B!' }] }]);
     expect(loadState(c).drafts).toEqual({ es: ['b', 'c'] });
+  });
+
+  // Proved able to fail by building the state on {}: the stamp of hello landed on Object.prototype.
+  it('keeps a locale named __proto__ as a name, so its stamp never lands on Object.prototype', () => {
+    const c = cfg(['en', '__proto__']);
+    onTestFinished(() => {
+      delete (Object.prototype as Record<string, unknown>).hello;
+    });
+    recordTranslations(c, { hello: 'Hello' }, [
+      { locale: '__proto__', entries: [{ key: 'hello', text: 'Hola' }] },
+    ]);
+    expect(Object.hasOwn(Object.prototype, 'hello'), 'Object.prototype gained it').toBe(false);
+    recordTranslations(c, { bye: 'Bye' }, [
+      { locale: '__proto__', entries: [{ key: 'bye', text: 'Adiós' }], draft: true },
+    ]);
+    const state = loadState(c);
+    expect(state.fingerprints['__proto__']).toEqual({
+      hello: stamp('Hello', 'Hola'),
+      bye: stamp('Bye', 'Adiós'),
+    });
+    expect(state.drafts['__proto__']).toEqual(['bye']);
   });
 });
 

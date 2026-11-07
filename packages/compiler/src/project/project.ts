@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { loadCatalogs, own, writeCatalog, type Catalogs } from '../catalog/catalog';
+import { emptyCatalog, loadCatalogs, own, writeCatalog, type Catalogs } from '../catalog/catalog';
 import { writeDts } from '../emit/codegen';
 import type { ResolvedConfig } from '../config/config';
 import { extractProject, pruneCatalogs, syncCatalogs, type ReplacedText } from '../scan/extract';
@@ -54,7 +54,7 @@ export async function syncProject(
     pruned,
     pruneBlocked,
     findings: scanFindings(cfg, registry, replaced),
-    written: {},
+    written: emptyCatalog(),
   };
   if (options.dryRun) return result;
 

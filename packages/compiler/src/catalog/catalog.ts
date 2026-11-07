@@ -7,14 +7,14 @@ import { withLineEndings } from '../util/eol';
 export type Catalog = Record<string, string>;
 export type Catalogs = Record<string, Catalog>;
 
-// no prototype: a key is data, so toString or __proto__ must never answer from Object
-export function emptyCatalog(): Catalog {
-  return Object.create(null) as Catalog;
+// no prototype: a key or a locale is data, so toString or __proto__ never answers from Object
+export function emptyCatalog<T = string>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>;
 }
 
-// a catalog handed in by a caller may be a plain object, and its prototype is not a message
-export function own(catalog: Catalog, key: string): string | undefined {
-  return Object.hasOwn(catalog, key) ? catalog[key] : undefined;
+// a map handed in by a caller may be a plain object, and its prototype is not an entry
+export function own<T>(map: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.hasOwn(map, key) ? map[key] : undefined;
 }
 
 // readCatalog hands a flat catalog with no prototype, and a reader that only reads needs no copy
@@ -102,7 +102,7 @@ export function isTree(value: unknown): value is MessageTree {
 }
 
 export function loadCatalogs(cfg: ResolvedConfig): Catalogs {
-  const catalogs: Catalogs = {};
+  const catalogs = emptyCatalog<Catalog>();
   for (const locale of cfg.locales) catalogs[locale] = readCatalog(cfg, locale);
   return catalogs;
 }

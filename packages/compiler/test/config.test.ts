@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -250,12 +251,17 @@ describe('a config edited while the process runs', () => {
         external: ['jiti'],
         logLevel: 'silent',
       });
-      // a --root or an agent's root can be relative, and Node keys that cache by the full path
-      for (const relativeRoot of [false, true]) {
-        const root = makeRoot();
+      // a root can be relative, or reached through a link as macOS's tmpdir is
+      for (const shape of ['absolute', 'relative', 'linked', 'preserved'] as const) {
+        const linked = shape === 'linked' || shape === 'preserved';
+        const root = linked ? join(makeRoot(), 'linked') : makeRoot();
+        // a junction on Windows, which needs no privilege; other platforms ignore the type
+        if (linked) symlinkSync(makeRoot(), root, 'junction');
+        // Node keys its cache by the real path, and by the path as given under this flag
+        const flags = shape === 'preserved' ? ['--preserve-symlinks'] : [];
         const file = join(root, 'verbaly.config.js');
         writeFileSync(file, "module.exports = { locales: ['es'] };\n");
-        const at = JSON.stringify(relativeRoot ? basename(root) : root);
+        const at = JSON.stringify(shape === 'relative' ? basename(root) : root);
         const script = [
           "import { utimesSync, writeFileSync } from 'node:fs';",
           `const { loadConfig } = await import(${JSON.stringify(pathToFileURL(bundle).href)});`,
@@ -267,10 +273,14 @@ describe('a config edited while the process runs', () => {
           "console.log(first + '|' + second);",
         ].join('\n');
         // in a real Node process: vitest loads modules its own way, and there the old code passed
-        const out = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
-          cwd: dirname(root),
-          encoding: 'utf8',
-        });
+        const out = execFileSync(
+          process.execPath,
+          [...flags, '--input-type=module', '-e', script],
+          {
+            cwd: dirname(root),
+            encoding: 'utf8',
+          },
+        );
         expect(out.trim()).toBe('en,es|en,es,pt');
       }
     },

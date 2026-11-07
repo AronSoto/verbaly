@@ -71,8 +71,8 @@ export function registerTranslate(server: McpServer, ctx: ToolContext): void {
       }
 
       // the file as it is now: what someone wrote while the provider worked is not overwritten
-      const written: Record<string, string[]> = {};
-      const kept: Record<string, string[]> = {};
+      const written: Array<{ locale: string; keys: string[] }> = [];
+      const kept: Array<{ locale: string; keys: string[] }> = [];
       const writes: TranslationWrite[] = [];
       for (const [locale, keys] of Object.entries(result.translated)) {
         const catalog = catalogs[locale] ?? {};
@@ -82,16 +82,16 @@ export function registerTranslate(server: McpServer, ctx: ToolContext): void {
           draft: true,
           entries: landed.map((key) => ({ key, text: catalog[key]! })),
         });
-        if (landed.length > 0) written[locale] = landed;
+        if (landed.length > 0) written.push({ locale, keys: landed });
         const left = keys.filter((key) => !landed.includes(key));
-        if (left.length > 0) kept[locale] = left;
+        if (left.length > 0) kept.push({ locale, keys: left });
       }
       if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
 
       const data = {
         dryRun: false,
-        translated: byLocale(written),
-        kept: byLocale(kept),
+        translated: written,
+        kept,
         invalid: byLocale(result.invalid),
         failed: result.failed,
         pending: [],

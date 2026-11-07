@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { applyEdits, modify, parse, type FormattingOptions, type ParseError } from 'jsonc-parser';
 import picomatch from 'picomatch';
+import { trimTrailingSlashes } from '../util/text';
 
 export type IncludeState = 'present' | 'added' | 'missing' | 'no-tsconfig' | 'unreadable';
 
@@ -32,7 +33,7 @@ function covered(list: unknown, entry: string): boolean {
   if (!Array.isArray(list)) return false;
   return list.some((item) => {
     if (typeof item !== 'string') return false;
-    const pattern = item.replace(/^\.\//, '').replace(/\/+$/, '');
+    const pattern = trimTrailingSlashes(item.replace(/^\.\//, ''));
     return picomatch(pattern)(entry) || picomatch(`${pattern}/**/*`)(entry);
   });
 }

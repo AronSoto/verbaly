@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -148,8 +148,11 @@ export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
     if (existsSync(path)) {
       // Node caches a module by url: without the mtime, a long-lived process keeps the old config
       const url = `${pathToFileURL(path).href}?mtime=${statSync(path).mtimeMs}`;
-      // a CommonJS config is cached by its full file name instead, which no query reaches
-      delete createRequire(import.meta.url).cache[resolve(path)];
+      // a CommonJS config is cached by file name, which no query reaches: the real one, or as given
+      const cache = createRequire(import.meta.url).cache;
+      delete cache[realpathSync(path)];
+      // the name as given is the key under --preserve-symlinks
+      delete cache[resolve(path)];
       const mod = (await import(url)) as { default?: VerbalyConfig };
       return mod.default ?? {};
     }

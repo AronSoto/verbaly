@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { build } from 'esbuild';
@@ -10,7 +17,8 @@ import { verbaly } from '../src/index';
 const BUILD_TIMEOUT = 60_000;
 
 function project(): string {
-  const root = mkdtempSync(join(tmpdir(), 'verbaly-bundlers-'));
+  // unplugin 3.7 loses its webpack virtual modules under a linked path, as macOS's tmpdir is
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'verbaly-bundlers-')));
   mkdirSync(join(root, 'locales'));
   mkdirSync(join(root, 'src'));
   writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify({ sourceLocale: 'en' }));

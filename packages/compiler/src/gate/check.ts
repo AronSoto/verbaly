@@ -1,5 +1,11 @@
 import { relative } from 'node:path';
-import { catalogPath, flatView, type Catalog, type Catalogs } from '../catalog/catalog';
+import {
+  catalogPath,
+  emptyCatalog,
+  flatView,
+  type Catalog,
+  type Catalogs,
+} from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { shippedCatalogs } from '../scan/extract';
 import {
@@ -93,7 +99,7 @@ export function check(
   cfg: ResolvedConfig,
   catalogs: Catalogs,
   registry: MessageRegistry,
-  fingerprints: Fingerprints = {},
+  fingerprints: Fingerprints = emptyCatalog(),
 ): CheckResult {
   return gatePass(() => checkPass(cfg, catalogs, registry, fingerprints));
 }
@@ -107,7 +113,7 @@ function checkPass(
   const extracted = registry.messages();
 
   // one flat view per locale: the shape t() sees, so nested catalogs compare leaf by leaf
-  const flat: Record<string, Catalog> = {};
+  const flat = emptyCatalog<Catalog>();
   for (const locale of cfg.locales) {
     flat[locale] = flatView(catalogs[locale] ?? {});
   }

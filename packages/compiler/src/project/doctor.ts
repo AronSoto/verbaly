@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { flatten } from 'verbaly';
 import { auditBundle, formatBundleIssue } from '../emit/bundle';
-import { badLeaf, isTree, parseTree, type Catalogs } from '../catalog/catalog';
+import { badLeaf, emptyCatalog, isTree, parseTree, type Catalog } from '../catalog/catalog';
 import { check } from '../gate/check';
 import { DTS_HEADER, generateDts, projectDtsOptions } from '../emit/codegen';
 import { findConfigFile, type ResolvedConfig } from '../config/config';
@@ -113,7 +113,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
   if (cliReachable(cfg.root)) ok('cli', 'the verbaly command is available in this project');
   else warn('cli', 'the verbaly command is not linked in node_modules/.bin', CLI_INSTALL_FIX);
 
-  const catalogs: Catalogs = {};
+  const catalogs = emptyCatalog<Catalog>();
   let catalogsHealthy = true;
   if (!existsSync(cfg.dir)) {
     catalogsHealthy = false;

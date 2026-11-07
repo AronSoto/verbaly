@@ -9,6 +9,7 @@ import {
   type TaggedParam,
   type UsedKey,
 } from './analyze';
+import { blocks, type BlockShape } from '../util/blocks';
 
 export const SFC_FILE_RE = /\.(?:svelte|vue|astro)$/;
 
@@ -24,13 +25,22 @@ export function analyzeFile(code: string, file: string): Analysis {
   }
 }
 
-const SCRIPT_RE = /(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)/gi;
-const STYLE_RE = /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi;
-const COMMENT_RE = /<!--[\s\S]*?-->/g;
+export const SCRIPT_BLOCK: BlockShape = {
+  open: /<script\b/gi,
+  openTag: true,
+  close: /<\/script\s*>/gi,
+};
+export const STYLE_BLOCK: BlockShape = {
+  open: /<style\b/gi,
+  openTag: true,
+  close: /<\/style\s*>/gi,
+};
+// Vue and Svelte end a comment at --> only (Svelte reads until '-->'), never at --!> as a browser
+export const COMMENT_BLOCK: BlockShape = { open: '<!--', close: '-->' };
 // astro component script: --- fences at the top of the file
 const FRONTMATTER_RE = /^(\uFEFF?\s*---\r?\n)([\s\S]*?)\r?\n---(?=\r?\n|$)/;
 
-const MUSTACHE_RE = /\{\{[\s\S]*?\}\}/g;
+export const MUSTACHE_BLOCK: BlockShape = { open: '{{', close: '}}' };
 const DIRECTIVE_RE = /\s(?:v-[\w-]+(?::[^\s=>/]+)?|[:@][^\s=>/]+)\s*=\s*("[^"]*"|'[^']*')/g;
 
 export function analyzeSfc(code: string, file: string): Analysis {
@@ -59,16 +69,15 @@ export function analyzeSfc(code: string, file: string): Analysis {
   const frontmatter = file.endsWith('.astro') ? FRONTMATTER_RE.exec(code) : null;
   if (frontmatter?.[2]) block(frontmatter[2], frontmatter[1]!.length);
 
-  for (const match of code.matchAll(SCRIPT_RE)) {
-    const content = match[2]!;
-    if (content) block(content, match.index + match[1]!.length);
+  for (const script of blocks(code, [SCRIPT_BLOCK])) {
+    if (script.close > script.body) block(code.slice(script.body, script.close), script.body);
   }
 
   // markup = everything left once frontmatter, scripts, styles and comments are blanked out
   const body = frontmatter
     ? ' '.repeat(frontmatter[0].length) + code.slice(frontmatter[0].length)
     : code;
-  const markup = blank(blank(blank(body, SCRIPT_RE), STYLE_RE), COMMENT_RE);
+  const markup = blank(blank(blank(body, SCRIPT_BLOCK), STYLE_BLOCK), COMMENT_BLOCK);
   // the markup reads the script's bindings, so a t renamed there is followed here too
   const markupOptions: AnalyzeOptions = { tNames, renamed: [...renamed] };
   // display-only text never yields candidates: only expression context counts
@@ -160,8 +169,14 @@ function analyzeSegment(code: string, file: string, options: AnalyzeOptions): Se
   }
 }
 
-function blank(source: string, re: RegExp): string {
-  return source.replace(re, (m) => ' '.repeat(m.length));
+function blank(source: string, shape: BlockShape): string {
+  let out = '';
+  let at = 0;
+  for (const { start, end } of blocks(source, [shape])) {
+    out += source.slice(at, start) + ' '.repeat(end - start);
+    at = end;
+  }
+  return out + source.slice(at);
 }
 
 // [start, end) content spans of balanced {…} regions (astro expressions, svelte mustaches)
@@ -185,9 +200,7 @@ function braceRanges(markup: string): Array<[number, number]> {
 // vue expression context: {{ mustaches }} plus quoted values of :/@/v- directive attributes
 function vueExpressionRanges(markup: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
-  for (const match of markup.matchAll(MUSTACHE_RE)) {
-    ranges.push([match.index + 2, match.index + match[0].length - 2]);
-  }
+  for (const { body, close } of blocks(markup, [MUSTACHE_BLOCK])) ranges.push([body, close]);
   for (const match of markup.matchAll(DIRECTIVE_RE)) {
     const valueStart = match.index + match[0].length - match[1]!.length + 1;
     ranges.push([valueStart, valueStart + match[1]!.length - 2]);

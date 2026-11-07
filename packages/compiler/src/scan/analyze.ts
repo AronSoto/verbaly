@@ -115,20 +115,21 @@ export function analyzeScript(
   let adapterImport: number | undefined;
   let appImported = false;
 
+  // an import or an `export … from`: a file that passes an adapter on loads it for its importers
+  const noteLoad = (node: AstNode): void => {
+    const source = (node.source as { value?: unknown } | null)?.value;
+    if (typeof source !== 'string' || !loadsAtRuntime(node)) return;
+    if (isAppModule(source)) appImported = true;
+    else if (ADAPTER_SOURCE.test(source)) adapterImport ??= node.start;
+  };
+
   walk(ast.program as unknown as AstNode, (node) => {
     if (node.type === 'ImportDeclaration') {
       collectStrayImports(node, file, strayImports);
       bindings.addImport(node);
-      const source = (node.source as { value?: unknown }).value;
-      if (typeof source === 'string' && loadsAtRuntime(node)) {
-        if (isAppModule(source)) appImported = true;
-        else if (ADAPTER_SOURCE.test(source)) adapterImport ??= node.start;
-      }
+      noteLoad(node);
     } else if (node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') {
-      const source = (node.source as { value?: unknown } | null)?.value;
-      if (typeof source === 'string' && isAppModule(source) && node.exportKind !== 'type') {
-        appImported = true;
-      }
+      noteLoad(node);
     } else if (node.type === 'VariableDeclarator') {
       bindings.addDeclarator(node);
     } else if (node.type === 'TaggedTemplateExpression') {
@@ -197,11 +198,12 @@ export function analyzeScript(
 // the adapters whose hooks fall back to verbaly/app's instance; a server entry takes one passed in
 const ADAPTER_SOURCE = /^@verbaly\/(?:react|vue|svelte)(?:\/Trans\.svelte)?$/;
 
-// what survives compilation: not `import type`, and not an import of `{ type X }` alone
+// what survives compilation: not `import type`, not `export type`, and not `{ type X }` alone
 function loadsAtRuntime(node: AstNode): boolean {
-  if (node.importKind === 'type') return false;
-  const specifiers = node.specifiers as AstNode[];
-  return specifiers.length === 0 || specifiers.some((spec) => spec.importKind !== 'type');
+  if (node.importKind === 'type' || node.exportKind === 'type') return false;
+  const specifiers = (node.specifiers ?? []) as AstNode[];
+  if (specifiers.length === 0) return true;
+  return specifiers.some((spec) => spec.importKind !== 'type' && spec.exportKind !== 'type');
 }
 
 function lineOf(node: AstNode): number {

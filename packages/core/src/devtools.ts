@@ -72,7 +72,7 @@ export function attachDevtools(instance: Verbaly, options: DevtoolsOptions = {})
       `<span class="fb">${fb.length} fallback</span>` +
       `<span class="miss">${miss.length} missing</span></div>` +
       (rows ? `<ul class="verbaly-dt-miss">${rows}</ul>` : '') +
-      `<div class="verbaly-dt-hint">hold <kbd>${options.hotkey ?? 'Alt'}</kbd> + hover to inspect</div>`;
+      `<div class="verbaly-dt-hint">hold <kbd>${esc(options.hotkey ?? 'Alt')}</kbd> + hover to inspect</div>`;
   }
 
   function onMove(e: MouseEvent): void {

@@ -16,6 +16,7 @@ import {
   outdatedTranslations,
   resolveVirtualId,
   runBuildGate,
+  shippedCatalogs,
   SOURCE_FILE_RE,
   syncCatalogs,
   syncProject,
@@ -154,8 +155,9 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       cfg = await loadConfig(options.root ?? viteConfig.root, options, { plugin: true });
       catalogs = loadCatalogs(cfg);
       included = createSourceFilter(cfg);
+      // svelte-check and Vitest stop here, so the types are a build's: the catalog alone drops keys
       if (!isBuild) {
-        flushDts();
+        writeBuildTypes(cfg, shippedCatalogs(cfg, catalogs, await extractProject(cfg)));
       }
     },
 

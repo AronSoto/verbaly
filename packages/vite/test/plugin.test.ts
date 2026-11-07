@@ -53,6 +53,27 @@ async function setup(
   };
 }
 
+describe('a tool that only resolves the config, as svelte-check and Vitest do', () => {
+  const FROM_CODE = "import { t } from 'verbaly/app';\nt.id('fromCode')`Desde el código`;\n";
+
+  it('writes the keys only the code has next to those only the catalog has', async () => {
+    const root = makeProject({ es: { fromCatalog: 'Desde el catálogo' } });
+    save(root, FROM_CODE);
+    await setup(root, 'serve');
+    const types = readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8');
+    expect(types).toContain('fromCode');
+    expect(types).toContain('fromCatalog');
+  });
+
+  it('writes no catalog, which stays the job of a dev server or of extract', async () => {
+    const root = makeProject({ es: { fromCatalog: 'Desde el catálogo' } });
+    save(root, FROM_CODE);
+    const before = readFileSync(join(root, 'locales', 'es.json'), 'utf8');
+    await setup(root, 'serve');
+    expect(readFileSync(join(root, 'locales', 'es.json'), 'utf8')).toBe(before);
+  });
+});
+
 describe('languages set only in the plugin', () => {
   it('says verbaly check and extract will not see them', async () => {
     const root = makeProject({ es: {} });

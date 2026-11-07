@@ -218,7 +218,13 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     // the rule @verbaly/astro applies: Astro's i18n replaces no-prefix, a prefix mode stays
     const replaced = cfg.host === 'astro' && cfg.routing === 'no-prefix';
     const astro = replaced ? readAstroRouting(cfg.root) : undefined;
-    if (astro) {
+    if (astro && named) {
+      warn(
+        'routing',
+        `routing is "no-prefix" in ${configFile}, but @verbaly/astro uses ${astro.mode}: Astro's i18n in ${astro.file} puts the language in the url`,
+        `remove routing from ${configFile}, or remove i18n from ${astro.file}`,
+      );
+    } else if (astro) {
       const how = ` (from Astro's i18n in ${astro.file}, which @verbaly/astro follows)`;
       ok('routing', `${astro.mode}${how}: ${ROUTING_SAYS[astro.mode]}`);
     } else {

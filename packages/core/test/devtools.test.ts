@@ -130,6 +130,14 @@ describe('attachDevtools', () => {
     });
   });
 
+  it('writes the hotkey as text, like every other value in the panel', () => {
+    document.body.innerHTML = '<p data-verbaly="a"></p>';
+    detach = attachDevtools(make(), { hotkey: '<img src=x>' as 'alt' });
+    const hint = document.querySelector('.verbaly-dt-hint')!;
+    expect(hint.querySelector('img')).toBeNull();
+    expect(hint.querySelector('kbd')!.textContent).toBe('<img src=x>');
+  });
+
   it('throws without a DOM', () => {
     const doc = globalThis.document;
     // @ts-expect-error simulate SSR

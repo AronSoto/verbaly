@@ -505,6 +505,19 @@ describe('doctor: the url mode has a name now', () => {
     expect(kept?.message).toMatch(/^prefix-all: /);
   });
 
+  it('says so when no-prefix is written down and Astro puts the language in the url', async () => {
+    const written = makeProject({ pkg: { dependencies: { astro: '^7.0.0' } } });
+    writeFileSync(
+      join(written.root, 'astro.config.mjs'),
+      "export default { i18n: { defaultLocale: 'es', locales: ['es', 'en'] } };\n",
+    );
+    writeFileSync(join(written.root, 'verbaly.config.json'), '{"routing":"no-prefix"}');
+    const entry = await routingOf({ ...written, routing: 'no-prefix' });
+    expect(entry?.level).toBe('warn');
+    expect(entry?.message).toContain('@verbaly/astro uses prefix-except-source');
+    expect(entry?.fix).toContain('remove routing');
+  });
+
   it('a no-prefix project without render is simply in that mode', async () => {
     const base = makeProject();
     const entry = await routingOf({ ...base, routing: 'no-prefix' });

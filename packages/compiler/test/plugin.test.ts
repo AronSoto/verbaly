@@ -114,6 +114,26 @@ describe('transformSource and the project module', () => {
     expect(rewrite(typedApp, 'src/App.tsx')).toContain("import 'verbaly/app'; import { useT }");
   });
 
+  it('loads it where a module only passes an adapter on, all its importers ever see', () => {
+    for (const line of [
+      "export { useT, Trans } from '@verbaly/react';",
+      "export * from '@verbaly/vue';",
+      "export * as i18n from '@verbaly/svelte';",
+    ]) {
+      expect(rewrite(`${line}\n`, 'src/i18n.ts')).toBe(`import 'verbaly/app'; ${line}\n`);
+    }
+  });
+
+  it('adds nothing for a re-export that only brings types', () => {
+    for (const line of [
+      "export type { TransProps } from '@verbaly/react';",
+      "export type * from '@verbaly/react';",
+      "export { type TransProps } from '@verbaly/react';",
+    ]) {
+      expect(rewrite(`${line}\n`, 'src/types.ts')).toBeUndefined();
+    }
+  });
+
   it('leaves the core, the server entries and Next alone, where an instance is passed in', () => {
     for (const source of ['verbaly', '@verbaly/react/server', '@verbaly/next/client']) {
       const code = `import { useT } from '${source}';\n`;

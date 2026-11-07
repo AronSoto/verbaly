@@ -3,7 +3,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveConfig } from '../src/config/config';
+import { resolveConfig, type ResolvedConfig } from '../src/config/config';
 import { watchProject, watchTree } from '../src/emit/watch';
 
 function makeProject() {
@@ -14,16 +14,55 @@ function makeProject() {
   return resolveConfig({ root });
 }
 
+// waits until the count stops moving, so a change still on its way is not counted later
+async function quiet(count: () => number, window = 300, limit = 5000): Promise<void> {
+  const until = Date.now() + limit;
+  for (let last = count(); Date.now() < until;) {
+    await new Promise((resolve) => setTimeout(resolve, window));
+    if (count() === last) return;
+    last = count();
+  }
+}
+
+// macOS starts FSEvents after watch() returns and drops what changed before: probe until heard
+async function watchLive(
+  cfg: ResolvedConfig,
+  run: () => Promise<void>,
+  debounce: number,
+): Promise<() => void> {
+  let live = false;
+  let probes = 0;
+  const stop = watchProject(cfg, () => (live ? run() : Promise.resolve(void (probes += 1))), {
+    debounce,
+  });
+  try {
+    await vi.waitFor(
+      () => {
+        if (probes === 0) writeFileSync(join(cfg.root, 'src', 'probe.ts'), String(Date.now()));
+        expect(probes).toBeGreaterThan(0);
+      },
+      // a probe sooner than the debounce restarts it, and the run it waits for never comes
+      { timeout: 5000, interval: debounce + 200 },
+    );
+    await quiet(() => probes);
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  live = true;
+  return stop;
+}
+
 describe('watchProject', () => {
   it('runs on source changes and ignores catalog and dts writes', async () => {
     const cfg = makeProject();
     let runs = 0;
-    const stop = watchProject(
+    const stop = await watchLive(
       cfg,
       async () => {
         runs += 1;
       },
-      { debounce: 10 },
+      10,
     );
     try {
       writeFileSync(join(cfg.root, 'src', 'app.ts'), 't`Hola`;');
@@ -41,13 +80,13 @@ describe('watchProject', () => {
   it('queues a change that lands mid-run and re-runs after', async () => {
     const cfg = makeProject();
     let runs = 0;
-    const stop = watchProject(
+    const stop = await watchLive(
       cfg,
       async () => {
         runs += 1;
         await new Promise((resolve) => setTimeout(resolve, 400));
       },
-      { debounce: 10 },
+      10,
     );
     try {
       writeFileSync(join(cfg.root, 'src', 'a.ts'), 't`a`;');
@@ -64,13 +103,13 @@ describe('watchProject', () => {
     const cfg = makeProject();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let runs = 0;
-    const stop = watchProject(
+    const stop = await watchLive(
       cfg,
       async () => {
         runs += 1;
         if (runs === 1) throw new Error('boom');
       },
-      { debounce: 10 },
+      10,
     );
     try {
       writeFileSync(join(cfg.root, 'src', 'a.ts'), 't`a`;');
@@ -89,12 +128,12 @@ describe('watchProject', () => {
   it('coalesces a burst of changes into one run', async () => {
     const cfg = makeProject();
     let runs = 0;
-    const stop = watchProject(
+    const stop = await watchLive(
       cfg,
       async () => {
         runs += 1;
       },
-      { debounce: 150 },
+      150,
     );
     try {
       for (let i = 0; i < 5; i += 1) {
@@ -116,7 +155,7 @@ describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
     for (const close of closers.splice(0)) close();
   });
 
-  function tree(options: { keep?: string } = {}) {
+  async function tree(options: { keep?: string } = {}) {
     const root = mkdtempSync(join(tmpdir(), 'verbaly-tree-'));
     mkdirSync(join(root, 'src', 'deep'), { recursive: true });
     mkdirSync(join(root, 'node_modules', 'pkg'), { recursive: true });
@@ -125,12 +164,20 @@ describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
     const seen: string[] = [];
     const record = (file: string) => seen.push(file.split(sep).join('/'));
     closers.push(watchTree(root, { native: false, ...options }, record));
+    // macOS starts FSEvents after watch() returns: a directory made before then is never heard
+    await vi.waitFor(
+      () => {
+        writeFileSync(join(root, 'probe.txt'), String(Date.now()));
+        expect(seen).toContain('probe.txt');
+      },
+      { timeout: 5000, interval: 100 },
+    );
     return { root, seen };
   }
 
   // Proved able to fail by fanning out to every directory: node_modules reports its change.
   it('reports code at any depth, and never walks node_modules or a dot directory', async () => {
-    const { root, seen } = tree({ keep: '.i18n' });
+    const { root, seen } = await tree({ keep: '.i18n' });
     await vi.waitFor(
       () => {
         writeFileSync(join(root, 'node_modules', 'pkg', 'index.js'), String(Date.now()));
@@ -147,7 +194,7 @@ describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
 
   // Proved able to fail by dropping the top-level sync: a directory made later is never heard.
   it('starts watching a top-level directory made after it started', async () => {
-    const { root, seen } = tree();
+    const { root, seen } = await tree();
     mkdirSync(join(root, 'app'));
     await vi.waitFor(
       () => {
@@ -172,7 +219,7 @@ describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
     }) as typeof fs.watch);
     syncBuiltinESMExports();
     try {
-      const { root, seen } = tree();
+      const { root, seen } = await tree();
       mkdirSync(join(root, 'blocked'));
       await vi.waitFor(
         () => {
@@ -194,7 +241,7 @@ describe('watchTree without a native tree watch', { timeout: 15_000 }, () => {
   // Proved able to fail by keeping the first watcher: the src made again never reports.
   it('watches a directory again once it is removed and made again', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { root, seen } = tree();
+    const { root, seen } = await tree();
     rmSync(join(root, 'src'), { recursive: true, force: true });
     mkdirSync(join(root, 'src'));
     await vi.waitFor(

@@ -146,6 +146,15 @@ export async function init(input: InitOptions = {}): Promise<InitResult> {
       `port the ${others.join(' and ')} catalogs: npx verbaly migrate reports, --write applies`,
     );
   }
+  // one catalog is one language: the step after wiring is the second one
+  const source = scaffold.sourceLocale ?? 'en';
+  const catalogs = readdirSync(dir).filter((name) => name.endsWith('.json') && name[0] !== '.');
+  if (!scaffold.locales?.some((locale) => locale !== source) && catalogs.length <= 1) {
+    const other = source === 'es' ? 'en' : 'es';
+    next.push(
+      `add a language: locales: ['${source}', '${other}'] in ${configFile}, then npx verbaly extract`,
+    );
+  }
 
   return { created, skipped, host: host?.name, configFile, next, renamed, refused, found };
 }

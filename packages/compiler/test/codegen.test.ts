@@ -124,6 +124,24 @@ describe('generateRuntimeModule', () => {
     }
   });
 
+  // saving would freeze a language read from the browser at startup into the visitor's choice
+  it("takes <html lang> along on setLocale, and saves no choice, which is switchLocale's job", () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toMatch(/^import \{[^}]*\bpersistLocale\b[^}]*\} from 'verbaly';/m);
+    const body = /export async function setLocale\(locale\) \{([\s\S]*?)\n\}/.exec(code)![1]!;
+    // the order is the contract: the catalog first, so <html lang> never names a missing text
+    expect(body.trim().split(/\s*\n\s*/)).toEqual([
+      'await v.loadLocale(locale);',
+      'v.setLocale(locale);',
+      'persistLocale(locale, false);',
+    ]);
+  });
+
   it('supports custom locale imports and extra exports', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),

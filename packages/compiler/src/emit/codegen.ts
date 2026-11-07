@@ -57,6 +57,7 @@ export function generateRuntimeModule(
   createVerbaly,
   localeFromPath as readPath,
   localePath as writePath,
+  persistLocale,
   switchLocale as runSwitch${icu}${rel}${slice},
 } from 'verbaly';
 import source from '${importPath(cfg.sourceLocale)}';
@@ -146,9 +147,11 @@ export function subscribe(listener) {
   return v.subscribe(listener);
 }
 
+// <html lang> and dir follow; no choice is saved, since a startup read would freeze the browser's
 export async function setLocale(locale) {
   await v.loadLocale(locale);
   v.setLocale(locale);
+  persistLocale(locale, false);
 }
 ${options.extraExports ?? ''}`;
 }

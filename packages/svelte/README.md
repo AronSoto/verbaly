@@ -16,13 +16,17 @@ Idiomatic Svelte 5 stores over the [Verbaly](https://github.com/AronSoto/verbaly
 ## 🚀 Install
 
 ```bash
-pnpm add @verbaly/svelte
+pnpm add verbaly @verbaly/svelte @verbaly/vite
+pnpm add -D @verbaly/compiler   # the verbaly command: init, extract, check
+npx verbaly init
 ```
+
+Add `verbaly()` to the plugins in `vite.config` (the [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) README shows it). It writes `verbaly/app`, the module these stores read. In SvelteKit, follow [`@verbaly/sveltekit`](https://www.npmjs.com/package/@verbaly/sveltekit), which renders each request in its own language.
 
 ## ⚡ Usage
 
 ```html
-<!-- +layout.svelte -->
+<!-- App.svelte, or +layout.svelte in SvelteKit -->
 <script>
   import { provideVerbaly } from '@verbaly/svelte';
   import { verbaly } from 'verbaly/app';
@@ -48,7 +52,21 @@ pnpm add @verbaly/svelte
 </select>
 ```
 
-**`provideVerbaly` is optional in the browser.** With none above it, a hook reads the instance `verbaly/app` creates, so a single-page app can skip it and a component test renders with no wrapper. On a server it is required, since every request has its own instance.
+**`provideVerbaly` is optional in the browser.** With none above it, a hook reads the instance `verbaly/app` creates, so a single-page app can skip it and a component test renders with no wrapper. The Vite plugin and unplugin load `verbaly/app` in every component that imports `@verbaly/svelte`, so that instance is there before the first render. On a server it is required, since every request has its own instance.
+
+**Switching languages.** Setting `$locale` switches every component, and the page follows: `<html lang>`, `<html dir>` and the choice, saved in the browser. Where a server renders the page, as in SvelteKit, switch with `switchLocale` from `verbaly/app` instead: it also sets the cookie the server reads. A single-page app starts in its source language, so read that choice back before mounting:
+
+```ts
+// main.ts: the saved choice, else the browser's, loaded before anything renders
+import { mount } from 'svelte';
+import { resolveLocale } from 'verbaly';
+import { locales, setLocale } from 'verbaly/app';
+import App from './App.svelte';
+
+setLocale(resolveLocale({ supported: locales, path: false })).then(() =>
+  mount(App, { target: document.getElementById('app')! }),
+);
+```
 
 **Keys are typed.** `$t` from `useT()` checks every key and its params against your source catalog, through the types Verbaly generates (`src/verbaly.d.ts`): a key no catalog has does not compile. A key that comes from data, like `$t(item.key)` or a variable typed as a union of keys, passes as it is, and its params are left open; declare it with `defineKeys` from `verbaly/app` when you want `check` to verify it exists.
 

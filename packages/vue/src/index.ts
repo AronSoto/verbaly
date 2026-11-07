@@ -16,6 +16,7 @@ import {
 import {
   normalizeLink,
   parseTags,
+  persistLocale,
   RICH_TAGS,
   VOID_TAGS,
   type DictionaryInput,
@@ -80,7 +81,11 @@ export function useLocale(): WritableComputedRef<string> {
       void version.value;
       return instance.locale;
     },
-    set: (locale: string) => instance.setLocale(locale),
+    // synchronous, so the last write wins; the page follows: <html lang>, dir and the stored choice
+    set: (locale: string) => {
+      instance.setLocale(locale);
+      persistLocale(locale);
+    },
   });
 }
 

@@ -282,8 +282,9 @@ export function formatBuildReport(
 export function checkNextSteps(result: CheckResult, cliReachable = true): string {
   const steps: string[] = [];
   if (result.missing.length > 0) {
+    // extract writes "" for a new key, so filling is the step left once it ran
     steps.push(
-      'missing: run `npx verbaly extract` to scaffold the keys, then fill them (or run `npx verbaly translate`)',
+      'missing: fill the empty translations in your catalogs, or run `npx verbaly translate` (`npx verbaly extract` adds a key a catalog does not have yet)',
     );
   }
   if (result.unknown.length > 0) {

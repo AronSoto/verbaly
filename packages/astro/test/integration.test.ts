@@ -102,6 +102,94 @@ describe('verbaly astro integration', () => {
     expect(again[0]).not.toBe(plugins[0]); // no shared plugin state across integrations
   });
 
+  describe("Astro's i18n routing decides where the language lives in the url", () => {
+    type I18n = {
+      defaultLocale: string;
+      locales: (string | { path: string; codes: [string, ...string[]] })[];
+      routing?: 'manual' | { prefixDefaultLocale?: boolean };
+    };
+
+    // the routing verbaly/app ships, read from the module the injected plugin generates
+    async function shippedRouting(
+      i18n?: I18n,
+      options?: VerbalyAstroOptions,
+      file: Record<string, unknown> = {},
+    ): Promise<string> {
+      const { root } = makeProject();
+      const config = { locales: ['en', 'es'], ...file };
+      writeFileSync(join(root, 'verbaly.config.json'), JSON.stringify(config));
+      let plugins: unknown[] = [];
+      await verbaly(options).hooks['astro:config:setup']({
+        config: { root: pathToFileURL(root + '/'), ...(i18n && { i18n }) },
+        updateConfig: (config) => {
+          plugins = config.vite?.plugins as unknown[];
+        },
+      });
+      const plugin = plugins[0] as {
+        configResolved: (c: { root: string; command: string }) => Promise<void>;
+        load: { handler: (id: string) => string | undefined };
+      };
+      await plugin.configResolved({ root, command: 'build' });
+      const code = plugin.load.handler('\0virtual:verbaly') ?? '';
+      return /export const routing = "([^"]+)";/.exec(code)?.[1] ?? '';
+    }
+
+    it('keeps the source at the root and prefixes the rest, as Astro does by default', async () => {
+      const i18n: I18n = { defaultLocale: 'en', locales: ['en', 'es'], routing: {} };
+      expect(await shippedRouting(i18n)).toBe('prefix-except-source');
+    });
+
+    it('prefixes every language when Astro prefixes its default one', async () => {
+      const i18n: I18n = {
+        defaultLocale: 'en',
+        locales: ['en', 'es'],
+        routing: { prefixDefaultLocale: true },
+      };
+      expect(await shippedRouting(i18n)).toBe('prefix-all');
+    });
+
+    it('leaves the mode alone with no i18n, with manual routing, or when the option names one', async () => {
+      expect(await shippedRouting()).toBe('no-prefix');
+      const manual: I18n = { defaultLocale: 'en', locales: ['en', 'es'], routing: 'manual' };
+      expect(await shippedRouting(manual)).toBe('no-prefix');
+      const prefixed: I18n = { defaultLocale: 'en', locales: ['en', 'es'] };
+      expect(await shippedRouting(prefixed, { routing: 'prefix-all' })).toBe('prefix-all');
+    });
+
+    it('keeps a prefix mode verbaly.config names, and replaces no-prefix, which cannot hold', async () => {
+      const i18n: I18n = { defaultLocale: 'en', locales: ['en', 'es'] };
+      expect(await shippedRouting(i18n, {}, { routing: 'prefix-all' })).toBe('prefix-all');
+      expect(await shippedRouting(i18n, {}, { routing: 'no-prefix' })).toBe('prefix-except-source');
+    });
+
+    it('says so when Astro serves another language at the root, and keeps one address', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const i18n: I18n = { defaultLocale: 'es', locales: ['en', 'es'] };
+        expect(await shippedRouting(i18n)).toBe('no-prefix');
+        const said = warn.mock.calls.map((call) => String(call[0])).join('\n');
+        expect(said).toContain('defaultLocale "es"');
+        expect(said).toContain('sourceLocale "en"');
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('says so when a language has a path of its own, which no Verbaly url can follow', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const i18n: I18n = {
+          defaultLocale: 'en',
+          locales: ['en', { path: 'spanish', codes: ['es'] }],
+        };
+        expect(await shippedRouting(i18n)).toBe('no-prefix');
+        expect(warn.mock.calls.map((call) => String(call[0])).join('\n')).toContain('/spanish');
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
   it('injects the generated types into Astro and keeps them out of the project root', async () => {
     const { root } = makeProject();
     let injected: { filename: string; content: string } | undefined;

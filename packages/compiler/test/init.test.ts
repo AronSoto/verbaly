@@ -84,6 +84,18 @@ describe('init', () => {
     expect(result.next.join(' ')).toContain('@verbaly/vite');
   });
 
+  it('says how to add a language when the project starts with only its source', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'package.json'), '{"devDependencies":{"vite":"^8.0.0"}}');
+    expect((await init({ root })).next.at(-1)).toBe(
+      "add a language: locales: ['en', 'es'] in verbaly.config.mjs, then npx verbaly extract",
+    );
+    const two = makeRoot();
+    expect((await init({ root: two, locales: ['es'] })).next.join(' ')).not.toContain(
+      'add a language',
+    );
+  });
+
   it('routes other bundlers to @verbaly/unplugin', async () => {
     const root = makeRoot();
     writeFileSync(join(root, 'package.json'), '{"devDependencies":{"webpack":"^5.0.0"}}');

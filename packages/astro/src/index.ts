@@ -18,9 +18,35 @@ export interface VerbalyAstroOptions extends Omit<ViteVerbalyOptions, 'render'> 
   render?: boolean | RenderConfig;
 }
 
+interface AstroI18nLike {
+  defaultLocale: string;
+  locales: (string | { path: string; codes: string[] })[];
+  routing?: 'manual' | { prefixDefaultLocale?: boolean };
+}
 interface AstroConfigLike {
   root: URL;
   trailingSlash?: 'always' | 'never' | 'ignore';
+  i18n?: AstroI18nLike;
+}
+
+type Routing = NonNullable<ViteVerbalyOptions['routing']>;
+
+// Astro owns the routes: with its i18n routing the url carries the language, and Verbaly follows
+function routingFromAstro(i18n: AstroI18nLike | undefined, source: string): Routing | undefined {
+  if (!i18n || i18n.routing === 'manual') return undefined;
+  const custom = i18n.locales.find((entry) => typeof entry !== 'string');
+  if (custom) {
+    console.warn(
+      `[verbaly] Astro's i18n serves ${custom.codes.join(', ')} under /${custom.path}, a path no Verbaly url can follow, so switchLocale and localePath keep one address: use the language code as its path`,
+    );
+    return undefined;
+  }
+  if (i18n.routing?.prefixDefaultLocale) return 'prefix-all';
+  if (i18n.defaultLocale === source) return 'prefix-except-source';
+  console.warn(
+    `[verbaly] Astro's i18n serves its defaultLocale "${i18n.defaultLocale}" at the root, but Verbaly's sourceLocale "${source}" is the language without a prefix, so switchLocale and localePath keep one address: make them the same language, or set prefixDefaultLocale: true`,
+  );
+  return undefined;
 }
 interface ConfigSetupLike {
   config: AstroConfigLike;
@@ -58,6 +84,13 @@ export default function verbaly(options: VerbalyAstroOptions = {}): VerbalyAstro
         root = vite.root ??= fileURLToPath(config.root);
         // the site's own form of a url: every href Verbaly writes or navigates to follows it
         vite.trailingSlash ??= config.trailingSlash;
+        if (vite.routing === undefined && config.i18n) {
+          const cfg = await loadConfig(root, vite, { plugin: true });
+          // no-prefix cannot hold where Astro puts the language in the url; a prefix mode stays
+          if (cfg.routing === 'no-prefix') {
+            vite.routing = routingFromAstro(config.i18n, cfg.sourceLocale);
+          }
+        }
         updateConfig({ vite: { plugins: [verbalyVite(vite)] } });
       },
       async 'astro:config:done'(options) {

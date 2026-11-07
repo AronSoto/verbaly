@@ -231,7 +231,7 @@ import { switchLocale } from 'verbaly/app';
 await switchLocale('es');
 ```
 
-Under a prefix mode that goes to `/es/…`, which is already rendered in Spanish, so there is no catalog to fetch and no flash. Under `no-prefix` it swaps the text where it stands and the address never changes. Either way it remembers the choice, in the cookie a server reads **and** in the storage the pre-paint redirect reads, and it sets `<html lang>` and `<html dir>`. Pass your framework's router so the app survives the switch:
+Under a prefix mode that goes to `/es/…`, which is already rendered in Spanish, so there is no catalog to fetch and no flash. Under `no-prefix` it swaps the text where it stands and the address never changes. Either way it remembers the choice, in the cookie a server reads **and** in the storage the pre-paint redirect reads, and it sets `<html lang>` and `<html dir>`. A single-page app has neither a server nor a redirect, and starts in its source language: read the choice back before the first render with `setLocale(resolveLocale({ supported: locales, path: false })).then(render)`. Pass your framework's router so the app survives the switch:
 
 ```ts
 await switchLocale('es', { navigate: (path) => router.push(path) });
@@ -390,6 +390,8 @@ runBuildGate(cfg, registry);
 ```
 
 Your plugin's options go second and `{ plugin: true }` third: when one the command line also reads (`sourceLocale`, `locales`, `dir`, `include`, `exclude`) differs from `verbaly.config`, the build says once to move it there, since `verbaly check` never reads a bundler config.
+
+`transformSource` also loads `verbaly/app` in a file that imports `@verbaly/react`, `@verbaly/vue` or `@verbaly/svelte`, on that import's own line, since their hooks read its instance when no provider is above them. `transformCode` alone, which Next's loader calls, does not.
 
 A build that scans first, as the Vite plugin does to sync the catalogs, keeps that scan with `extractProject(cfg, { keepSource: true })` and passes it as the fourth argument of `transformSource`: a file it read unchanged is not parsed a second time. Call `reportOutsideInclude(cfg)` once when your build starts: it names every file outside `include` that writes a `` t`…` ``, which no build translates. It reads the project itself, so a cached transform never hides one. `writeDts(cfg, catalog)` writes the types where the config resolves them and returns the file and whether it changed. A build calls `writeBuildTypes(cfg, catalogs)` once it has synced the catalogs: it writes the same file, and a checkout it cannot write gets a warning instead of a failed build.
 

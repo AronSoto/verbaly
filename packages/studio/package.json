@@ -56,7 +56,7 @@
     "svelte-check": "^4.7.8",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "verbaly": "workspace:^",
-    "vite": "^8.3.5"
+    "vite": "^8.3.6"
   },
   "scripts": {
     "build": "tsdown && vite build",

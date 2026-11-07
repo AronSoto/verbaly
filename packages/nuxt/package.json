@@ -54,11 +54,11 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
-    "@nuxt/schema": "^4.6.3",
+    "@nuxt/schema": "^4.6.4",
     "@verbaly/vue": "workspace:^",
     "happy-dom": "^21.0.4",
     "verbaly": "workspace:^",
-    "vue": "^3.5.44"
+    "vue": "^3.5.45"
   },
   "scripts": {
     "build": "tsdown",

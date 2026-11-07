@@ -175,6 +175,14 @@ describe('verbaly astro integration', () => {
       }
     });
 
+    it('follows a language written as an object whose path is one of its codes', async () => {
+      const i18n: I18n = {
+        defaultLocale: 'en',
+        locales: ['en', { path: 'es', codes: ['es', 'es-ES'] }],
+      };
+      expect(await shippedRouting(i18n)).toBe('prefix-except-source');
+    });
+
     it('says so when a language has a path of its own, which no Verbaly url can follow', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       try {

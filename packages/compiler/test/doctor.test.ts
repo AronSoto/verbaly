@@ -518,6 +518,15 @@ describe('doctor: the url mode has a name now', () => {
     expect(entry?.fix).toContain('remove routing');
   });
 
+  it("keeps no-prefix where Astro's default language is not the source, as the integration does", async () => {
+    const other = makeProject({ pkg: { dependencies: { astro: '^7.0.0' } } });
+    writeFileSync(
+      join(other.root, 'astro.config.mjs'),
+      "export default { i18n: { defaultLocale: 'en', locales: ['es', 'en'] } };\n",
+    );
+    expect((await routingOf(other))?.message).toContain('no-prefix (from your setup');
+  });
+
   it('a no-prefix project without render is simply in that mode', async () => {
     const base = makeProject();
     const entry = await routingOf({ ...base, routing: 'no-prefix' });

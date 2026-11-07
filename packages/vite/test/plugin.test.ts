@@ -497,6 +497,36 @@ describe('build check', () => {
 });
 
 describe('dev writes back from the disk (0.68.0)', () => {
+  it('keeps the key of a file no request has reached when a write-back runs', async () => {
+    const root = makeProject({ es: {} });
+    const code = "const s = t.id('visited')`Visitada`;";
+    const main = save(root, code);
+    save(root, "const s = t.id('lazyRoute')`Sin abrir`;", join(root, 'src', 'lazy.ts'));
+    const { configureServer, transform } = await setup(root, 'serve');
+    configureServer(fakeServer().server);
+    transform(code, main.replaceAll('\\', '/'));
+    await sleep(150);
+    const types = readFileSync(join(root, 'src', 'verbaly.d.ts'), 'utf8');
+    expect(types).toContain('visited');
+    expect(types).toContain('lazyRoute');
+  });
+
+  it('reads a text edited in dev over the one the start scan saw', async () => {
+    const root = makeProject({ es: {} });
+    const before = "const s = t.id('home')`Antes`;";
+    const after = "const s = t.id('home')`Después`;";
+    const file = save(root, before).replaceAll('\\', '/');
+    const { configureServer, transform } = await setup(root, 'serve');
+    configureServer(fakeServer().server);
+    transform(before, file);
+    await sleep(150);
+    save(root, after);
+    transform(after, file);
+    await sleep(150);
+    const catalog = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8'));
+    expect(catalog).toEqual({ home: 'Después' });
+  });
+
   // Proved able to fail by syncing against the registry as it was: the old text came back.
   it('never writes back a text the code on disk no longer has, after a checkout', async () => {
     const root = makeProject({ es: {}, en: {} });

@@ -64,7 +64,7 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let scan: MessageRegistry | undefined;
   // one write-back at a time: a save and a catalog edit landing together must not interleave
   let writing: Promise<void> = Promise.resolve();
-  const registry = new MessageRegistry();
+  let registry = new MessageRegistry();
   const selfWrites = new Map<string, string>();
 
   function invalidateVirtual(): void {
@@ -155,9 +155,10 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       cfg = await loadConfig(options.root ?? viteConfig.root, options, { plugin: true });
       catalogs = loadCatalogs(cfg);
       included = createSourceFilter(cfg);
-      // svelte-check and Vitest stop here, so the types are a build's: the catalog alone drops keys
+      // svelte-check and Vitest stop here, and a write-back needs the files nobody has opened
       if (!isBuild) {
-        writeBuildTypes(cfg, shippedCatalogs(cfg, catalogs, await extractProject(cfg)));
+        registry = await extractProject(cfg);
+        writeBuildTypes(cfg, shippedCatalogs(cfg, catalogs, registry));
       }
     },
 

@@ -34,8 +34,11 @@ type Routing = NonNullable<ViteVerbalyOptions['routing']>;
 // Astro owns the routes: with its i18n routing the url carries the language, and Verbaly follows
 function routingFromAstro(i18n: AstroI18nLike | undefined, source: string): Routing | undefined {
   if (!i18n || i18n.routing === 'manual') return undefined;
-  const custom = i18n.locales.find((entry) => typeof entry !== 'string');
-  if (custom) {
+  // an object is a url of its own only when its path is none of its codes
+  const custom = i18n.locales.find(
+    (entry) => typeof entry !== 'string' && !entry.codes.includes(entry.path),
+  );
+  if (typeof custom === 'object') {
     console.warn(
       `[verbaly] Astro's i18n serves ${custom.codes.join(', ')} under /${custom.path}, a path no Verbaly url can follow, so switchLocale and localePath keep one address: use the language code as its path`,
     );

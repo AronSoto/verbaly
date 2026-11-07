@@ -36,6 +36,11 @@ export function adoptPage(options) {
 
 `;
 
+// "__proto__": in an object literal sets the prototype; computed, it stays a key like any other
+function loaderKey(locale: string): string {
+  return locale === '__proto__' ? '["__proto__"]' : JSON.stringify(locale);
+}
+
 export function generateRuntimeModule(
   cfg: ResolvedConfig,
   options: RuntimeModuleOptions = {},
@@ -44,7 +49,7 @@ export function generateRuntimeModule(
   const others = cfg.locales.filter((locale) => locale !== cfg.sourceLocale);
   const src = JSON.stringify(cfg.sourceLocale);
   const loaders = others
-    .map((locale) => `  ${JSON.stringify(locale)}: () => import('${importPath(locale)}'),`)
+    .map((locale) => `  ${loaderKey(locale)}: () => import('${importPath(locale)}'),`)
     .join('\n');
 
   // named in the import list only when a catalog uses them, so otherwise they tree-shake out

@@ -98,7 +98,8 @@ function flatten(
 }
 
 export function toPanel(raw: RawState): Panel {
-  const flat: Record<string, Record<string, string>> = {};
+  // no prototype, like the map the server answers with: a locale named __proto__ is a name
+  const flat: Record<string, Record<string, string>> = Object.create(null);
   for (const locale of raw.locales) flat[locale] = flatten(raw.catalogs[locale] ?? {});
 
   // the separator is the escape, never the byte: a raw NUL makes git call this file binary

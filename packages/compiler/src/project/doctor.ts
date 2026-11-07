@@ -49,6 +49,7 @@ function readRoutingChoice(root: string, configFile: string): boolean {
 // the mode @verbaly/astro takes from Astro's i18n, read like the config above: no Astro to run
 function readAstroRouting(
   root: string,
+  source: string,
 ): { mode: ResolvedConfig['routing']; file: string } | undefined {
   // Astro's own lookup order: the first file it would load is the one it reads
   for (const file of [
@@ -64,8 +65,10 @@ function readAstroRouting(
       continue;
     }
     if (!/\bi18n\s*:/.test(text) || /\brouting\s*:\s*['"]manual['"]/.test(text)) return undefined;
-    const all = /\bprefixDefaultLocale\s*:\s*true\b/.test(text);
-    return { mode: all ? 'prefix-all' : 'prefix-except-source', file };
+    if (/\bprefixDefaultLocale\s*:\s*true\b/.test(text)) return { mode: 'prefix-all', file };
+    // another language at the root is a url no Verbaly mode writes: the integration keeps one
+    const atRoot = /\bdefaultLocale\s*:\s*['"]([^'"]+)['"]/.exec(text)?.[1];
+    return atRoot && atRoot !== source ? undefined : { mode: 'prefix-except-source', file };
   }
   return undefined;
 }
@@ -217,7 +220,7 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     const named = configFile ? readRoutingChoice(cfg.root, configFile) : false;
     // the rule @verbaly/astro applies: Astro's i18n replaces no-prefix, a prefix mode stays
     const replaced = cfg.host === 'astro' && cfg.routing === 'no-prefix';
-    const astro = replaced ? readAstroRouting(cfg.root) : undefined;
+    const astro = replaced ? readAstroRouting(cfg.root, cfg.sourceLocale) : undefined;
     if (astro && named) {
       warn(
         'routing',

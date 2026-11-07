@@ -24,6 +24,16 @@ function raw(over: Partial<Parameters<typeof toPanel>[0]> = {}) {
   };
 }
 
+describe('a language named __proto__', () => {
+  it('shows its translations, as the answer that carries them does', () => {
+    const answer = JSON.parse(
+      '{"locales":["en","__proto__"],"catalogs":{"en":{"hi":"Hi"},"__proto__":{"hi":"Hola"}}}',
+    );
+    const [row] = toPanel(raw({ ...answer, drafts: {}, triage: {} })).rows;
+    expect(row!.cells[0]).toMatchObject({ locale: '__proto__', text: 'Hola', state: 'done' });
+  });
+});
+
 describe('the state of a cell, which is what the whole screen is coloured by', () => {
   const panel = toPanel(raw());
   const row = (key: string) => panel.rows.find((r) => r.key === key)!;

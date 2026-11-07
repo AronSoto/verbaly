@@ -14,6 +14,17 @@ import { resolveConfig } from '../src/config/config';
 import { collectParams, renderParamType } from '../src/emit/params';
 
 describe('generateRuntimeModule', () => {
+  it('writes a locale named __proto__ as a loader of its own, never as the prototype', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: 'es',
+      locales: ['es', '__proto__'],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toContain('["__proto__"]: () => import(');
+    expect(code).not.toContain('"__proto__": () =>');
+  });
+
   it('inlines source and lazy-loads the rest', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),

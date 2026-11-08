@@ -6,12 +6,12 @@
     "url": "https://github.com/AronSoto/verbaly",
     "source": "github"
   },
-  "version": "0.80.0",
+  "version": "0.81.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@verbaly/mcp",
-      "version": "0.80.0",
+      "version": "0.81.0",
       "transport": {
         "type": "stdio"
       }

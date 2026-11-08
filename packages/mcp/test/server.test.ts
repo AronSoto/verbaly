@@ -545,9 +545,38 @@ describe('createVerbalyMcp: the onboarding half of the cycle', () => {
     const client = await connect(root);
     const applied = structured(
       await client.callTool({ name: 'verbaly_wrap', arguments: { write: true } }),
-    ) as { blocked: Array<{ file: string; texts: number; client: boolean }> };
-    expect(applied.blocked).toEqual([{ file: 'src/Page.jsx', texts: 1, client: true }]);
+    ) as { blocked: Array<{ file: string; texts: number; client: boolean; binding: string }> };
+    expect(applied.blocked).toEqual([
+      {
+        file: 'src/Page.jsx',
+        texts: 1,
+        client: true,
+        binding: 'in the component: `const t = useT()` from @verbaly/react',
+      },
+    ]);
     expect(readFileSync(join(root, 'src', 'Page.jsx'), 'utf8')).toContain('<p>Hello there</p>');
+  });
+
+  it('wrap tells an agent where t comes from in this project, and "use client" only in Next', async () => {
+    const root = makeProject();
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { vue: '^3.5.0' } }));
+    writeFileSync(join(root, 'src', 'Hello.jsx'), 'export const Hello = () => <p>Hi friend</p>;\n');
+    const client = await connect(root);
+    const reply = await client.callTool({ name: 'verbaly_wrap', arguments: {} });
+    const data = structured(reply) as { blocked: Array<{ file: string; binding: string }> };
+    expect(data.blocked).toEqual([
+      {
+        file: 'src/Hello.jsx',
+        texts: 1,
+        client: false,
+        binding: 'in the component: `const t = useT()` from @verbaly/vue',
+      },
+    ]);
+    const text = resultText(reply);
+    expect(text).toContain(
+      'src/Hello.jsx  1 text, in the component: `const t = useT()` from @verbaly/vue',
+    );
+    expect(text).not.toContain('use client');
   });
 });
 

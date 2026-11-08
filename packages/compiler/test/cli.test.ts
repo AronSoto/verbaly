@@ -314,6 +314,30 @@ describe('runCli: wrap', () => {
     expect(output(log)).not.toContain('getT()');
   });
 
+  it('sends a component to the adapter the project depends on, Vue included', async () => {
+    const shapes: [Record<string, string>, string][] = [
+      [{ vue: '^3.5.0', vite: '^8.0.0' }, 'from @verbaly/vue'],
+      [{ nuxt: '^4.0.0' }, 'from @verbaly/vue'],
+      [{ astro: '^7.0.0', react: '^19.0.0', vue: '^3.5.0' }, 'from @verbaly/react or @verbaly/vue'],
+      [{ preact: '^11.0.0', vite: '^8.0.0' }, 'from @verbaly/react'],
+      // a workspace app may declare only the adapter, with vue hoisted to the root
+      [{ '@verbaly/vue': '^0.80.0', vite: '^8.0.0' }, 'from @verbaly/vue'],
+      // Svelte writes no JSX, so a .tsx in a Svelte project is React's
+      [{ svelte: '^5.0.0', vite: '^8.0.0' }, 'from @verbaly/react'],
+    ];
+    for (const [dependencies, adapter] of shapes) {
+      log.mockClear();
+      const root = makeProject({ en: {} });
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies }));
+      mkdirSync(join(root, 'src'), { recursive: true });
+      writeFileSync(join(root, 'src', 'Hello.tsx'), 'export const x = <h1>Welcome back</h1>;\n');
+      await runCli(['wrap', '--root', root]);
+      const said = output(log);
+      expect(said).toContain(`in the component: \`const t = useT()\` ${adapter}`);
+      if (!adapter.includes('react')) expect(said).not.toContain('@verbaly/react');
+    }
+  });
+
   it('says so when there is nothing to wrap', async () => {
     const root = makeProject({ en: {} }, 'export const x = 1;\n');
     await runCli(['wrap', '--root', root]);

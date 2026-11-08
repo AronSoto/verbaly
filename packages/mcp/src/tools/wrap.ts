@@ -9,7 +9,7 @@ export function registerWrap(server: McpServer, ctx: ToolContext): void {
     {
       title: 'Wrap hardcoded JSX text',
       description:
-        'Find hardcoded user-visible text in JSX/TSX files and wrap it in a t tagged template so the compiler can extract it (what `verbaly wrap` does). This is how an existing codebase is onboarded, and verbaly_extract then adds the wrapped texts to the catalogs. It only reports unless write is set, and text already wrapped is skipped, so running it again is safe. Text it cannot wrap safely (a sentence split across markup, an expression rendering JSX) is listed as needing a human. A file that does not bind t is never written, because the rewrite would not compile. It comes back in blocked, with whether it is a client component, so you can add the binding and run again.',
+        'Find hardcoded user-visible text in JSX/TSX files and wrap it in a t tagged template so the compiler can extract it (what `verbaly wrap` does). This is how an existing codebase is onboarded, and verbaly_extract then adds the wrapped texts to the catalogs. It only reports unless write is set, and text already wrapped is skipped, so running it again is safe. Text it cannot wrap safely (a sentence split across markup, an expression rendering JSX) is listed as needing a human. A file that does not bind t is never written, because the rewrite would not compile. It comes back in blocked, with the binding this project needs there, so you can add it and run again.',
       inputSchema: {
         root: rootInput,
         write: z.boolean().optional().describe('Apply the rewrites instead of only reporting'),
@@ -30,7 +30,14 @@ export function registerWrap(server: McpServer, ctx: ToolContext): void {
         skipped: z.array(
           z.object({ file: z.string(), line: z.number(), text: z.string(), reason: z.string() }),
         ),
-        blocked: z.array(z.object({ file: z.string(), texts: z.number(), client: z.boolean() })),
+        blocked: z.array(
+          z.object({
+            file: z.string(),
+            texts: z.number(),
+            client: z.boolean(),
+            binding: z.string().describe('What to add so t is in scope, for this framework'),
+          }),
+        ),
       },
       annotations: writes(true),
     },
@@ -60,8 +67,7 @@ export function registerWrap(server: McpServer, ctx: ToolContext): void {
           `  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`,
         );
         for (const entry of result.blocked) {
-          const how = entry.client ? '"use client", so const t = useT()' : 'no "use client"';
-          lines.push(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${how}`);
+          lines.push(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${entry.binding}`);
         }
         lines.push('  next: bind t there, run verbaly_wrap with write again, then verbaly_extract');
       } else if (write && done.length > 0) {

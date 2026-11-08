@@ -13,7 +13,8 @@ export interface HostSetup {
   wire: string;
 }
 
-const HOSTS: (HostSetup & { dep: string })[] = [
+// a bundler serves any UI library, so the adapter in its install line is the project's own
+const HOSTS: (HostSetup & { dep: string; bundler?: true })[] = [
   {
     name: 'nuxt',
     dep: 'nuxt',
@@ -44,6 +45,7 @@ const HOSTS: (HostSetup & { dep: string })[] = [
   },
   {
     name: 'vite',
+    bundler: true,
     dep: 'vite',
     pkg: '@verbaly/vite',
     install: ['verbaly', '@verbaly/vite'],
@@ -51,6 +53,7 @@ const HOSTS: (HostSetup & { dep: string })[] = [
   },
   {
     name: 'webpack',
+    bundler: true,
     dep: 'webpack',
     pkg: '@verbaly/unplugin',
     install: ['verbaly', '@verbaly/unplugin'],
@@ -58,6 +61,7 @@ const HOSTS: (HostSetup & { dep: string })[] = [
   },
   {
     name: 'rspack',
+    bundler: true,
     dep: '@rspack/core',
     pkg: '@verbaly/unplugin',
     install: ['verbaly', '@verbaly/unplugin'],
@@ -65,6 +69,7 @@ const HOSTS: (HostSetup & { dep: string })[] = [
   },
   {
     name: 'rollup',
+    bundler: true,
     dep: 'rollup',
     pkg: '@verbaly/unplugin',
     install: ['verbaly', '@verbaly/unplugin'],
@@ -72,6 +77,7 @@ const HOSTS: (HostSetup & { dep: string })[] = [
   },
   {
     name: 'esbuild',
+    bundler: true,
     dep: 'esbuild',
     pkg: '@verbaly/unplugin',
     install: ['verbaly', '@verbaly/unplugin'],
@@ -96,9 +102,29 @@ export function readDependencies(root: string): Record<string, string> {
   }
 }
 
+// each adapter, and what in package.json says the project renders with its library
+const ADAPTERS: [string, string[]][] = [
+  ['@verbaly/react', ['react', 'preact', '@verbaly/react']],
+  ['@verbaly/vue', ['vue', 'nuxt', '@verbaly/vue']],
+  ['@verbaly/svelte', ['svelte', '@sveltejs/kit', '@verbaly/svelte']],
+];
+
+function adaptersIn(deps: Record<string, string>): string[] {
+  return ADAPTERS.filter(([, libs]) => libs.some((lib) => deps[lib])).map(([adapter]) => adapter);
+}
+
+// where a component takes useT from: none when the project declares no UI library
+export function componentAdapters(root: string): string[] {
+  return adaptersIn(readDependencies(root));
+}
+
 export function detectHost(root: string): HostSetup | undefined {
   const deps = readDependencies(root);
-  return HOSTS.find((host) => deps[host.dep]);
+  const host = HOSTS.find((entry) => deps[entry.dep]);
+  if (!host?.bundler) return host;
+  // the adapter goes after the runtime, where the adapter READMEs write it
+  const install = [...host.install.slice(0, 1), ...adaptersIn(deps), ...host.install.slice(1)];
+  return { ...host, install };
 }
 
 export type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';

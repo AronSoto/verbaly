@@ -5,6 +5,7 @@ import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
 import { cleanJsxText, isTReference, walk, type AstNode } from './analyze';
 import type { ResolvedConfig } from '../config/config';
+import { componentAdapters } from '../config/host';
 
 export interface WrapEntry {
   file: string;
@@ -26,6 +27,8 @@ export interface WrapBlocked {
   file: string;
   texts: number;
   client: boolean;
+  // what to add so t is in scope, written for this project's framework and adapter
+  binding: string;
 }
 
 export interface WrapResult {
@@ -50,6 +53,23 @@ const T_NAMES: ReadonlySet<string> = new Set(['t']);
 const LETTER = /\p{L}/u;
 const WHITESPACE = /\s/;
 
+// JSX renders with React unless the project's library is Vue, and Svelte writes none
+const JSX_ADAPTERS: ReadonlySet<string> = new Set(['@verbaly/react', '@verbaly/vue']);
+
+function jsxAdapters(root: string): string[] {
+  const named = componentAdapters(root).filter((adapter) => JSX_ADAPTERS.has(adapter));
+  return named.length > 0 ? named : ['@verbaly/react'];
+}
+
+// only Next splits a component into server and client; elsewhere a component reads the hook
+function bindingFor(cfg: ResolvedConfig, adapters: () => string[], client: boolean): string {
+  if (cfg.host !== 'next')
+    return `in the component: \`const t = useT()\` from ${adapters().join(' or ')}`;
+  const onClient = '`const t = useT()` from @verbaly/next/client';
+  if (client) return `"use client", so ${onClient}`;
+  return `no "use client": a Server Component takes \`const t = await getT()\` from @verbaly/next/server, a client one ${onClient}`;
+}
+
 // onboarding codemod: errs on skipping, never on inventing (ambiguous goes to the report)
 export async function wrapProject(
   cfg: ResolvedConfig,
@@ -66,6 +86,9 @@ export async function wrapProject(
     skipped: [],
     blocked: [],
   };
+  // read package.json once, and only when a file outside Next needs the hint
+  let found: string[] | undefined;
+  const adapters = (): string[] => (found ??= jsxAdapters(cfg.root));
 
   for (const file of files) {
     const code = readFileSync(file, 'utf8');
@@ -77,7 +100,8 @@ export async function wrapProject(
     result.changed.push(label);
     // writing a t call into a file with no t is how wrap left 32 files uncompilable
     if (!out.hasT) {
-      result.blocked.push({ file: label, texts: out.wrapped.length, client: out.client });
+      const binding = bindingFor(cfg, adapters, out.client);
+      result.blocked.push({ file: label, texts: out.wrapped.length, client: out.client, binding });
       continue;
     }
     if (options.write) writeFileSync(file, out.code);

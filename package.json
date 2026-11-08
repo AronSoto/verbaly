@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "release": "pnpm build && pnpm -r publish --access public --no-git-checks",
-    "first-contact": "node scripts/first-contact.mjs"
+    "first-contact": "node scripts/first-contact.mjs",
+    "starters": "node scripts/starters.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -23,7 +24,7 @@
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",
-    "tsdown": "^0.23.5",
+    "tsdown": "^0.23.7",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.72.1",
     "unrun": "^0.3.1",

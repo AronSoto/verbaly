@@ -272,6 +272,13 @@ describe('doctor', () => {
     expect(fix).toBe(
       'npm install verbaly @verbaly/next @verbaly/react, then wrap the export of next.config with withVerbaly',
     );
+
+    // a bundler serves any UI library, so the line takes the adapter this one needs, like init
+    const vue = makeProject({ pkg: { dependencies: { vue: '^3.5.0', vite: '^8.0.0' } } });
+    writeFileSync(join(vue.root, 'pnpm-lock.yaml'), '');
+    expect(entry((await doctor(vue)).entries, 'plugin')?.fix).toBe(
+      'pnpm add verbaly @verbaly/vue @verbaly/vite, then add verbaly() to the plugins in vite.config',
+    );
   });
 
   it('looks for the types where the framework keeps them, and names its command', async () => {

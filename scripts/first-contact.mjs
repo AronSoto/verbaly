@@ -1,11 +1,9 @@
 // the first ten minutes: install as the docs teach, then run the commands we tell people to run
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { pack, root, tryRun } from './tarballs.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGES = ['core', 'compiler', 'vite'];
 
 // two questions, two sources: the registry answers bin linking, the tarballs answer this build
@@ -22,34 +20,8 @@ const SHAPES = [
 const CONFIG = JSON.stringify({ dir: 'locales', sourceLocale: 'es', locales: ['es'] });
 const SOURCE = 'export const greet = (name) => t`Hola ${name}`;\n';
 
-// one string: a shell joins args without quoting them, and a user folder can hold a space
-function run(cmd, args, cwd) {
-  const line = [cmd, ...args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg))].join(' ');
-  return execFileSync(line, { cwd, encoding: 'utf8', stdio: 'pipe', shell: true });
-}
-
-function tryRun(cmd, args, cwd) {
-  try {
-    return { ok: true, out: run(cmd, args, cwd) };
-  } catch (error) {
-    return { ok: false, out: `${error.stdout ?? ''}${error.stderr ?? ''}` };
-  }
-}
-
 function available(pm) {
   return tryRun(pm, ['--version'], root).ok;
-}
-
-function pack(destination) {
-  const tarballs = {};
-  for (const name of PACKAGES) {
-    const dir = join(root, 'packages', name);
-    if (!existsSync(join(dir, 'dist')))
-      throw new Error(`run pnpm build first: ${name} has no dist`);
-    const out = run('pnpm', ['pack', '--pack-destination', destination], dir);
-    tarballs[name] = out.trim().split(/\r?\n/).pop();
-  }
-  return tarballs;
 }
 
 function fixture(tarballs, shape, pm) {
@@ -112,7 +84,7 @@ const managers = (requested.length > 0 ? requested : ['pnpm', 'npm']).filter((pm
 });
 
 const packed = mkdtempSync(join(tmpdir(), 'verbaly-tarballs-'));
-const tarballs = pack(packed);
+const tarballs = pack(packed, PACKAGES);
 console.log(`[verbaly] first contact: ${managers.join(', ')}\n`);
 
 let failed = false;

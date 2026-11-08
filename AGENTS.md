@@ -23,7 +23,7 @@ pnpm --filter <package> test   # one package
 - `packages/mcp/src/tools/`: one file per tool, registered in the order of the cycle by `server.ts`.
 - `changelog/CHANGELOG.md`: one entry per version, newest first.
 - `skills/verbaly/SKILL.md`: the Agent Skill Verbaly ships to its users, not instructions for working on this repo.
-- `scripts/`: the test runner, the first-contact check and the lint rule for comments.
+- `scripts/`: the test runner, the lint rule for comments, and two checks that need the network and run at release, never in CI: `pnpm first-contact` (an install from nothing) and `pnpm starters` (each framework's official starter, README by README, built and read in two languages).
 
 | Folder                               | Package                                             | What it is                                                                                            |
 | ------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |

@@ -11,7 +11,7 @@
 
 ---
 
-Server-rendered pages arrive already translated in the visitor's language (cookie first, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
+Server-rendered pages arrive already translated in the visitor's language (the address first when your URLs carry it, then the cookie, then `Accept-Language`, then your fallback) and the client hydrates with the **same locale and the same catalog**, so there's no flash of untranslated text and no hydration mismatch. Each request gets its **own instance**: no locale leaking between concurrent users.
 
 ## 🚀 Install
 
@@ -137,7 +137,7 @@ export const load = async ({ data }) => ({
 
 - **`routing` decides whether the URL is consulted.** With `prefix-except-source`, a prefixed URL is the answer and an unprefixed one means your source language, so a saved choice can never translate your source tree. Without `routing`, only the cookie and the header are read.
 - `cookie: false` disables cookie reading/writing (pure `Accept-Language`).
-- No dependency on `@sveltejs/kit`: the hook is typed structurally and stays compatible across Kit 2.x.
+- No dependency on `@sveltejs/kit`: the hook is typed structurally and stays compatible with SvelteKit 2 and 3.
 
 ## 📚 Docs
 

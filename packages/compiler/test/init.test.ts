@@ -216,4 +216,29 @@ describe('the install line init prints', () => {
     const fromNpm = await init({ root: npm });
     expect(fromNpm.next[0]).toBe('npm install verbaly @verbaly/nuxt @verbaly/vue');
   });
+
+  it('takes the adapter of the UI library a bundler project declares, as that README does', async () => {
+    const shapes: [Record<string, string>, string][] = [
+      [{ vue: '^3.5.0', vite: '^8.0.0' }, 'pnpm add verbaly @verbaly/vue @verbaly/vite'],
+      [{ react: '^19.0.0', vite: '^8.0.0' }, 'pnpm add verbaly @verbaly/react @verbaly/vite'],
+      [{ svelte: '^5.0.0', vite: '^8.0.0' }, 'pnpm add verbaly @verbaly/svelte @verbaly/vite'],
+      [
+        { preact: '^11.0.0', webpack: '^5.0.0' },
+        'pnpm add verbaly @verbaly/react @verbaly/unplugin',
+      ],
+      [{ vite: '^8.0.0' }, 'pnpm add verbaly @verbaly/vite'],
+      // the Astro README installs no adapter: an island renders on the server with no provider
+      [{ astro: '^7.0.0', react: '^19.0.0' }, 'pnpm add verbaly @verbaly/astro'],
+      [
+        { vue: '^3.5.0', '@verbaly/vue': '^0.80.0', vite: '^8.0.0' },
+        'pnpm add verbaly @verbaly/vite',
+      ],
+    ];
+    for (const [dependencies, line] of shapes) {
+      const root = makeRoot();
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies }));
+      writeFileSync(join(root, 'pnpm-lock.yaml'), '');
+      expect((await init({ root })).next[0]).toBe(line);
+    }
+  });
 });

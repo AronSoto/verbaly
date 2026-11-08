@@ -158,7 +158,14 @@ describe('wrapProject', () => {
     // the reported failure: 149 texts written across 32 files, none of which declared t
     const root = makeProject('export const x = <h1>Welcome back</h1>;\n');
     const result = await wrapProject(resolveConfig({ root }), { write: true });
-    expect(result.blocked).toEqual([{ file: 'src/App.tsx', texts: 1, client: false }]);
+    expect(result.blocked).toEqual([
+      {
+        file: 'src/App.tsx',
+        texts: 1,
+        client: false,
+        binding: 'in the component: `const t = useT()` from @verbaly/react',
+      },
+    ]);
     expect(readFileSync(join(root, 'src', 'App.tsx'), 'utf8')).toContain('<h1>Welcome back</h1>');
   });
 

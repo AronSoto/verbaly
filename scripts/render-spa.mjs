@@ -17,9 +17,13 @@ const html = readFileSync(join(dist, 'index.html'), 'utf8');
 const entry = /<script type="module"[^>]*\ssrc="\/?([^"]+)"/.exec(html)?.[1];
 if (!entry) throw new Error(`no module script in ${join(dist, 'index.html')}`);
 
-const window = new Window({ url: 'http://localhost/' });
+// the page keeps its script tags, as a browser has them, and loads none: the entry comes below
+const window = new Window({
+  url: 'http://localhost/',
+  settings: { disableJavaScriptFileLoading: true, handleDisabledFileLoadingAsSuccess: true },
+});
 if (saved) window.localStorage.setItem(LOCALE_STORAGE_KEY, saved);
-window.document.write(html.replace(/<script[\s\S]*?<\/script>/g, ''));
+window.document.write(html);
 // what a bundle reaches for as a global in a browser, taken from the window that holds the page
 for (const key of Object.getOwnPropertyNames(window)) {
   if (!(key in globalThis)) globalThis[key] = window[key];

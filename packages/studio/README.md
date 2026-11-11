@@ -71,7 +71,7 @@ keep in step. Every answer is JSON, including the errors, which are `{ "error": 
 | `GET /api/state`                | the whole project: config, catalogs, origins, status, check, drafts, triage and problems                    |
 | `GET /api/health`               | what `verbaly doctor` reports                                                                               |
 | `GET /api/commit/:key`          | the commit that last changed that message, or why there is none                                             |
-| `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }`                                    |
+| `PUT /api/message/:locale/:key` | write a translation **and clear its draft flag**; body `{ "text": "…" }`, answered with the text it stored  |
 | `POST /api/approve`             | approve drafts; body `{ "locale": "es", "keys": ["…"] }`, and the whole locale when `keys` is omitted       |
 | `POST /api/extract`             | read your code and add what your catalogs do not have; answers in the request, because it is local and free |
 | `GET /api/translate`            | **the bill**: how many messages and in which languages, without calling the provider                        |

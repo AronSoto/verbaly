@@ -113,8 +113,13 @@ describe('transformCode <Trans>', () => {
 });
 
 describe('transformCode: the id it writes on a Trans is the key it read', () => {
-  it.each(['say "hi"', 'a\b', 'plain.key'])('round-trips %s', (key) => {
-    const code = `export const A = () => <Trans id={${JSON.stringify(key)}}>Hello</Trans>;\n`;
+  // each case is written out: the key, and the jsx a person would type for it
+  it.each([
+    ['say "hi"', `{'say "hi"'}`],
+    ['a\\b', `{'a\\\\b'}`],
+    ['plain.key', `"plain.key"`],
+  ])('round-trips %s', (key, written) => {
+    const code = `export const A = () => <Trans id=${written}>Hello</Trans>;\n`;
     expect(analyze(code, 'a.tsx').tagged[0]?.key).toBe(key);
     const out = transformCode(code, 'a.tsx')!.code;
     const again = analyze(out, 'a.tsx');

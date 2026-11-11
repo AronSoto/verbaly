@@ -1507,3 +1507,77 @@ describe('runCli: nothing is lost or hidden in silence (0.67.0)', () => {
     await expect(runCli(['check', '--root', root, '--drafts'])).rejects.toThrow(/not valid JSON/);
   });
 });
+
+describe('a locale flag names a language the project has', () => {
+  const withDraft = (): string => {
+    const root = makeProject({ en: { hi: 'Hi' }, es: { hi: 'Hola' } });
+    writeFileSync(
+      join(root, 'verbaly.lock'),
+      JSON.stringify({ version: 1, drafts: { es: ['hi'] } }),
+    );
+    return root;
+  };
+
+  it('stops review --locale on a typo, so a pending draft never reads as nothing to review', async () => {
+    const root = withDraft();
+    await runCli(['review', '--root', root, '--locale', 'ess', '--approve']);
+    expect(process.exitCode).toBe(1);
+    expect(output(error)).toContain('--locale names "ess", and this project has en, es');
+    expect(output(log)).not.toContain('nothing awaiting review');
+    expect(readState(root).drafts).toEqual({ es: ['hi'] });
+  });
+
+  it.each(['translate', 'extract', 'status', 'check'])(
+    'stops %s --locales on a typo before it can read or start a catalog for it',
+    async (command) => {
+      const root = withDraft();
+      await runCli([command, '--root', root, '--locales', 'es,ess']);
+      expect(process.exitCode).toBe(1);
+      expect(output(error)).toContain('--locales names "ess", and this project has en, es');
+      expect(output(error)).toContain('create locales/ess.json holding {} to start');
+      expect(existsSync(join(root, 'locales', 'ess.json'))).toBe(false);
+    },
+  );
+
+  it('says to add it to the config when the project wrote its list down', async () => {
+    const root = withDraft();
+    writeFileSync(join(root, 'verbaly.config.json'), '{ "locales": ["es"] }');
+    await runCli(['status', '--root', root, '--locales', 'fr']);
+    expect(output(error)).toContain('add fr to locales in your verbaly config');
+  });
+
+  it('still narrows to the languages the project has, and init still creates the ones named', async () => {
+    const root = withDraft();
+    await runCli(['review', '--root', root, '--locale', 'es']);
+    expect(output(log)).toContain('1 machine translation awaiting review');
+    await runCli([
+      'init',
+      '--root',
+      mkdtempSync(join(tmpdir(), 'verbaly-cli-')),
+      '--locales',
+      'fr',
+    ]);
+    expect(process.exitCode).toBeUndefined();
+  });
+});
+
+describe('what the CLI says before it reads anything', () => {
+  it('names an unknown command even when the config cannot be read', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-cli-'));
+    writeFileSync(join(root, 'verbaly.config.json'), '{ not json');
+    await runCli(['frobnicate', '--root', root]);
+    expect(output(error)).toContain('unknown command "frobnicate"');
+    expect(process.exitCode).toBe(1);
+  });
+});
+
+describe('migrate --plurals counts the messages that are left', () => {
+  it('lists a merged plural once, not its two forms and then their merge', async () => {
+    const root = makeProject({ en: { item_one: '{{count}} item', item_other: '{{count}} items' } });
+    writeFileSync(join(root, 'package.json'), '{"dependencies":{"i18next":"^23.0.0"}}');
+    await runCli(['migrate', '--root', root, '--plurals']);
+    expect(output(log)).toContain('would port 1 message from');
+    expect(output(log)).toContain('item_one + item_other → {count | one: # item | other: # items}');
+    expect(output(log)).not.toContain('{{count}} item →');
+  });
+});

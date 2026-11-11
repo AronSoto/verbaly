@@ -74,7 +74,7 @@
     "esbuild": "^0.28.2",
     "fast-check": "^4.10.2",
     "happy-dom": "^21.0.4",
-    "i18next": "^26.7.2",
+    "i18next": "^27.1.0",
     "tinybench": "^6.2.3"
   },
   "scripts": {

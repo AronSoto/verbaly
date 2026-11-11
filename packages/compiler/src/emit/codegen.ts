@@ -5,7 +5,7 @@ import type { ResolvedConfig } from '../config/config';
 import { withLineEndings } from '../util/eol';
 import { APP_ID, LOCALE_IMPORT, VIRTUAL_ID } from '../util/ids';
 import { collectParams, renderParamType } from './params';
-import { byCodeUnit } from '../util/text';
+import { byCodeUnit, singleQuoted } from '../util/text';
 import { includeTypes } from '../config/tsconfig';
 import { warnOnce } from '../util/warn';
 
@@ -49,7 +49,7 @@ export function generateRuntimeModule(
   const others = cfg.locales.filter((locale) => locale !== cfg.sourceLocale);
   const src = JSON.stringify(cfg.sourceLocale);
   const loaders = others
-    .map((locale) => `  ${loaderKey(locale)}: () => import('${importPath(locale)}'),`)
+    .map((locale) => `  ${loaderKey(locale)}: () => import(${singleQuoted(importPath(locale))}),`)
     .join('\n');
 
   // named in the import list only when a catalog uses them, so otherwise they tree-shake out
@@ -65,7 +65,7 @@ export function generateRuntimeModule(
   persistLocale,
   switchLocale as runSwitch${icu}${rel}${slice},
 } from 'verbaly';
-import source from '${importPath(cfg.sourceLocale)}';
+import source from ${singleQuoted(importPath(cfg.sourceLocale))};
 
 export const sourceLocale = ${src};
 export const locales = ${JSON.stringify(cfg.locales)};

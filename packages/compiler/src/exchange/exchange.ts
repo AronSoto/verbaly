@@ -2,9 +2,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { emptyCatalog, own, type Catalogs } from '../catalog/catalog';
 import { targetLocales, type ResolvedConfig } from '../config/config';
-import { escapeXml, inlineToMessage, messageToInline, unescapeXml } from './inline';
+import { escapeXml, inlineToMessage, messageToInline } from './inline';
 import { androidValuesDir, toAndroidXml, toIosStrings } from './mobile';
 import { parsePo, toPo } from './po';
+import { decodeEntities, readAttributes, TAG_REST } from '../util/markup';
 import { isLocaleTag, projectLocale, suggestTag } from '../util/tag';
 import { structureMatches } from './translate';
 
@@ -283,24 +284,33 @@ function newLocale(cfg: ResolvedConfig, detected: string): string | undefined {
   return isLocaleTag(detected) ? detected : suggestTag(detected);
 }
 
+const UNIT = `<(?:trans-)?unit\\b(${TAG_REST})>([\\s\\S]*?)</(?:trans-)?unit>`;
+const TARGET = new RegExp(`<target\\b${TAG_REST}>([\\s\\S]*?)</target>`);
+const SOURCE = new RegExp(`<source\\b${TAG_REST}>([\\s\\S]*?)</source>`);
+
+// the first start tag of that name: 2.0 names the language on <xliff>, 1.2 on <file>
+function tagAttribute(content: string, tag: string, name: string): string | undefined {
+  const open = new RegExp(`<${tag}\\b(${TAG_REST})>`).exec(content);
+  return (open && readAttributes(open[1]!).get(name)?.value) || undefined;
+}
+
 function parseXliff(content: string): {
   locale?: string;
   entries: Record<string, string>;
   sources: Record<string, string>;
 } {
-  const locale =
-    /\btrgLang\s*=\s*"([^"]+)"/.exec(content)?.[1] ??
-    /\btarget-language\s*=\s*"([^"]+)"/.exec(content)?.[1];
+  const head = (name: string): string | undefined =>
+    tagAttribute(content, 'xliff', name) ?? tagAttribute(content, 'file', name);
+  const locale = head('trgLang') ?? head('target-language');
   const entries = Object.create(null) as Record<string, string>;
   const sources = Object.create(null) as Record<string, string>;
-  const UNIT = /<(?:trans-)?unit\b([^>]*)>([\s\S]*?)<\/(?:trans-)?unit>/g;
-  for (const match of content.matchAll(UNIT)) {
-    const id = /\bid\s*=\s*"([^"]*)"/.exec(match[1]!)?.[1];
+  for (const match of content.matchAll(new RegExp(UNIT, 'g'))) {
+    const id = readAttributes(match[1]!).get('id')?.value;
     if (!id) continue;
-    const target = /<target\b[^>]*>([\s\S]*?)<\/target>/.exec(match[2]!)?.[1];
-    entries[unescapeXml(id)] = target === undefined ? '' : inlineToMessage(stripCdata(target));
-    const source = /<source\b[^>]*>([\s\S]*?)<\/source>/.exec(match[2]!)?.[1];
-    if (source !== undefined) sources[unescapeXml(id)] = inlineToMessage(stripCdata(source));
+    const target = TARGET.exec(match[2]!)?.[1];
+    entries[decodeEntities(id)] = target === undefined ? '' : inlineToMessage(stripCdata(target));
+    const source = SOURCE.exec(match[2]!)?.[1];
+    if (source !== undefined) sources[decodeEntities(id)] = inlineToMessage(stripCdata(source));
   }
   return { locale, entries, sources };
 }
@@ -326,7 +336,7 @@ function parseCsv(content: string): {
   entries: Record<string, string>;
   sources: Record<string, string>;
 } {
-  const rows = csvRows(content);
+  const rows = csvRows(content, csvSeparator(content));
   const header = rows[0]?.map((cell) => cell.trim().toLowerCase()) ?? [];
   const keyCol = header.indexOf('key');
   const targetCol = header.indexOf('target');
@@ -346,7 +356,19 @@ function parseCsv(content: string): {
   return { entries, sources };
 }
 
-function csvRows(content: string): string[][] {
+// a spreadsheet saves with the list separator of its region: ; where the comma marks decimals
+function csvSeparator(content: string): string {
+  let quoted = false;
+  const seen = new Set<string>();
+  for (const char of content) {
+    if (char === '"') quoted = !quoted;
+    else if (!quoted && (char === '\n' || char === '\r')) break;
+    else if (!quoted) seen.add(char);
+  }
+  return seen.has(',') ? ',' : seen.has(';') ? ';' : seen.has('\t') ? '\t' : ',';
+}
+
+function csvRows(content: string, separator: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
@@ -366,7 +388,7 @@ function csvRows(content: string): string[][] {
       }
     } else if (char === '"') {
       quoted = true;
-    } else if (char === ',') {
+    } else if (char === separator) {
       row.push(field);
       field = '';
     } else if (char === '\n' || char === '\r') {

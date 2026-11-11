@@ -17,6 +17,7 @@ const FALLBACK_MODELS = new Set([
   'claude-opus-5-5',
   'claude-opus-5',
   'claude-fable-5-1',
+  'claude-fable-5-2',
 ]);
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 

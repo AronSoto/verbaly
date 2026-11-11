@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { counted, wrapProject } from '@verbaly/compiler';
+import { counted, formatWrapResult, wrapProject } from '@verbaly/compiler';
 import { z } from 'zod';
 import { reply, rootInput, writes, type ToolContext } from './shared';
 
@@ -44,33 +44,13 @@ export function registerWrap(server: McpServer, ctx: ToolContext): void {
     ctx.guarded(async ({ root, write }) => {
       const cfg = await ctx.config(root);
       const result = await wrapProject(cfg, { write });
-      const blocked = new Set(result.blocked.map((entry) => entry.file));
-      const done = result.changed.filter((file) => !blocked.has(file));
-      const texts = result.wrapped.filter((entry) => !blocked.has(entry.file));
-      const verb = write ? 'wrapped' : 'would wrap';
-      const counts = write
-        ? `${counted(texts.length, 'text')} in ${counted(done.length, 'file')}`
-        : `${counted(result.wrapped.length, 'text')} in ${counted(result.changed.length, 'file')}`;
-      const lines = [`${verb} ${counts} of ${counted(result.files, 'file')} scanned`];
-      for (const entry of write ? texts : result.wrapped) {
-        const attr = entry.kind === 'attribute' ? `${entry.attribute} -> ` : '';
-        lines.push(`  ${entry.file}:${entry.line}  ${attr}"${entry.text}"`);
-      }
-      if (result.skipped.length > 0) {
-        lines.push('  needs a human:');
-        for (const entry of result.skipped) {
-          lines.push(`  ${entry.file}:${entry.line}  "${entry.text}" (${entry.reason})`);
-        }
-      }
+      // the compiler's words, the ones the CLI prints: a total a write would not keep misleads
+      const report = formatWrapResult(result, write === true);
+      const scanned = `, of ${counted(result.files, 'file')} scanned`;
+      const lines = [`${report.counts}${scanned}`, ...report.lines];
       if (result.blocked.length > 0) {
-        lines.push(
-          `  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`,
-        );
-        for (const entry of result.blocked) {
-          lines.push(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${entry.binding}`);
-        }
         lines.push('  next: bind t there, run verbaly_wrap with write again, then verbaly_extract');
-      } else if (write && done.length > 0) {
+      } else if (write && report.files > 0) {
         lines.push('  next: run verbaly_extract');
       }
       return reply(lines.join('\n'), { ...result, write: write === true });

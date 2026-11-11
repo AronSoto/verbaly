@@ -3,7 +3,13 @@ import type { TaggedMessage } from '../scan/analyze';
 import type { ResolvedConfig } from '../config/config';
 import type { ReplacedText } from '../scan/extract';
 import type { MessageRegistry } from '../scan/registry';
-import type { LockEntry, OutdatedEntry } from '../catalog/state';
+import type { Catalogs } from '../catalog/catalog';
+import {
+  outdatedTranslations,
+  type LockEntry,
+  type OutdatedEntry,
+  type State,
+} from '../catalog/state';
 import { counted, truncate } from '../util/text';
 import { escapedSyntax, inlineBlock, shownSlice } from './validate';
 
@@ -177,9 +183,23 @@ function findingId(finding: Finding): string {
   }
 }
 
+// what a dev write-back hands its reporter: syncProject's result, or the part of it that speaks
+export interface DevSync {
+  findings: Finding[];
+  catalogs: Catalogs;
+  state?: State;
+  stateProblem?: string;
+}
+
 export interface DevReporter {
   // prints what is new in this channel since its last report, and forgets what went away
   report(channel: string, findings: Finding[]): void;
+  // everything one write-back says; edited judges a text the code wrote over, undefined drops it
+  sync(
+    cfg: ResolvedConfig,
+    result: DevSync,
+    edited: (finding: ReplacedEntry) => boolean | undefined,
+  ): void;
 }
 
 // once per finding, and again only after it went away and came back; a few at a time
@@ -189,21 +209,52 @@ export function createDevReporter(
   cap = 5,
 ): DevReporter {
   const shown = new Map<string, Set<string>>();
+  let stateBroken = false;
+  const report = (channel: string, findings: Finding[]): void => {
+    const before = shown.get(channel) ?? new Set<string>();
+    const now = new Set<string>();
+    const fresh: Finding[] = [];
+    for (const finding of findings) {
+      const id = findingId(finding);
+      if (now.has(id)) continue;
+      now.add(id);
+      if (!before.has(id)) fresh.push(finding);
+    }
+    shown.set(channel, now);
+    for (const finding of fresh.slice(0, cap)) print(formatFinding(finding, root));
+    if (fresh.length > cap)
+      print(`and ${fresh.length - cap} more: \`npx verbaly doctor\` names them`);
+  };
   return {
-    report(channel, findings) {
-      const before = shown.get(channel) ?? new Set<string>();
-      const now = new Set<string>();
-      const fresh: Finding[] = [];
-      for (const finding of findings) {
-        const id = findingId(finding);
-        if (now.has(id)) continue;
-        now.add(id);
-        if (!before.has(id)) fresh.push(finding);
+    report,
+    sync(cfg, result, edited) {
+      const replaced: Finding[] = [];
+      const code: Finding[] = [];
+      const lock: Finding[] = [];
+      for (const finding of result.findings) {
+        if (finding.kind === 'collision' || finding.kind === 'renamed') code.push(finding);
+        else if (finding.kind === 'lock') lock.push(finding);
+        else if (finding.kind === 'replaced') {
+          // only the caller knows whether a person edited the catalog or the code moved on
+          const answer = edited(finding);
+          if (answer !== undefined) replaced.push({ ...finding, edited: answer });
+        }
       }
-      shown.set(channel, now);
-      for (const finding of fresh.slice(0, cap)) print(formatFinding(finding, root));
-      if (fresh.length > cap)
-        print(`and ${fresh.length - cap} more: \`npx verbaly doctor\` names them`);
+      report('replaced', replaced);
+      report('code', code);
+      report('lock', lock);
+      const outdated = result.state
+        ? outdatedTranslations(cfg, result.catalogs, result.state.fingerprints)
+        : [];
+      report(
+        'outdated',
+        outdated.map((entry): Finding => ({ kind: 'outdated', ...entry })),
+      );
+      // a broken lock must not stop a dev server: said once, and again if it breaks after a fix
+      if (result.stateProblem && !stateBroken) {
+        print(`${result.stateProblem}, so drafts are not tracked`);
+      }
+      stateBroken = Boolean(result.stateProblem);
     },
   };
 }

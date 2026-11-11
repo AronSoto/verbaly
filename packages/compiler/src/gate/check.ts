@@ -85,6 +85,24 @@ export function gatePasses(
   );
 }
 
+// what a tool or a panel shows: check() names files by absolute path, a reader wants the project's
+export function relativeCheck(root: string, result: CheckResult): CheckResult {
+  const rel = (file: string): string => relative(root, file).replaceAll('\\', '/');
+  return {
+    ...result,
+    unknown: result.unknown.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
+    extra: result.extra.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
+    collisions: result.collisions.map((entry) => ({
+      ...entry,
+      sites: entry.sites.map((at) => ({ ...at, file: rel(at.file) })),
+    })),
+    divergent: result.divergent.map((entry) => ({
+      ...entry,
+      code: { ...entry.code, file: rel(entry.code.file) },
+    })),
+  };
+}
+
 // every warning list, counted once: the build line and doctor say the same number
 export function warningCount(result: CheckResult): number {
   return (

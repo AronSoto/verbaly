@@ -74,11 +74,11 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
 
     const webpackConfig: WebpackConfigLike = {};
     (config.webpack as (c: WebpackConfigLike, ctx: unknown) => unknown)(webpackConfig, {});
-    expect((webpackConfig.resolve?.alias as Record<string, string>)['virtual:verbaly']).toBe(
+    expect((webpackConfig.resolve!.alias as Record<string, string>)['virtual:verbaly']).toBe(
       join(root, '.verbaly', 'index.js'),
     );
     // exact match ($): a prefix alias would also catch verbaly/app/anything
-    expect((webpackConfig.resolve?.alias as Record<string, string>)[`${APP_ID}$`]).toBe(
+    expect((webpackConfig.resolve!.alias as Record<string, string>)[`${APP_ID}$`]).toBe(
       join(root, '.verbaly', 'index.js'),
     );
     expect(webpackConfig.module?.rules).toHaveLength(1);
@@ -306,7 +306,7 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
       turbopack: { rules: { '*': [{ loaders: ['a'] }, { loaders: ['b'] }] } },
     };
     const config = await withVerbaly(user, { root, ...inline })(BUILD);
-    const star = (config.turbopack?.rules as Record<string, unknown>)['*'] as Array<{
+    const star = (config.turbopack!.rules as Record<string, unknown>)['*'] as Array<{
       loaders: Array<{ loader: string }>;
     }>;
     expect(star).toHaveLength(3);

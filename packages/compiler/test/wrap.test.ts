@@ -175,3 +175,48 @@ describe('wrapProject', () => {
     expect(result.blocked[0]).toMatchObject({ client: true });
   });
 });
+
+describe('wrapCode: t is bound where the text is, or the file waits', () => {
+  const bound = (code: string): boolean => wrapCode(code, 'App.tsx').hasT;
+
+  it('never takes the parameter of a callback for the t of a component beside it', () => {
+    const code = `export function Tabs({ tabs }) {
+  return <div title="All the tabs">{tabs.map((t) => <i key={t.id} />)}<p>Pick a tab</p></div>;
+}
+`;
+    expect(bound(code)).toBe(false);
+  });
+
+  it('never writes t inside a callback whose own parameter is named t', () => {
+    const code = `export function Tabs({ tabs }) {
+  const t = useT();
+  return <ul>{tabs.map((t) => <li key={t.id}>Open this tab</li>)}</ul>;
+}
+`;
+    expect(bound(code)).toBe(false);
+  });
+
+  it('waits when one component of the file binds t and another does not', () => {
+    const code = `export function A() {
+  const t = useT();
+  return <p>First text</p>;
+}
+export function B() {
+  return <p>Second text</p>;
+}
+`;
+    expect(bound(code)).toBe(false);
+  });
+
+  it.each([
+    `import { t } from 'verbaly/app';\nexport const A = () => <p>Hello there</p>;\n`,
+    `const t = useT();\nexport const A = () => <p>Hello there</p>;\n`,
+    `export function A() {\n  const t = useT();\n  return <ul>{[1].map((n) => <li key={n}>Hello there</li>)}</ul>;\n}\n`,
+    `export function Card({ t }) {\n  return <p>Hello there</p>;\n}\n`,
+    `export const Card = memo(({ t }) => <p>Hello there</p>);\n`,
+    `export const row = (t) => <p>Hello there</p>;\n`,
+    `function t() {}\nexport const A = () => <p>Hello there</p>;\n`,
+  ])('writes where t reaches the text: %s', (code) => {
+    expect(bound(code)).toBe(true);
+  });
+});

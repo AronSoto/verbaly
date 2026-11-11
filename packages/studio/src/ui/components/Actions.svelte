@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ACTION, messages } from '../words';
+  import { ACTION, extractNews, messages } from '../words';
   import type { Job, Plan, StudioApi } from '../api';
 
   interface Props {
@@ -33,9 +33,9 @@
     phase = { at: 'finding' };
     const answer = await api.extract();
     if (answer.error || !answer.value) return said(answer.error ?? 'no answer', true);
-    const { found } = answer.value;
-    if (!found) return said(ACTION.nothingNew);
-    const wrote = `${messages(found)} your code uses and your catalogs did not have`;
+    // news means the catalogs changed on disk, a rewritten source text included: read them again
+    const wrote = extractNews(answer.value);
+    if (!wrote) return said(ACTION.nothingNew);
     await onDone(wrote);
     said(wrote);
   }

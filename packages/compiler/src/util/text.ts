@@ -14,6 +14,11 @@ export function trimTrailingSlashes(text: string): string {
   return text.slice(0, end);
 }
 
+// a string literal in single quotes, for the code we write where the rest of it uses them
+export function singleQuoted(text: string): string {
+  return `'${text.replace(/[\\']/g, '\\$&')}'`;
+}
+
 // code unit order: localeCompare follows the machine's language, and two machines would disagree
 export function byCodeUnit(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;

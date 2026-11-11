@@ -2,9 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadCatalogs } from '../src/catalog/catalog';
 import { generateDts, writeDts } from '../src/emit/codegen';
 import { resolveConfig } from '../src/config/config';
 import { doctor, type DoctorEntry } from '../src/project/doctor';
+import { extractProject, shippedCatalogs } from '../src/scan/extract';
 import { stableKey } from '../src/util/key';
 
 const KEY = stableKey('Hola {name}');
@@ -181,6 +183,23 @@ describe('doctor', () => {
     const stale = await doctor(cfg);
     expect(entry(stale.entries, 'types')?.message).toBe('src/verbaly.d.ts is stale');
     expect(entry(stale.entries, 'types')?.fix).toContain('verbaly typegen');
+  });
+
+  const NEW_TEXT = 'const a = t`Hola ${name}`;\nconst b = t`Recién escrito`;\n';
+
+  it('calls the types up to date when typegen wrote a text extract has not seen yet', async () => {
+    const cfg = makeProject({ code: NEW_TEXT, dts: false });
+    // what typegen and every build write: the text that ships, the code's new key included
+    const shipped = shippedCatalogs(cfg, loadCatalogs(cfg), await extractProject(cfg));
+    writeDts(cfg, shipped['es']!);
+    const result = await doctor(cfg);
+    expect(entry(result.entries, 'types')?.message).toBe('src/verbaly.d.ts is up to date');
+  });
+
+  it('calls the types stale when they lack a text the code has, which typegen then adds', async () => {
+    // makeProject writes the types from the catalog alone, as they were before the new text
+    const result = await doctor(makeProject({ code: NEW_TEXT }));
+    expect(entry(result.entries, 'types')?.message).toBe('src/verbaly.d.ts is stale');
   });
 
   it('flags orphan keys with a prune fix', async () => {
@@ -649,7 +668,7 @@ describe('doctor: what 0.67.0 learned to say, as warnings that never fail it', (
     expect(
       sources.some((e) => e.message.includes('tr`…`') && e.message.includes('src/app.ts:5')),
     ).toBe(true);
-    // the mirror of the gate: doctor exits 1 exactly when check would
+    // the mirror of the gate: a collision fails doctor as it fails check
     expect(result.ok).toBe(false);
   });
 

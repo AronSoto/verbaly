@@ -1256,3 +1256,101 @@ describe('a site whose urls never end in /', () => {
     );
   });
 });
+
+describe('renderHtml: an attribute is written where it was read', () => {
+  const mirror = { prefix: '/es', pages: new Set(['/about']) };
+
+  it('leaves an earlier attribute whole when its value spells the name', () => {
+    const { html } = renderHtml('<a title="Use href=#top to jump" href="/about">x</a>', {
+      locale: 'es',
+      catalogs: CATALOGS,
+      sourceLocale: 'en',
+      mirror,
+    });
+    expect(html).toBe('<a title="Use href=#top to jump" href="/es/about">x</a>');
+  });
+
+  it('adds an attribute from the map next to a value that spells its name', () => {
+    const { html } = render(
+      `<input placeholder="a title=b" data-verbaly-attr='{"title":"nav.aria"}'>`,
+    );
+    expect(html).toBe(
+      `<input placeholder="a title=b" data-verbaly-attr='{"title":"nav.aria"}' title="Menú principal">`,
+    );
+  });
+
+  it('sets lang on <html> and not inside a note about it', () => {
+    const { html } = render('<html data-note="set lang=en here"><head></head></html>');
+    expect(html).toBe(
+      '<html data-note="set lang=en here" lang="es" dir="ltr"><head></head></html>',
+    );
+  });
+
+  it('gives an attribute written with no value its value, once', () => {
+    const { html } = render('<html lang><head></head></html>');
+    expect(html).toBe('<html lang="es" dir="ltr"><head></head></html>');
+  });
+
+  it('reads the first of a repeated attribute, as a browser does, and writes that one', () => {
+    const { html } = renderHtml('<a href="/about" href="/other">x</a>', {
+      locale: 'es',
+      catalogs: CATALOGS,
+      sourceLocale: 'en',
+      mirror,
+    });
+    expect(html).toBe('<a href="/es/about" href="/other">x</a>');
+  });
+
+  it('takes a name with a regex character as text, never as a pattern', () => {
+    const page = `<p data-verbaly-attr='{"(":"nav.aria","a.c":"nav.aria"}' abc="kept"></p>`;
+    expect(render(page).html).toBe(
+      page.replace('></p>', ' (="Menú principal" a.c="Menú principal"></p>'),
+    );
+  });
+
+  it('skips a name no tag can carry, says so, and still writes the rest', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const page = `<p data-verbaly-attr='{"title x":"nav.aria","":"nav.aria","title":"nav.aria"}'></p>`;
+      const { html } = render(page);
+      expect(html).toBe(page.replace('></p>', ' title="Menú principal"></p>'));
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'data-verbaly-attr names "title x", which is not an attribute name',
+        ),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('renderHtml: an attribute reads the entities any renderer writes', () => {
+  const page = (args: string): string =>
+    `<p data-verbaly="home.intro" data-verbaly-args="${args}"></p>`;
+
+  it('reads the apostrophe as React writes it', () => {
+    const { html } = render(page('{&quot;name&quot;:&quot;O&#x27;Brien&quot;}'));
+    expect(html).toContain(">Hola O'Brien</p>");
+  });
+
+  it('reads &apos; and a hex entity in capitals', () => {
+    const { html } = render(page('{&quot;name&quot;:&quot;D&apos;Arcy &#X26; O&#39;Hara&quot;}'));
+    expect(html).toContain(">Hola D'Arcy &amp; O'Hara</p>");
+  });
+
+  it('reads quotes written as numbers, so the JSON still parses', () => {
+    const { html } = render(page('{&#34;name&#34;:&#34;Tom &#38; Ana&#34;}'));
+    expect(html).toContain('>Hola Tom &amp; Ana</p>');
+  });
+
+  it('decodes once: an escaped entity stays the text it spells', () => {
+    const { html } = render(page('{&quot;name&quot;:&quot;&amp;lt; &amp;#39;&quot;}'));
+    expect(html).toContain('>Hola &amp;lt; &amp;#39;</p>');
+  });
+
+  it('leaves a number that is no code point as written', () => {
+    const { html } = render(page('{&quot;name&quot;:&quot;&#99999999;&quot;}'));
+    expect(html).toContain('>Hola &amp;#99999999;</p>');
+  });
+});

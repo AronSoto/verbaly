@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   byLocale,
   lockOf,
+  lockOutput,
   perLocale,
   relativeTo,
   reply,
@@ -75,16 +76,7 @@ export function registerExtract(server: McpServer, ctx: ToolContext): void {
           .describe(
             'The state file could not be read or written: the catalogs were written, drafts and outdated tracking were not',
           ),
-        lock: z
-          .object({
-            file: z.string(),
-            from: z.string().optional(),
-            merged: z.boolean().optional(),
-          })
-          .optional()
-          .describe(
-            'This run created verbaly.lock, moved an older state file (from) into it, or rewrote it whole after a merge conflict (merged): it belongs in git with the catalogs, so tell the user to commit it',
-          ),
+        lock: lockOutput,
       },
       annotations: writes(true),
     },

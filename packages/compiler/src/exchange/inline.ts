@@ -1,4 +1,6 @@
 // XLIFF 2.0 inline codes: {params} as <ph>, paired tags as <pc>, disp carries the source slice
+import { isIcu } from '../catalog/catalog';
+import { decodeEntities, readAttributes, TAG_REST, type Attribute } from '../util/markup';
 
 type Part =
   | { kind: 'text'; text: string }
@@ -6,11 +8,47 @@ type Part =
   | { kind: 'pc'; name: string; openSrc: string; closeSrc: string; children: Part[] };
 
 const OPEN_TAG = /^<([a-zA-Z][a-zA-Z0-9-]*)\s*(\/?)>/;
+const PH_EMPTY = new RegExp(`^<ph\\b(${TAG_REST}?)/\\s*>`);
+const PH_PAIRED = new RegExp(`^<ph\\b(${TAG_REST})>\\s*</ph\\s*>`);
+const PC_OPEN = new RegExp(`^<pc\\b(${TAG_REST})>`);
+const PC_TAGS = `<pc\\b${TAG_REST}>|</pc\\s*>`;
 // the breaks core's parseTags reads whole however they are written: keep the two lists equal
 const BREAK = /^(?:br|wbr)$/;
 
+// how a message spells its braces: verbaly doubles one to escape it, ICU quotes it with apostrophes
+interface Syntax {
+  // the length of the escape that starts here, 0 when there is none
+  escape(text: string, at: number): number;
+  // a block whose bodies are text a translator edits, so it travels as text
+  translatable(src: string): boolean;
+}
+
+const VERBALY: Syntax = {
+  escape: (text, at) => (text.startsWith('{{', at) || text.startsWith('}}', at) ? 2 : 0),
+  translatable: hasTopLevelPipe,
+};
+
+const ICU_BLOCK = /^\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select)\b/;
+
+const ICU: Syntax = {
+  escape(text, at) {
+    if (text[at] !== "'") return 0;
+    if (text[at + 1] === "'") return 2;
+    if (!'{}#|'.includes(text[at + 1] ?? ' ')) return 0;
+    // a quoted run ends at the next apostrophe that is not doubled
+    for (let end = at + 1; end < text.length; end++) {
+      if (text[end] !== "'") continue;
+      if (text[end + 1] === "'") end += 1;
+      else return end - at + 1;
+    }
+    return text.length - at;
+  },
+  translatable: (src) => ICU_BLOCK.test(src),
+};
+
 export function messageToInline(text: string): string {
-  const parsed = parseParts(text, 0);
+  // an ICU message closes a block with }}, which verbaly's own syntax reads as an escaped brace
+  const parsed = parseParts(text, 0, isIcu(text) ? ICU : VERBALY);
   return renderParts(parsed.parts, new Map());
 }
 
@@ -19,28 +57,30 @@ export function inlineToMessage(xml: string): string {
   let text = '';
   let i = 0;
   const flush = () => {
-    out += unescapeXml(text);
+    out += decodeEntities(text);
     text = '';
   };
   while (i < xml.length) {
     if (xml[i] === '<') {
       const slice = xml.slice(i);
-      const ph = /^<ph\b([^>]*?)\/\s*>/.exec(slice) ?? /^<ph\b([^>]*)>\s*<\/ph\s*>/.exec(slice);
+      const ph = PH_EMPTY.exec(slice) ?? PH_PAIRED.exec(slice);
       if (ph) {
         flush();
-        out += attr(ph[1]!, 'disp') ?? `{${attr(ph[1]!, 'id') ?? 'ph'}}`;
+        const attrs = readAttributes(ph[1]!);
+        out += attr(attrs, 'disp') ?? `{${attr(attrs, 'id') ?? 'ph'}}`;
         i += ph[0].length;
         continue;
       }
-      const pc = /^<pc\b([^>]*)>/.exec(slice);
+      const pc = PC_OPEN.exec(slice);
       if (pc) {
         const close = findPcClose(xml, i + pc[0].length);
         if (close) {
           flush();
-          const id = attr(pc[1]!, 'id') ?? 'pc';
-          out += attr(pc[1]!, 'dispStart') ?? `<${id}>`;
+          const attrs = readAttributes(pc[1]!);
+          const id = attr(attrs, 'id') ?? 'pc';
+          out += attr(attrs, 'dispStart') ?? `<${id}>`;
           out += inlineToMessage(xml.slice(i + pc[0].length, close.innerEnd));
-          out += attr(pc[1]!, 'dispEnd') ?? `</${id}>`;
+          out += attr(attrs, 'dispEnd') ?? `</${id}>`;
           i = close.end;
           continue;
         }
@@ -61,27 +101,13 @@ export function escapeXml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function unescapeXml(text: string): string {
-  return text.replace(/&(lt|gt|amp|quot|apos|#x?[0-9a-fA-F]+);/g, (_, entity: string) => {
-    if (entity === 'lt') return '<';
-    if (entity === 'gt') return '>';
-    if (entity === 'amp') return '&';
-    if (entity === 'quot') return '"';
-    if (entity === 'apos') return "'";
-    const code = entity.startsWith('#x')
-      ? parseInt(entity.slice(2), 16)
-      : parseInt(entity.slice(1), 10);
-    return String.fromCodePoint(code);
-  });
-}
-
 interface ParsedParts {
   parts: Part[];
   end: number;
   closed: boolean;
 }
 
-function parseParts(text: string, pos: number, closeTag?: string): ParsedParts {
+function parseParts(text: string, pos: number, syntax: Syntax, closeTag?: string): ParsedParts {
   const parts: Part[] = [];
   let plain = '';
   const flush = () => {
@@ -90,21 +116,21 @@ function parseParts(text: string, pos: number, closeTag?: string): ParsedParts {
   };
   let i = pos;
   while (i < text.length) {
-    const pair = text[i]! + (text[i + 1] ?? '');
-    if (pair === '{{' || pair === '}}') {
-      plain += pair;
-      i += 2;
+    const escaped = syntax.escape(text, i);
+    if (escaped > 0) {
+      plain += text.slice(i, i + escaped);
+      i += escaped;
       continue;
     }
     if (text[i] === '{') {
-      const end = matchBrace(text, i);
+      const end = matchBrace(text, i, syntax);
       if (end === -1) {
         plain += '{';
         i += 1;
         continue;
       }
       const src = text.slice(i, end + 1);
-      if (hasTopLevelPipe(src)) {
+      if (syntax.translatable(src)) {
         plain += src;
       } else {
         flush();
@@ -128,7 +154,7 @@ function parseParts(text: string, pos: number, closeTag?: string): ParsedParts {
           i += openSrc.length;
           continue;
         }
-        const inner = parseParts(text, i + openSrc.length, name);
+        const inner = parseParts(text, i + openSrc.length, syntax, name);
         if (inner.closed) {
           flush();
           parts.push({
@@ -154,12 +180,12 @@ function parseParts(text: string, pos: number, closeTag?: string): ParsedParts {
   return { parts, end: i, closed: false };
 }
 
-function matchBrace(text: string, start: number): number {
+function matchBrace(text: string, start: number, syntax: Syntax): number {
   let depth = 0;
   for (let i = start; i < text.length; i++) {
-    const pair = text[i]! + (text[i + 1] ?? '');
-    if (pair === '{{' || pair === '}}') {
-      i += 1;
+    const escaped = syntax.escape(text, i);
+    if (escaped > 0) {
+      i += escaped - 1;
       continue;
     }
     if (text[i] === '{') depth += 1;
@@ -188,7 +214,7 @@ function hasTopLevelPipe(src: string): boolean {
 }
 
 function paramName(src: string): string {
-  const name = /^\{\s*([^{}|:\s]+)/.exec(src)?.[1];
+  const name = /^\{\s*([^{}|:,\s]+)/.exec(src)?.[1];
   return name ? idSafe(name) : 'ph';
 }
 
@@ -222,7 +248,7 @@ function uniqueId(name: string, taken: Map<string, number>): string {
 }
 
 function findPcClose(xml: string, from: number): { innerEnd: number; end: number } | undefined {
-  const tags = /<pc\b[^>]*>|<\/pc\s*>/g;
+  const tags = new RegExp(PC_TAGS, 'g');
   tags.lastIndex = from;
   let depth = 1;
   for (let match = tags.exec(xml); match; match = tags.exec(xml)) {
@@ -232,7 +258,7 @@ function findPcClose(xml: string, from: number): { innerEnd: number; end: number
   return undefined;
 }
 
-function attr(attrs: string, name: string): string | undefined {
-  const value = new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`).exec(attrs)?.[1];
-  return value === undefined ? undefined : unescapeXml(value);
+function attr(attrs: Map<string, Attribute>, name: string): string | undefined {
+  const value = attrs.get(name)?.value;
+  return value === undefined ? undefined : decodeEntities(value);
 }

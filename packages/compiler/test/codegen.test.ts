@@ -25,6 +25,17 @@ describe('generateRuntimeModule', () => {
     expect(code).not.toContain('"__proto__": () =>');
   });
 
+  it('writes a locale with a quote as a path that still parses, a catalog file can be named so', () => {
+    const cfg = resolveConfig({
+      root: mkdtempSync(join(tmpdir(), 'verbaly-')),
+      sourceLocale: "s'rc",
+      locales: ["x'y"],
+    });
+    const code = generateRuntimeModule(cfg);
+    expect(code).toContain("import('@verbaly/app/locale/x\\'y')");
+    expect(code).toContain("import source from '@verbaly/app/locale/s\\'rc';");
+  });
+
   it('inlines source and lazy-loads the rest', () => {
     const cfg = resolveConfig({
       root: mkdtempSync(join(tmpdir(), 'verbaly-')),
@@ -224,6 +235,12 @@ describe('collectParams', () => {
   it('infers number from plurals', () => {
     const params = collectParams('{count | one: uno | other: # más}');
     expect(renderParamType(params.get('count')!)).toBe('number');
+  });
+
+  it('types a block with only other as either: nothing in it says a count or a choice', () => {
+    for (const message of ['{count | other: # 件}', '{count, plural, other {# 件}}']) {
+      expect(renderParamType(collectParams(message).get('count')!)).toBe('number | string');
+    }
   });
 
   it('infers string from selects', () => {

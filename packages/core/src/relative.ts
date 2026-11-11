@@ -19,7 +19,7 @@ function describe(value: unknown): string {
   return Number.isNaN(value.getTime()) ? 'an invalid Date' : 'a Date';
 }
 
-// the one format that ships only where a message asks for it: it is 318 B and most apps never do
+// the one format that ships only where a message asks for it: most apps never do
 export const relativeFormatter: Formatter = (value, locale, arg, info) => {
   const where = info?.key ? ` in "${info.key}"` : '';
   const degrade = (problem: string): string => {

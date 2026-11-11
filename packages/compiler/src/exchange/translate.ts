@@ -9,7 +9,13 @@ import {
 import { targetLocales, type ResolvedConfig } from '../config/config';
 import { shippedCatalogs } from '../scan/extract';
 import type { MessageRegistry } from '../scan/registry';
-import { loadState, recordTranslations } from '../catalog/state';
+import {
+  loadState,
+  lockNews,
+  recordTranslations,
+  stateFile,
+  type LockEntry,
+} from '../catalog/state';
 import { byCodeUnit, counted } from '../util/text';
 import { validateMessage, validatePair } from '../gate/validate';
 
@@ -233,6 +239,8 @@ export interface WriteDraftsResult {
   kept: string[];
   invalid: string[];
   unknown: string[];
+  // this save brought verbaly.lock into being, and the file belongs in git
+  lock?: LockEntry;
 }
 
 // A batch of drafts is a batch of translations, so it can be written and marked as unreviewed
@@ -275,7 +283,10 @@ export function writeDrafts(
   if (result.written.length > 0) {
     writeCatalog(cfg, locale, current);
     const written = result.written.map((key) => ({ key, text: current[key]! }));
+    const before = stateFile(cfg);
     recordTranslations(cfg, source, [{ locale, entries: written, draft: true }]);
+    const lock = lockNews(cfg, before);
+    if (lock) result.lock = lock;
   }
   return result;
 }

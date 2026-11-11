@@ -47,7 +47,7 @@
     at = { top, left };
   }
 
-  // measured denied in an embedded browser, and three of five entries are a copy: this is the way back
+  // the clipboard is denied in an embedded browser, and most entries are a copy: the way back
   function selectAndCopy(text: string): boolean {
     const field = document.createElement('textarea');
     field.value = text;

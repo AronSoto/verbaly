@@ -39,6 +39,9 @@ export { shippedCatalogs } from './scan/extract';
 // the one path from the code to the catalogs: the CLI, the MCP server, Studio and next dev
 export { syncProject } from './project/project';
 export type { SyncProjectResult } from './project/project';
+// the one translate run: the CLI, the MCP server and Studio write a finished run through it
+export { translateProject } from './project/translate';
+export type { TranslateProjectOptions, TranslateProjectResult } from './project/translate';
 export { MessageRegistry } from './scan/registry';
 export { stableKey } from './util/key';
 
@@ -52,6 +55,7 @@ export {
   LOCALE_MODULE_PREFIX,
   RESOLVED_VIRTUAL_ID,
   SOURCE_FILE_RE,
+  clientModules,
   createSourceFilter,
   isTransformTarget,
   loadVirtualModule,
@@ -60,13 +64,15 @@ export {
   transformSource,
   writeBuildTypes,
 } from './emit/plugin';
-export type { PluginOptions } from './emit/plugin';
+export type { ClientModules, PluginOptions } from './emit/plugin';
 export { transformCode } from './scan/transform';
 // next, vite and unplugin say it when they start: a file outside include that writes a t`…`
 export { reportOutsideInclude } from './scan/scope';
 export type { TransformResult } from './scan/transform';
 
 export { check, formatCheckResult, formatCheckWarnings } from './gate/check';
+// relativeCheck is public because the MCP server and Studio both show a result against the project
+export { relativeCheck } from './gate/check';
 // public because the dev servers and the MCP server word every finding the way extract does
 export {
   collisionEntries,
@@ -126,7 +132,8 @@ export { init } from './project/init';
 export type { Host, InitOptions, InitResult } from './project/init';
 export type { DoctorEntry, DoctorResult } from './project/doctor';
 
-export { wrapProject } from './scan/wrap';
+// formatWrapResult is public because verbaly_wrap says a run in the words the CLI uses
+export { formatWrapResult, wrapProject } from './scan/wrap';
 export type { WrapBlocked, WrapEntry, WrapOptions, WrapResult, WrapSkip } from './scan/wrap';
 
 export { formatRenderWarnings, renderSite } from './emit/render';

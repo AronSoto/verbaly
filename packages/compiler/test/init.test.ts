@@ -242,3 +242,12 @@ describe('the install line init prints', () => {
     }
   });
 });
+
+describe('init: what it writes into the config is a string, whatever it holds', () => {
+  it('writes a folder with an apostrophe as a config that loads', async () => {
+    const root = makeRoot();
+    await init({ root, dir: "l'app/locales" });
+    const cfg = await loadConfig(root);
+    expect(cfg.dir).toBe(join(root, "l'app/locales"));
+  });
+});

@@ -123,15 +123,32 @@ export function analyzeScript(
     else if (ADAPTER_SOURCE.test(source)) adapterImport ??= node.start;
   };
 
-  walk(ast.program as unknown as AstNode, (node) => {
+  // imports are hoisted, and where a name came from decides what the rest of the file means
+  for (const node of ast.program.body as unknown as AstNode[]) {
     if (node.type === 'ImportDeclaration') {
       collectStrayImports(node, file, strayImports);
       bindings.addImport(node);
       noteLoad(node);
     } else if (node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') {
       noteLoad(node);
-    } else if (node.type === 'VariableDeclarator') {
-      bindings.addDeclarator(node);
+    }
+  }
+  const ownTrans = !bindings.other(TRANS);
+
+  const program = ast.program as unknown as AstNode;
+  // visited parents first, so the last function that holds a node is the one it sits in
+  const functions: AstNode[] = [];
+  const scopeOf = (node: AstNode): AstNode => {
+    for (let i = functions.length - 1; i >= 0; i--) {
+      if (node.start >= functions[i]!.start && node.end <= functions[i]!.end) return functions[i]!;
+    }
+    return program;
+  };
+
+  walk(program, (node) => {
+    if (FUNCTIONS.has(node.type)) functions.push(node);
+    if (node.type === 'VariableDeclarator') {
+      bindings.addDeclarator(node, scopeOf(node));
     } else if (node.type === 'TaggedTemplateExpression') {
       const tag = node.tag as AstNode;
       const explicit = explicitId(tag, names);
@@ -167,10 +184,17 @@ export function analyzeScript(
       }
       const key = staticString(args[0]);
       if (key !== undefined) usedKeys.push({ key, file });
-    } else if (node.type === 'JSXElement') {
+    } else if (ownTrans && node.type === 'JSXElement') {
       handleTrans(code, node, file, tagged, usedKeys, names);
     }
   });
+
+  // a tagged t of Lingui or ttag is theirs to compile: rewriting it breaks a page that worked
+  const kept = tagged.filter((entry) => {
+    const name = code.slice(entry.tagStart, entry.tagEnd);
+    return entry.jsx || !names.has(name) || !bindings.foreign(name, entry.tagStart);
+  });
+  if (kept.length < tagged.length) tagged.splice(0, tagged.length, ...kept);
 
   const renamed = bindings.renamed(options.renamed);
   const missed: MissedCall[] = [];
@@ -210,6 +234,10 @@ function lineOf(node: AstNode): number {
   return (node.loc as { start: { line: number } } | undefined)?.start.line ?? 1;
 }
 
+// the i18n libraries a project migrating in parts still imports a t or a Trans from
+const OTHER_I18N = /^(?:react-i18next|next-i18next|next-translate|ttag|@lingui\/[\w-]+)(?:\/.*)?$/;
+const TRANS = 'Trans';
+
 // what hands out verbaly's t: the core and every adapter; isAppModule covers the project's
 const VERBALY_SOURCE = /^(?:verbaly|@verbaly\/[\w-]+(?:\/[\w-]+)*)$/;
 
@@ -222,12 +250,29 @@ const T_FACTORIES = new Map([
 // instance factories whose result carries t, for const { t: x } = useVerbaly() with no import
 const INSTANCE_FACTORIES = new Set(['useVerbaly', 'getVerbaly']);
 
+// a declaration, with the function (or the program) it was written in
+interface Declared {
+  name: string;
+  init: AstNode;
+  scope: AstNode;
+}
+
+// exported for wrap.ts, which asks the same question about a t: what a function is
+export const FUNCTIONS = new Set([
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+  'ObjectMethod',
+  'ClassMethod',
+  'ClassPrivateMethod',
+]);
+
 // what hands out a t in this file, judged by where each name was imported from
 class Bindings {
   private imports = new Map<string, { source: string; imported: string }>();
   private direct = new Set<string>();
-  private declared: { name: string; init: AstNode }[] = [];
-  private destructured: { name: string; init: AstNode }[] = [];
+  private declared: Declared[] = [];
+  private destructured: Declared[] = [];
 
   constructor(private names: ReadonlySet<string>) {}
 
@@ -244,12 +289,12 @@ class Bindings {
     }
   }
 
-  addDeclarator(node: AstNode): void {
+  addDeclarator(node: AstNode, scope: AstNode): void {
     const id = node.id as AstNode;
     const init = node.init as AstNode | null;
     if (!init) return;
     if (id.type === 'Identifier') {
-      this.declared.push({ name: id.name as string, init });
+      this.declared.push({ name: id.name as string, init, scope });
       return;
     }
     if (id.type !== 'ObjectPattern') return;
@@ -260,8 +305,28 @@ class Bindings {
       // { t: x = fallback } binds x all the same
       const target = value.type === 'AssignmentPattern' ? (value.left as AstNode) : value;
       const name = identifierName(target);
-      if (name) this.destructured.push({ name, init });
+      if (name) this.destructured.push({ name, init, scope });
     }
+  }
+
+  // the name was imported from another i18n library
+  other(local: string): boolean {
+    return OTHER_I18N.test(this.imports.get(local)?.source ?? '');
+  }
+
+  // whose the name is at that place: the nearest function that declares it wins over the import
+  foreign(name: string, at: number): boolean {
+    let theirs = this.other(name);
+    let reach = Infinity;
+    for (const { name: bound, init, scope } of [...this.declared, ...this.destructured]) {
+      if (bound !== name || at < scope.start || at >= scope.end) continue;
+      if (scope.end - scope.start >= reach) continue;
+      reach = scope.end - scope.start;
+      const inner = init.type === 'AwaitExpression' ? (init.argument as AstNode) : init;
+      const read = inner.type === 'CallExpression' ? (inner.callee as AstNode) : inner;
+      theirs = this.other(identifierName(read));
+    }
+    return theirs;
   }
 
   renamed(seed: readonly string[] = []): Set<string> {
@@ -365,12 +430,11 @@ function staticString(node: AstNode | null | undefined): string | undefined {
   return undefined;
 }
 
-const VERBALY_PACKAGE = /^(?:verbaly|@verbaly\/[\w-]+)$/;
-
 // the most plausible onboarding error: only the bundler used to complain, and never about verbaly
 function collectStrayImports(node: AstNode, file: string, out: StrayImport[]): void {
   const source = node.source as { value?: unknown };
-  if (typeof source.value !== 'string' || !VERBALY_PACKAGE.test(source.value)) return;
+  // every entry of a package, @verbaly/react/server too: verbaly/app is the project's and passes
+  if (typeof source.value !== 'string' || !VERBALY_SOURCE.test(source.value)) return;
   for (const spec of node.specifiers as AstNode[]) {
     if (spec.type !== 'ImportSpecifier') continue;
     const imported = spec.imported as AstNode;
@@ -391,7 +455,7 @@ function handleTrans(
 ): void {
   const opening = node.openingElement as AstNode;
   const nameNode = opening.name as AstNode;
-  if (nameNode.type !== 'JSXIdentifier' || nameNode.name !== 'Trans') return;
+  if (nameNode.type !== 'JSXIdentifier' || nameNode.name !== TRANS) return;
 
   const attrs = opening.attributes as AstNode[];
   const idAttr = attrs.find((a) => a.type === 'JSXAttribute' && (a.name as AstNode).name === 'id');

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { stableKey } from '../src/util/key';
+import { analyze } from '../src/scan/analyze';
 import { transformCode } from '../src/scan/transform';
 
 describe('transformCode', () => {
@@ -108,5 +109,24 @@ describe('transformCode <Trans>', () => {
     const result = transformCode(code, 'App.tsx');
     expect(result?.code).toContain(`t(${JSON.stringify(stableKey('Hola'))})`);
     expect(result?.code).toContain(`<Trans id=${JSON.stringify(stableKey('Bye'))} />`);
+  });
+});
+
+describe('transformCode: the id it writes on a Trans is the key it read', () => {
+  it.each(['say "hi"', 'a\b', 'plain.key'])('round-trips %s', (key) => {
+    const code = `export const A = () => <Trans id={${JSON.stringify(key)}}>Hello</Trans>;\n`;
+    expect(analyze(code, 'a.tsx').tagged[0]?.key).toBe(key);
+    const out = transformCode(code, 'a.tsx')!.code;
+    const again = analyze(out, 'a.tsx');
+    expect(again.parseError).toBeUndefined();
+    expect(again.usedKeys.map((entry) => entry.key)).toEqual([key]);
+  });
+
+  it('keeps the quoted form for a key with nothing to escape', () => {
+    const out = transformCode(
+      `export const A = () => <Trans id="plain.key">Hello</Trans>;\n`,
+      'a.tsx',
+    );
+    expect(out!.code).toBe(`export const A = () => <Trans id="plain.key" />;\n`);
   });
 });

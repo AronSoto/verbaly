@@ -96,6 +96,19 @@ describe('braces i18next shows as text', () => {
     expect(loadState(cfg).migrated).toEqual(['en']);
   });
 
+  it('lists what still waits for a person on every run, and converts nothing twice', () => {
+    const cfg = project({ en: { hi: 'Hi {{name}}', total: 'Total {{count, number}}' } });
+    const first = migrateCatalogs(cfg, { write: true });
+    expect(first.skipped.map((entry) => entry.key)).toEqual(['total']);
+
+    const again = migrateCatalogs(cfg, { write: true });
+    expect(again.remembered).toEqual(['en']);
+    expect(again.skipped).toEqual(first.skipped);
+    expect(again.braces).toEqual([]);
+    expect(again.written).toEqual([]);
+    expect(read(cfg, 'en')).toEqual({ hi: 'Hi {name}', total: 'Total {{count, number}}' });
+  });
+
   it('converts a language added later, and leaves the ones it converted alone', () => {
     const cfg = project({ en: { tpl: 'Use {id}', hi: 'Hi {{name}}' } });
     migrateCatalogs(cfg, { write: true });

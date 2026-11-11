@@ -15,6 +15,13 @@ export interface Cell {
   reasons: Reason[];
 }
 
+// a save lands as the server stored it: whitespace is no translation, so the cell is missing again
+export function savedCell(cell: Cell, stored: string): void {
+  cell.text = stored;
+  cell.state = stored ? 'done' : 'missing';
+  cell.issue = undefined;
+}
+
 export interface Row {
   key: string;
   source: string;

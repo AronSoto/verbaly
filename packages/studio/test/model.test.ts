@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { health, lookFirst, reasonFor, toPanel, visible, type Panel } from '../src/ui/model';
+import {
+  health,
+  lookFirst,
+  reasonFor,
+  savedCell,
+  toPanel,
+  visible,
+  type Cell,
+  type Panel,
+} from '../src/ui/model';
 
 function raw(over: Partial<Parameters<typeof toPanel>[0]> = {}) {
   return {
@@ -225,5 +234,29 @@ describe('one language on screen', () => {
     const clean = visible(rows, { text: '', state: 'clean', locales: ['es'] });
     expect(look.length + clean.length).toBe(rows.length);
     expect(look.some((row) => clean.includes(row))).toBe(false);
+  });
+});
+
+describe('a cell after a save shows what the server stored', () => {
+  const cell = (): Cell => ({
+    locale: 'es',
+    text: 'Hola',
+    state: 'draft',
+    issue: '{name} is missing',
+    reasons: [],
+  });
+
+  it('is ready with the stored text, and what was wrong with the old one is gone', () => {
+    const saved = cell();
+    savedCell(saved, 'Hola, {name}');
+    expect(saved).toMatchObject({ text: 'Hola, {name}', state: 'done' });
+    expect(saved.issue).toBeUndefined();
+  });
+
+  // a space typed over a translation is stored as '', and the cell read "ready" until a reload
+  it('is missing again when the server stored no translation', () => {
+    const saved = cell();
+    savedCell(saved, '');
+    expect(saved).toMatchObject({ text: '', state: 'missing' });
   });
 });

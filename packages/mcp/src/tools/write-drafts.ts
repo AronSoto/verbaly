@@ -1,7 +1,16 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { counted, extractProject, writeDrafts } from '@verbaly/compiler';
 import { z } from 'zod';
-import { reply, rootInput, writes, type ToolContext } from './shared';
+import {
+  lockData,
+  lockLine,
+  lockOutput,
+  relativeTo,
+  reply,
+  rootInput,
+  writes,
+  type ToolContext,
+} from './shared';
 
 export function registerWriteDrafts(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -30,6 +39,7 @@ export function registerWriteDrafts(server: McpServer, ctx: ToolContext): void {
           .array(z.string())
           .describe('Rejected: empty, or the params, tags or plural cases were not preserved'),
         unknown: z.array(z.string()).describe('Not in the source catalog, so nothing was written'),
+        lock: lockOutput,
       },
       annotations: writes(true),
     },
@@ -37,7 +47,7 @@ export function registerWriteDrafts(server: McpServer, ctx: ToolContext): void {
       const cfg = await ctx.config(root);
       // checked against the text that ships, the one verbaly_missing reads it against
       const registry = await extractProject(cfg);
-      const result = writeDrafts(cfg, locale, entries, { overwrite, registry });
+      const { lock, ...result } = writeDrafts(cfg, locale, entries, { overwrite, registry });
       const lines: string[] = [];
       if (result.written.length > 0) {
         lines.push(`${locale}: +${result.written.length} saved as drafts, awaiting human review`);
@@ -57,7 +67,9 @@ export function registerWriteDrafts(server: McpServer, ctx: ToolContext): void {
           `${locale}: ${counted(result.unknown.length, 'unknown key')} not in the source catalog: ${result.unknown.join(', ')}`,
         );
       }
-      return reply(lines.length > 0 ? lines.join('\n') : 'nothing to save', { ...result });
+      lines.push(...lockLine(lock, cfg.root));
+      const data = { ...result, ...lockData(lock, relativeTo(cfg.root)) };
+      return reply(lines.length > 0 ? lines.join('\n') : 'nothing to save', data);
     }),
   );
 }

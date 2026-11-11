@@ -118,6 +118,37 @@ describe('catalogs', () => {
     });
   });
 
+  it('keeps a dotted key flat in a file that also has groups, at any depth', () => {
+    const cfg = makeProject({ es: {} });
+    const mixed =
+      '{\n  "nav": {\n    "home": "Inicio",\n    "a.b": "Dentro"\n  },\n  "footer.copy": "Copyright"\n}\n';
+    writeFileSync(catalogPath(cfg, 'es'), mixed);
+    writeCatalog(cfg, 'es', readCatalog(cfg, 'es'));
+    expect(readFileSync(catalogPath(cfg, 'es'), 'utf8')).toBe(mixed);
+  });
+
+  it('nests a new key in that file, and the flat one next to it stays as it was written', () => {
+    const cfg = makeProject({ es: {} });
+    const mixed = { nav: { home: 'Inicio' }, 'footer.copy': 'Copyright' };
+    writeFileSync(catalogPath(cfg, 'es'), JSON.stringify(mixed, null, 2));
+    writeCatalog(cfg, 'es', { ...readCatalog(cfg, 'es'), 'footer.terms': 'Condiciones' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'es'), 'utf8'))).toEqual({
+      ...mixed,
+      footer: { terms: 'Condiciones' },
+    });
+  });
+
+  it('a locale that does not exist yet takes the flat keys of the source as they are', () => {
+    const cfg = makeProject({ es: {} });
+    const mixed = { nav: { home: 'Inicio' }, 'footer.copy': 'Copyright' };
+    writeFileSync(catalogPath(cfg, 'es'), JSON.stringify(mixed, null, 2));
+    writeCatalog(cfg, 'pt', { 'nav.home': '', 'footer.copy': '' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'pt'), 'utf8'))).toEqual({
+      nav: { home: '' },
+      'footer.copy': '',
+    });
+  });
+
   it('a flat catalog stays flat, so a dotted key is never turned into a group', () => {
     const cfg = makeProject({ es: { 'hero.title': 'Hola' } });
     writeCatalog(cfg, 'es', { 'hero.title': 'Hola', 'hero.sub': 'Que tal' });

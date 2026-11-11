@@ -270,6 +270,12 @@ describe('the write gate is the gate, not half of it', () => {
     await writeMessage(cfg, 'es', 'greet', '   ');
     expect(JSON.parse(readFileSync(join(cfg.dir, 'es.json'), 'utf8')).greet).toBe('');
   });
+
+  it('answers with the text it stored, so the panel paints that and not what was typed', async () => {
+    const cfg = params();
+    expect((await writeMessage(cfg, 'es', 'greet', '   ')).text).toBe('');
+    expect((await writeMessage(cfg, 'es', 'greet', 'Hola, {name}')).text).toBe('Hola, {name}');
+  });
 });
 
 describe('buildState degrades on every file it reads, not just the catalogs', () => {

@@ -10,6 +10,7 @@ import {
   formatCheckWarnings,
   gatePasses,
   githubCheckAnnotations,
+  relativeCheck,
   warningCount,
 } from '../src/gate/check';
 import type { CheckResult } from '../src/gate/check';
@@ -587,5 +588,31 @@ describe('what check says and never fails on (0.67.0)', () => {
     expect(result.divergent).toHaveLength(1);
     // the collision fails the gate, so the divergent text is the one warning
     expect(warningCount(result)).toBe(1);
+  });
+});
+
+describe('relativeCheck: a check result as a tool or a panel shows it', () => {
+  it('names every file against the project, with forward slashes, and leaves the rest alone', () => {
+    const root = join(tmpdir(), 'verbaly-relative');
+    const file = (name: string): string => join(root, 'src', name);
+    const site = (name: string) => ({ file: file(name), line: 3, message: 'Text' });
+    const result: CheckResult = {
+      ok: false,
+      missing: [{ locale: 'es', key: 'a', source: 'A' }],
+      unknown: [{ key: 'b', files: [file('b.ts'), file('deep/b.tsx')] }],
+      broken: [],
+      extra: [{ locale: 'es', key: 'c', files: [file('c.ts')] }],
+      collisions: [{ key: 'd', sites: [site('d.ts'), site('e.ts')] }],
+      divergent: [{ key: 'f', catalog: 'Old', code: site('f.ts') }],
+      outdated: [],
+    };
+    const shown = relativeCheck(root, result);
+    expect(shown.unknown[0]!.files).toEqual(['src/b.ts', 'src/deep/b.tsx']);
+    expect(shown.extra[0]!.files).toEqual(['src/c.ts']);
+    expect(shown.collisions[0]!.sites.map((at) => at.file)).toEqual(['src/d.ts', 'src/e.ts']);
+    expect(shown.divergent[0]!.code).toEqual({ file: 'src/f.ts', line: 3, message: 'Text' });
+    expect(shown.missing).toBe(result.missing);
+    // the result a caller holds is not rewritten under it
+    expect(result.unknown[0]!.files[0]).toBe(file('b.ts'));
   });
 });

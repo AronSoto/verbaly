@@ -526,6 +526,15 @@ describe('stray imports', () => {
     expect(strayImports.map((entry) => entry.source)).toEqual(['@verbaly/react']);
   });
 
+  it('records t imported from an entry under a package, which exports none either', () => {
+    const code =
+      "import { t } from '@verbaly/react/server';\nimport { t as u } from '@verbaly/next/server';";
+    expect(analyze(code, 'App.tsx').strayImports.map((entry) => entry.source)).toEqual([
+      '@verbaly/react/server',
+      '@verbaly/next/server',
+    ]);
+  });
+
   it('ignores a renamed binding that is not t, and other packages', () => {
     const code = "import { useT as t } from '@verbaly/react';\nimport { t } from './local';";
     expect(analyze(code, 'App.tsx').strayImports).toEqual([]);
@@ -616,5 +625,64 @@ describe('a t under another name', () => {
     const analysis = analyze("\nconst tr = useT();\n\ntr`Hola`;\nt.id('k')`Chau`;", 'app.tsx');
     expect(analysis.missed.map((call) => call.line)).toEqual([4]);
     expect(analysis.tagged.map((msg) => msg.line)).toEqual([5]);
+  });
+});
+
+describe('a t or a Trans another i18n library owns', () => {
+  const TRANS = '<Trans>Hello <b>world</b></Trans>';
+  const page = (line: string): string => `${line}\nexport const A = () => ${TRANS};\n`;
+
+  it.each([
+    `import { Trans } from 'react-i18next';`,
+    `import { Trans } from '@lingui/react';`,
+    `import { Trans } from '@lingui/react/macro';`,
+    `import Trans from 'next-translate/Trans';`,
+  ])('leaves the children of its Trans as written: %s', (line) => {
+    const code = page(line);
+    const found = analyze(code, 'a.tsx');
+    expect(found.tagged).toEqual([]);
+    expect(transformCode(code, 'a.tsx')).toBeNull();
+  });
+
+  it('reads no key from the id of its Trans, which names a message of that library', () => {
+    const code = `import { Trans } from '@lingui/react';\nexport const A = () => <Trans id="msg.docs" />;\n`;
+    expect(analyze(code, 'a.tsx').usedKeys).toEqual([]);
+  });
+
+  it.each([
+    ``,
+    `import { Trans } from '@verbaly/react';`,
+    `import { Trans } from '@/i18n';`,
+    `import { Trans } from '../i18n';`,
+  ])('still extracts a Trans with no import, verbaly\'s, or the project\'s own: "%s"', (line) => {
+    const found = analyze(page(line), 'a.tsx');
+    expect(found.tagged.map((entry) => entry.message)).toEqual(['Hello <b>world</b>']);
+  });
+
+  it.each([
+    `import { t } from '@lingui/core/macro';\nexport const a = (name) => t\`Hello \${name}\`;\n`,
+    `import { t } from 'ttag';\nexport const a = (name) => t\`Hello \${name}\`;\n`,
+    `import { useLingui } from '@lingui/react/macro';\nexport function A({ name }) {\n  const { t } = useLingui();\n  return <p>{t\`Hello \${name}\`}</p>;\n}\n`,
+  ])('leaves a tagged t that came from it as written', (code) => {
+    expect(analyze(code, 'a.tsx').tagged).toEqual([]);
+    expect(transformCode(code, 'a.tsx')).toBeNull();
+  });
+
+  it('keeps the key a call on that t reads, so prune never drops a catalog it still uses', () => {
+    const code = `import { useTranslation } from 'react-i18next';\nexport function A() {\n  const { t } = useTranslation();\n  return <p>{t('nav.home')}</p>;\n}\n`;
+    expect(analyze(code, 'a.tsx').usedKeys.map((entry) => entry.key)).toEqual(['nav.home']);
+  });
+
+  it("still extracts a t`…` next to a hook of that library when t is verbaly's", () => {
+    const code = `import { useTranslation } from 'react-i18next';\nimport { t } from 'verbaly/app';\nexport const a = (name) => t\`Hello \${name}\`;\n`;
+    expect(analyze(code, 'a.tsx').tagged.map((entry) => entry.message)).toEqual(['Hello {name}']);
+  });
+
+  it.each([
+    `import { useTranslation } from 'react-i18next';\nimport { t } from 'verbaly/app';\nexport function Old() {\n  const { t } = useTranslation();\n  return <p>{t('nav.home')}</p>;\n}\nexport function New({ name }) {\n  return <p>{t\`Hello \${name}\`}</p>;\n}\n`,
+    `import { useLingui } from '@lingui/react/macro';\nimport { useT } from '@verbaly/react';\nexport function Old() {\n  const { t } = useLingui();\n  return <p>{t\`Old text\`}</p>;\n}\nexport const New = ({ name }) => {\n  const t = useT();\n  return <p>{t\`Hello \${name}\`}</p>;\n};\n`,
+    `import { t } from 'ttag';\nimport { useT } from '@verbaly/react';\nexport const old = () => t\`Old text\`;\nexport function New({ name }) {\n  const t = useT();\n  return <p>{t\`Hello \${name}\`}</p>;\n}\n`,
+  ])('judges each t by the component it is in when one file holds both: %#', (code) => {
+    expect(analyze(code, 'a.tsx').tagged.map((entry) => entry.message)).toEqual(['Hello {name}']);
   });
 });

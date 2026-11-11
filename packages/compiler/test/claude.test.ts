@@ -69,6 +69,28 @@ describe('claudeProvider', () => {
     expect(call).not.toHaveProperty('betas');
   });
 
+  it.each([
+    'claude-sonnet-5-5',
+    'claude-opus-5-5',
+    'claude-opus-5',
+    'claude-fable-5-1',
+    'claude-fable-5-2',
+  ])('asks for the server fallback on %s, which takes it', async (model) => {
+    mockSdk();
+    create.mockResolvedValue({ content: [{ type: 'text', text: '{}' }] });
+    await claudeProvider({ model })(request);
+    const call = create.mock.calls[0]![0];
+    expect(call.fallbacks).toBe('default');
+    expect(call.betas).toEqual(['server-side-fallback-2026-07-01']);
+  });
+
+  it('leaves the fallback out for a model that refuses it', async () => {
+    mockSdk();
+    create.mockResolvedValue({ content: [{ type: 'text', text: '{}' }] });
+    await claudeProvider({ model: 'claude-haiku-5-5' })(request);
+    expect(create.mock.calls[0]![0]).not.toHaveProperty('fallbacks');
+  });
+
   // Proved able to fail with thinking disabled sent to every model, which the API answers with 400.
   it('asks each model for the least thinking it accepts', () => {
     expect(thinkingFor('claude-sonnet-5-5')).toEqual({ type: 'between_tools' });

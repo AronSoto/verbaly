@@ -1,3 +1,4 @@
+import type { Added } from './api';
 import type { MessageState } from './model';
 
 // The words are a product decision: each names a checkable fact, never a stage of a workflow.
@@ -91,6 +92,21 @@ export const EMPTY = {
 
 export function messages(n: number): string {
   return `${n} ${n === 1 ? 'message' : 'messages'}`;
+}
+
+// what Find new text says; undefined is "nothing changed on disk", so nothing is read again
+export function extractNews(result: Added): string | undefined {
+  const said: string[] = [];
+  if (result.found)
+    said.push(`${messages(result.found)} your code uses and your catalogs did not have`);
+  if (result.replaced) {
+    const one = result.replaced === 1;
+    said.push(
+      `${result.replaced} source ${one ? 'text now reads' : 'texts now read'} as your code writes ${one ? 'it' : 'them'}`,
+    );
+  }
+  if (result.stateProblem) said.push(`${result.stateProblem}, so drafts are not tracked`);
+  return said.length > 0 ? said.join('. ') : undefined;
 }
 
 // The first screen names what is waiting, in the order you would want to deal with it.

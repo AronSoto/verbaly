@@ -25,7 +25,8 @@ function visit(nodes: MessageNode[], out: Map<string, Set<ParamType>>): void {
         else if (key !== 'other') types.add('string');
         visit(body, out);
       }
-      if (types.size === 0) types.add('string');
+      // only other: a language with one plural form writes its count this way, and so does a select
+      if (types.size === 0) types.add('number').add('string');
     } else if (node.format && NUMBER_FORMATS.has(node.format)) {
       types.add('number');
     } else if (node.format && DATE_FORMATS.has(node.format)) {

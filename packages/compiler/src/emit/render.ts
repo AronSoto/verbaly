@@ -26,6 +26,7 @@ import { emptyCatalog, loadCatalogs } from '../catalog/catalog';
 import { extractProject, shippedCatalogs } from '../scan/extract';
 import type { RedirectConfig, ResolvedConfig } from '../config/config';
 import { blocks, type BlockShape } from '../util/blocks';
+import { decodeEntities, isAttributeName, readAttributes, type Attribute } from '../util/markup';
 import { counted, trimTrailingSlashes } from '../util/text';
 import { warnOnce } from '../util/warn';
 
@@ -97,7 +98,6 @@ const REDIRECT_CLOSE = '<!--/verbaly:redirect-->';
 const VOID = new Set(VOID_TAGS);
 
 const START_TAG = /<([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*"|'[^']*'|[^"'>])*)>/g;
-const ATTR = /([^\s=/"'<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
 
 // pre-fills data-verbaly elements for one locale; the runtime stays functional
 export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtmlResult {
@@ -138,67 +138,60 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
     const openEnd = m.index + full.length;
 
     const chunkStart = m.index + 1 + rawName.length;
+    // read once and written where it was read: a name inside another value is not an attribute
+    const attrs = readAttributes(attrChunk, true);
+    const read = (name: string): string | undefined => attrs.get(name)?.value;
+    const set = (name: string, value: string): void =>
+      setAttribute(ms, html, chunkStart, openEnd, attrs, name, value);
 
     if (tagName === 'html' && options.setLang !== false) {
       // lang and dir together: what persistLocale/switchLocale set at runtime
-      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'lang', options.locale);
-      setAttribute(
-        ms,
-        html,
-        chunkStart,
-        openEnd,
-        attrChunk,
-        'dir',
-        localeDirection(options.locale),
-      );
+      set('lang', options.locale);
+      set('dir', localeDirection(options.locale));
       continue;
     }
-
-    const attrs = parseAttrs(attrChunk);
 
     if (
       rewriteUrl &&
       tagName === 'link' &&
-      attrs.get('rel')?.toLowerCase() === 'canonical' &&
-      sameUrl(decodeEntities(attrs.get('href') ?? ''), sourceUrl)
+      read('rel')?.toLowerCase() === 'canonical' &&
+      sameUrl(decodeEntities(read('href') ?? ''), sourceUrl)
     ) {
-      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'href', selfUrl!);
+      set('href', selfUrl!);
     }
     if (
       rewriteUrl &&
       tagName === 'meta' &&
-      attrs.get('property') === 'og:url' &&
-      sameUrl(decodeEntities(attrs.get('content') ?? ''), sourceUrl)
+      read('property') === 'og:url' &&
+      sameUrl(decodeEntities(read('content') ?? ''), sourceUrl)
     ) {
-      setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'content', selfUrl!);
+      set('content', selfUrl!);
     }
 
     const mirror = options.mirror;
     if (mirror) {
       if (tagName === 'a' || tagName === 'area') {
-        const inside = mirroredHref(attrs.get('href'), mirror);
-        if (inside) setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'href', inside);
+        const inside = mirroredHref(read('href'), mirror);
+        if (inside) set('href', inside);
       } else if (tagName === 'form' || tagName === 'button' || tagName === 'input') {
         // submitting navigates: a form landing on a page we mirrored belongs in the mirror too
         const name = tagName === 'form' ? 'action' : 'formaction';
-        const inside = mirroredHref(attrs.get(name), mirror);
-        if (inside) setAttribute(ms, html, chunkStart, openEnd, attrChunk, name, inside);
-      } else if (tagName === 'meta' && attrs.get('http-equiv')?.toLowerCase() === 'refresh') {
+        const inside = mirroredHref(read(name), mirror);
+        if (inside) set(name, inside);
+      } else if (tagName === 'meta' && read('http-equiv')?.toLowerCase() === 'refresh') {
         // a redirect page ships inside the mirror too, and its target must not leave it
-        const content = attrs.get('content') ?? '';
+        const content = read('content') ?? '';
         const url = /^([^;]*;\s*url\s*=\s*)(.*)$/i.exec(decodeEntities(content));
         const inside = url && mirroredHref(url[2], mirror);
-        if (inside) {
-          setAttribute(ms, html, chunkStart, openEnd, attrChunk, 'content', `${url![1]}${inside}`);
-        }
+        if (inside) set('content', `${url![1]}${inside}`);
       }
     }
 
-    const key = attrs.get(attr);
-    const attrMapRaw = attrs.get(attrsAttr);
+    const key = read(attr);
+    const attrMapRaw = read(attrsAttr);
     if (key === undefined && attrMapRaw === undefined) continue;
 
-    const args = parseArgs(attrs.get(argsAttr), argsAttr);
+    const args = parseArgs(read(argsAttr), argsAttr);
 
     if (key) {
       if (!v.has(key)) {
@@ -208,8 +201,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
         const close = findClose(html, tagName, openEnd, inSkip);
         if (close) {
           const text = t(key, args);
-          const own = parseArgs(attrs.get(linksAttr), linksAttr) as
-            Record<string, RichLink> | undefined;
+          const own = parseArgs(read(linksAttr), linksAttr) as Record<string, RichLink> | undefined;
           const merged = own ? (globalLinks ? { ...globalLinks, ...own } : own) : globalLinks;
           // a link inside a message is a link: without the prefix it leaves the mirror
           const links = mirror ? mirroredLinks(merged, mirror) : merged;
@@ -218,15 +210,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
           if (mirror && links) {
             const carried = usedLinks(nodes, links);
             if (carried && JSON.stringify(carried) !== JSON.stringify(own)) {
-              setAttribute(
-                ms,
-                html,
-                chunkStart,
-                openEnd,
-                attrChunk,
-                linksAttr,
-                JSON.stringify(carried),
-              );
+              set(linksAttr, JSON.stringify(carried));
             }
           }
           const content = attrs.has(richAttr)
@@ -246,14 +230,17 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
       if (map) {
         for (const [name, attrKey] of Object.entries(map)) {
           if (typeof attrKey !== 'string') continue;
+          if (!isAttributeName(name)) {
+            warnOnce(`${attrsAttr} names "${name}", which is not an attribute name`);
+            continue;
+          }
           if (!v.has(attrKey)) {
             missing.add(attrKey);
             continue;
           }
           used.add(attrKey);
           const value = safeAttribute(name, t(attrKey, args));
-          if (value !== undefined)
-            setAttribute(ms, html, chunkStart, openEnd, attrChunk, name, value);
+          if (value !== undefined) set(name, value);
         }
       }
     }
@@ -642,16 +629,6 @@ function buildSitemap(urls: Array<{ rel: string; alternates: Alternate[] }>): st
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${body}</urlset>\n`;
 }
 
-function parseAttrs(chunk: string): Map<string, string> {
-  const attrs = new Map<string, string>();
-  ATTR.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = ATTR.exec(chunk)) !== null) {
-    attrs.set(m[1]!.toLowerCase(), m[2] ?? m[3] ?? m[4] ?? '');
-  }
-  return attrs;
-}
-
 // three attributes share this parser, so the report names the one that is actually malformed
 function parseArgs(raw: string | undefined, attribute: string): Params | undefined {
   if (!raw) return undefined;
@@ -710,25 +687,23 @@ function setAttribute(
   html: string,
   chunkStart: number,
   openEnd: number,
-  attrChunk: string,
+  attrs: Map<string, Attribute>,
   name: string,
   value: string,
 ): void {
-  const escaped = escapeAttr(value);
-  const existing = new RegExp(`(\\s${name}\\s*=\\s*)("[^"]*"|'[^']*'|[^\\s>]+)`, 'i').exec(
-    attrChunk,
-  );
+  const written = `"${escapeAttr(value)}"`;
+  const existing = attrs.get(name.toLowerCase());
   if (existing) {
-    const valueStart = chunkStart + existing.index + existing[1]!.length;
-    const valueEnd = valueStart + existing[2]!.length;
-    if (html.slice(valueStart, valueEnd) !== `"${escaped}"`) {
-      ms.overwrite(valueStart, valueEnd, `"${escaped}"`);
-    }
+    const from = chunkStart + existing.start;
+    const to = chunkStart + existing.end;
+    // an attribute written with no value gets one where its name ends
+    if (from === to) ms.appendLeft(from, `=${written}`);
+    else if (html.slice(from, to) !== written) ms.overwrite(from, to, written);
     return;
   }
   const selfClosing = html.slice(openEnd - 2, openEnd) === '/>';
   const insertAt = openEnd - (selfClosing ? 2 : 1);
-  ms.appendLeft(insertAt, ` ${name}="${escaped}"`);
+  ms.appendLeft(insertAt, ` ${name}=${written}`);
 }
 
 function richToHtml(
@@ -764,13 +739,4 @@ function escapeHtml(text: string): string {
 
 function escapeAttr(text: string): string {
   return escapeHtml(text).replace(/"/g, '&quot;');
-}
-
-function decodeEntities(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
 }

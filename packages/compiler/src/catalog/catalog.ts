@@ -117,12 +117,28 @@ function group(): MessageTree {
   return Object.create(null) as MessageTree;
 }
 
+// the path each message has in a file: a flat "footer.copy" next to real groups is a path of one
+function pathsOf(
+  tree: MessageTree,
+  prefix: string[] = [],
+  out = new Map<string, string[]>(),
+): Map<string, string[]> {
+  for (const [name, value] of Object.entries(tree)) {
+    const path = [...prefix, name];
+    if (typeof value === 'string') out.set(path.join('.'), path);
+    else if (isTree(value)) pathsOf(value, path, out);
+  }
+  return out;
+}
+
 // dotted key back to its group; a path already taken by text stays flat so nothing is overwritten
-function nest(catalog: Catalog): MessageTree {
+function nest(catalog: Catalog, shape?: MessageTree): MessageTree {
   const tree = group();
+  // a key the file already wrote keeps the path it had: nobody asked for it to become a group
+  const written = shape ? pathsOf(shape) : undefined;
   // sorted, so "hero" always lands before "hero.title" and a message is never replaced by its group
   for (const [key, message] of Object.entries(catalog).sort(([a], [b]) => (a < b ? -1 : 1))) {
-    const parts = key.split('.');
+    const parts = written?.get(key) ?? key.split('.');
     const leaf = parts[parts.length - 1]!;
     let node: MessageTree | undefined = parts.length > 1 ? tree : undefined;
     for (let i = 0; node && i < parts.length - 1; i++) {
@@ -174,8 +190,14 @@ function orderLike(tree: MessageTree, previous: MessageTree): MessageTree {
   return out;
 }
 
-export function serializeCatalog(catalog: Catalog, nested = false, previous?: MessageTree): string {
-  const tree: MessageTree = nested ? nest(catalog) : catalog;
+export function serializeCatalog(
+  catalog: Catalog,
+  nested = false,
+  previous?: MessageTree,
+  // the file whose shape this one follows: itself, or the source catalog for a new locale
+  shape = previous,
+): string {
+  const tree: MessageTree = nested ? nest(catalog, shape) : catalog;
   return JSON.stringify(previous ? orderLike(tree, previous) : sortTree(tree), null, 2) + '\n';
 }
 
@@ -190,10 +212,9 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
   // parsed once: the shape and the key order are two questions about the same previous file
   const parsed = existing === undefined ? undefined : parseTree(existing);
   const previous = isTree(parsed) ? parsed : undefined;
-  const serialized = withLineEndings(
-    serializeCatalog(catalog, wantsNesting(cfg, locale, existing, previous), previous),
-    existing,
-  );
+  const shape = shapeFor(cfg, locale, existing, previous);
+  const nested = shape !== undefined && isNested(shape);
+  const serialized = withLineEndings(serializeCatalog(catalog, nested, previous, shape), existing);
   // identical writes are skipped: a rewrite retriggers whatever watches the catalog
   if (existing === serialized) return serialized;
   writeFileSync(path, serialized);
@@ -201,20 +222,24 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
 }
 
 // the file's own shape, and for a locale that does not exist yet, the source catalog's
-function wantsNesting(
+function shapeFor(
   cfg: ResolvedConfig,
   locale: string,
   existing: string | undefined,
   previous: MessageTree | undefined,
-): boolean {
-  if (existing !== undefined) return previous !== undefined && isNested(previous);
-  if (locale === cfg.sourceLocale) return false;
-  return isNested(readTree(cfg, cfg.sourceLocale));
+): MessageTree | undefined {
+  if (existing !== undefined) return previous;
+  return locale === cfg.sourceLocale ? undefined : readTree(cfg, cfg.sourceLocale);
 }
 
 // the same test the runtime uses, asked of the catalogs so the parser ships only where it is read
 const ICU_ARG =
   /(^|[^{])\{\s*[a-zA-Z0-9_]+\s*,\s*(?:plural|selectordinal|select|number|date|time)\b/;
+
+// one message, for whoever has to read its braces the way the runtime will
+export function isIcu(message: string): boolean {
+  return ICU_ARG.test(message);
+}
 
 export function needsIcu(catalogs: Catalogs): boolean {
   return someMessage(catalogs, ICU_ARG);

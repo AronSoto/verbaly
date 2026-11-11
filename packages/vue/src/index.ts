@@ -68,7 +68,7 @@ export function useT<D extends DictionaryInput = DictionaryInput>(): Verbaly<D>[
     void version.value;
     return (instance.t as unknown as (...args: unknown[]) => string)(first, ...rest);
   };
-  // the reactive wrapper must keep t's full surface (react/svelte hand out instance.t directly)
+  // the reactive wrapper must keep t's full surface: t.id has to work on it as on the instance's
   (t as unknown as Pick<TFunction, 'id'>).id = instance.t.id;
   return t as unknown as Verbaly<D>['t'];
 }

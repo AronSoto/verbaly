@@ -6,7 +6,7 @@ import { badLeaf, emptyCatalog, isTree, parseTree, type Catalog } from '../catal
 import { check } from '../gate/check';
 import { DTS_HEADER, generateDts, projectDtsOptions } from '../emit/codegen';
 import { findConfigFile, type ResolvedConfig } from '../config/config';
-import { extractProject } from '../scan/extract';
+import { extractProject, shippedCatalogs } from '../scan/extract';
 import { sourcePlace } from '../gate/findings';
 import {
   CLI_INSTALL_FIX,
@@ -257,6 +257,8 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     ok('sources', 'source scanning is off (include: []), the catalogs are the source of truth');
   }
 
+  const registry = await extractProject(cfg);
+
   if (source && scanning && cfg.dts !== false) {
     const dtsPath = cfg.dts;
     const shown = rel(dtsPath);
@@ -267,7 +269,9 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
         : host?.name === 'nuxt'
           ? 'run `npx nuxi prepare`, which writes the types and links them'
           : 'run `npx verbaly typegen`';
-    const expected = generateDts(source, projectDtsOptions(cfg));
+    // what typegen and a build write: the text that ships, a key only the code has included
+    const shipped = shippedCatalogs(cfg, catalogs, registry)[cfg.sourceLocale] ?? source;
+    const expected = generateDts(shipped, projectDtsOptions(cfg));
     if (!existsSync(dtsPath)) {
       warn('types', `${shown} has not been generated`, regenerate);
     } else if (readFileSync(dtsPath, 'utf8').replace(/\r\n/g, '\n') !== expected) {
@@ -299,7 +303,6 @@ export async function doctor(cfg: ResolvedConfig): Promise<DoctorResult> {
     }
   }
 
-  const registry = await extractProject(cfg);
   if (scanning) {
     // a warn, not an error: decorators or a dialect babel does not read still build in the project
     const unreadable = registry.parseErrors();

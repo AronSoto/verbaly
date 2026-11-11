@@ -9,6 +9,7 @@ import { resolveConfig, type VerbalyConfig } from '../src/config/config';
 import {
   LOCALE_MODULE_PREFIX,
   RESOLVED_VIRTUAL_ID,
+  clientModules,
   loadVirtualModule,
   runBuildGate,
 } from '../src/emit/plugin';
@@ -200,5 +201,33 @@ describe('auditBundle', () => {
     expect(() => runBuildGate(config, new MessageRegistry())).not.toThrow();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('typo_group'));
     warn.mockRestore();
+  });
+});
+
+describe('clientModules: what the browser receives, for a virtual module and for files on disk', () => {
+  it('applies bundle.exclude and drops the parser only the excluded group needed', () => {
+    const catalogs: Catalogs = {
+      en: { 'a.plain': 'Hi', 'notes.n': '{n, plural, one {#} other {#}}' },
+    };
+    const config = { sourceLocale: 'en', locales: ['en'] };
+    expect(clientModules(cfg(config), catalogs).runtime()).toContain('parseIcu');
+    const filtered = clientModules(cfg({ ...config, bundle: { exclude: ['notes'] } }), catalogs);
+    expect(filtered.runtime()).not.toContain('parseIcu');
+    expect(filtered.locale('en')).toBe('export default {"a.plain":"Hi"};\n');
+  });
+
+  it('passes on where a host keeps its locale files and what else it exports', () => {
+    const runtime = clientModules(cfg(), CATALOGS, {
+      localeImport: (locale) => `./locale/${locale}.js`,
+      extraExports: 'export const requestOptions = {};\n',
+    }).runtime();
+    expect(runtime).toContain("import('./locale/es.js')");
+    expect(runtime).toContain('export const requestOptions = {};');
+  });
+
+  it('answers an empty module for a locale no catalog has, a name every object inherits too', () => {
+    const modules = clientModules(cfg(), { ...CATALOGS });
+    expect(modules.locale('fr')).toBe('export default {};\n');
+    expect(modules.locale('constructor')).toBe('export default {};\n');
   });
 });

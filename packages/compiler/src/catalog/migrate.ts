@@ -223,14 +223,17 @@ export function migrateCatalogs(cfg: ResolvedConfig, options: MigrateOptions = {
     const catalog = catalogs.get(locale)!;
     const out: Catalog = Object.assign(emptyCatalog(), catalog);
     const convert = fromI18next && !done.has(locale);
+    // a converted language is never converted again, and what a person still owes is said each run
+    const reported = convert || done.has(locale);
 
     for (const [key, value] of Object.entries(catalog)) {
-      if (!convert || typeof value !== 'string') continue;
+      if (!reported || typeof value !== 'string') continue;
       const problem = i18nextProblem(value);
       if (problem) {
         skipped.push({ locale, key, reason: problem });
         continue;
       }
+      if (!convert) continue;
       const after = convertBraces(value);
       if (after !== value) {
         braces.push({ locale, key, before: value, after });
@@ -238,7 +241,15 @@ export function migrateCatalogs(cfg: ResolvedConfig, options: MigrateOptions = {
       }
     }
 
-    if (options.plurals) mergePlurals(locale, catalog, out, plurals, skipped, convert);
+    if (options.plurals) {
+      mergePlurals(locale, catalog, out, plurals, skipped, convert);
+      // a form that went into a block is gone as a key: its own line would count a message twice
+      const merged = new Set(
+        plurals.filter((entry) => entry.locale === locale).flatMap((entry) => entry.from),
+      );
+      const left = braces.filter((entry) => entry.locale !== locale || !merged.has(entry.key));
+      braces.splice(0, braces.length, ...left);
+    }
 
     const changed =
       braces.some((b) => b.locale === locale) || plurals.some((p) => p.locale === locale);

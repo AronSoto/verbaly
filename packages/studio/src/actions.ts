@@ -1,17 +1,11 @@
 import {
-  collectOrigins,
   counted,
-  extractProject,
-  loadCatalogs,
   loadState,
-  mergeTranslations,
-  recordTranslations,
   resolveProvider,
-  shippedCatalogs,
   syncProject,
-  translateCatalogs,
+  translateProject,
 } from '@verbaly/compiler';
-import type { ResolvedConfig, TranslationWrite } from '@verbaly/compiler';
+import type { ResolvedConfig, TranslateProvider } from '@verbaly/compiler';
 import { badRequest, scrub } from './http';
 import { advance, finish, start, type Job } from './jobs';
 
@@ -48,10 +42,17 @@ export interface Plan {
 }
 
 // translate is the one command that spends money and minutes, so the panel always shows the bill.
-export async function planTranslate(cfg: ResolvedConfig, locales?: string[]): Promise<Plan> {
-  const provider = await resolveProvider(cfg);
-  const catalogs = loadCatalogs(cfg);
-  const result = await translateCatalogs(cfg, catalogs, provider, { locales, dryRun: true });
+export async function planTranslate(
+  cfg: ResolvedConfig,
+  locales?: string[],
+  provider?: TranslateProvider,
+): Promise<Plan> {
+  // the same run with nothing sent: the bill counts what the run would ask for
+  const result = await translateProject(cfg, {
+    locales,
+    dryRun: true,
+    provider: provider ?? (await resolveProvider(cfg)),
+  });
   const total = Object.values(result.pending).reduce((n, keys) => n + keys.length, 0);
   return { pending: result.pending, total };
 }
@@ -59,48 +60,31 @@ export async function planTranslate(cfg: ResolvedConfig, locales?: string[]): Pr
 export async function startTranslate(cfg: ResolvedConfig, locales?: string[]): Promise<Job> {
   // a machine translation that lost its draft flag passes as reviewed: read the state first
   loadState(cfg);
+  // resolved here, so a missing key answers this request and not a job nobody is reading yet
   const provider = await resolveProvider(cfg);
   // the job carries its own denominator, so progress reads the same whether or not you asked first
-  const plan = await planTranslate(cfg, locales);
+  const plan = await planTranslate(cfg, locales, provider);
   const job = start('translate', plan.total);
   const id = job.id;
 
   // the run outlives this request on purpose: the client asks the job how it is going
   void (async () => {
     try {
-      const registry = await extractProject(cfg);
-      // the provider reads the text that ships, which is the text its answer has to match
-      const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
-      const result = await translateCatalogs(cfg, catalogs, provider, {
+      // the one run the CLI and the MCP server take: what a machine wrote stays a draft
+      const result = await translateProject(cfg, {
         locales,
-        batchSize: cfg.translate.batchSize,
-        concurrency: cfg.translate.concurrency,
-        retries: cfg.translate.retries,
-        origins: await collectOrigins(cfg, registry),
+        provider,
         onProgress: (p) => advance(id, p.keys, p.locale, p.error && scrub(p.error, cfg.root)),
       });
-      // what a machine wrote stays a draft: the panel does not get to change that rule
-      const writes: TranslationWrite[] = [];
-      let written = 0;
-      let kept = 0;
-      for (const [locale, keys] of Object.entries(result.translated)) {
-        const catalog = catalogs[locale] ?? {};
-        const landed = mergeTranslations(cfg, locale, catalog, keys);
-        writes.push({
-          locale,
-          draft: true,
-          entries: landed.map((key) => ({ key, text: catalog[key]! })),
-        });
-        written += landed.length;
-        kept += keys.length - landed.length;
-      }
-      recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
+      const count = (record: Record<string, string[]>): number =>
+        Object.values(record).reduce((n, keys) => n + keys.length, 0);
+      const written = count(result.written);
       // on a failure the panel shows only this line, so it says what landed and what did not
       const failed = result.failed[0];
       finish(id, failed ? 'failed' : 'done', {
         result,
         written,
-        kept,
+        kept: count(result.kept),
         message: failed
           ? `${counted(written, 'message')} translated, but ${counted(result.failed.length, 'batch', 'batches')} did not answer (${scrub(failed.error, cfg.root)}): run it again for the rest`
           : undefined,

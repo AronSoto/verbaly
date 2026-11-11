@@ -13,6 +13,7 @@ import {
   readCatalog,
   readState,
   recordTranslations,
+  relativeCheck,
   saveDrafts,
   shippedCatalogs,
   status,
@@ -81,24 +82,6 @@ function readAll(cfg: ResolvedConfig): { catalogs: Catalogs; problems: StudioPro
   return { catalogs, problems };
 }
 
-// check() reports the files a key was used in as absolute paths, origins already do not.
-function relativize(cfg: ResolvedConfig, result: CheckResult): CheckResult {
-  const rel = (file: string): string => relative(cfg.root, file).replaceAll('\\', '/');
-  return {
-    ...result,
-    unknown: result.unknown.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
-    extra: result.extra.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
-    collisions: result.collisions.map((entry) => ({
-      ...entry,
-      sites: entry.sites.map((at) => ({ ...at, file: rel(at.file) })),
-    })),
-    divergent: result.divergent.map((entry) => ({
-      ...entry,
-      code: { ...entry.code, file: rel(entry.code.file) },
-    })),
-  };
-}
-
 // One shot and unpaginated: the biggest catalog we know is past 1600 messages, instant locally.
 export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
   const { catalogs, problems } = readAll(cfg);
@@ -139,7 +122,8 @@ export async function buildState(cfg: ResolvedConfig): Promise<StudioState> {
     catalogs,
     origins: await collectOrigins(cfg, registry),
     status: status(cfg, catalogs, registry, live, sidecar.fingerprints),
-    check: relativize(cfg, check(cfg, catalogs, registry, sidecar.fingerprints)),
+    // check() names the files a key was used in by absolute path, origins already do not
+    check: relativeCheck(cfg.root, check(cfg, catalogs, registry, sidecar.fingerprints)),
     drafts: live,
     triage: perLocale,
     problems,
@@ -153,6 +137,8 @@ export function health(cfg: ResolvedConfig): Promise<DoctorResult> {
 export interface WriteMessageResult {
   locale: string;
   key: string;
+  // what the catalog holds now: '' when only whitespace was typed, which is no translation
+  text: string;
   clearedDraft: boolean;
 }
 
@@ -195,7 +181,7 @@ export async function writeMessage(
 
   const clearedDraft = (before.drafts[locale] ?? []).includes(key);
   recordTranslations(cfg, source, [{ locale, entries: [{ key, text: value }], draft: false }]);
-  return { locale, key, clearedDraft };
+  return { locale, key, text: value, clearedDraft };
 }
 
 export interface ApproveResult {

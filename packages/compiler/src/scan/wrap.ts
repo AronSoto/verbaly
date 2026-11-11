@@ -3,9 +3,10 @@ import { relative } from 'node:path';
 import { parse } from '@babel/parser';
 import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
-import { cleanJsxText, isTReference, walk, type AstNode } from './analyze';
+import { cleanJsxText, FUNCTIONS, isTReference, walk, type AstNode } from './analyze';
 import type { ResolvedConfig } from '../config/config';
 import { componentAdapters } from '../config/host';
+import { counted } from '../util/text';
 
 export interface WrapEntry {
   file: string;
@@ -132,11 +133,18 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
     return { wrapped, skipped, hasT: false, client: false }; // unparseable file: leave it alone
   }
 
-  const hasT = declaresT(ast);
+  const scopes = tScopes(ast);
   const client = hasDirective(ast, 'use client');
   const s = new MagicString(code);
   const visited = new Set<AstNode>();
   let changed = false;
+  // every text wrap writes needs a t that reaches it: one that does not keeps the file waiting
+  let reached = true;
+  const write = (start: number, end: number, template: string): void => {
+    s.overwrite(start, end, '{t`' + template + '`}');
+    changed = true;
+    if (!tReaches(scopes, start)) reached = false;
+  };
 
   walk(ast, (node) => {
     if (node.type !== 'JSXElement' && node.type !== 'JSXFragment') return;
@@ -144,6 +152,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
     processElement(node);
   });
 
+  const hasT = changed ? reached : scopes.some((scope) => scope.bound);
   return changed
     ? { code: s.toString(), wrapped, skipped, hasT, client }
     : { wrapped, skipped, hasT, client };
@@ -252,8 +261,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
       first.type === 'JSXText' ? first.start + leadingWs(first.value as string) : first.start;
     const end = last.type === 'JSXText' ? last.end - trailingWs(last.value as string) : last.end;
 
-    s.overwrite(start, end, '{t`' + template + '`}');
-    changed = true;
+    write(start, end, template);
     wrapped.push({ file, line: line(first), text: report, kind: 'text' });
   }
 
@@ -266,8 +274,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
       if (value?.type !== 'StringLiteral') continue;
       const raw = value.value as string;
       if (!LETTER.test(raw) || isIdentifierLike(raw)) continue;
-      s.overwrite(value.start, value.end, '{t`' + escapeTemplate(raw) + '`}');
-      changed = true;
+      write(value.start, value.end, escapeTemplate(raw));
       wrapped.push({
         file,
         line: line(value),
@@ -310,25 +317,75 @@ function hasDirective(program: AstNode, value: string): boolean {
   return directives.some((d) => ((d.value as AstNode | undefined)?.value as string) === value);
 }
 
+// a stretch of the file where t means one thing: verbaly's (bound), or a callback's own item
+interface TScope {
+  start: number;
+  end: number;
+  bound: boolean;
+}
+
+const CALLS = new Set(['CallExpression', 'NewExpression', 'OptionalCallExpression']);
+
 // a t call written where nothing binds t does not compile, so wrap has to know before it writes
-function declaresT(program: AstNode): boolean {
-  let found = false;
-  walk(program, (node) => {
-    if (found) return;
-    if (node.type === 'ImportDeclaration') {
-      for (const spec of node.specifiers as AstNode[]) {
-        if (isTName((spec.local as AstNode | undefined)?.name)) found = true;
+function tScopes(program: AstNode): TScope[] {
+  const scopes: TScope[] = [];
+  const mark = (scope: AstNode, bound: boolean): void => {
+    scopes.push({ start: scope.start, end: scope.end, bound });
+  };
+  const visit = (node: AstNode, scope: AstNode, argument: boolean): void => {
+    let inner = scope;
+    if (FUNCTIONS.has(node.type)) {
+      inner = node;
+      if (node.type === 'FunctionDeclaration' && isTName((node.id as AstNode | null)?.name)) {
+        mark(scope, true);
       }
+      for (const param of (node.params as AstNode[] | undefined) ?? []) {
+        if (!bindsT(param)) continue;
+        // tabs.map((t) => …): that t is a tab; a destructured { t } is a prop someone passed down
+        mark(node, !(argument && namesT(param)));
+      }
+    } else if (node.type === 'ImportDeclaration') {
+      const locals = (node.specifiers as AstNode[]).map(
+        (spec) => spec.local as AstNode | undefined,
+      );
+      if (locals.some((local) => isTName(local?.name))) mark(program, true);
       return;
+    } else if (node.type === 'VariableDeclarator' && bindsT(node.id as AstNode)) {
+      mark(scope, true);
     }
-    if (node.type === 'VariableDeclarator' && bindsT(node.id as AstNode)) found = true;
-    if (node.type === 'FunctionDeclaration' && isTName((node.id as AstNode | undefined)?.name)) {
-      found = true;
+    const args = CALLS.has(node.type) ? (node.arguments as AstNode[]) : undefined;
+    for (const key in node) {
+      if (key === 'loc' || key.endsWith('Comments') || key === 'extra') continue;
+      const value = node[key];
+      for (const child of Array.isArray(value) ? value : [value]) {
+        if (isAstNode(child)) visit(child, inner, args?.includes(child) ?? false);
+      }
     }
-    const params = node.params as AstNode[] | undefined;
-    if (params?.some((param) => bindsT(param))) found = true;
-  });
-  return found;
+  };
+  visit(program, program, false);
+  return scopes;
+}
+
+// the innermost stretch that says anything about t decides, and inside a callback's own t it is no
+function tReaches(scopes: TScope[], position: number): boolean {
+  let nearest: TScope | undefined;
+  for (const scope of scopes) {
+    if (position < scope.start || position >= scope.end) continue;
+    const size = scope.end - scope.start;
+    const best = nearest ? nearest.end - nearest.start : Infinity;
+    if (size < best || (size === best && scope.bound)) nearest = scope;
+  }
+  return nearest?.bound ?? false;
+}
+
+function isAstNode(value: unknown): value is AstNode {
+  return typeof (value as { type?: unknown } | null)?.type === 'string';
+}
+
+// the parameter itself is called t, with or without a default
+function namesT(param: AstNode): boolean {
+  const target = param.type === 'AssignmentPattern' ? (param.left as AstNode) : param;
+  return target.type === 'Identifier' && isTName(target.name);
 }
 
 function bindsT(pattern: AstNode | undefined): boolean {
@@ -396,4 +453,46 @@ function trailingWs(text: string): number {
 function line(node: AstNode): number {
   const loc = node.loc as { start?: { line?: number } } | undefined;
   return loc?.start?.line ?? 1;
+}
+
+export interface WrapReport {
+  // "would wrap 2 texts in 1 file", with what waits for t said apart
+  counts: string;
+  // each text, what needs a human, and the files it would not write, without the next step
+  lines: string[];
+  // files the run wrote, or would write: the caller's next step depends on it
+  files: number;
+}
+
+// the words of a wrap run, written once for the CLI and for verbaly_wrap
+export function formatWrapResult(result: WrapResult, write: boolean): WrapReport {
+  const blocked = new Set(result.blocked.map((entry) => entry.file));
+  const done = result.changed.filter((file) => !blocked.has(file));
+  const texts = result.wrapped.filter((entry) => !blocked.has(entry.file));
+  let counts = `${write ? 'wrapped' : 'would wrap'} ${counted(texts.length, 'text')} in ${counted(done.length, 'file')}`;
+  // a report that promised texts a write then refused read as a bug: the wait is said up front
+  const waiting = result.wrapped.length - texts.length;
+  if (!write && waiting > 0) {
+    counts += `, and ${counted(waiting, 'text')} in ${counted(blocked.size, 'file')} once t is in scope`;
+  }
+  const lines: string[] = [];
+  for (const entry of write ? texts : result.wrapped) {
+    const attr = entry.kind === 'attribute' ? `${entry.attribute} → ` : '';
+    lines.push(`  ${entry.file}:${entry.line}  ${attr}"${entry.text}"`);
+  }
+  if (result.skipped.length > 0) {
+    lines.push('  needs a human:');
+    for (const entry of result.skipped) {
+      lines.push(`  ${entry.file}:${entry.line}  "${entry.text}" (${entry.reason})`);
+    }
+  }
+  if (result.blocked.length > 0) {
+    lines.push(
+      `  nothing written in ${counted(result.blocked.length, 'file')} with no t in scope:`,
+    );
+    for (const entry of result.blocked) {
+      lines.push(`  ${entry.file}  ${counted(entry.texts, 'text')}, ${entry.binding}`);
+    }
+  }
+  return { counts, lines, files: done.length };
 }

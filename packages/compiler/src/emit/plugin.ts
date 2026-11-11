@@ -6,6 +6,7 @@ import {
   loadCatalogs,
   needsIcu,
   needsRelative,
+  own,
   type Catalog,
   type Catalogs,
 } from '../catalog/catalog';
@@ -18,7 +19,12 @@ import {
   warningCount,
   type CheckResult,
 } from '../gate/check';
-import { generateLocaleModule, generateRuntimeModule, writeDts } from './codegen';
+import {
+  generateLocaleModule,
+  generateRuntimeModule,
+  writeDts,
+  type RuntimeModuleOptions,
+} from './codegen';
 import { pluginOnlyOptions, type ResolvedConfig, type VerbalyConfig } from '../config/config';
 import { scannedAnalysis } from '../scan/extract';
 import { LOCALE_IMPORT, VIRTUAL_ID, isAppModule } from '../util/ids';
@@ -49,22 +55,42 @@ export function resolveVirtualId(id: string): string | undefined {
   return undefined;
 }
 
+export interface ClientModules {
+  // the module every import of verbaly/app gets
+  runtime(): string;
+  // one language's messages, as the browser receives them
+  locale(locale: string): string;
+}
+
+// what the browser receives, decided in one place for a virtual module and for files on disk
+export function clientModules(
+  cfg: ResolvedConfig,
+  catalogs: Catalogs,
+  options: Pick<RuntimeModuleOptions, 'localeImport' | 'extraExports'> = {},
+): ClientModules {
+  // filtered before the detectors run: a group that leaves the bundle takes its parsers with it
+  const client = clientCatalogs(cfg, catalogs);
+  return {
+    runtime: () =>
+      generateRuntimeModule(cfg, {
+        ...options,
+        icu: cfg.icu ?? needsIcu(client),
+        relative: cfg.relative ?? needsRelative(client),
+        inlineCatalog: cfg.render.inlineCatalog === true,
+      }),
+    // a request names the locale, and a name every object inherits is no catalog
+    locale: (locale) => generateLocaleModule(own(client, locale) ?? {}),
+  };
+}
+
 export function loadVirtualModule(
   id: string,
   cfg: ResolvedConfig,
   catalogs: Catalogs,
 ): string | undefined {
-  // filtered before the detectors run: a group that leaves the bundle takes its parsers with it
-  const client = clientCatalogs(cfg, catalogs);
-  if (id === RESOLVED_VIRTUAL_ID) {
-    return generateRuntimeModule(cfg, {
-      icu: cfg.icu ?? needsIcu(client),
-      relative: cfg.relative ?? needsRelative(client),
-      inlineCatalog: cfg.render.inlineCatalog === true,
-    });
-  }
+  if (id === RESOLVED_VIRTUAL_ID) return clientModules(cfg, catalogs).runtime();
   if (id.startsWith(LOCALE_MODULE_PREFIX)) {
-    return generateLocaleModule(client[id.slice(LOCALE_MODULE_PREFIX.length)] ?? {});
+    return clientModules(cfg, catalogs).locale(id.slice(LOCALE_MODULE_PREFIX.length));
   }
   return undefined;
 }

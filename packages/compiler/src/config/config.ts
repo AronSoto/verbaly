@@ -92,7 +92,10 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
   const host = detectHost(root)?.name;
 
   const localesDeclared = config.locales !== undefined;
-  const locales = new Set<string>([sourceLocale, ...(config.locales ?? [])]);
+  // a json or js config has no types to stop it: "es" is the list of one it means, not its letters
+  const written: unknown = config.locales;
+  const listed = typeof written === 'string' ? [written] : (config.locales ?? []);
+  const locales = new Set<string>([sourceLocale, ...listed]);
   // a declared list is the list: discovery is for a project that never wrote one down
   if (!localesDeclared && existsSync(dir)) {
     for (const file of readdirSync(dir)) {

@@ -469,3 +469,18 @@ describe('the integrations that load a config', () => {
     });
   }
 });
+
+describe('a config with no types to stop it: locales written as one string', () => {
+  it('reads "es" as the list of one it means, never as its letters', async () => {
+    const root = makeRoot();
+    writeFileSync(join(root, 'verbaly.config.json'), '{ "locales": "es" }');
+    const cfg = await loadConfig(root);
+    expect(cfg.locales).toEqual(['en', 'es']);
+    expect(cfg.localesDeclared).toBe(true);
+  });
+
+  it('reads a tag with a region whole', () => {
+    const written = { locales: 'pt-BR' } as unknown as Parameters<typeof resolveConfig>[0];
+    expect(resolveConfig({ ...written, root: makeRoot() }).locales).toEqual(['en', 'pt-BR']);
+  });
+});

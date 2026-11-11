@@ -389,6 +389,9 @@ describe('createVerbalyMcp', () => {
       drafts: Record<string, string[]>;
     };
     expect(state.drafts.es).toHaveLength(1);
+    // the run that creates the lock says so, the way extract does, so the user commits it
+    expect((structured(result) as { lock?: unknown }).lock).toEqual({ file: 'verbaly.lock' });
+    expect(resultText(result)).toContain('verbaly.lock');
 
     // the draft shows up in status and in the opt-in missing view
     expect(resultText(await client.callTool({ name: 'verbaly_status', arguments: {} }))).toContain(
@@ -534,6 +537,22 @@ describe('createVerbalyMcp: the onboarding half of the cycle', () => {
     const source = readFileSync(join(root, 'src', 'Page.jsx'), 'utf8');
     expect(source).toContain('{t`Hello there`}');
     expect(source).toContain('t`Open me`');
+  });
+
+  it('wrap counts what it can write now apart from what waits for t, as the CLI does', async () => {
+    const root = makeProject();
+    writeFileSync(
+      join(root, 'src', 'Bound.jsx'),
+      'const t = useT();\nexport const Bound = () => <p>Ready to wrap</p>;\n',
+    );
+    writeFileSync(join(root, 'src', 'Page.jsx'), 'export const Page = () => <p>Hello there</p>;\n');
+    const client = await connect(root);
+    const text = resultText(await client.callTool({ name: 'verbaly_wrap', arguments: {} }));
+    // a total that write would not keep is the promise the CLI stopped making
+    expect(text).toContain(
+      'would wrap 1 text in 1 file, and 1 text in 1 file once t is in scope, of 2 files scanned',
+    );
+    expect(text).not.toContain('would wrap 2 texts');
   });
 
   it('wrap hands back the files it refused to write, so an agent can bind t first', async () => {
@@ -698,12 +717,24 @@ describe('createVerbalyMcp: an agent never edits a catalog or the state by hand 
         ],
       },
     });
+    // the first draft of a project creates the lock, and the agent has to be told it goes in git
     expect(structured(result)).toEqual({
       written: ['greet'],
       kept: ['bye'],
       invalid: [],
       unknown: ['ghost'],
+      lock: { file: 'verbaly.lock' },
     });
+    expect(resultText(result)).toContain('verbaly.lock');
+    const again = await client.callTool({
+      name: 'verbaly_write_drafts',
+      arguments: {
+        locale: 'es',
+        entries: [{ key: 'greet', text: 'Hola {name}' }],
+        overwrite: true,
+      },
+    });
+    expect(structured(again)).toEqual({ written: ['greet'], kept: [], invalid: [], unknown: [] });
     const es = JSON.parse(readFileSync(join(root, 'locales', 'es.json'), 'utf8')) as object;
     expect(es).toEqual({ bye: 'Adiós', greet: 'Hola {name}' });
     const state = JSON.parse(readFileSync(join(root, 'verbaly.lock'), 'utf8'));

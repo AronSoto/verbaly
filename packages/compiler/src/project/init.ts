@@ -4,6 +4,7 @@ import { findConfigFile, loadConfigFile } from '../config/config';
 import { detectHost, installCommand, readDependencies, type Host } from '../config/host';
 import { detectLibraries } from '../catalog/migrate';
 import { isLocaleTag, suggestTag } from '../util/tag';
+import { singleQuoted } from '../util/text';
 
 export type { Host };
 
@@ -53,11 +54,12 @@ function existingCatalogs(root: string): string | undefined {
 }
 
 function configSource(options: InitOptions, typescript: boolean): string {
-  const fields = [`  sourceLocale: '${options.sourceLocale ?? 'en'}',`];
+  // a folder named l'app is a string like any other: quoted by hand, it closed at the apostrophe
+  const fields = [`  sourceLocale: ${singleQuoted(options.sourceLocale ?? 'en')},`];
   if (options.locales?.length) {
-    fields.push(`  locales: [${options.locales.map((l) => `'${l}'`).join(', ')}],`);
+    fields.push(`  locales: [${options.locales.map(singleQuoted).join(', ')}],`);
   }
-  if (options.dir) fields.push(`  dir: '${options.dir}',`);
+  if (options.dir) fields.push(`  dir: ${singleQuoted(options.dir)},`);
   const body = `export default {\n${fields.join('\n')}\n}`;
   if (typescript) {
     return `import type { VerbalyConfig } from '@verbaly/compiler';\n\n${body} satisfies VerbalyConfig;\n`;

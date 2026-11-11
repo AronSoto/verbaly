@@ -8,6 +8,7 @@ import {
   loadCatalogs,
   loadState,
   readState,
+  relativeCheck,
 } from '@verbaly/compiler';
 import { z } from 'zod';
 import {
@@ -15,7 +16,6 @@ import {
   perLocale,
   perLocaleEntries,
   READS,
-  relativeCheck,
   reply,
   rootInput,
   sourceSite,

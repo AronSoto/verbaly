@@ -13,7 +13,6 @@ import {
   loadCatalogs,
   loadConfig,
   loadVirtualModule,
-  outdatedTranslations,
   resolveVirtualId,
   runBuildGate,
   shippedCatalogs,
@@ -25,7 +24,6 @@ import {
   writeDts,
   type Catalogs,
   type DevReporter,
-  type Finding,
   type PluginOptions,
   type ResolvedConfig,
   type SyncProjectResult,
@@ -59,7 +57,6 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   let writeTimer: ReturnType<typeof setTimeout> | undefined;
   let included: (id: string) => boolean;
   let reporter: DevReporter | undefined;
-  let stateBroken = false;
   // a build's scan: each file it read unchanged reaches transform already parsed
   let scan: MessageRegistry | undefined;
   // one write-back at a time: a save and a catalog edit landing together must not interleave
@@ -88,30 +85,8 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
   // what the dev server says, through the same reporter and wording as next dev
   function report(result: SyncProjectResult, catalogEdit: boolean): void {
     reporter ??= createDevReporter(cfg.root);
-    const replaced: Finding[] = [];
-    const code: Finding[] = [];
-    const lock: Finding[] = [];
-    for (const finding of result.findings) {
-      if (finding.kind === 'collision' || finding.kind === 'renamed') code.push(finding);
-      else if (finding.kind === 'lock') lock.push(finding);
-      // a change to the catalog that the code undid was a person's edit; one to the code is not
-      else if (finding.kind === 'replaced' && catalogEdit)
-        replaced.push({ ...finding, edited: true });
-    }
-    reporter.report('replaced', replaced);
-    reporter.report('code', code);
-    reporter.report('lock', lock);
-    const outdated = result.state
-      ? outdatedTranslations(cfg, result.catalogs, result.state.fingerprints)
-      : [];
-    reporter.report(
-      'outdated',
-      outdated.map((entry): Finding => ({ kind: 'outdated', ...entry })),
-    );
-    if (result.stateProblem && !stateBroken) {
-      console.warn(`[verbaly] ${result.stateProblem}, so drafts are not tracked`);
-    }
-    stateBroken = Boolean(result.stateProblem);
+    // a change to the catalog that the code undid was a person's edit; one to the code is not
+    reporter.sync(cfg, result, () => (catalogEdit ? true : undefined));
   }
 
   // every write in dev starts from the disk, and re-reads the files behind each text that changes

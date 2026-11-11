@@ -65,25 +65,17 @@ export function writeGeneratedModules(
 
   let changed = writeIfChanged(join(dir, '.gitignore'), '*\n');
 
-  // these files are the client module here, so bundle.exclude has to be applied on this path too
-  const client = compiler.clientCatalogs(cfg, catalogs);
-  const runtime = compiler.generateRuntimeModule(cfg, {
+  // these files are the client module here: the compiler decides what it carries, as for Vite
+  const modules = compiler.clientModules(cfg, catalogs, {
     localeImport: (locale) => `./locale/${locale}.js`,
     extraExports: `export const requestOptions = ${JSON.stringify(requestOptions)};\n`,
-    icu: cfg.icu ?? compiler.needsIcu(client),
-    relative: cfg.relative ?? compiler.needsRelative(client),
-    inlineCatalog: cfg.render.inlineCatalog === true,
   });
-  changed = writeIfChanged(join(dir, 'index.js'), runtime) || changed;
+  changed = writeIfChanged(join(dir, 'index.js'), modules.runtime()) || changed;
   changed = writeIfChanged(join(dir, 'server.js'), generateServerModule(cfg)) || changed;
 
   const expected = new Set(cfg.locales.map((locale) => `${locale}.js`));
   for (const locale of cfg.locales) {
-    changed =
-      writeIfChanged(
-        join(localeDir, `${locale}.js`),
-        compiler.generateLocaleModule(client[locale] ?? {}),
-      ) || changed;
+    changed = writeIfChanged(join(localeDir, `${locale}.js`), modules.locale(locale)) || changed;
   }
   for (const file of readdirSync(localeDir)) {
     if (!expected.has(file)) {

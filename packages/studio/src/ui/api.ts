@@ -1,12 +1,10 @@
+import type { ExtractResult } from '../actions';
+import type { WriteMessageResult } from '../api';
 import { ask, type Answer } from './wire';
 import type { RawState } from './model';
 
 // Everything the panel can ask for, as one object it is handed rather than one it imports.
-export interface Saved {
-  locale: string;
-  key: string;
-  clearedDraft: boolean;
-}
+export type Saved = WriteMessageResult;
 
 export interface ReadResult {
   locale: string;
@@ -26,11 +24,8 @@ export interface Health {
   entries: Check[];
 }
 
-export interface Added {
-  added: Record<string, string[]>;
-  found: number;
-  messages: number;
-}
+// the server's own answer, as a type: restated by hand it fell behind what the server sends
+export type Added = ExtractResult;
 
 export interface Plan {
   pending: Record<string, string[]>;

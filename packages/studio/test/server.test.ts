@@ -100,7 +100,12 @@ describe('routes', () => {
       method: 'PUT',
       body: JSON.stringify({ text: 'Buenas' }),
     });
-    expect(await res.json()).toEqual({ locale: 'es', key: 'hello', clearedDraft: true });
+    expect(await res.json()).toEqual({
+      locale: 'es',
+      key: 'hello',
+      text: 'Buenas',
+      clearedDraft: true,
+    });
     expect(loadDrafts(resolveConfig({ root, dir: 'locales' }))).toEqual({});
   });
 

@@ -2,6 +2,7 @@ import MagicString from 'magic-string';
 import type { Analysis } from './analyze';
 import { analyzeFile } from './sfc';
 import { APP_ID } from '../util/ids';
+import { singleQuoted } from '../util/text';
 import { warnParseError } from '../util/warn';
 
 export interface TransformResult {
@@ -10,8 +11,7 @@ export interface TransformResult {
 }
 
 function quote(text: string, single: boolean | undefined): string {
-  if (!single) return JSON.stringify(text);
-  return `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  return single ? singleQuoted(text) : JSON.stringify(text);
 }
 
 export function transformCode(
@@ -44,11 +44,10 @@ export function transformCode(
             .map((c) => `${JSON.stringify(c.name)}: ${c.source}`)
             .join(', ')} }}`
         : '';
-      s.overwrite(
-        msg.start,
-        msg.end,
-        `<${msg.jsx.name} id=${JSON.stringify(msg.key)}${values}${components} />`,
-      );
+      // a quoted jsx attribute has no escapes: a key with a quote or a backslash goes in braces
+      const quoted = JSON.stringify(msg.key);
+      const id = quoted === `"${msg.key}"` ? quoted : `{${quoted}}`;
+      s.overwrite(msg.start, msg.end, `<${msg.jsx.name} id=${id}${values}${components} />`);
       continue;
     }
 

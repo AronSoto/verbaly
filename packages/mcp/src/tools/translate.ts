@@ -1,19 +1,18 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  collectOrigins,
-  extractProject,
-  formatTranslateFailures,
-  loadCatalogs,
-  loadState,
-  mergeTranslations,
-  recordTranslations,
-  resolveProvider,
-  shippedCatalogs,
-  translateCatalogs,
-  type TranslationWrite,
-} from '@verbaly/compiler';
+import { formatTranslateFailures, translateProject } from '@verbaly/compiler';
 import { z } from 'zod';
-import { byLocale, perLocale, reply, rootInput, writes, type ToolContext } from './shared';
+import {
+  byLocale,
+  lockData,
+  lockLine,
+  lockOutput,
+  perLocale,
+  relativeTo,
+  reply,
+  rootInput,
+  writes,
+  type ToolContext,
+} from './shared';
 
 export function registerTranslate(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -41,25 +40,14 @@ export function registerTranslate(server: McpServer, ctx: ToolContext): void {
           .array(z.object({ locale: z.string(), keys: z.array(z.string()), error: z.string() }))
           .describe('Batches the provider never answered, safe to retry'),
         pending: perLocale.describe('dryRun only: what would be translated'),
+        lock: lockOutput,
       },
       annotations: writes(false, true),
     },
     ctx.guarded(async ({ root, locales, dryRun }) => {
       const cfg = await ctx.config(root);
-      // a machine translation that lost its draft flag passes as reviewed: read the state first
-      if (!dryRun) loadState(cfg);
-      const registry = await extractProject(cfg);
-      // the provider reads the text that ships, which is the text its answer has to match
-      const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
-      const provider = await resolveProvider(cfg);
-      const result = await translateCatalogs(cfg, catalogs, provider, {
-        locales,
-        batchSize: cfg.translate.batchSize,
-        concurrency: cfg.translate.concurrency,
-        retries: cfg.translate.retries,
-        dryRun,
-        origins: dryRun ? undefined : await collectOrigins(cfg, registry),
-      });
+      // the one run the CLI and Studio take: drafts, stamps and the lock move together
+      const result = await translateProject(cfg, { locales, dryRun });
 
       if (dryRun) {
         const pending = byLocale(result.pending);
@@ -70,31 +58,14 @@ export function registerTranslate(server: McpServer, ctx: ToolContext): void {
         return reply(lines.length === 0 ? 'nothing to translate' : lines.join('\n'), data);
       }
 
-      // the file as it is now: what someone wrote while the provider worked is not overwritten
-      const written: Array<{ locale: string; keys: string[] }> = [];
-      const kept: Array<{ locale: string; keys: string[] }> = [];
-      const writes: TranslationWrite[] = [];
-      for (const [locale, keys] of Object.entries(result.translated)) {
-        const catalog = catalogs[locale] ?? {};
-        const landed = mergeTranslations(cfg, locale, catalog, keys);
-        writes.push({
-          locale,
-          draft: true,
-          entries: landed.map((key) => ({ key, text: catalog[key]! })),
-        });
-        if (landed.length > 0) written.push({ locale, keys: landed });
-        const left = keys.filter((key) => !landed.includes(key));
-        if (left.length > 0) kept.push({ locale, keys: left });
-      }
-      if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
-
       const data = {
         dryRun: false,
-        translated: written,
-        kept,
+        translated: byLocale(result.written),
+        kept: byLocale(result.kept),
         invalid: byLocale(result.invalid),
         failed: result.failed,
         pending: [],
+        ...lockData(result.lock, relativeTo(cfg.root)),
       };
       const lines: string[] = [];
       for (const { locale, keys } of data.translated) {
@@ -110,6 +81,7 @@ export function registerTranslate(server: McpServer, ctx: ToolContext): void {
       }
       lines.push(...formatTranslateFailures(result.failed));
       if (lines.length === 0) return reply('nothing to translate', data);
+      lines.push(...lockLine(result.lock, cfg.root));
       if (data.translated.length > 0) {
         lines.push('drafts await human review: verbaly review (--approve accepts them)');
       }

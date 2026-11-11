@@ -61,7 +61,7 @@ Reading the project is an address, not a call, so these cost no tool invocation:
 
 **This is the only way to read what a message says.** Every tool works in keys and counts, which is enough to report a gap and not enough to review a translation or write one in context.
 
-`verbaly_translate` never loses work it already paid for: a batch the provider does not answer is retried, and if it still fails it comes back in `failed` with its keys while everything else is written. Retrying asks only for what is left. It never loses a person's work either: a message someone wrote on disk while the provider was working is left as written and comes back in `kept`.
+`verbaly_translate` never loses work it already paid for: a batch the provider does not answer is retried, and if it still fails it comes back in `failed` with its keys while everything else is written. Retrying asks only for what is left. It never loses a person's work either: a message someone wrote on disk while the provider was working is left as written and comes back in `kept`. When a save brings `verbaly.lock` into being, `verbaly_translate` and `verbaly_write_drafts` say so in `lock`, as `verbaly_extract` does, so the agent can tell its user to commit the file.
 
 ## 📚 Docs
 

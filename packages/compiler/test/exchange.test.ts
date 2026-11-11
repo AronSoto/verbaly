@@ -500,7 +500,7 @@ describe('parseExchangeFile', () => {
       'es.xlf',
       `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v"><unit id="a"><segment><source>Hi</source><target>&#72;ola &#x2014; s&#237;</target></segment></unit></file></xliff>`,
     );
-    expect(parseExchangeFile(file).entries).toEqual({ a: 'Hola — sí' });
+    expect(parseExchangeFile(file).entries).toEqual({ a: 'Hola \u2014 sí' });
   });
 
   it('throws on an XLIFF with no target language and no --locale', () => {
@@ -614,5 +614,122 @@ describe('parseExchangeFile', () => {
   it('po: unescapes backslash sequences in values', () => {
     const file = scratch('es.po', 'msgctxt "path"\nmsgid "x"\nmsgstr "a\\tb\\n\\"c\\" \\\\end"\n');
     expect(parseExchangeFile(file).entries).toEqual({ path: 'a\tb\n"c" \\end' });
+  });
+});
+
+describe('parseExchangeFile: XLIFF as another tool writes it', () => {
+  const unit = (attrs: string, target: string): string =>
+    `<unit ${attrs}><segment><source>Hello {name}</source><target>${target}</target></segment></unit>`;
+
+  it('reads attributes in single quotes', () => {
+    const file = scratch(
+      'catalog.xlf',
+      `<xliff version='2.0' srcLang='en' trgLang='es'><file id='v'>` +
+        unit("id='hello'", "Hola <ph id='name' disp='{name}'/>") +
+        `</file></xliff>`,
+    );
+    const parsed = parseExchangeFile(file);
+    expect(parsed.locale).toBe('es');
+    expect(parsed.entries).toEqual({ hello: 'Hola {name}' });
+  });
+
+  it('takes id for the key, never xml:id', () => {
+    const file = scratch(
+      'es.xlf',
+      `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v">` +
+        unit('xml:id="u1" id="hello"', 'Hola') +
+        `</file></xliff>`,
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ hello: 'Hola' });
+  });
+
+  it('keeps a code whole when its disp holds a raw >', () => {
+    const file = scratch(
+      'es.xlf',
+      `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v">` +
+        unit('id="hello" name="a>b"', 'A<ph id="br" disp="&lt;br/>"/>B') +
+        `</file></xliff>`,
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ hello: 'A<br/>B' });
+  });
+
+  it('reads the language of a 1.2 file in single quotes', () => {
+    const file = scratch(
+      'catalog.xlf',
+      `<xliff version='1.2'><file source-language='en' target-language='pt'><body>` +
+        `<trans-unit id='greet'><source>Hello</source><target>Olá</target></trans-unit>` +
+        `</body></file></xliff>`,
+    );
+    const parsed = parseExchangeFile(file);
+    expect(parsed.locale).toBe('pt');
+    expect(parsed.entries).toEqual({ greet: 'Olá' });
+  });
+});
+
+describe('parseExchangeFile: an entity that is no character', () => {
+  it('keeps a number past the last code point as written, and the file still imports', () => {
+    const file = scratch(
+      'es.xlf',
+      `<xliff version="2.0" srcLang="en" trgLang="es"><file id="v">` +
+        `<unit id="a"><segment><source>Hi</source><target>Hola &#99999999; &#xFFFFFFFF; &#72;</target></segment></unit>` +
+        `</file></xliff>`,
+    );
+    expect(parseExchangeFile(file).entries).toEqual({ a: 'Hola &#99999999; &#xFFFFFFFF; H' });
+  });
+});
+
+describe('exportCatalogs: an ICU message in the xliff', () => {
+  const ICU = '{count, plural, one {# item} other {# items}}';
+
+  it('sends a plural whole, so every form is text a translator can edit', () => {
+    const catalogs: Catalogs = { en: { items: `${ICU} in {dir}` }, es: {} };
+    const es = readFileSync(exportCatalogs(cfg(), catalogs).files[0]!.path, 'utf8');
+    expect(es).toContain(`<source>${ICU} in <ph id="dir" disp="{dir}"/></source>`);
+  });
+
+  it('protects a format argument and a quoted brace, which are not text to translate', () => {
+    const message =
+      "{n, number} of {total, number, percent} '{'kept'}' {gender, select, other {x}}";
+    const catalogs: Catalogs = { en: { m: message }, es: {} };
+    const es = readFileSync(exportCatalogs(cfg(), catalogs).files[0]!.path, 'utf8');
+    expect(es).toContain(
+      `<source><ph id="n" disp="{n, number}"/> of <ph id="total" disp="{total, number, percent}"/>` +
+        ` '{'kept'}' {gender, select, other {x}}</source>`,
+    );
+  });
+
+  it('comes back translated, form by form', () => {
+    const config = cfg();
+    const catalogs: Catalogs = { en: { items: `${ICU} in {dir}` }, es: {} };
+    const path = exportCatalogs(config, catalogs).files[0]!.path;
+    const target =
+      '{count, plural, one {# elemento} other {# elementos}} en <ph id="dir" disp="{dir}"/>';
+    writeFileSync(
+      path,
+      readFileSync(path, 'utf8').replace('<target></target>', `<target>${target}</target>`),
+    );
+    expect(importCatalogs(config, catalogs, [path]).imported.es).toEqual(['items']);
+    expect(catalogs.es!.items).toBe(
+      '{count, plural, one {# elemento} other {# elementos}} en {dir}',
+    );
+  });
+});
+
+describe('parseExchangeFile: a CSV saved by a spreadsheet', () => {
+  it('reads the separator from the header: a semicolon where the comma is the decimal mark', () => {
+    const file = scratch('es.csv', 'key;source;target\r\ngreet;Hello, you;"Hola; tú"\r\n');
+    const parsed = parseExchangeFile(file);
+    expect(parsed.entries).toEqual({ greet: 'Hola; tú' });
+    expect(parsed.sources).toEqual({ greet: 'Hello, you' });
+  });
+
+  it('reads a tab the same way', () => {
+    const file = scratch('es.csv', 'key\tsource\ttarget\r\ngreet\tHello, you\tHola, tú\r\n');
+    expect(parseExchangeFile(file).entries).toEqual({ greet: 'Hola, tú' });
+  });
+
+  it('never counts a separator inside a quoted header cell', () => {
+    const file = scratch('es.csv', 'key;"source, note";target\r\ngreet;Hello;Hola, tú\r\n');
+    expect(parseExchangeFile(file).entries).toEqual({ greet: 'Hola, tú' });
   });
 });

@@ -32,12 +32,18 @@ const TSCONFIG = JSON.stringify({
 const CATALOG = { inbox_title: 'Hi', inbox_body: 'Body', greet: 'Hello {name}' };
 
 // a string assertion proves the declaration is written; only a type checker proves it constrains
-function typecheck(source: string, options: { dts?: boolean } = {}): string {
+function typecheck(
+  source: string,
+  options: { dts?: boolean; catalog?: Record<string, string> } = {},
+): string {
   const dir = mkdtempSync(join(tmpdir(), 'verbaly-keys-'));
   try {
     writeFileSync(join(dir, 'tsconfig.json'), TSCONFIG);
     if (options.dts !== false) {
-      writeFileSync(join(dir, 'verbaly.d.ts'), generateDts(CATALOG, { locales: ['en', 'es'] }));
+      writeFileSync(
+        join(dir, 'verbaly.d.ts'),
+        generateDts(options.catalog ?? CATALOG, { locales: ['en', 'es'] }),
+      );
     }
     writeFileSync(join(dir, 'app.ts'), source);
     // the path holds a space, and shell: true would split an unquoted one into two arguments
@@ -101,6 +107,25 @@ describe('defineKeys constrains what a key module may declare', () => {
           `export const Text = defineKeys({ dialog: { title: 'inbox_title', ok: 'ghost_key' } });\n`,
       );
       expect(errors).toContain('ghost_key');
+    },
+    TSC_TIMEOUT,
+  );
+});
+
+describe('a block with only other, the whole plural of a language with one form', () => {
+  it(
+    'takes the number it counts, and the string a select would pass',
+    () => {
+      const errors = typecheck(
+        `import { t } from 'verbaly/app';
+` +
+          `export const a = t('items', { count: 5 });
+` +
+          `export const b = t('items', { count: 'many' });
+`,
+        { catalog: { items: '{count | other: # 件}' } },
+      );
+      expect(errors).toBe('');
     },
     TSC_TIMEOUT,
   );

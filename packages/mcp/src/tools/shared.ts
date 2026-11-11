@@ -1,5 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { CheckResult, Finding, ResolvedConfig } from '@verbaly/compiler';
+import { formatFinding } from '@verbaly/compiler';
+import type { Finding, ResolvedConfig } from '@verbaly/compiler';
 import { relative } from 'node:path';
 import { z } from 'zod';
 
@@ -49,32 +50,38 @@ export function relativeTo(root: string): (file: string) => string {
   return (file) => relative(root, file).replaceAll('\\', '/');
 }
 
+// every tool that can bring the lock into being says so the same way
+export const lockOutput = z
+  .object({
+    file: z.string(),
+    from: z.string().optional(),
+    merged: z.boolean().optional(),
+  })
+  .optional()
+  .describe(
+    'This run created verbaly.lock, moved an older state file (from) into it, or rewrote it whole after a merge conflict (merged): it belongs in git with the catalogs, so tell the user to commit it',
+  );
+
+type LockNews = Omit<Extract<Finding, { kind: 'lock' }>, 'kind'>;
+
 // the lock a run created, moved in or merged, the one thing an agent has to tell its user to commit
-export function lockOf(
-  findings: Finding[],
+export function lockData(
+  news: LockNews | undefined,
   rel: (file: string) => string,
-): { lock?: { file: string; from?: string; merged?: boolean } } {
-  for (const finding of findings) {
-    if (finding.kind !== 'lock') continue;
-    const from = finding.from && { from: rel(finding.from) };
-    return { lock: { file: rel(finding.file), ...from, ...(finding.merged && { merged: true }) } };
-  }
-  return {};
+): { lock?: LockNews } {
+  if (!news) return {};
+  const from = news.from && { from: rel(news.from) };
+  return { lock: { file: rel(news.file), ...from, ...(news.merged && { merged: true }) } };
 }
 
-export function relativeCheck(root: string, result: CheckResult): CheckResult {
-  const rel = relativeTo(root);
-  return {
-    ...result,
-    unknown: result.unknown.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
-    extra: result.extra.map((entry) => ({ ...entry, files: entry.files.map(rel) })),
-    collisions: result.collisions.map((entry) => ({
-      ...entry,
-      sites: entry.sites.map((at) => ({ ...at, file: rel(at.file) })),
-    })),
-    divergent: result.divergent.map((entry) => ({
-      ...entry,
-      code: { ...entry.code, file: rel(entry.code.file) },
-    })),
-  };
+export function lockOf(findings: Finding[], rel: (file: string) => string): { lock?: LockNews } {
+  return lockData(
+    findings.find((finding) => finding.kind === 'lock'),
+    rel,
+  );
+}
+
+// the line a person reads about it, the one the CLI prints
+export function lockLine(news: LockNews | undefined, root: string): string[] {
+  return news ? [formatFinding({ kind: 'lock', ...news }, root)] : [];
 }

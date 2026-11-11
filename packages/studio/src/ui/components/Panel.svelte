@@ -9,6 +9,7 @@
     health,
     lookFirst,
     reasonFor,
+    savedCell,
     search,
     visible,
     type Panel,
@@ -125,20 +126,16 @@
     if (result.error) return result.error;
     const row = panel.rows.find((r) => r.key === key);
     const cell = row?.cells.find((c) => c.locale === locale);
-    if (cell) {
-      cell.text = text;
-      cell.state = text ? 'done' : 'missing';
-      cell.issue = undefined;
-    }
-    note = { text, file: `${locale}.json` };
+    const stored = result.value?.text ?? text;
+    if (cell) savedCell(cell, stored);
+    note = { text: stored, file: `${locale}.json` };
     return null;
   }
 
-  // `state` would shadow the rune, so the filter is named for what it reads like at the call site
-  // the annotation goes on the rune: on the variable, Svelte 5 narrows it to the first member
+  // `only`, since `state` would shadow the rune; typed on the rune, or it narrows to 'all'
   let only = $state<'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken'>('all');
   let text: string = $state('');
-  // null means nobody has picked yet, so the default follows the project instead of freezing at mount
+  // null: nobody picked yet, so the default follows the project instead of freezing at mount
   let picked: string[] | null = $state(null);
   let group: string | null = $state(null);
 
@@ -162,7 +159,7 @@
   let field: HTMLInputElement | undefined = $state();
   let focused: string | null = $state(null);
 
-  // the table is not filtered by text any more: the sheet is what reads your words, in every language
+  // the table is no longer filtered by text: the sheet reads your words, in every language
   const all = $derived(groups(panel.rows, shown));
   // flagged first when a single language is on screen, because the bar promised they are on top
   const rows = $derived.by(() => {
@@ -171,7 +168,7 @@
   });
   const empty = $derived(emptyReason(panel, shown, rows));
 
-  // every count is over the languages actually shown, so the rail never promises rows a filter hides
+  // counted over the languages shown, so the rail never promises rows a filter hides
   const counts = $derived.by(() => {
     const out: Record<string, number> = { all: 0, look: 0, clean: 0, missing: 0, draft: 0, broken: 0 };
     for (const id of ['all', 'look', 'clean', 'missing', 'draft', 'broken'] as const) {
@@ -200,8 +197,7 @@
     focused = key;
   }
 
-  // the window is raised here and not in jumpTo: changing a filter resets it right after, and the
-  // row has to exist in the DOM before the browser can be asked to scroll to it
+  // raised here, not in jumpTo: a filter change resets it, and the row must exist to scroll to
   $effect(() => {
     if (!focused) return;
     const target = focused;

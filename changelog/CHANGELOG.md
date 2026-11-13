@@ -8,6 +8,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.83.0] · 2026-11-13
+
+**Faster on Windows, and the same site as before.** Verbaly's inside was reorganized so each part does one job, and every project it was checked against builds, checks and renders exactly as with 0.82.0. Breaking: nothing.
+
+### Highlights
+
+- **Starting your dev server or a build takes less time on Windows.** Verbaly now reads your files several at a time there, and reading them one by one was most of its wait. Other systems keep the way that was already fastest for them.
+- **A folder that looks like your translations folder no longer reloads your pages.** Saving a file in a copy such as `locales-old/`, or in a folder inside `locales/`, refreshed every open tab during development, as if a translation had changed.
+- **Each package page on npm says what it works with.** It names the framework versions or the Node version it needs, and links to the tests, the security score and the proof of where it was built.
+- **Studio names every check of your project in plain words.** Eight of them showed an internal name, such as `source texts`.
+
+### Fixed
+
+- **A JSON file next to the catalog folder reloaded the dev server (`@verbaly/vite`).** The watcher took any `.json` whose path started like the catalog folder, so `locales-old/es.json` and `locales/archive/es.json` ran the write-back and reloaded every open tab. It now reads a file only when it sits in the catalog folder itself.
+- **The MCP server's bin wrote two prefixes on a startup error (`@verbaly/mcp`).** A compiler error already opens with `[verbaly]`, and the bin put `[verbaly-mcp]` before it. It now prints through `formatCliError`, like the CLI.
+- **Studio's Health panel (`@verbaly/studio`).** Eight checks `doctor` reports had no title and showed their name: `source`, `imports`, `messages`, `keys`, `source texts`, `outdated`, `state` and `drafts`. Each has one now, and a test asks a title for every name `doctor` can give.
+- **The sitemap wrote the language raw in `hreflang` (`@verbaly/compiler`).** The links in the head already escaped it; `buildSitemap` now does the same.
+- **A gate pass started inside another lost the outer one's memory (`@verbaly/compiler`).** Its next read threw `Cannot read properties of undefined (reading 'get')`. Nothing nests a pass today; `gatePass` now hands the memory back to the pass it interrupted.
+
+### Changed
+
+- **The scan reads several files at a time on Windows (`@verbaly/compiler`, and every plugin through it).** `readSources` reads one file at a time with `readFileSync` everywhere else, and up to 64 at once with `fs/promises` on Windows, where the antivirus pays on every open. Both hand the files on in sorted order, so the registry and its order are the same.
+- **Each file one job (`@verbaly/compiler`).** The reports of the gate moved to `gate/report.ts`, the catalog half of the scan (`syncCatalogs`, `shippedCatalogs`, `pruneCatalogs`) to `scan/sync.ts`, the lock file and its format to `catalog/lock.ts`, the static site (`renderSite`, the sitemap, the warnings) to `emit/site.ts`, and XLIFF and CSV to `exchange/xliff.ts` and `exchange/csv.ts`. `structureMatches` moved next to the two checks it runs, in `gate/validate.ts`. `doctor()` is now an index of one function per zone, with the same entries in the same order. `index.ts` exports every name from its new home: the public surface did not change.
+- **One helper per idiom (`@verbaly/compiler`).** A path a person reads is `relativePath(root, file)`, a byte order mark goes through `stripBom`, `package.json` through `readManifest`, `x.id('…')` through `idCall` and the line of a node through `lineOf`. `check` and `status` start from the same views (`gateViews`) and judge a translation with the same function (`translationIssues`). The three blocks the mirror writes between markers share `betweenMarkers`, and the keys an export hands a translator come from `translatable`. Maps keyed by catalog keys, tag names or languages in `render`, the exchange readers, `syncProject` and Vite's source catalog start with no prototype.
+- **Error messages (`@verbaly/compiler`).** Six lost their final period. The import into the source language now reads "import fills translations, not the source, so pass --locale if the detection is wrong".
+- **Studio's panel (`@verbaly/studio`).** The filter and view names are the types `Show` and `View`, and the "worst first" ladder is `worst(cells)`, all in `model.ts`. The titles of `doctor`'s checks are `HEALTH`, in `words.ts`.
+- **`@verbaly/next`.** The three places that read a language from a path segment go through one function (`projectLocale`).
+- **The READMEs of all thirteen packages** carry the same badge row: npm, then what the package works with (the framework range read from its peer dependencies, the framework's mark where it declares none, or the Node range), CI, OpenSSF Scorecard, npm provenance and the license. The core keeps its size and its zero dependencies, and the MCP server its Glama badge.
+- **Tests of the shape (repository only).** `gate-reach.test.ts` asks `gatePasses` which lists fail and checks each one in the four reports of the gate; `readme.test.ts` checks the badge row of every README and that a badge says only what its `package.json` says; `config.test.ts` fails when `SOURCE_FILE_RE` misses an extension the default `include` scans.
+- **Dependencies:** `@babel/parser` 8.1.2 (the compiler's range moves to `^8.1.2`), and in the repository only `astro` 7.4.11, `i18next` 27.1.1 for the bench, `vite` 8.3.8, `@anthropic-ai/sdk` 1.8.0, `@sveltejs/kit` 3.2.0 and `prettier` 3.10.1, which reformats nothing.
+
+### Notes
+
+- **How this was found.** The 0.82.0 audit listed every file that did more than one job and every idiom written more than once; this release is that list, with zero behavior meant and zero bytes of the core. Its proof is the differential below.
+- **The reads on Windows,** measured on the build receipt's app of 1 500 modules, alternating both sides in one process with the same build: Windows 569 to 166 ms, Linux (a `node:22-bookworm` container) 39 and 37 ms, which is the same path. Reading in parallel on Linux was measured first and cost more than it saved (42 to 135 ms): an async read costs about 50 µs per file there, so only Windows takes the window. macOS is not measured and keeps the synchronous path.
+- **Sizes** (`pnpm --filter verbaly size`): unchanged, `createVerbaly` alone 3.35 KB, a real app 6.17 KB, the canary 8.01 KB, devtools 1.60 KB. The core is not in this diff.
+- **2 161 tests under `pnpm test`, 40 new** (0.82.0: 2 121). Compiler 1 144 plus 26 in its DOM config, MCP 51, Studio 214. **2 165 under `pnpm coverage`**, the benches included, with 97.49% of lines covered.
+- **Every pin that guards a change was seen red with its fix reverted**, through `.claude/sabotage.mjs`, on the final code: the badge rows (red on all thirteen READMEs before they were rewritten, and five sabotages), the gate reach, the nested pass, the include regex, Studio's titles, the Vite folder, the MCP bin, the sitemap, the import message, and the three of the Windows reads (the order with the first read held back, the exact window, no async read elsewhere).
+- **The review** (`/code-review`, the whole diff) reported seven findings. Five were fixed: the MCP bin, the sitemap and the reworded import error had no test, and the reads' tests left 12 MB in the temp folder and pinned the order through a timing. Dismissed: a tag named `__proto__` in the mirror's link maps cannot happen, since the core's parser never reads one as a tag; and starting the next window's reads while the current one is analyzed was left out, because it adds a read that can fail unheard for a gain nobody measured.
+- **The differential** (`.claude/diff-release.mjs`, 0.82.0 from npm against this build): nothing differs on verbaly-web (5 928 renders), the portfolio (758) and the fixture (35).
+- **Bench:** 23 to 25x, 9 to 11x, 4.7 to 5.1x and 4.6 to 4.7x against i18next 27.1.1 over three runs (0.82.0: 26.1x, 12.0x, 5.2x and 4.8x against 27.1.0); the core did not change, so this is what the machine moves between runs. The build receipt at 200 modules +86 ms (1.93x), at 1 500 modules +813 ms (3.17x), with the scan at 325 ms (0.82.0: +184 and +1 264 ms): the Windows reads.
+- **Dependencies:** `pnpm outdated -r` empty after them. `pnpm audit`: 1 low, ignored, as before.
+- **First contact** (`pnpm first-contact`, on this build): the four shapes green.
+- **The starters** (`pnpm starters`, on this checkout): the seven green in 182 s, with Vite 8.3.8, React 19.3.1, Vue 3.5.45, Svelte 5.57.3, SvelteKit 3.2.0, Next 16.4.6, Nuxt 4.6.4 and Astro 7.4.11.
+- **Canonical build and real consumers:** from the tarballs of a Linux build on Node 22: the size gate as above, publint "All good" on all thirteen, attw as `known-ok.md` expects, every tarball shipping only `dist/`, LICENSE and the README (plus `loader.d.cts` in Next), no `workspace:` left, and the three bins still small loaders of a shared chunk. `pnpm starters --tarballs` on them: the seven green in 161 s. verbaly-web builds (28 pages) and passes its `check`, and the portfolio passes `verbaly check` and `next build`. The MCP bin, installed from its tarball, answers `initialize` and lists its tools in the cycle's order, and `mcp-tdqs` 0.2.0 keeps its 1 warning, the shadow guess between write_drafts and doctor. Through `@verbaly/unplugin`, webpack 5.112.2 and esbuild 0.28.2 build an app with a key and a tagged text, and both bundles run and print the Spanish.
+- **Left for later, on purpose.** Typing the AST (107 casts in `analyze.ts` and `wrap.ts`) needs `@babel/types` declared and a new signature for `walk`, so it gets its own release. Rewording the sentences `doctor` and the CLI print is a change of text people read. The one-line path helper stays copied in Studio, the MCP server and Next, and Next's wait loop, `writeIfChanged` and Astro's copy of `projectDtsOptions` stay, because sharing them means new exports of the compiler. Whether `.cjs` and `.cts` join the default `include` is open: `SOURCE_FILE_RE` already reads them. `@verbaly/astro`, `@verbaly/sveltekit`, `@verbaly/nuxt` and `@verbaly/unplugin` declare no peer for their host, so their badge shows the framework's mark with no range. The eight compiler exports with no first-party consumer stay, and a language that does not exist in `verbaly_translate` is still a behavior to decide.
+
+### Docs impact
+
+- **`releases.ts` and the three catalogs:** the 0.83.0 block with four highlights.
+- **The Studio page,** if it lists what Health shows: the eight checks have titles now ("Your source catalog", "How your code imports t", "The messages in your code", "The keys your code reads", "Texts the code and the catalog write differently", "Translations of an older text", "The verbaly.lock file", "Machine translations nobody has read").
+- No API, option or command changed: no reference page moves.
+
 ## [0.82.0] · 2026-11-11
 
 **Files from your translators load however their tool wrote them, and a project can leave another translation library one component at a time.** Every package was read line by line for this release, and what it found at the edges is fixed. Breaking: a command told to work on a language your project does not have now stops with an error, where it used to go on.

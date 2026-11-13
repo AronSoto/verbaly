@@ -1,5 +1,5 @@
 import { migrateCatalogs } from '../../catalog/migrate';
-import { STATE_FILE, stateFile } from '../../catalog/state';
+import { STATE_FILE, stateFile } from '../../catalog/lock';
 import type { ResolvedConfig } from '../../config/config';
 import { counted } from '../../util/text';
 import type { CliValues } from '../args';

@@ -88,18 +88,24 @@ const HOSTS: (HostSetup & { dep: string; bundler?: true })[] = [
 // any of these wires the build; the detected host only decides which one we recommend
 export const WIRING_PACKAGES = [...new Set(HOSTS.map((host) => host.pkg))];
 
-export function readDependencies(root: string): Record<string, string> {
-  const path = join(root, 'package.json');
-  if (!existsSync(path)) return {};
+// package.json as it parses, or nothing: a folder without one, or one that is not an object
+function readManifest(root: string): Record<string, unknown> | undefined {
   try {
-    const pkg = JSON.parse(readFileSync(path, 'utf8')) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
-    return { ...pkg.dependencies, ...pkg.devDependencies };
+    const manifest: unknown = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    return typeof manifest === 'object' && manifest !== null
+      ? (manifest as Record<string, unknown>)
+      : undefined;
   } catch {
-    return {};
+    return undefined;
   }
+}
+
+export function readDependencies(root: string): Record<string, string> {
+  const manifest = readManifest(root);
+  return {
+    ...(manifest?.dependencies as Record<string, string> | undefined),
+    ...(manifest?.devDependencies as Record<string, string> | undefined),
+  };
 }
 
 // each adapter, and what in package.json says the project renders with its library
@@ -139,17 +145,10 @@ const LOCKFILES: [string, PackageManager][] = [
 
 // the project's own manager: packageManager first, then the nearest lockfile (a workspace root)
 export function packageManager(root: string): PackageManager {
-  try {
-    const declared = (
-      JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
-        packageManager?: unknown;
-      }
-    ).packageManager;
-    const name = typeof declared === 'string' ? declared.split('@')[0] : undefined;
-    if (name === 'pnpm' || name === 'npm' || name === 'yarn' || name === 'bun') return name;
-  } catch {
-    // no package.json, or one that does not parse: the lockfiles still answer
-  }
+  // no package.json, or one that does not parse: the lockfiles still answer
+  const declared = readManifest(root)?.packageManager;
+  const name = typeof declared === 'string' ? declared.split('@')[0] : undefined;
+  if (name === 'pnpm' || name === 'npm' || name === 'yarn' || name === 'bun') return name;
   for (let dir = root; ; dir = dirname(dir)) {
     const found = LOCKFILES.find(([file]) => existsSync(join(dir, file)));
     if (found) return found[1];

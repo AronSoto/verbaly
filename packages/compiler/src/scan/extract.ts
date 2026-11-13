@@ -1,15 +1,38 @@
 import { readFileSync } from 'node:fs';
-import { relative } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { glob } from 'tinyglobby';
-import { flatten } from 'verbaly';
+import { emptyCatalog } from '../catalog/catalog';
 import type { Analysis } from './analyze';
-import { emptyCatalog, own, type Catalog, type Catalogs } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { MessageRegistry } from './registry';
 import { analyzeFile } from './sfc';
+import { relativePath, slashed } from '../util/path';
 
 // what a build's scan read, file by file, until its transform takes each one
 const kept = new WeakMap<MessageRegistry, Map<string, { code: string; analysis: Analysis }>>();
+
+// how many files a scan has open at once where reads overlap
+export const READ_WINDOW = 64;
+
+// Windows pays its antivirus on every open, so reads overlap there; elsewhere a sync read wins
+export async function readSources(
+  files: readonly string[],
+  each: (file: string, code: string) => void,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  if (platform !== 'win32') {
+    for (const file of files) each(file, readFileSync(file, 'utf8'));
+    return;
+  }
+  for (let at = 0; at < files.length; at += READ_WINDOW) {
+    const window = files.slice(at, at + READ_WINDOW);
+    const read = await Promise.all(
+      window.map(async (file) => [file, await readFile(file, 'utf8')] as const),
+    );
+    // read together, handed on in the given order: which read lands first changes nothing
+    for (const [file, code] of read) each(file, code);
+  }
+}
 
 // keepSource: a build that transforms next takes these analyses instead of parsing every file again
 export async function extractProject(
@@ -24,12 +47,11 @@ export async function extractProject(
   const registry = new MessageRegistry();
   const read = options.keepSource ? new Map<string, { code: string; analysis: Analysis }>() : null;
   // tinyglobby crawls sibling folders in parallel, so its order changes from one run to the next
-  for (const file of files.sort()) {
-    const code = readFileSync(file, 'utf8');
+  await readSources(files.sort(), (file, code) => {
     const analysis = analyzeFile(code, file);
     registry.update(file, analysis);
-    read?.set(file.replaceAll('\\', '/'), { code, analysis });
-  }
+    read?.set(slashed(file), { code, analysis });
+  });
   if (read) kept.set(registry, read);
   return registry;
 }
@@ -41,7 +63,7 @@ export function scannedAnalysis(
   code: string,
 ): Analysis | undefined {
   const read = kept.get(scan);
-  const key = file.replaceAll('\\', '/');
+  const key = slashed(file);
   const entry = read?.get(key);
   read?.delete(key);
   return entry?.code === code ? entry.analysis : undefined;
@@ -53,92 +75,9 @@ export async function collectOrigins(
   reuse?: MessageRegistry,
 ): Promise<Record<string, string[]>> {
   const registry = reuse ?? (await extractProject(cfg));
-  const origins: Record<string, string[]> = Object.create(null);
+  const origins = emptyCatalog<string[]>();
   for (const [key, files] of registry.origins()) {
-    origins[key] = files.map((file) => relative(cfg.root, file).replaceAll('\\', '/'));
+    origins[key] = files.map((file) => relativePath(cfg.root, file));
   }
   return origins;
-}
-
-// a source text the code wrote over, and what the catalog said before
-export interface ReplacedText {
-  key: string;
-  before: string;
-}
-
-export interface SyncResult {
-  // keys new to each catalog; a source text the code rewrote is in replaced, not here
-  added: Record<string, string[]>;
-  replaced: ReplacedText[];
-}
-
-// fills source texts + '' placeholders; a text written in the code always wins over the catalog
-export function syncCatalogs(
-  cfg: ResolvedConfig,
-  catalogs: Catalogs,
-  registry: MessageRegistry,
-): SyncResult {
-  const added = emptyCatalog<string[]>();
-  const replaced: ReplacedText[] = [];
-  const source = own(catalogs, cfg.sourceLocale) ?? (catalogs[cfg.sourceLocale] = emptyCatalog());
-
-  for (const [key, msg] of registry.messages()) {
-    const before = own(source, key);
-    if (before === msg.message) continue;
-    source[key] = msg.message;
-    if (before) replaced.push({ key, before });
-    else (added[cfg.sourceLocale] ??= []).push(key);
-  }
-
-  const needed = Object.keys(source);
-  for (const locale of cfg.locales) {
-    if (locale === cfg.sourceLocale) continue;
-    const catalog = own(catalogs, locale) ?? (catalogs[locale] = emptyCatalog());
-    for (const key of needed) {
-      if (own(catalog, key) === undefined) {
-        catalog[key] = '';
-        (added[locale] ??= []).push(key);
-      }
-    }
-  }
-  return { added, replaced };
-}
-
-// the catalogs as a build ships them: the code's text wherever the code owns one, read-only
-export function shippedCatalogs(
-  cfg: ResolvedConfig,
-  catalogs: Catalogs,
-  registry: MessageRegistry,
-  // false: only keys the source catalog has, for the commands that run after extract
-  options: { newKeys?: boolean } = {},
-): Catalogs {
-  // flatten returns a fresh catalog with no prototype: the code writes into it, never the caller's
-  const source = flatten(catalogs[cfg.sourceLocale] ?? {});
-  for (const [key, msg] of registry.messages()) {
-    if (options.newKeys !== false || own(source, key) !== undefined) source[key] = msg.message;
-  }
-  return Object.assign(emptyCatalog<Catalog>(), catalogs, { [cfg.sourceLocale]: source });
-}
-
-// drops keys no longer referenced
-export function pruneCatalogs(
-  cfg: ResolvedConfig,
-  catalogs: Catalogs,
-  registry: MessageRegistry,
-): Record<string, string[]> {
-  const removed = emptyCatalog<string[]>();
-  // a file the parser could not read still uses its keys, so pruning now deletes live translations
-  if (registry.parseErrors().length > 0) return removed;
-  const keep = new Set([...registry.messages().keys(), ...registry.usedKeys().keys()]);
-  for (const locale of cfg.locales) {
-    const catalog = own(catalogs, locale);
-    if (!catalog) continue;
-    for (const key of Object.keys(catalog)) {
-      if (!keep.has(key)) {
-        delete catalog[key];
-        (removed[locale] ??= []).push(key);
-      }
-    }
-  }
-  return removed;
 }

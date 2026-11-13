@@ -1,17 +1,13 @@
-import { relative } from 'node:path';
 import type { TaggedMessage } from '../scan/analyze';
 import type { ResolvedConfig } from '../config/config';
-import type { ReplacedText } from '../scan/extract';
+import type { ReplacedText } from '../scan/sync';
 import type { MessageRegistry } from '../scan/registry';
 import type { Catalogs } from '../catalog/catalog';
-import {
-  outdatedTranslations,
-  type LockEntry,
-  type OutdatedEntry,
-  type State,
-} from '../catalog/state';
+import { outdatedTranslations, type OutdatedEntry } from '../catalog/state';
+import type { LockEntry, State } from '../catalog/lock';
 import { counted, truncate } from '../util/text';
 import { escapedSyntax, inlineBlock, shownSlice } from './validate';
+import { relativePath } from '../util/path';
 
 // where a text is written in the code: an absolute file, like every path check reports
 export interface SourceSite {
@@ -109,7 +105,7 @@ export function scanFindings(
 
 // file:line, so the editor and the terminal can jump to where the text is written
 export function sourcePlace(at: { file: string; line?: number }, root?: string): string {
-  const file = root ? relative(root, at.file).replaceAll('\\', '/') : at.file;
+  const file = root ? relativePath(root, at.file) : at.file;
   return at.line ? `${file}:${at.line}` : file;
 }
 

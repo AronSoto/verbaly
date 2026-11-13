@@ -1,7 +1,8 @@
 import { loadCatalogs, writeCatalog } from '../../catalog/catalog';
 import { pseudoCatalogs } from '../../catalog/pseudo';
 import { PSEUDO_LOCALE, type ResolvedConfig } from '../../config/config';
-import { extractProject, shippedCatalogs } from '../../scan/extract';
+import { extractProject } from '../../scan/extract';
+import { shippedCatalogs } from '../../scan/sync';
 import { counted } from '../../util/text';
 import type { CliValues } from '../args';
 

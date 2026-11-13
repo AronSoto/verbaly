@@ -23,3 +23,8 @@ export function singleQuoted(text: string): string {
 export function byCodeUnit(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
+
+// a byte order mark is not part of what a file says: every reader of a file drops it first
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}

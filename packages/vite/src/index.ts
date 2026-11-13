@@ -29,6 +29,7 @@ import {
   type SyncProjectResult,
 } from '@verbaly/compiler';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 
 function safeRead(file: string): string | undefined {
@@ -141,7 +142,8 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
       server = devServer;
       devServer.watcher.add(cfg.dir);
       const onCatalogFile = (file: string): void => {
-        if (!file.startsWith(cfg.dir) || !file.endsWith('.json')) return;
+        // the folder itself: locales-old/ starts alike, and no catalog lives in a subfolder
+        if (resolve(dirname(file)) !== resolve(cfg.dir) || !file.endsWith('.json')) return;
         const locale = file.split(/[\\/]/).pop()!.slice(0, -5);
         // a dotfile there is an older state file: it changes no message, so no tab has to reload
         if (locale.startsWith('.')) return;
@@ -196,7 +198,10 @@ export default function verbaly(options: ViteVerbalyOptions = {}): Plugin {
 
         const found = Object.entries(messages);
         if (!isBuild && found.length > 0) {
-          const source = (catalogs[cfg.sourceLocale] ??= {});
+          const source = (catalogs[cfg.sourceLocale] ??= Object.create(null) as Record<
+            string,
+            string
+          >);
           let changed = false;
           for (const [key, message] of found) {
             if (source[key] !== message) {

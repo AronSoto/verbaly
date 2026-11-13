@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { relative } from 'node:path';
 import picomatch from 'picomatch';
 import { glob } from 'tinyglobby';
 import { SOURCE_EXTENSIONS, type ResolvedConfig } from '../config/config';
 import { analyzeFile } from './sfc';
 import { warnOnce } from '../util/warn';
+import { relativePath } from '../util/path';
 
 // a hint before Babel is asked: t`, t.id('…')` or a Svelte $t`
 const TAGGED_HINT = /(?<![\w$.])\$?t(?:\.id\s*\([^)]*\))?\s*`/;
@@ -19,7 +19,7 @@ const NOT_SOURCE = [
 ];
 
 function relativeId(cfg: ResolvedConfig, id: string): string {
-  return relative(cfg.root, id).replaceAll('\\', '/');
+  return relativePath(cfg.root, id);
 }
 
 // the include pattern that would cover a file: its top folder with the extensions extract reads

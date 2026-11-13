@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { RichLink, Routing, TrailingSlash } from 'verbaly';
+import { stripBom } from '../util/text';
 import { defaultTypesPath, detectHost, type Host } from './host';
 import { warnOnce } from '../util/warn';
 import type { TranslateProvider } from '../exchange/translate';
@@ -12,6 +13,8 @@ export type GlossaryEntry = string | Record<string, string>;
 
 // the extensions extract reads, shared by the default include and every pattern we suggest
 export const SOURCE_EXTENSIONS = '{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}';
+// the files a build hands to the transform: every extension above, and cjs and cts besides
+export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue|astro)$/;
 
 // what verbaly pseudo writes by default, so discovery never takes it for a real language
 export const PSEUDO_LOCALE = 'en-XA';
@@ -146,33 +149,26 @@ export function findConfigFile(root: string): string | undefined {
 }
 
 export async function loadConfigFile(root: string): Promise<VerbalyConfig> {
-  for (const name of ['verbaly.config.js', 'verbaly.config.mjs']) {
-    const path = join(root, name);
-    if (existsSync(path)) {
-      // Node caches a module by url: without the mtime, a long-lived process keeps the old config
-      const url = `${pathToFileURL(path).href}?mtime=${statSync(path).mtimeMs}`;
-      // a CommonJS config is cached by file name, which no query reaches: the real one, or as given
-      const cache = createRequire(import.meta.url).cache;
-      delete cache[realpathSync(path)];
-      // the name as given is the key under --preserve-symlinks
-      delete cache[resolve(path)];
-      const mod = (await import(url)) as { default?: VerbalyConfig };
-      return mod.default ?? {};
-    }
-  }
-  for (const name of ['verbaly.config.ts', 'verbaly.config.mts']) {
-    const path = join(root, name);
-    if (existsSync(path)) return loadTsConfig(path);
-  }
-  const jsonPath = join(root, 'verbaly.config.json');
-  if (existsSync(jsonPath)) return readJsonConfig(jsonPath);
-  return {};
+  const name = findConfigFile(root);
+  if (!name) return {};
+  const path = join(root, name);
+  if (name.endsWith('.json')) return readJsonConfig(path);
+  if (name.endsWith('ts')) return loadTsConfig(path);
+  // Node caches a module by url: without the mtime, a long-lived process keeps the old config
+  const url = `${pathToFileURL(path).href}?mtime=${statSync(path).mtimeMs}`;
+  // a CommonJS config is cached by file name, which no query reaches: the real one, or as given
+  const cache = createRequire(import.meta.url).cache;
+  delete cache[realpathSync(path)];
+  // the name as given is the key under --preserve-symlinks
+  delete cache[resolve(path)];
+  const mod = (await import(url)) as { default?: VerbalyConfig };
+  return mod.default ?? {};
 }
 
 // same BOM rule as a catalog, and a parse error that names the file it came from
 function readJsonConfig(path: string): VerbalyConfig {
   const content = readFileSync(path, 'utf8');
-  const body = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  const body = stripBom(content);
   try {
     return JSON.parse(body) as VerbalyConfig;
   } catch (error) {

@@ -3,16 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../src/scan/analyze';
+import { check, gatePasses, relativeCheck, warningCount } from '../src/gate/check';
 import {
-  check,
   checkNextSteps,
   formatCheckResult,
   formatCheckWarnings,
-  gatePasses,
   githubCheckAnnotations,
-  relativeCheck,
-  warningCount,
-} from '../src/gate/check';
+} from '../src/gate/report';
 import type { CheckResult } from '../src/gate/check';
 import type { Catalogs } from '../src/catalog/catalog';
 import { resolveConfig } from '../src/config/config';

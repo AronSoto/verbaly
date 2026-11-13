@@ -16,10 +16,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { analyze } from '../src/scan/analyze';
 import { loadCatalogs } from '../src/catalog/catalog';
 import { loadConfig } from '../src/config/config';
-import { pruneCatalogs } from '../src/scan/extract';
+import { pruneCatalogs } from '../src/scan/sync';
 import { MessageRegistry } from '../src/scan/registry';
 import { analyzeFile } from '../src/scan/sfc';
-import { resolveConfig } from '../src/config/config';
+import { resolveConfig, SOURCE_EXTENSIONS, SOURCE_FILE_RE } from '../src/config/config';
 
 function makeRoot() {
   return mkdtempSync(join(tmpdir(), 'verbaly-cfg-'));
@@ -286,6 +286,15 @@ describe('a config edited while the process runs', () => {
     },
     TS_CONFIG_TIMEOUT,
   );
+});
+
+// two lists of file types that have to agree: what extract scans, a build has to transform
+describe('the source file types', () => {
+  it('hands the transform every extension the default include scans', () => {
+    const scanned = SOURCE_EXTENSIONS.slice(1, -1).split(',');
+    expect(scanned.length).toBeGreaterThan(1);
+    expect(scanned.filter((extension) => !SOURCE_FILE_RE.test(`page.${extension}`))).toEqual([]);
+  });
 });
 
 describe('resolveConfig defaults', () => {

@@ -1,12 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { relative } from 'node:path';
 import { parse } from '@babel/parser';
 import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
-import { cleanJsxText, FUNCTIONS, isTReference, walk, type AstNode } from './analyze';
+import { cleanJsxText, FUNCTIONS, isTReference, lineOf, walk, type AstNode } from './analyze';
 import type { ResolvedConfig } from '../config/config';
 import { componentAdapters } from '../config/host';
 import { counted } from '../util/text';
+import { relativePath } from '../util/path';
 
 export interface WrapEntry {
   file: string;
@@ -93,7 +93,7 @@ export async function wrapProject(
 
   for (const file of files) {
     const code = readFileSync(file, 'utf8');
-    const label = relative(cfg.root, file).replaceAll('\\', '/');
+    const label = relativePath(cfg.root, file);
     const out = wrapCode(code, label);
     result.wrapped.push(...out.wrapped);
     result.skipped.push(...out.skipped);
@@ -262,7 +262,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
     const end = last.type === 'JSXText' ? last.end - trailingWs(last.value as string) : last.end;
 
     write(start, end, template);
-    wrapped.push({ file, line: line(first), text: report, kind: 'text' });
+    wrapped.push({ file, line: lineOf(first), text: report, kind: 'text' });
   }
 
   function wrapAttributes(opening: AstNode): void {
@@ -277,7 +277,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
       write(value.start, value.end, escapeTemplate(raw));
       wrapped.push({
         file,
-        line: line(value),
+        line: lineOf(value),
         text: raw,
         kind: 'attribute',
         attribute: name.name as string,
@@ -286,7 +286,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
   }
 
   function skip(node: AstNode, text: string, reason: string): void {
-    skipped.push({ file, line: line(node), text, reason });
+    skipped.push({ file, line: lineOf(node), text, reason });
   }
 
   function snippet(children: AstNode[]): string {
@@ -448,11 +448,6 @@ function leadingWs(text: string): number {
 
 function trailingWs(text: string): number {
   return text.length - text.trimEnd().length;
-}
-
-function line(node: AstNode): number {
-  const loc = node.loc as { start?: { line?: number } } | undefined;
-  return loc?.start?.line ?? 1;
 }
 
 export interface WrapReport {

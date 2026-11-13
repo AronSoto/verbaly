@@ -7,17 +7,12 @@ import {
   type Catalogs,
 } from '../catalog/catalog';
 import { targetLocales, type ResolvedConfig } from '../config/config';
-import { shippedCatalogs } from '../scan/extract';
+import { shippedCatalogs } from '../scan/sync';
 import type { MessageRegistry } from '../scan/registry';
-import {
-  loadState,
-  lockNews,
-  recordTranslations,
-  stateFile,
-  type LockEntry,
-} from '../catalog/state';
+import { recordTranslations } from '../catalog/state';
+import { loadState, lockNews, stateFile, type LockEntry } from '../catalog/lock';
 import { byCodeUnit, counted } from '../util/text';
-import { validateMessage, validatePair } from '../gate/validate';
+import { structureMatches } from '../gate/validate';
 
 export interface TranslateRequest {
   sourceLocale: string;
@@ -125,7 +120,7 @@ export async function translateCatalogs(
   const retries = Math.max(0, options.retries ?? 2);
   const retryDelay = options.retryDelay ?? 500;
   const targets = targetLocales(cfg, options.locales);
-  const source = catalogs[cfg.sourceLocale] ?? {};
+  const source = catalogs[cfg.sourceLocale] ?? emptyCatalog();
   const result: TranslateResult = {
     translated: emptyCatalog(),
     invalid: emptyCatalog(),
@@ -219,7 +214,7 @@ export function mergeTranslations(
   const current = readCatalog(cfg, locale);
   const written: string[] = [];
   for (const key of keys) {
-    const text = translated[key];
+    const text = own(translated, key);
     // pruned meanwhile, or filled meanwhile: either way the file already says what it should
     if (!source[key] || current[key] || !text) continue;
     current[key] = text;
@@ -264,7 +259,8 @@ export function writeDrafts(
   }
   // the draft flag is what keeps it from passing as reviewed: an unreadable state writes nothing
   loadState(cfg);
-  const catalogs: Catalogs = { [cfg.sourceLocale]: readCatalog(cfg, cfg.sourceLocale) };
+  const catalogs = emptyCatalog<Catalog>();
+  catalogs[cfg.sourceLocale] = readCatalog(cfg, cfg.sourceLocale);
   const source = options.registry
     ? shippedCatalogs(cfg, catalogs, options.registry, { newKeys: false })[cfg.sourceLocale]!
     : catalogs[cfg.sourceLocale]!;
@@ -314,16 +310,6 @@ export async function resolveProvider(
   if (typeof configured === 'function') return configured;
   const { claudeProvider } = await import('./providers/claude');
   return claudeProvider({ model: model ?? cfg.translate.model });
-}
-
-// no locale on purpose: a locale-specific plural gap must never drop a translator's file
-export function structureMatches(source: string, translated: string): boolean {
-  try {
-    const issues = [...validateMessage(translated), ...validatePair(source, translated)];
-    return !issues.some((issue) => issue.severity === 'error');
-  } catch {
-    return false; // unparseable input rejects the translation, it never crashes the caller
-  }
 }
 
 function progressOf(job: Batch): TranslateProgress {

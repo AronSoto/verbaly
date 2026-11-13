@@ -8,11 +8,11 @@ import { batchFormat, buildPrompt } from '../src/exchange/providers/claude';
 import {
   formatTranslateFailures,
   mergeTranslations,
-  structureMatches,
   translateCatalogs,
   type TranslateProgress,
   type TranslateProvider,
 } from '../src/exchange/translate';
+import { structureMatches } from '../src/gate/validate';
 
 function cfg(locales: string[] = ['en', 'es']) {
   return resolveConfig({

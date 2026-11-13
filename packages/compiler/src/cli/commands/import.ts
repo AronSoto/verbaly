@@ -1,13 +1,10 @@
 import { loadCatalogs, writeCatalog } from '../../catalog/catalog';
-import {
-  loadState,
-  recordTranslations,
-  stateFile,
-  type TranslationWrite,
-} from '../../catalog/state';
+import { recordTranslations, type TranslationWrite } from '../../catalog/state';
+import { loadState, stateFile } from '../../catalog/lock';
 import type { ResolvedConfig } from '../../config/config';
 import { importCatalogs } from '../../exchange/exchange';
-import { extractProject, shippedCatalogs } from '../../scan/extract';
+import { extractProject } from '../../scan/extract';
+import { shippedCatalogs } from '../../scan/sync';
 import { counted } from '../../util/text';
 import type { CliValues } from '../args';
 import { sayLockNews } from '../output';

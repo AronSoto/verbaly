@@ -6,7 +6,8 @@ import { loadCatalogs } from '../src/catalog/catalog';
 import { generateDts, writeDts } from '../src/emit/codegen';
 import { resolveConfig } from '../src/config/config';
 import { doctor, type DoctorEntry } from '../src/project/doctor';
-import { extractProject, shippedCatalogs } from '../src/scan/extract';
+import { extractProject } from '../src/scan/extract';
+import { shippedCatalogs } from '../src/scan/sync';
 import { stableKey } from '../src/util/key';
 
 const KEY = stableKey('Hola {name}');

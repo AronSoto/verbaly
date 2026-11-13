@@ -32,10 +32,11 @@ export type { Catalog, Catalogs } from './catalog/catalog';
 // clientCatalogs is public because @verbaly/next emits the client module without the vite plugin.
 export { clientCatalogs } from './emit/bundle';
 
-export { collectOrigins, extractProject, pruneCatalogs, syncCatalogs } from './scan/extract';
-export type { SyncResult } from './scan/extract';
+export { collectOrigins, extractProject } from './scan/extract';
+export { pruneCatalogs, syncCatalogs } from './scan/sync';
+export type { SyncResult } from './scan/sync';
 // shippedCatalogs is public because Studio and the MCP server read the text a build ships
-export { shippedCatalogs } from './scan/extract';
+export { shippedCatalogs } from './scan/sync';
 // the one path from the code to the catalogs: the CLI, the MCP server, Studio and next dev
 export { syncProject } from './project/project';
 export type { SyncProjectResult } from './project/project';
@@ -54,7 +55,6 @@ export type { DtsOptions, RuntimeModuleOptions } from './emit/codegen';
 export {
   LOCALE_MODULE_PREFIX,
   RESOLVED_VIRTUAL_ID,
-  SOURCE_FILE_RE,
   clientModules,
   createSourceFilter,
   isTransformTarget,
@@ -64,13 +64,15 @@ export {
   transformSource,
   writeBuildTypes,
 } from './emit/plugin';
+export { SOURCE_FILE_RE } from './config/config';
 export type { ClientModules, PluginOptions } from './emit/plugin';
 export { transformCode } from './scan/transform';
 // next, vite and unplugin say it when they start: a file outside include that writes a t`…`
 export { reportOutsideInclude } from './scan/scope';
 export type { TransformResult } from './scan/transform';
 
-export { check, formatCheckResult, formatCheckWarnings } from './gate/check';
+export { check } from './gate/check';
+export { formatCheckResult, formatCheckWarnings } from './gate/report';
 // relativeCheck is public because the MCP server and Studio both show a result against the project
 export { relativeCheck } from './gate/check';
 // public because the dev servers and the MCP server word every finding the way extract does
@@ -107,10 +109,13 @@ export { formatCliError } from './cli/run';
 // clearDrafts is public because @verbaly/studio is where a person approves what a machine wrote.
 export { clearDrafts, effectiveDrafts, loadDrafts, markDrafts, saveDrafts } from './catalog/drafts';
 // the state follows the catalogs wherever they are written: the CLI, the MCP server and dev servers
-export { loadState, outdatedTranslations, STATE_FILE, updateState } from './catalog/state';
+export { outdatedTranslations, updateState } from './catalog/state';
+export { loadState, STATE_FILE } from './catalog/lock';
 // read tolerantly where it only feeds warnings, and recorded wherever a translation is written
-export { readState, recordTranslations } from './catalog/state';
-export type { Drafts, Fingerprints, State, TranslationWrite } from './catalog/state';
+export { recordTranslations } from './catalog/state';
+export { readState } from './catalog/lock';
+export type { TranslationWrite } from './catalog/state';
+export type { Drafts, Fingerprints, State } from './catalog/lock';
 
 // mergeTranslations is public because the CLI, the MCP server and Studio all write a finished run
 export {
@@ -136,5 +141,5 @@ export type { DoctorEntry, DoctorResult } from './project/doctor';
 export { formatWrapResult, wrapProject } from './scan/wrap';
 export type { WrapBlocked, WrapEntry, WrapOptions, WrapResult, WrapSkip } from './scan/wrap';
 
-export { formatRenderWarnings, renderSite } from './emit/render';
-export type { RenderSiteOptions, RenderSiteResult } from './emit/render';
+export { formatRenderWarnings, renderSite } from './emit/site';
+export type { RenderSiteOptions, RenderSiteResult } from './emit/site';

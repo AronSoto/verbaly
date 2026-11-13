@@ -1,5 +1,8 @@
 // The shapes the panel reads: StudioState restated, so the UI never imports Node code.
 export type MessageState = 'done' | 'draft' | 'missing' | 'broken';
+// what the rail can narrow the table to, and the three places the panel can be
+export type Show = 'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken';
+export type View = 'overview' | 'messages' | 'health';
 
 // the reason travels with the signal: the column next to a flagged row is prose, not a label
 export interface Reason {
@@ -88,7 +91,7 @@ function own<T>(map: Record<string, T> | undefined, key: string): T | undefined 
   return map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
 }
 
-// a catalog arrives in the shape its file has, so the panel flattens it to read
+// the server sends a catalog flat and a fixture may nest it: either way, a map with no prototype
 function flatten(
   tree: Record<string, unknown>,
   prefix = '',
@@ -262,10 +265,10 @@ export interface Hit {
 
 const WORST: MessageState[] = ['broken', 'missing', 'draft', 'done'];
 
-// the tile answers "is this message fine", so it reads the whole row and not the matched cell
-function worst(row: Row): MessageState {
+// the tile answers "is this message fine": the worst state among the cells it is handed
+export function worst(cells: readonly { state: MessageState }[]): MessageState {
   for (const state of WORST) {
-    if (row.cells.some((cell) => cell.state === state)) return state;
+    if (cells.some((cell) => cell.state === state)) return state;
   }
   return 'done';
 }
@@ -294,7 +297,7 @@ export function search(panel: Panel, query: string, limit = 40): Hit[] {
       source: row.source,
       locales,
       text,
-      state: worst(row),
+      state: worst(row.cells),
     });
     if (hits.length === limit) break;
   }

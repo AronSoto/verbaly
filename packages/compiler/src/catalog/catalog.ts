@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { flatten, type MessageTree } from 'verbaly';
+import { byCodeUnit, stripBom } from '../util/text';
 import type { ResolvedConfig } from '../config/config';
 import { withLineEndings } from '../util/eol';
 
@@ -89,7 +90,7 @@ export function parseCatalog(content: string): Catalog | undefined {
 
 // a byte order mark is legal in the file and illegal to JSON.parse: drop it by code, never by regex
 export function parseTree(content: string): unknown {
-  const body = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  const body = stripBom(content);
   try {
     return JSON.parse(body) as unknown;
   } catch {
@@ -97,8 +98,12 @@ export function parseTree(content: string): unknown {
   }
 }
 
-export function isTree(value: unknown): value is MessageTree {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function isTree(value: unknown): value is MessageTree {
+  return isRecord(value);
 }
 
 export function loadCatalogs(cfg: ResolvedConfig): Catalogs {
@@ -137,7 +142,7 @@ function nest(catalog: Catalog, shape?: MessageTree): MessageTree {
   // a key the file already wrote keeps the path it had: nobody asked for it to become a group
   const written = shape ? pathsOf(shape) : undefined;
   // sorted, so "hero" always lands before "hero.title" and a message is never replaced by its group
-  for (const [key, message] of Object.entries(catalog).sort(([a], [b]) => (a < b ? -1 : 1))) {
+  for (const [key, message] of Object.entries(catalog).sort(([a], [b]) => byCodeUnit(a, b))) {
     const parts = written?.get(key) ?? key.split('.');
     const leaf = parts[parts.length - 1]!;
     let node: MessageTree | undefined = parts.length > 1 ? tree : undefined;

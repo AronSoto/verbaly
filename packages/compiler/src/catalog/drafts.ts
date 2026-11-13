@@ -1,8 +1,9 @@
 import type { ResolvedConfig } from '../config/config';
-import { loadState, saveState, type Drafts } from './state';
+import { loadState, saveState, type Drafts } from './lock';
 
-export { clearDrafts, effectiveDrafts, markDrafts, STATE_FILE } from './state';
-export type { Drafts } from './state';
+export { effectiveDrafts } from './state';
+export { clearDrafts, markDrafts, STATE_FILE } from './lock';
+export type { Drafts } from './lock';
 
 export function loadDrafts(cfg: ResolvedConfig): Drafts {
   return loadState(cfg).drafts;

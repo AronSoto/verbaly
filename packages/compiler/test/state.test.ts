@@ -9,16 +9,18 @@ import { formatFinding } from '../src/gate/findings';
 import { stableKey } from '../src/util/key';
 import {
   acceptOutdated,
+  outdatedTranslations,
+  recordTranslations,
+  updateState,
+} from '../src/catalog/state';
+import {
   loadState,
   lockNews,
-  outdatedTranslations,
   readState,
-  recordTranslations,
   saveState,
   STATE_FILE,
   stateFile,
-  updateState,
-} from '../src/catalog/state';
+} from '../src/catalog/lock';
 
 function cfg(locales = ['en', 'es']) {
   const root = mkdtempSync(join(tmpdir(), 'verbaly-state-'));

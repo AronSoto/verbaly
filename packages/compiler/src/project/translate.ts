@@ -1,12 +1,6 @@
 import { emptyCatalog, loadCatalogs } from '../catalog/catalog';
-import {
-  loadState,
-  lockNews,
-  recordTranslations,
-  stateFile,
-  type LockEntry,
-  type TranslationWrite,
-} from '../catalog/state';
+import { recordTranslations, type TranslationWrite } from '../catalog/state';
+import { loadState, lockNews, stateFile, type LockEntry } from '../catalog/lock';
 import type { ResolvedConfig } from '../config/config';
 import {
   mergeTranslations,
@@ -16,7 +10,8 @@ import {
   type TranslateProgress,
   type TranslateProvider,
 } from '../exchange/translate';
-import { collectOrigins, extractProject, shippedCatalogs } from '../scan/extract';
+import { collectOrigins, extractProject } from '../scan/extract';
+import { shippedCatalogs } from '../scan/sync';
 
 export interface TranslateProjectOptions {
   locales?: string[];

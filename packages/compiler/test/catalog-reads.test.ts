@@ -7,7 +7,7 @@ import { analyze } from '../src/scan/analyze';
 import { emptyCatalog, needsIcu, needsRelative, type Catalogs } from '../src/catalog/catalog';
 import { check } from '../src/gate/check';
 import { resolveConfig } from '../src/config/config';
-import { shippedCatalogs } from '../src/scan/extract';
+import { shippedCatalogs } from '../src/scan/sync';
 import { MessageRegistry } from '../src/scan/registry';
 import { status } from '../src/gate/status';
 

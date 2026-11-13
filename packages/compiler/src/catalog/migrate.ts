@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { readDependencies } from '../config/host';
 import type { Catalog } from './catalog';
 import { catalogPath, emptyCatalog, readCatalog, writeCatalog } from './catalog';
 import type { ResolvedConfig } from '../config/config';
-import { loadState, saveState } from './state';
+import { loadState, saveState } from './lock';
 
 export interface MigrateBrace {
   locale: string;
@@ -44,15 +44,7 @@ export interface MigrateOptions {
 const KNOWN = ['i18next', 'react-i18next', 'vue-i18n', 'react-intl', 'next-intl', 'svelte-i18n'];
 
 export function detectLibraries(root: string): string[] {
-  const path = join(root, 'package.json');
-  if (!existsSync(path)) return [];
-  let manifest: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-  try {
-    manifest = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return [];
-  }
-  const deps = { ...manifest.dependencies, ...manifest.devDependencies };
+  const deps = readDependencies(root);
   return KNOWN.filter((name) => deps[name] !== undefined);
 }
 

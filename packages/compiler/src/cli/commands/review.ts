@@ -1,15 +1,9 @@
 import { loadCatalogs } from '../../catalog/catalog';
-import {
-  acceptOutdated,
-  clearDrafts,
-  effectiveDrafts,
-  loadState,
-  outdatedTranslations,
-  saveState,
-  stateFile,
-} from '../../catalog/state';
+import { acceptOutdated, effectiveDrafts, outdatedTranslations } from '../../catalog/state';
+import { clearDrafts, loadState, saveState, stateFile } from '../../catalog/lock';
 import type { ResolvedConfig } from '../../config/config';
-import { extractProject, shippedCatalogs } from '../../scan/extract';
+import { extractProject } from '../../scan/extract';
+import { shippedCatalogs } from '../../scan/sync';
 import { counted, truncate } from '../../util/text';
 import type { CliValues } from '../args';
 import { byLocale, sayLockNews } from '../output';

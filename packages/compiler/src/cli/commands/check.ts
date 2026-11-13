@@ -1,13 +1,14 @@
 import { loadCatalogs } from '../../catalog/catalog';
-import { effectiveDrafts, loadState, readState, type State } from '../../catalog/state';
+import { effectiveDrafts } from '../../catalog/state';
+import { loadState, readState, type State } from '../../catalog/lock';
 import type { ResolvedConfig } from '../../config/config';
+import { check } from '../../gate/check';
 import {
-  check,
   checkNextSteps,
   formatCheckResult,
   formatCheckWarnings,
   githubCheckAnnotations,
-} from '../../gate/check';
+} from '../../gate/report';
 import { extractProject } from '../../scan/extract';
 import { counted } from '../../util/text';
 import type { CliValues } from '../args';

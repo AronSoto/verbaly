@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { HEALTH } from '../words';
+
   interface Entry {
     level: 'ok' | 'warn' | 'error';
     check: string;
@@ -13,22 +15,6 @@
   }
 
   const { entries, ok, onClose }: Props = $props();
-
-  // doctor names the part of the compiler that answered; this says what it means for your project
-  const TITLE: Record<string, string> = {
-    config: 'Your settings',
-    cli: 'The verbaly command',
-    catalogs: 'Your catalogs',
-    locales: 'The names of your languages',
-    routing: 'Where the language lives in your urls',
-    plugin: 'The piece that wires your build',
-    types: 'The generated types',
-    sources: 'Reading your code',
-    orphans: 'Keys nothing in your code uses',
-    extras: 'Keys only a translation has',
-    bundle: 'What the browser downloads',
-    translations: 'The translations themselves',
-  };
 
   const bad = $derived(entries.filter((e) => e.level !== 'ok').length);
 </script>
@@ -57,7 +43,7 @@
           {/if}
         </span>
         <span class="body">
-          <b>{TITLE[entry.check] ?? entry.check}</b>
+          <b>{HEALTH[entry.check] ?? entry.check}</b>
           <span class="msg">{entry.message}</span>
           {#if entry.fix}
             <span class="fix">{entry.fix}</span>

@@ -327,6 +327,19 @@ describe('dev server', () => {
     expect(state.reloads).toBe(0);
   });
 
+  // a folder whose name starts like the catalog folder, or one inside it, holds no catalog
+  it('reads a catalog only from the catalog folder itself', async () => {
+    const root = makeProject({ es: {} });
+    const { configureServer } = await setup(root, 'serve');
+    const { server, state, emit } = fakeServer();
+    configureServer(server);
+
+    emit('change', join(root, 'locales-old', 'es.json'));
+    emit('change', join(root, 'locales', 'archive', 'es.json'));
+    await sleep(100);
+    expect(state.reloads).toBe(0);
+  });
+
   // Proved able to fail without the dotfile check: review --approve reloaded every open tab.
   it('ignores the drafts sidecar, which sits next to the catalogs and renders nothing', async () => {
     const root = makeProject({ es: {} });

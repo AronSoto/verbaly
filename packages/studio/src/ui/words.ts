@@ -1,5 +1,5 @@
 import type { Added } from './api';
-import type { MessageState } from './model';
+import type { MessageState, Show } from './model';
 
 // The words are a product decision: each names a checkable fact, never a stage of a workflow.
 export const STATE: Record<MessageState, { short: string; long: string }> = {
@@ -9,13 +9,37 @@ export const STATE: Record<MessageState, { short: string; long: string }> = {
   broken: { short: 'breaks', long: 'breaks your site' },
 };
 
-export const FILTER: Record<'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken', string> = {
+export const FILTER: Record<Show, string> = {
   all: 'everything',
   missing: 'missing',
   draft: 'unread',
   broken: 'breaks your site',
   look: 'worth a look',
   clean: 'nothing odd',
+};
+
+// doctor names the part of the compiler that answered; this says what it means for your project
+export const HEALTH: Record<string, string> = {
+  config: 'Your settings',
+  cli: 'The verbaly command',
+  catalogs: 'Your catalogs',
+  locales: 'The names of your languages',
+  routing: 'Where the language lives in your urls',
+  plugin: 'The piece that wires your build',
+  types: 'The generated types',
+  sources: 'Reading your code',
+  orphans: 'Keys nothing in your code uses',
+  extras: 'Keys only a translation has',
+  bundle: 'What the browser downloads',
+  translations: 'The translations themselves',
+  source: 'Your source catalog',
+  imports: 'How your code imports t',
+  messages: 'The messages in your code',
+  keys: 'The keys your code reads',
+  'source texts': 'Texts the code and the catalog write differently',
+  outdated: 'Translations of an older text',
+  state: 'The verbaly.lock file',
+  drafts: 'Machine translations nobody has read',
 };
 
 // The signals do not score a translation, they point at the few worth reading first.

@@ -57,18 +57,23 @@ export function setRequestLocale(locale: string): void {
   holder().locale = locale;
 }
 
+// a name narrows the way a url segment does, so a slug or a stranger never becomes a locale
+function projectLocale(name: string): string | undefined {
+  return localeFromPath({ supported: locales, path: `/${name}` });
+}
+
 // a route segment is a url segment, so it narrows like one: a slug must never become a locale
 async function declaredLocale(): Promise<string | undefined> {
   const raw = holder().locale;
   if (raw !== undefined) {
-    const match = localeFromPath({ supported: locales, path: `/${raw}` });
+    const match = projectLocale(raw);
     if (match) return match;
     warnOnce(`setRequestLocale was given a locale the project does not have, so it was ignored`);
     return undefined;
   }
   const segment = await rootSegment();
   if (segment === undefined) return undefined;
-  const match = localeFromPath({ supported: locales, path: `/${segment}` });
+  const match = projectLocale(segment);
   if (match) return match;
   warnOnce(
     `the locale segment of the url holds a locale the project does not have, so it was ignored`,
@@ -87,7 +92,7 @@ async function rootSegment(): Promise<string | undefined> {
 
 // a locale asked for by name narrows the same way, and one the project lacks falls to the source
 function namedLocale(raw: string): string {
-  const match = localeFromPath({ supported: locales, path: `/${raw}` });
+  const match = projectLocale(raw);
   if (match) return match;
   warnOnce(`getT was asked for a locale the project does not have, so it answers in the source`);
   return sourceLocale;

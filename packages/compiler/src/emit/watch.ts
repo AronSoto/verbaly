@@ -1,7 +1,8 @@
 import { lstatSync, readdirSync, watch, type FSWatcher } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import type { ResolvedConfig } from '../config/config';
-import { SOURCE_FILE_RE } from './plugin';
+import { SOURCE_FILE_RE } from '../config/config';
+import { relativePath, slashed } from '../util/path';
 
 // only these watch a tree natively: elsewhere Node walks it in sync and watches every entry
 const NATIVE_TREE = process.platform === 'darwin' || process.platform === 'win32';
@@ -90,7 +91,7 @@ export function watchProject(
   run: () => Promise<void>,
   options: WatchProjectOptions = {},
 ): () => void {
-  const catalogDir = relative(cfg.root, cfg.dir).replaceAll('\\', '/');
+  const catalogDir = relativePath(cfg.root, cfg.dir);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let running = false;
   let queued = false;
@@ -121,7 +122,7 @@ export function watchProject(
 
   const close = watchTree(cfg.root, {}, (filename) => {
     if (!filename) return;
-    const file = filename.replaceAll('\\', '/');
+    const file = slashed(filename);
     if (file.includes('node_modules/') || file.endsWith('.d.ts')) return;
     if (catalogDir && file.startsWith(`${catalogDir}/`)) return;
     if (SOURCE_FILE_RE.test(file)) schedule();

@@ -2,19 +2,16 @@
   import { localeName } from 'verbaly';
   import { FILTER, GROUP, MARK_AS_READ, UNDO } from '../words';
   import type { Snippet } from 'svelte';
-  import type { Group, LocaleHealth, MessageState } from '../model';
-
-  type Which = 'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken';
-  type View = 'overview' | 'messages' | 'health';
+  import type { Group, LocaleHealth, MessageState, Show, View } from '../model';
 
   interface Props {
     health: LocaleHealth[];
     shown: string[];
-    state: Which;
+    state: Show;
     counts: Record<string, number>;
     pending: { locale: string; keys: string[] } | null;
     onToggle: (locale: string) => void;
-    onState: (state: Which) => void;
+    onState: (state: Show) => void;
     onRead: (locale: string) => void;
     onUndo: () => void;
     checks: { bad: number } | null;
@@ -51,7 +48,7 @@
     { id: 'health', label: 'Health' },
   ];
 
-  const ORDER: Which[] = ['all', 'look', 'clean', 'missing', 'draft', 'broken'];
+  const ORDER: Show[] = ['all', 'look', 'clean', 'missing', 'draft', 'broken'];
 
   // the second line is the state, and it is what makes the rail worth more than a dropdown
   function parts(h: LocaleHealth): string[] {

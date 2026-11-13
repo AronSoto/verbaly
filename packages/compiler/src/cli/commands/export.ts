@@ -1,7 +1,8 @@
 import { loadCatalogs } from '../../catalog/catalog';
 import type { ResolvedConfig } from '../../config/config';
 import { exportCatalogs, isMobileFormat, type ExportFormat } from '../../exchange/exchange';
-import { collectOrigins, extractProject, shippedCatalogs } from '../../scan/extract';
+import { collectOrigins, extractProject } from '../../scan/extract';
+import { shippedCatalogs } from '../../scan/sync';
 import { counted } from '../../util/text';
 import { csv, type CliValues } from '../args';
 

@@ -1,5 +1,5 @@
 import { loadCatalogs } from '../../catalog/catalog';
-import { readState } from '../../catalog/state';
+import { readState } from '../../catalog/lock';
 import type { ResolvedConfig } from '../../config/config';
 import { formatStatusResult, status } from '../../gate/status';
 import { extractProject } from '../../scan/extract';

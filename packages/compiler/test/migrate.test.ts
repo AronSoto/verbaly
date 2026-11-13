@@ -5,7 +5,8 @@ import { createVerbaly } from 'verbaly';
 import { describe, expect, it } from 'vitest';
 import { resolveConfig, type ResolvedConfig } from '../src/config/config';
 import { migrateCatalogs } from '../src/catalog/migrate';
-import { loadState, STATE_FILE, updateState } from '../src/catalog/state';
+import { updateState } from '../src/catalog/state';
+import { loadState, STATE_FILE } from '../src/catalog/lock';
 
 function project(
   catalogs: Record<string, unknown>,

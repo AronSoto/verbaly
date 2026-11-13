@@ -1,4 +1,3 @@
-import { relative } from 'node:path';
 import picomatch from 'picomatch';
 import { auditBundle, clientCatalogs, formatBundleIssue } from './bundle';
 import {
@@ -10,31 +9,30 @@ import {
   type Catalog,
   type Catalogs,
 } from '../catalog/catalog';
-import {
-  check,
-  checkNextSteps,
-  formatBuildReport,
-  formatCheckResult,
-  gatePasses,
-  warningCount,
-  type CheckResult,
-} from '../gate/check';
+import { check, gatePasses, warningCount, type CheckResult } from '../gate/check';
+import { checkNextSteps, formatBuildReport, formatCheckResult } from '../gate/report';
 import {
   generateLocaleModule,
   generateRuntimeModule,
   writeDts,
   type RuntimeModuleOptions,
 } from './codegen';
-import { pluginOnlyOptions, type ResolvedConfig, type VerbalyConfig } from '../config/config';
+import {
+  pluginOnlyOptions,
+  SOURCE_FILE_RE,
+  type ResolvedConfig,
+  type VerbalyConfig,
+} from '../config/config';
 import { scannedAnalysis } from '../scan/extract';
 import { LOCALE_IMPORT, VIRTUAL_ID, isAppModule } from '../util/ids';
 import { cliReachable } from '../config/host';
 import type { MessageRegistry } from '../scan/registry';
 import { analyzeFile } from '../scan/sfc';
-import { readState, type Fingerprints } from '../catalog/state';
+import { readState, type Fingerprints } from '../catalog/lock';
 import { counted } from '../util/text';
 import { transformCode, type TransformResult } from '../scan/transform';
 import { warnOnce, warnParseError } from '../util/warn';
+import { relativePath } from '../util/path';
 
 export interface PluginOptions extends VerbalyConfig {
   // true stops the build on whatever fails check; by default the build reports and goes on
@@ -45,7 +43,6 @@ export interface PluginOptions extends VerbalyConfig {
 
 export const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;
 export const LOCALE_MODULE_PREFIX = `${RESOLVED_VIRTUAL_ID}/locale/`;
-export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue|astro)$/;
 
 export function resolveVirtualId(id: string): string | undefined {
   // one resolved id for both names, so verbaly/app and virtual:verbaly share one instance
@@ -103,7 +100,7 @@ export function createSourceFilter(cfg: ResolvedConfig): (id: string) => boolean
   if (cfg.include.length === 0) return () => false;
   const matches = picomatch(cfg.include, { ignore: cfg.exclude });
   return (id) => {
-    const rel = relative(cfg.root, id).replaceAll('\\', '/');
+    const rel = relativePath(cfg.root, id);
     return !rel.startsWith('..') && matches(rel);
   };
 }
@@ -133,7 +130,7 @@ export function writeBuildTypes(cfg: ResolvedConfig, catalogs: Catalogs): void {
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
     if (typeof code !== 'string') throw error;
     // types never stop a build: a read-only checkout still ships, and typegen writes them later
-    const file = cfg.dts === false ? '' : relative(cfg.root, cfg.dts).replaceAll('\\', '/');
+    const file = cfg.dts === false ? '' : relativePath(cfg.root, cfg.dts);
     warnOnce(
       `could not write the types to ${file} (${code}): run \`npx verbaly typegen\` where the project can be written`,
       `types:${cfg.root}`,

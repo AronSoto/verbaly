@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import type { Catalog } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { withLineEndings } from '../util/eol';
 import { APP_ID, LOCALE_IMPORT, VIRTUAL_ID } from '../util/ids';
 import { collectParams, renderParamType } from './params';
+import { relativePath } from '../util/path';
 import { byCodeUnit, singleQuoted } from '../util/text';
 import { includeTypes } from '../config/tsconfig';
 import { warnOnce } from '../util/warn';
@@ -352,7 +353,7 @@ export function writeDts(
     const ignore = join(cfg.root, '.verbaly', '.gitignore');
     if (!existsSync(ignore)) writeFileSync(ignore, '*\n');
     const state = includeTypes(cfg.root, target);
-    const entry = relative(cfg.root, target).replaceAll('\\', '/');
+    const entry = relativePath(cfg.root, target);
     if (state === 'added') {
       warnOnce(`added "${entry}" to the include of tsconfig.json, so TypeScript reads the types`);
     } else if (state === 'unreadable') {
@@ -375,7 +376,7 @@ function removeRootDts(cfg: ResolvedConfig, target: string): void {
   // a verbaly.d.ts someone wrote by hand is theirs
   if (head !== DTS_HEADER) return;
   rmSync(old);
-  const moved = relative(cfg.root, target).replaceAll('\\', '/');
+  const moved = relativePath(cfg.root, target);
   warnOnce(
     `the types live in ${moved} now, so the verbaly.d.ts Verbaly wrote at the root was removed`,
   );

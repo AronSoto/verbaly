@@ -17,12 +17,15 @@ function read(message: string): MessageNode[] {
 
 // only check() remembers, so memory follows the catalogs: a save outside it keeps nothing
 export function gatePass<T>(run: () => T): T {
-  reading = new Map();
+  // a pass inside a pass hands the memo back to the one it interrupted
+  const outer = reading;
+  const pass = new Map<string, MessageNode[]>();
+  reading = pass;
   try {
     return run();
   } finally {
-    remembered = reading;
-    reading = undefined;
+    remembered = pass;
+    reading = outer;
   }
 }
 
@@ -293,4 +296,14 @@ function reachableCategories(locale: string, ordinal: boolean): string[] {
   }
   reachable.set(cacheKey, out);
   return out;
+}
+
+// no locale on purpose: a locale-specific plural gap must never drop a translator's file
+export function structureMatches(source: string, translated: string): boolean {
+  try {
+    const issues = [...validateMessage(translated), ...validatePair(source, translated)];
+    return !issues.some((issue) => issue.severity === 'error');
+  } catch {
+    return false; // unparseable input rejects the translation, it never crashes the caller
+  }
 }

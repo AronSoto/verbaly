@@ -3,7 +3,7 @@
   import RowMenu from './RowMenu.svelte';
   import { preview } from '../validate';
   import { MENU, SIGNAL, STATE, TRIAGE } from '../words';
-  import type { Cell, Row } from '../model';
+  import { worst as worstOf, type Cell, type Row } from '../model';
   import type { KeyCommit } from '../api';
 
   interface Props {
@@ -40,11 +40,7 @@
   const lens = $derived(why !== undefined);
   const cells = $derived(row.cells.filter((cell) => shown.includes(cell.locale)));
   // the row's own state is the worst of the languages you are comparing, so the tile never lies
-  const worst = $derived(
-    (['broken', 'missing', 'draft', 'done'] as const).find((s) =>
-      cells.some((c) => c.state === s),
-    ) ?? 'done',
-  );
+  const worst = $derived(worstOf(cells));
 
   let draft: string = $state('');
   let saving: boolean = $state(false);

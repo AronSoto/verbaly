@@ -457,7 +457,9 @@ describe('importCatalogs', () => {
     const config = cfg();
     const catalogs: Catalogs = { en: { greet: 'Hello' } };
     const file = scratch('en.csv', 'key,source,target\r\ngreet,Hello,Hi\r\n');
-    expect(() => importCatalogs(config, catalogs, [file])).toThrow(/source locale/);
+    expect(() => importCatalogs(config, catalogs, [file])).toThrow(
+      'targets the source locale "en": import fills translations, not the source, so pass --locale if the detection is wrong',
+    );
   });
 });
 

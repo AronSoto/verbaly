@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveConfig } from '../src/config/config';
-import { renderHtml, renderSite } from '../src/emit/render';
+import { renderHtml } from '../src/emit/render';
+import { renderSite } from '../src/emit/site';
 
 const CATALOGS = {
   en: {
@@ -1090,6 +1091,28 @@ describe('renderSite', () => {
     expect(xml).toContain('xhtml:link rel="alternate" hreflang="es"');
     expect(xml).toContain('hreflang="x-default"'); // valid as an alternate link
     expect((xml.match(/<loc>/g) ?? []).length).toBe(2); // one <url> per locale, not x-default
+  });
+
+  // the head's alternates already escaped the language: the sitemap wrote it raw
+  it('escapes the language in the sitemap as the head does', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-render-'));
+    const dist = join(root, 'dist');
+    mkdirSync(join(root, 'locales'), { recursive: true });
+    mkdirSync(dist, { recursive: true });
+    writeFileSync(join(root, 'locales', 'en.json'), JSON.stringify({ k: 'Hi' }));
+    writeFileSync(join(root, 'locales', 'a&b.json'), JSON.stringify({ k: 'Hola' }));
+    writeFileSync(join(dist, 'index.html'), '<html><head></head><body></body></html>');
+
+    const cfg = resolveConfig({
+      root,
+      sourceLocale: 'en',
+      locales: ['en', 'a&b'],
+      render: { baseUrl: 'https://verb.dev', sitemap: true },
+    });
+    await renderSite(cfg);
+    const xml = readFileSync(join(dist, 'sitemap-i18n.xml'), 'utf8');
+    expect(xml).toContain('hreflang="a&amp;b"');
+    expect(xml).not.toContain('hreflang="a&b"');
   });
 
   it('lists only pages a crawler should index, and still mirrors the rest', async () => {

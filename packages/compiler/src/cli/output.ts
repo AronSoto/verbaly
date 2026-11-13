@@ -1,4 +1,4 @@
-import { lockNews } from '../catalog/state';
+import { lockNews } from '../catalog/lock';
 import type { ResolvedConfig } from '../config/config';
 import { formatFinding } from '../gate/findings';
 

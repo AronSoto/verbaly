@@ -1,8 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { applyEdits, modify, parse, type FormattingOptions, type ParseError } from 'jsonc-parser';
 import picomatch from 'picomatch';
 import { trimTrailingSlashes } from '../util/text';
+import { relativePath } from '../util/path';
 
 export type IncludeState = 'present' | 'added' | 'missing' | 'no-tsconfig' | 'unreadable';
 
@@ -52,7 +53,7 @@ function formatting(text: string): FormattingOptions {
 export function typesIncluded(root: string, file: string): IncludeState {
   const read = readTsconfig(root);
   if (typeof read === 'string') return read as IncludeState;
-  const entry = relative(root, file).replaceAll('\\', '/');
+  const entry = relativePath(root, file);
   const { include, files } = read.json;
   if (covered(include, entry) || covered(files, entry)) return 'present';
   return 'missing';
@@ -62,7 +63,7 @@ export function typesIncluded(root: string, file: string): IncludeState {
 export function includeTypes(root: string, file: string): IncludeState {
   const read = readTsconfig(root);
   if (typeof read === 'string') return read as IncludeState;
-  const entry = relative(root, file).replaceAll('\\', '/');
+  const entry = relativePath(root, file);
   const { include, files } = read.json;
   if (covered(include, entry) || covered(files, entry)) return 'present';
 

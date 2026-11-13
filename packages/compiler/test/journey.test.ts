@@ -9,7 +9,7 @@ import { clientCatalogs } from '../src/emit/bundle';
 import { loadCatalogs } from '../src/catalog/catalog';
 import { generateLocaleModule, generateRuntimeModule } from '../src/emit/codegen';
 import { resolveConfig, type ResolvedConfig, type VerbalyConfig } from '../src/config/config';
-import { renderSite } from '../src/emit/render';
+import { renderSite } from '../src/emit/site';
 
 // end to end: build a site and walk a visitor through the mirror, because the units add up here
 const CATALOGS = {

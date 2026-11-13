@@ -6,6 +6,10 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/sveltekit"><img src="https://img.shields.io/npm/v/@verbaly/sveltekit?logo=npm&color=cb3837" alt="npm version" /></a>
+  <a href="https://verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit"><img src="https://img.shields.io/badge/SvelteKit-2A1A14?style=flat&logo=svelte&logoColor=FF3E00" alt="SvelteKit" /></a>
+  <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://www.npmjs.com/package/@verbaly/sveltekit#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/sveltekit?color=blue" alt="MIT" /></a>
 </p>
 

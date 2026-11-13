@@ -34,8 +34,8 @@ export function parsePo(content: string): {
   entries: Record<string, string>;
   sources: Record<string, string>;
 } {
-  const entries = Object.create(null) as Record<string, string>;
-  const sources = Object.create(null) as Record<string, string>;
+  const entries = emptyCatalog();
+  const sources = emptyCatalog();
   let locale: string | undefined;
 
   let msgctxt: string | undefined;
@@ -57,7 +57,7 @@ export function parsePo(content: string): {
   };
 
   // Windows editors may prepend a BOM; strip it before the first line parses
-  for (const raw of content.replace(/^\uFEFF/, '').split(/\r\n|[\r\n]/)) {
+  for (const raw of stripBom(content).split(/\r\n|[\r\n]/)) {
     const line = raw.trim();
     if (line === '') {
       finish();
@@ -117,3 +117,5 @@ function poUnquote(text: string): string | undefined {
     return ch;
   });
 }
+import { stripBom } from '../util/text';
+import { emptyCatalog } from '../catalog/catalog';

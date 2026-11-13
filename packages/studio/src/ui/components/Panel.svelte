@@ -13,6 +13,8 @@
     search,
     visible,
     type Panel,
+    type Show,
+    type View,
   } from '../model';
   import Language, { type Chip } from './Language.svelte';
   import Actions from './Actions.svelte';
@@ -32,7 +34,7 @@
   let editing: string | null = $state(null);
   let note: { text: string; file: string } | null = $state(null);
   let pending: { locale: string; keys: string[] } | null = $state(null);
-  let view: 'overview' | 'messages' | 'health' = $state('overview');
+  let view: View = $state('overview');
   let checks: { ok: boolean; entries: Check[] } | null = $state(null);
   // null means it has not answered yet, which is not the same as a project with no git
   let commits: Commit[] | null = $state(null);
@@ -53,7 +55,7 @@
     return answer.value;
   }
 
-  function goTo(next: 'overview' | 'messages' | 'health'): void {
+  function goTo(next: View): void {
     if (next === 'health') void openHealth();
     else view = next;
   }
@@ -133,7 +135,7 @@
   }
 
   // `only`, since `state` would shadow the rune; typed on the rune, or it narrows to 'all'
-  let only = $state<'all' | 'look' | 'clean' | 'missing' | 'draft' | 'broken'>('all');
+  let only = $state<Show>('all');
   let text: string = $state('');
   // null: nobody picked yet, so the default follows the project instead of freezing at mount
   let picked: string[] | null = $state(null);

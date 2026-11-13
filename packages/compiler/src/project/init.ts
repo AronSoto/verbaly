@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { findConfigFile, loadConfigFile } from '../config/config';
 import { detectHost, installCommand, readDependencies, type Host } from '../config/host';
 import { detectLibraries } from '../catalog/migrate';
 import { isLocaleTag, suggestTag } from '../util/tag';
 import { singleQuoted } from '../util/text';
+import { relativePath } from '../util/path';
 
 export type { Host };
 
@@ -126,7 +127,7 @@ export async function init(input: InitOptions = {}): Promise<InitResult> {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   for (const locale of new Set([scaffold.sourceLocale ?? 'en', ...(scaffold.locales ?? [])])) {
     const file = join(dir, `${locale}.json`);
-    const label = relative(root, file).replaceAll('\\', '/');
+    const label = relativePath(root, file);
     if (existsSync(file)) {
       skipped.push(label);
     } else {

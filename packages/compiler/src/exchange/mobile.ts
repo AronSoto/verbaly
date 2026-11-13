@@ -21,7 +21,7 @@ export function toAndroidXml(entries: MobileEntry[]): string {
     const clash = names.get(name);
     if (clash !== undefined) {
       throw new Error(
-        `[verbaly] android-xml: keys "${clash}" and "${key}" both become resource name "${name}", rename one of them.`,
+        `[verbaly] android-xml: keys "${clash}" and "${key}" both become resource name "${name}", rename one of them`,
       );
     }
     names.set(name, key);

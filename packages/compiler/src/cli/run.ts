@@ -1,4 +1,3 @@
-import { relative } from 'node:path';
 import { loadConfig, type ResolvedConfig } from '../config/config';
 import { csv, parseCli, type CliValues } from './args';
 import { checkCommand } from './commands/check';
@@ -15,6 +14,7 @@ import { statusCommand } from './commands/status';
 import { translateCommand } from './commands/translate';
 import { typegenCommand } from './commands/typegen';
 import { wrapCommand } from './commands/wrap';
+import { relativePath } from '../util/path';
 
 const HELP = `verbaly · i18n compiler
 
@@ -133,7 +133,7 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 function strangers(cfg: ResolvedConfig, flag: string, named: string[]): string | undefined {
   const unknown = named.filter((locale) => !cfg.locales.includes(locale));
   if (unknown.length === 0) return undefined;
-  const dir = relative(cfg.root, cfg.dir).replaceAll('\\', '/');
+  const dir = relativePath(cfg.root, cfg.dir);
   const start = cfg.localesDeclared
     ? `add ${unknown.join(', ')} to locales in your verbaly config`
     : // an empty file is not a catalog: the line says what goes in it

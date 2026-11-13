@@ -2,12 +2,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { emptyCatalog, own, type Catalogs } from '../catalog/catalog';
 import { targetLocales, type ResolvedConfig } from '../config/config';
-import { escapeXml, inlineToMessage, messageToInline } from './inline';
 import { androidValuesDir, toAndroidXml, toIosStrings } from './mobile';
+import { parseCsv, toCsv } from './csv';
 import { parsePo, toPo } from './po';
-import { decodeEntities, readAttributes, TAG_REST } from '../util/markup';
+import { parseXliff, toXliff } from './xliff';
 import { isLocaleTag, projectLocale, suggestTag } from '../util/tag';
-import { structureMatches } from './translate';
+import { structureMatches } from '../gate/validate';
 
 export type ExchangeFormat = 'xliff' | 'csv' | 'po';
 export type MobileFormat = 'android-xml' | 'ios-strings';
@@ -62,7 +62,7 @@ export function exportCatalogs(
 ): ExportResult {
   const format = options.format ?? 'xliff';
   const dir = resolve(cfg.root, options.out ?? 'verbaly-export');
-  const source = catalogs[cfg.sourceLocale] ?? {};
+  const source = catalogs[cfg.sourceLocale] ?? emptyCatalog();
   const targets = targetLocales(cfg, options.locales);
   if (isMobileFormat(format)) {
     return exportMobile(cfg, catalogs, format, dir, source, targets);
@@ -73,16 +73,13 @@ export function exportCatalogs(
   mkdirSync(dir, { recursive: true });
   for (const locale of targets) {
     const catalog = catalogs[locale] ?? emptyCatalog();
-    const all = Object.keys(source)
-      .filter((key) => source[key])
-      .sort()
-      .map((key) => ({
-        key,
-        source: source[key]!,
-        target: own(catalog, key) ?? '',
-        // own entries: a key named constructor would find Object's function and crash the writer
-        location: origins && Object.hasOwn(origins, key) ? origins[key] : undefined,
-      }));
+    const all = translatable(source).map((key) => ({
+      key,
+      source: source[key]!,
+      target: own(catalog, key) ?? '',
+      // own entries: a key named constructor would find Object's function and crash the writer
+      location: origins && Object.hasOwn(origins, key) ? origins[key] : undefined,
+    }));
     const untranslated = all.filter((entry) => !entry.target);
     const entries = options.missing ? untranslated : all;
 
@@ -105,6 +102,13 @@ export function exportCatalogs(
   return { format, dir, files };
 }
 
+// every key of the source that has a text, in the order every export writes them
+function translatable(source: Readonly<Record<string, string>>): string[] {
+  return Object.keys(source)
+    .filter((key) => source[key])
+    .sort();
+}
+
 // native resources: source locale is the platform default, untranslated keys are skipped
 function exportMobile(
   cfg: ResolvedConfig,
@@ -114,12 +118,10 @@ function exportMobile(
   source: Record<string, string>,
   targets: string[],
 ): ExportResult {
-  const keys = Object.keys(source)
-    .filter((key) => source[key])
-    .sort();
+  const keys = translatable(source);
   const files: ExportedFile[] = [];
   for (const locale of [cfg.sourceLocale, ...targets]) {
-    const catalog = locale === cfg.sourceLocale ? source : (catalogs[locale] ?? {});
+    const catalog = locale === cfg.sourceLocale ? source : (catalogs[locale] ?? emptyCatalog());
     const entries = keys
       .map((key) => ({ key, text: own(catalog, key) ?? '' }))
       .filter((entry) => entry.text);
@@ -147,7 +149,7 @@ export function importCatalogs(
   files: string[],
   options: ImportOptions = {},
 ): ImportResult {
-  const source = catalogs[cfg.sourceLocale] ?? {};
+  const source = catalogs[cfg.sourceLocale] ?? emptyCatalog();
   const result: ImportResult = {
     imported: emptyCatalog(),
     rejected: emptyCatalog(),
@@ -163,13 +165,13 @@ export function importCatalogs(
     const detected = parsed.locale;
     if (!/^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]+)*$/.test(detected)) {
       throw new Error(
-        `[verbaly] ${file}: "${detected}" doesn't look like a locale, pass --locale <id>.`,
+        `[verbaly] ${file}: "${detected}" doesn't look like a locale, pass --locale <id>`,
       );
     }
     const locale = projectLocale(detected, cfg.locales) ?? newLocale(cfg, detected);
     if (locale === cfg.sourceLocale) {
       throw new Error(
-        `[verbaly] ${file} targets the source locale "${locale}": import fills translations, not the source. Pass --locale if the detection is wrong.`,
+        `[verbaly] ${file} targets the source locale "${locale}": import fills translations, not the source, so pass --locale if the detection is wrong`,
       );
     }
     // a pt_BR catalog next to pt-BR, or one a declared list never loads, is a language nobody sees
@@ -208,7 +210,7 @@ export function importCatalogs(
   return result;
 }
 
-interface ExchangeEntry {
+export interface ExchangeEntry {
   key: string;
   source: string;
   target: string;
@@ -228,7 +230,7 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
     const parsed = parseXliff(content);
     const locale = localeOverride ?? parsed.locale;
     if (!locale) {
-      throw new Error(`[verbaly] ${file} has no trgLang/target-language, pass --locale <id>.`);
+      throw new Error(`[verbaly] ${file} has no trgLang/target-language, pass --locale <id>`);
     }
     return { locale, entries: parsed.entries, sources: parsed.sources };
   }
@@ -241,167 +243,11 @@ export function parseExchangeFile(file: string, localeOverride?: string): Parsed
     const locale = localeOverride ?? parsed.locale ?? basename(file).replace(/\.po$/i, '');
     return { locale, entries: parsed.entries, sources: parsed.sources };
   }
-  throw new Error(`[verbaly] ${file}: unsupported format, expected .xlf, .xliff, .csv or .po.`);
-}
-
-// XLIFF 2.0 (writes) / 2.0 + 1.2 (reads); params/tags travel as <ph>/<pc> inline codes
-function toXliff(sourceLocale: string, locale: string, entries: ExchangeEntry[]): string {
-  const units = entries
-    .map(({ key, source, target, location }) =>
-      [
-        `    <unit id="${escapeXml(key)}">`,
-        ...(location?.length
-          ? [
-              '      <notes>',
-              ...location.map(
-                (file) => `        <note category="location">${escapeXml(file)}</note>`,
-              ),
-              '      </notes>',
-            ]
-          : []),
-        `      <segment state="${target ? 'translated' : 'initial'}">`,
-        `        <source>${messageToInline(source)}</source>`,
-        `        <target>${messageToInline(target)}</target>`,
-        '      </segment>',
-        '    </unit>',
-      ].join('\n'),
-    )
-    .join('\n');
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    `<xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="${escapeXml(sourceLocale)}" trgLang="${escapeXml(locale)}">`,
-    `  <file id="verbaly" original="${escapeXml(`${locale}.json`)}">`,
-    units,
-    '  </file>',
-    '</xliff>',
-    '',
-  ].join('\n');
+  throw new Error(`[verbaly] ${file}: unsupported format, expected .xlf, .xliff, .csv or .po`);
 }
 
 // with no list written down, a language exists by having a catalog, so a file may start one
 function newLocale(cfg: ResolvedConfig, detected: string): string | undefined {
   if (cfg.localesDeclared) return undefined;
   return isLocaleTag(detected) ? detected : suggestTag(detected);
-}
-
-const UNIT = `<(?:trans-)?unit\\b(${TAG_REST})>([\\s\\S]*?)</(?:trans-)?unit>`;
-const TARGET = new RegExp(`<target\\b${TAG_REST}>([\\s\\S]*?)</target>`);
-const SOURCE = new RegExp(`<source\\b${TAG_REST}>([\\s\\S]*?)</source>`);
-
-// the first start tag of that name: 2.0 names the language on <xliff>, 1.2 on <file>
-function tagAttribute(content: string, tag: string, name: string): string | undefined {
-  const open = new RegExp(`<${tag}\\b(${TAG_REST})>`).exec(content);
-  return (open && readAttributes(open[1]!).get(name)?.value) || undefined;
-}
-
-function parseXliff(content: string): {
-  locale?: string;
-  entries: Record<string, string>;
-  sources: Record<string, string>;
-} {
-  const head = (name: string): string | undefined =>
-    tagAttribute(content, 'xliff', name) ?? tagAttribute(content, 'file', name);
-  const locale = head('trgLang') ?? head('target-language');
-  const entries = Object.create(null) as Record<string, string>;
-  const sources = Object.create(null) as Record<string, string>;
-  for (const match of content.matchAll(new RegExp(UNIT, 'g'))) {
-    const id = readAttributes(match[1]!).get('id')?.value;
-    if (!id) continue;
-    const target = TARGET.exec(match[2]!)?.[1];
-    entries[decodeEntities(id)] = target === undefined ? '' : inlineToMessage(stripCdata(target));
-    const source = SOURCE.exec(match[2]!)?.[1];
-    if (source !== undefined) sources[decodeEntities(id)] = inlineToMessage(stripCdata(source));
-  }
-  return { locale, entries, sources };
-}
-
-function stripCdata(text: string): string {
-  return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
-}
-
-// CSV (RFC 4180); import reads columns by header name, so location round-trips inert
-function toCsv(entries: ExchangeEntry[]): string {
-  const rows = entries.map(
-    ({ key, source, target, location }) =>
-      `${csvField(key)},${csvField(source)},${csvField(target)},${csvField(location?.join('; ') ?? '')}`,
-  );
-  return ['key,source,target,location', ...rows, ''].join('\r\n');
-}
-
-function csvField(text: string): string {
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function parseCsv(content: string): {
-  entries: Record<string, string>;
-  sources: Record<string, string>;
-} {
-  const rows = csvRows(content, csvSeparator(content));
-  const header = rows[0]?.map((cell) => cell.trim().toLowerCase()) ?? [];
-  const keyCol = header.indexOf('key');
-  const targetCol = header.indexOf('target');
-  const sourceCol = header.indexOf('source');
-  if (keyCol === -1 || targetCol === -1) {
-    throw new Error('[verbaly] CSV needs a header row with "key" and "target" columns.');
-  }
-  const entries = Object.create(null) as Record<string, string>;
-  const sources = Object.create(null) as Record<string, string>;
-  for (const row of rows.slice(1)) {
-    const key = row[keyCol];
-    if (!key) continue;
-    entries[key] = row[targetCol] ?? '';
-    const source = sourceCol === -1 ? undefined : row[sourceCol];
-    if (source) sources[key] = source;
-  }
-  return { entries, sources };
-}
-
-// a spreadsheet saves with the list separator of its region: ; where the comma marks decimals
-function csvSeparator(content: string): string {
-  let quoted = false;
-  const seen = new Set<string>();
-  for (const char of content) {
-    if (char === '"') quoted = !quoted;
-    else if (!quoted && (char === '\n' || char === '\r')) break;
-    else if (!quoted) seen.add(char);
-  }
-  return seen.has(',') ? ',' : seen.has(';') ? ';' : seen.has('\t') ? '\t' : ',';
-}
-
-function csvRows(content: string, separator: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let quoted = false;
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i]!;
-    if (quoted) {
-      if (char === '"') {
-        if (content[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          quoted = false;
-        }
-      } else {
-        field += char;
-      }
-    } else if (char === '"') {
-      quoted = true;
-    } else if (char === separator) {
-      row.push(field);
-      field = '';
-    } else if (char === '\n' || char === '\r') {
-      if (char === '\r' && content[i + 1] === '\n') i++;
-      row.push(field);
-      field = '';
-      if (row.some((cell) => cell !== '')) rows.push(row);
-      row = [];
-    } else {
-      field += char;
-    }
-  }
-  row.push(field);
-  if (row.some((cell) => cell !== '')) rows.push(row);
-  return rows;
 }

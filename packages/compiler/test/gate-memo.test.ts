@@ -7,7 +7,7 @@ import type { Catalogs } from '../src/catalog/catalog';
 import { check } from '../src/gate/check';
 import { resolveConfig } from '../src/config/config';
 import { MessageRegistry } from '../src/scan/registry';
-import { validateMessage } from '../src/gate/validate';
+import { gatePass, validateMessage } from '../src/gate/validate';
 
 // the core's parse, counted: past its cap, a rebuild that reads through it parses everything again
 vi.mock('verbaly', async (importOriginal) => {
@@ -85,5 +85,15 @@ describe('the gate between rebuilds', () => {
     expect(second.broken.map((entry) => entry.issue)).toEqual([
       '{count} is missing, so its value never reaches the text',
     ]);
+  });
+
+  // nobody nests a pass today: the day someone does, the pass after it still finds its memo
+  it('survives a pass started inside another one', () => {
+    gatePass(() => gatePass(() => validateMessage('Nested memo {n}', 'en')));
+    const after = { en: { n: 'After nested memo {n}' }, es: { n: 'Tras el memo {n}' } };
+    expect(pass(after).broken).toEqual([]);
+    vi.mocked(parse).mockClear();
+    pass(after);
+    expect(parsed([after.en.n, after.es.n])).toEqual([]);
   });
 });

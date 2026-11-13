@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs';
 import { emptyCatalog, loadCatalogs, own, writeCatalog, type Catalogs } from '../catalog/catalog';
 import { writeDts } from '../emit/codegen';
 import type { ResolvedConfig } from '../config/config';
-import { extractProject, pruneCatalogs, syncCatalogs, type ReplacedText } from '../scan/extract';
+import { extractProject } from '../scan/extract';
+import { pruneCatalogs, syncCatalogs, type ReplacedText } from '../scan/sync';
 import { scanFindings, type Finding } from '../gate/findings';
 import type { MessageRegistry } from '../scan/registry';
 import { analyzeFile } from '../scan/sfc';
-import { lockNews, stateFile, updateState, type State } from '../catalog/state';
+import { updateState } from '../catalog/state';
+import { lockNews, stateFile, type State } from '../catalog/lock';
 
-// The one way the code reaches the catalogs: scan, prune, sync, write, keep the state in step
 export interface SyncProjectOptions {
   prune?: boolean;
   dryRun?: boolean;
@@ -47,7 +48,7 @@ export async function syncProject(
   const result: SyncProjectResult = {
     registry,
     catalogs,
-    messages: Object.keys(catalogs[cfg.sourceLocale] ?? {}).length,
+    messages: Object.keys(catalogs[cfg.sourceLocale] ?? emptyCatalog()).length,
     inCode: registry.messages().size,
     added,
     replaced,
@@ -62,9 +63,9 @@ export async function syncProject(
   if (replaced.length > 0) changed.add(cfg.sourceLocale);
   for (const locale of cfg.locales) {
     if (options.write === 'changed' && !changed.has(locale)) continue;
-    result.written[locale] = writeCatalog(cfg, locale, catalogs[locale] ?? {});
+    result.written[locale] = writeCatalog(cfg, locale, catalogs[locale] ?? emptyCatalog());
   }
-  writeDts(cfg, catalogs[cfg.sourceLocale] ?? {});
+  writeDts(cfg, catalogs[cfg.sourceLocale] ?? emptyCatalog());
   const before = stateFile(cfg);
   try {
     // a pruned key takes its draft along, and an edited source text marks its translations
@@ -79,7 +80,7 @@ export async function syncProject(
 
 // a file can change on disk unseen by a registry built over time: a checkout, another terminal
 function confirmFromDisk(cfg: ResolvedConfig, catalogs: Catalogs, registry: MessageRegistry): void {
-  const source = catalogs[cfg.sourceLocale] ?? {};
+  const source = catalogs[cfg.sourceLocale] ?? emptyCatalog();
   const stale = new Set<string>();
   for (const [key, msg] of registry.messages()) {
     if (own(source, key) !== msg.message) stale.add(msg.file);

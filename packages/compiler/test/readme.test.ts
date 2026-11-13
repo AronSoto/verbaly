@@ -56,3 +56,47 @@ describe('the install line of every README', () => {
     });
   }
 });
+
+// npm shows no CI, no Scorecard and no peer range: the README of each package is where they live
+describe('the badges of every package README', () => {
+  for (const folder of readdirSync(join(repo, 'packages'))) {
+    const text = readFileSync(join(repo, 'packages', folder, 'README.md'), 'utf8');
+    const pkg = JSON.parse(
+      readFileSync(join(repo, 'packages', folder, 'package.json'), 'utf8'),
+    ) as {
+      name: string;
+      dependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+      engines?: { node?: string };
+    };
+
+    it(`${folder} carries the family row in order, each badge naming its own package`, () => {
+      const family = [
+        `https://img.shields.io/npm/v/${pkg.name}?`,
+        'https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?',
+        'https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge',
+        `https://www.npmjs.com/package/${pkg.name}#provenance`,
+        `https://img.shields.io/npm/l/${pkg.name}?`,
+      ];
+      expect(family.filter((url) => !text.includes(url))).toEqual([]);
+      const order = family.map((url) => text.indexOf(url));
+      expect(order).toEqual([...order].sort((a, b) => a - b));
+    });
+
+    // a badge shields fills from the registry reads this package, and a written one is true of it
+    it(`${folder} states only what its package.json says`, () => {
+      const peers = [...text.matchAll(/npm\/dependency-version\/(.+?)\/peer\/(.+?)\?/g)];
+      for (const [, name, peer] of peers) {
+        expect(name).toBe(pkg.name);
+        expect(Object.keys(pkg.peerDependencies ?? {})).toContain(peer);
+      }
+      for (const [, name] of text.matchAll(/img\.shields\.io\/node\/v\/(.+?)\?/g)) {
+        expect(name).toBe(pkg.name);
+        expect(pkg.engines?.node).toBeDefined();
+      }
+      if (text.includes('badge/dependencies-0-')) {
+        expect(Object.keys(pkg.dependencies ?? {})).toEqual([]);
+      }
+    });
+  }
+});

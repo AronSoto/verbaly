@@ -1,5 +1,5 @@
 import type { ResolvedConfig } from '../../config/config';
-import { formatRenderWarnings, renderSite } from '../../emit/render';
+import { formatRenderWarnings, renderSite } from '../../emit/site';
 import { counted } from '../../util/text';
 import { csv, type CliValues } from '../args';
 

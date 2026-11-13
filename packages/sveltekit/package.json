@@ -47,7 +47,7 @@
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "@sveltejs/kit": "^3.1.1",
+    "@sveltejs/kit": "^3.2.0",
     "svelte": "^5.57.3",
     "verbaly": "workspace:^"
   },

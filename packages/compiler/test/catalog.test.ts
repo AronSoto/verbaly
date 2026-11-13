@@ -11,9 +11,10 @@ import {
   serializeCatalog,
   writeCatalog,
 } from '../src/catalog/catalog';
-import { check, formatCheckResult } from '../src/gate/check';
+import { check } from '../src/gate/check';
+import { formatCheckResult } from '../src/gate/report';
 import { resolveConfig } from '../src/config/config';
-import { pruneCatalogs, syncCatalogs } from '../src/scan/extract';
+import { pruneCatalogs, syncCatalogs } from '../src/scan/sync';
 import { stableKey } from '../src/util/key';
 import { MessageRegistry } from '../src/scan/registry';
 import { formatStatusResult, status } from '../src/gate/status';

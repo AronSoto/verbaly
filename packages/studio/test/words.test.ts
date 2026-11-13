@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Added } from '../src/ui/api';
-import { extractNews } from '../src/ui/words';
+import { extractNews, HEALTH } from '../src/ui/words';
 
 const result = (more: Partial<Added> = {}): Added => ({
   added: {},
@@ -45,5 +48,19 @@ describe('what Find new text says, which is also whether the panel reads the cat
     expect(extractNews(result({ found: 1, stateProblem: problem }))).toBe(
       '1 message your code uses and your catalogs did not have. verbaly.lock is not valid JSON, so drafts are not tracked',
     );
+  });
+});
+
+// doctor types every name an entry can carry: a new one with no title shows its raw name
+describe('the health view', () => {
+  it('has a title for every check doctor can name', () => {
+    const doctor = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '../../compiler/src/project/doctor.ts'),
+      'utf8',
+    );
+    const union = /type CheckName =([^;]+);/.exec(doctor)?.[1] ?? '';
+    const names = [...union.matchAll(/'([^']+)'/g)].map((match) => match[1]!);
+    expect(names).toContain('config');
+    expect(names.filter((name) => !Object.hasOwn(HEALTH, name))).toEqual([]);
   });
 });

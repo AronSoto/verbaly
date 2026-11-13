@@ -1,10 +1,5 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
 import MagicString from 'magic-string';
-import picomatch from 'picomatch';
-import { glob } from 'tinyglobby';
 import {
-  alternateLinks,
   createVerbaly,
   localeDirection,
   LOCALE_STORAGE_KEY,
@@ -21,13 +16,10 @@ import {
   type TrailingSlash,
   type Verbaly,
 } from 'verbaly';
-import type { Catalogs } from '../catalog/catalog';
-import { emptyCatalog, loadCatalogs } from '../catalog/catalog';
-import { extractProject, shippedCatalogs } from '../scan/extract';
-import type { RedirectConfig, ResolvedConfig } from '../config/config';
+import { emptyCatalog, type Catalogs } from '../catalog/catalog';
 import { blocks, type BlockShape } from '../util/blocks';
 import { decodeEntities, isAttributeName, readAttributes, type Attribute } from '../util/markup';
-import { counted, trimTrailingSlashes } from '../util/text';
+import { trimTrailingSlashes } from '../util/text';
 import { warnOnce } from '../util/warn';
 
 export interface Alternate {
@@ -259,7 +251,7 @@ export function renderHtml(html: string, options: RenderHtmlOptions): RenderHtml
 
 // every key the page used, '' where the locale falls back: a short slice is not an empty message
 function pageSlice(v: Verbaly, locale: string, used: Set<string>): Record<string, string> {
-  const slice: Record<string, string> = Object.create(null);
+  const slice = emptyCatalog();
   for (const key of used) {
     const found = v.inspect(key);
     slice[key] = found?.from === locale ? found.source : '';
@@ -288,7 +280,7 @@ function usedLinks(
   nodes: TagNode[],
   links: Record<string, RichLink>,
 ): Record<string, RichLink> | undefined {
-  const out: Record<string, RichLink> = {};
+  const out = emptyCatalog<RichLink>();
   const walk = (list: TagNode[]): void => {
     for (const node of list) {
       if (typeof node === 'string') continue;
@@ -307,7 +299,7 @@ function mirroredLinks(
   mirror: MirrorLinks,
 ): Record<string, RichLink> | undefined {
   if (!links) return links;
-  const out: Record<string, RichLink> = {};
+  const out = emptyCatalog<RichLink>();
   for (const [name, link] of Object.entries(links)) {
     const href = typeof link === 'string' ? link : link.href;
     const inside = mirroredHref(href, mirror);
@@ -343,7 +335,7 @@ function stripBase(path: string, base: string): string {
 }
 
 // 'app', '/app' and '/app/' all read as '/app'; nothing means the site sits at the root
-function normalizeBase(base: string | undefined): string {
+export function normalizeBase(base: string | undefined): string {
   const trimmed = trimTrailingSlashes(base?.replace(/^\/+/, '') ?? '');
   return trimmed ? `/${trimmed}` : '';
 }
@@ -377,20 +369,34 @@ function redirectScript(options: RedirectScript): string {
   return `<script>var ${vars};${REDIRECT_BODY};</script>`;
 }
 
+const HEAD_OPEN = /<head\b(?:"[^"]*"|'[^']*'|[^"'>])*>/i;
+const HEAD_CLOSE = /<\/head\s*>/i;
+
+// a block a past run wrote is replaced between its markers, a new one goes into the head
+function betweenMarkers(
+  ms: MagicString,
+  html: string,
+  [open, close]: [string, string],
+  content: string,
+  where: 'first' | 'last',
+): void {
+  const block = `${open}${content}${close}`;
+  const from = html.indexOf(open);
+  const to = from === -1 ? -1 : html.indexOf(close, from);
+  if (to !== -1) {
+    const end = to + close.length;
+    if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
+    return;
+  }
+  const head = (where === 'first' ? HEAD_OPEN : HEAD_CLOSE).exec(html);
+  if (!head) return;
+  if (where === 'first') ms.appendRight(head.index + head[0].length, block);
+  else ms.appendLeft(head.index, block);
+}
+
 // goes first in <head> so it runs before a stylesheet can paint, idempotent via markers
 function injectRedirect(ms: MagicString, html: string, options: RedirectScript): void {
-  const block = `${REDIRECT_OPEN}${redirectScript(options)}${REDIRECT_CLOSE}`;
-  const from = html.indexOf(REDIRECT_OPEN);
-  if (from !== -1) {
-    const to = html.indexOf(REDIRECT_CLOSE, from);
-    if (to !== -1) {
-      const end = to + REDIRECT_CLOSE.length;
-      if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
-      return;
-    }
-  }
-  const head = /<head\b(?:"[^"]*"|'[^']*'|[^"'>])*>/i.exec(html);
-  if (head) ms.appendRight(head.index + head[0].length, block);
+  betweenMarkers(ms, html, [REDIRECT_OPEN, REDIRECT_CLOSE], redirectScript(options), 'first');
 }
 
 // injects <link rel="alternate" hreflang> into <head>, idempotent via markers
@@ -401,18 +407,7 @@ function injectAlternates(ms: MagicString, html: string, alternates: Alternate[]
         `<link rel="alternate" hreflang="${escapeAttr(a.hreflang)}" href="${escapeAttr(a.href)}">`,
     )
     .join('');
-  const block = `${HREFLANG_OPEN}${links}${HREFLANG_CLOSE}`;
-  const from = html.indexOf(HREFLANG_OPEN);
-  if (from !== -1) {
-    const to = html.indexOf(HREFLANG_CLOSE, from);
-    if (to !== -1) {
-      const end = to + HREFLANG_CLOSE.length;
-      if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
-      return;
-    }
-  }
-  const head = /<\/head\s*>/i.exec(html);
-  if (head) ms.appendLeft(head.index, block);
+  betweenMarkers(ms, html, [HREFLANG_OPEN, HREFLANG_CLOSE], links, 'last');
 }
 
 // inlines the slice this page needs, so a mirrored page fetches no catalog at all
@@ -420,213 +415,7 @@ function injectCatalog(ms: MagicString, html: string, messages: Record<string, s
   // <!-- opens a state where the closing </script> no longer closes, and JSON has no escape for it
   const json = JSON.stringify(messages).replace(/<\//g, '<\\/').replace(/<!--/g, '\\u003c!--');
   const tag = `<script ${CATALOG_SCRIPT} type="application/json">${json}</script>`;
-  const block = `${CATALOG_OPEN}${tag}${CATALOG_CLOSE}`;
-  const from = html.indexOf(CATALOG_OPEN);
-  if (from !== -1) {
-    const to = html.indexOf(CATALOG_CLOSE, from);
-    if (to !== -1) {
-      const end = to + CATALOG_CLOSE.length;
-      if (html.slice(from, end) !== block) ms.overwrite(from, end, block);
-      return;
-    }
-  }
-  const head = /<\/head\s*>/i.exec(html);
-  if (head) ms.appendLeft(head.index, block);
-}
-
-export interface RenderSiteOptions {
-  site?: string;
-  locales?: string[];
-  attribute?: string;
-  richTags?: string[];
-  richLinks?: Record<string, RichLink>;
-  base?: string;
-  baseUrl?: string;
-  hreflang?: boolean;
-  exclude?: string[];
-  sitemap?: boolean | string;
-  redirect?: boolean | RedirectConfig;
-  clean?: boolean;
-}
-
-export interface RenderSiteResult {
-  files: number;
-  locales: string[];
-  missing: Record<string, string[]>;
-  untranslatedHead: string[];
-}
-
-const TITLE_TAG = /<title\b([^>]*)>/i;
-const REFRESH_META = /<meta\b[^>]*http-equiv\s*=\s*["']?refresh/i;
-
-const NOINDEX_META = /<meta\b[^>]*name\s*=\s*["']?robots["']?[^>]*content\s*=\s*["'][^"']*noindex/i;
-
-// the mirror still publishes these, they are simply never search results
-function isIndexable(html: string): boolean {
-  return !REFRESH_META.test(html) && !NOINDEX_META.test(html);
-}
-
-// a <title> with no key ships the source language everywhere, and it is most of a search result
-function headIsBound(html: string, attr: string): boolean {
-  // a page that only redirects is never a search result, so its title is nobody's to translate
-  if (REFRESH_META.test(html)) return true;
-  const title = TITLE_TAG.exec(html);
-  return title ? title[1]!.includes(attr) : true;
-}
-
-// mirrors the built site per locale: dist/index.html → dist/<locale>/index.html
-export async function renderSite(
-  cfg: ResolvedConfig,
-  options: RenderSiteOptions = {},
-): Promise<RenderSiteResult> {
-  const site = join(cfg.root, options.site ?? cfg.render.site ?? 'dist');
-  const locales = options.locales ?? cfg.locales;
-  const attribute = options.attribute ?? cfg.render.attribute;
-  const base = normalizeBase(options.base ?? cfg.render.base);
-  const wantedUrl = options.baseUrl ?? cfg.render.baseUrl;
-  const baseUrl = typeof wantedUrl === 'string' ? trimTrailingSlashes(wantedUrl) : undefined;
-  const wantHreflang = (options.hreflang ?? cfg.render.hreflang ?? true) && baseUrl !== undefined;
-  // the escape hatch for a page that is indexable and still not ours to list
-  const patterns = options.exclude ?? cfg.render.exclude ?? [];
-  const excluded = patterns.length > 0 ? picomatch(patterns) : () => false;
-  const sitemap = options.sitemap ?? cfg.render.sitemap ?? false;
-  const wantSitemap = sitemap !== false && baseUrl !== undefined;
-  const clean = options.clean ?? cfg.render.clean ?? false;
-  const wanted = options.redirect ?? cfg.render.redirect ?? false;
-  const redirect = wanted === false ? undefined : wanted === true ? {} : wanted;
-  const script: RedirectScript | undefined = redirect && {
-    locales,
-    sourceLocale: cfg.sourceLocale,
-    base,
-    storageKey: redirect.storageKey,
-    trailingSlash: cfg.trailingSlash,
-  };
-  // the text the build ships, or the pre-filled page and the runtime that repaints it disagree
-  const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), await extractProject(cfg));
-  // one runtime per locale for the whole run: rebuilding it per page reflattened every catalog
-  const instances = new Map(
-    locales.map((locale) => [locale, localeInstance(catalogs, locale, cfg.sourceLocale)]),
-  );
-
-  if (clean) {
-    for (const locale of locales) {
-      if (locale !== cfg.sourceLocale) rmSync(join(site, locale), { recursive: true, force: true });
-    }
-  }
-
-  const files = await glob('**/*.html', {
-    cwd: site,
-    absolute: true,
-    ignore: locales.map((locale) => `${locale}/**`),
-  });
-
-  // every page the mirror will hold, so a link into one of them can keep the visitor inside
-  const pages = new Set(files.map((file) => publicPath(relative(site, file).replace(/\\/g, '/'))));
-
-  const missing = emptyCatalog<string[]>();
-  const untranslatedHead: string[] = [];
-  const urls: Array<{ rel: string; alternates: Alternate[] }> = [];
-  for (const file of files) {
-    const html = readFileSync(file, 'utf8');
-    const rel = relative(site, file).replace(/\\/g, '/');
-    // one locale is not a mirror, so there is no second title for this one to disagree with
-    if (locales.length > 1 && !headIsBound(html, attribute ?? 'data-verbaly')) {
-      untranslatedHead.push(rel);
-    }
-    const alternates = wantHreflang
-      ? pageAlternates(baseUrl!, rel, locales, cfg.sourceLocale, cfg.trailingSlash)
-      : [];
-    if (wantHreflang && isIndexable(html) && !excluded(rel)) urls.push({ rel, alternates });
-    // only the source tree carries it: the mirror page a visitor reaches is already the answer
-    const routed = script && (redirect!.on === 'all' || rel === 'index.html');
-    for (const locale of locales) {
-      const result = renderHtml(html, {
-        locale,
-        instance: instances.get(locale)!,
-        sourceLocale: cfg.sourceLocale,
-        attribute,
-        richTags: options.richTags,
-        richLinks: options.richLinks ?? cfg.render.links,
-        alternates,
-        mirror:
-          locale === cfg.sourceLocale
-            ? undefined
-            : { prefix: `/${locale}`, base, pages, trailingSlash: cfg.trailingSlash },
-        redirect: routed && locale === cfg.sourceLocale ? script : undefined,
-        inlineCatalog: cfg.render.inlineCatalog === true,
-      });
-      for (const key of result.missing) {
-        const list = (missing[locale] ??= []);
-        if (!list.includes(key)) list.push(key);
-      }
-      const out = locale === cfg.sourceLocale ? file : join(site, locale, rel);
-      mkdirSync(dirname(out), { recursive: true });
-      writeFileSync(out, result.html);
-    }
-  }
-
-  if (wantSitemap && urls.length) {
-    const name = typeof sitemap === 'string' ? sitemap : 'sitemap-i18n.xml';
-    writeFileSync(join(site, name), buildSitemap(urls));
-  }
-
-  return { files: files.length, locales: [...locales], missing, untranslatedHead };
-}
-
-// the cli and @verbaly/astro both run the mirror, so what it warns about is written once
-export function formatRenderWarnings(result: RenderSiteResult, sourceLocale: string): string[] {
-  const lines: string[] = [];
-  for (const [locale, keys] of Object.entries(result.missing)) {
-    lines.push(`  ${locale}: ${counted(keys.length, 'key')} not pre-filled: ${keys.join(', ')}`);
-  }
-  if (result.untranslatedHead.length > 0) {
-    lines.push(
-      `  ${counted(result.untranslatedHead.length, 'page')} of ${result.files} ship the same <title> in every locale (${result.untranslatedHead[0]}), so search results read in ${sourceLocale}`,
-      `    fix: bind the head too, <title data-verbaly="key"> and a meta through data-verbaly-attr`,
-    );
-  }
-  return lines;
-}
-
-// request path of a built page path (index.html → directory URL)
-function pagePath(rel: string): string {
-  const path = rel.replace(/(^|\/)index\.html$/, '$1');
-  return path ? `/${path}` : '/';
-}
-
-// reciprocal hreflang set for one page, from core: an SSR head has to write the same one
-function pageAlternates(
-  baseUrl: string,
-  rel: string,
-  locales: string[],
-  sourceLocale: string,
-  trailingSlash: TrailingSlash | undefined,
-): Alternate[] {
-  return alternateLinks({
-    supported: locales,
-    sourceLocale,
-    path: pagePath(rel),
-    routing: 'prefix-except-source',
-    baseUrl,
-    trailingSlash,
-  });
-}
-
-function buildSitemap(urls: Array<{ rel: string; alternates: Alternate[] }>): string {
-  const body = urls
-    .flatMap(({ alternates }) => {
-      const alts = alternates
-        .map(
-          (a) =>
-            `<xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${escapeAttr(a.href)}"/>`,
-        )
-        .join('');
-      return alternates
-        .filter((a) => a.hreflang !== 'x-default')
-        .map((self) => `<url><loc>${escapeAttr(self.href)}</loc>${alts}</url>`);
-    })
-    .join('');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${body}</urlset>\n`;
+  betweenMarkers(ms, html, [CATALOG_OPEN, CATALOG_CLOSE], tag, 'last');
 }
 
 // three attributes share this parser, so the report names the one that is actually malformed
@@ -737,6 +526,6 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function escapeAttr(text: string): string {
+export function escapeAttr(text: string): string {
   return escapeHtml(text).replace(/"/g, '&quot;');
 }

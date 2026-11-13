@@ -16,13 +16,13 @@ import {
   relativeCheck,
   saveDrafts,
   shippedCatalogs,
+  STATE_FILE,
   status,
   targetLocales,
   validateMessage,
   validatePair,
   writeCatalog,
 } from '@verbaly/compiler';
-import { STATE_FILE } from '@verbaly/compiler';
 import type {
   Catalog,
   Catalogs,

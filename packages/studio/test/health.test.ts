@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveConfig } from '@verbaly/compiler';
 import { health } from '../src/api';
+import { HEALTH } from '../src/ui/words';
 
 const made: string[] = [];
 
@@ -23,13 +23,8 @@ afterEach(() => {
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-// Every check doctor emits must have a name here, and the map lives in a .svelte file as text.
-const view = readFileSync(
-  join(import.meta.dirname, '..', 'src', 'ui', 'components', 'Health.svelte'),
-  'utf8',
-);
-const block = /const TITLE: Record<string, string> = \{([\s\S]*?)\n {2}\};/.exec(view)![1]!;
-const NAMED = [...block.matchAll(/^\s*(\w+):/gm)].map((match) => match[1]!);
+// what one project triggers, named: words.test.ts holds the whole list against doctor's own type
+const NAMED = Object.keys(HEALTH);
 
 describe('the health view speaks for every check doctor can emit', () => {
   it('has a name for each one, on a project with problems', async () => {

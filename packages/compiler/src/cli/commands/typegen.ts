@@ -1,9 +1,10 @@
-import { relative } from 'node:path';
 import { loadCatalogs } from '../../catalog/catalog';
 import type { ResolvedConfig } from '../../config/config';
 import { writeDts } from '../../emit/codegen';
-import { extractProject, shippedCatalogs } from '../../scan/extract';
+import { extractProject } from '../../scan/extract';
+import { shippedCatalogs } from '../../scan/sync';
 import { counted } from '../../util/text';
+import { relativePath } from '../../util/path';
 
 export async function typegenCommand(cfg: ResolvedConfig): Promise<void> {
   const registry = await extractProject(cfg);
@@ -14,7 +15,7 @@ export async function typegenCommand(cfg: ResolvedConfig): Promise<void> {
     console.log('[verbaly] no types written: dts is false in your verbaly config');
     return;
   }
-  const where = relative(cfg.root, written.file).replaceAll('\\', '/');
+  const where = relativePath(cfg.root, written.file);
   const how = written.changed ? 'written to' : 'up to date in';
   console.log(
     `[verbaly] types ${how} ${where} (${counted(Object.keys(source).length, 'message')})`,

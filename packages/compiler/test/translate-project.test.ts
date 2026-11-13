@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { resolveConfig } from '../src/config/config';
-import { loadState, STATE_FILE } from '../src/catalog/state';
+import { loadState, STATE_FILE } from '../src/catalog/lock';
 import type { TranslateProvider, TranslateRequest } from '../src/exchange/translate';
 import { writeDrafts } from '../src/exchange/translate';
 import { translateProject } from '../src/project/translate';

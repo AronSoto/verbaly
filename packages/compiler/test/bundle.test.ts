@@ -14,7 +14,7 @@ import {
   runBuildGate,
 } from '../src/emit/plugin';
 import { MessageRegistry } from '../src/scan/registry';
-import { renderSite } from '../src/emit/render';
+import { renderSite } from '../src/emit/site';
 
 const CATALOGS: Catalogs = {
   en: {

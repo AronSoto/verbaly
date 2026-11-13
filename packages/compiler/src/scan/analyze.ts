@@ -230,8 +230,9 @@ function loadsAtRuntime(node: AstNode): boolean {
   return specifiers.some((spec) => spec.importKind !== 'type' && spec.exportKind !== 'type');
 }
 
-function lineOf(node: AstNode): number {
-  return (node.loc as { start: { line: number } } | undefined)?.start.line ?? 1;
+export function lineOf(node: AstNode): number {
+  const loc = node.loc as { start?: { line?: number } } | undefined;
+  return loc?.start?.line ?? 1;
 }
 
 // the i18n libraries a project migrating in parts still imports a t or a Trans from
@@ -385,21 +386,30 @@ function renamedTag(tag: AstNode, renamed: ReadonlySet<string>): string | undefi
   if (renamed.size === 0) return undefined;
   const name = identifierName(tag);
   if (renamed.has(name)) return name;
+  const call = idCall(tag);
+  if (!call) return undefined;
+  const object = identifierName(call.object);
+  return renamed.has(object) ? object : undefined;
+}
+
+// x.id('…'): what the id hangs from, and its key when the one argument is a literal
+function idCall(tag: AstNode): { object: AstNode; key: string | undefined } | undefined {
   if (tag.type !== 'CallExpression') return undefined;
   const callee = tag.callee as AstNode;
   if (callee.type !== 'MemberExpression' || callee.computed) return undefined;
   if (identifierName(callee.property as AstNode) !== 'id') return undefined;
-  const object = identifierName(callee.object as AstNode);
-  return renamed.has(object) ? object : undefined;
+  const args = tag.arguments as AstNode[];
+  return {
+    object: callee.object as AstNode,
+    key: args.length === 1 ? staticString(args[0]) : undefined,
+  };
 }
 
 // the key a tagged template on a renamed t would have had: its quoted id, or its text's hash
 function missedKey(code: string, node: AstNode, names: ReadonlySet<string>): string | undefined {
   const tag = node.tag as AstNode;
-  if (tag.type === 'CallExpression') {
-    const args = tag.arguments as AstNode[];
-    return args.length === 1 ? staticString(args[0]) : undefined;
-  }
+  // a renamed tag that is a call is x.id('…'), the only call renamedTag lets through
+  if (tag.type === 'CallExpression') return idCall(tag)?.key;
   const message = buildMessage(code, node.quasi as AstNode, names);
   return message ? stableKey(message.text) : undefined;
 }
@@ -504,17 +514,9 @@ function explicitId(
   tag: AstNode,
   names: ReadonlySet<string>,
 ): { key: string; refStart: number; refEnd: number } | undefined {
-  if (tag.type !== 'CallExpression') return undefined;
-  const callee = tag.callee as AstNode;
-  if (callee.type !== 'MemberExpression' || callee.computed) return undefined;
-  const prop = callee.property as AstNode;
-  if (prop.type !== 'Identifier' || prop.name !== 'id') return undefined;
-  const obj = callee.object as AstNode;
-  if (!isTReference(obj, names)) return undefined;
-  const args = tag.arguments as AstNode[];
-  const key = args.length === 1 ? staticString(args[0]) : undefined;
-  if (key === undefined) return undefined;
-  return { key, refStart: obj.start, refEnd: obj.end };
+  const call = idCall(tag);
+  if (!call || !isTReference(call.object, names) || call.key === undefined) return undefined;
+  return { key: call.key, refStart: call.object.start, refEnd: call.object.end };
 }
 
 interface BuiltTrans {

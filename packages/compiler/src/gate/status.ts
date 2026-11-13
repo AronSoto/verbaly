@@ -1,11 +1,11 @@
-import { emptyCatalog, flatView, type Catalog, type Catalogs } from '../catalog/catalog';
+import { emptyCatalog, type Catalogs } from '../catalog/catalog';
 import type { ResolvedConfig } from '../config/config';
 import { effectiveDrafts, type Drafts } from '../catalog/drafts';
-import { shippedCatalogs } from '../scan/extract';
-import { outdatedTranslations, type Fingerprints } from '../catalog/state';
+import { outdatedTranslations } from '../catalog/state';
+import type { Fingerprints } from '../catalog/lock';
 import type { MessageRegistry } from '../scan/registry';
 import { counted } from '../util/text';
-import { validateMessage, validatePair } from './validate';
+import { gateViews, translationIssues } from './check';
 
 export interface LocaleStatus {
   locale: string;
@@ -31,18 +31,10 @@ export function status(
   fingerprints: Fingerprints = emptyCatalog(),
 ): StatusResult {
   const extracted = registry.messages();
-
-  // one flat view per locale, like check: the shape t() sees, counted leaf by leaf
-  const flat = emptyCatalog<Catalog>();
-  for (const locale of cfg.locales) {
-    flat[locale] = flatView(catalogs[locale] ?? {});
-  }
-  const source = flat[cfg.sourceLocale] ?? {};
+  // the views check reads, from the function check reads them from
+  const { flat, source, shipped, sourceText } = gateViews(cfg, catalogs, registry);
   const needed = new Set<string>([...extracted.keys(), ...Object.keys(source)]);
   const live = effectiveDrafts(drafts, flat);
-  // the text that ships, as check reads it, so status and check never disagree
-  const shipped = shippedCatalogs(cfg, flat, registry);
-  const sourceText = shipped[cfg.sourceLocale]!;
   const outdated = outdatedTranslations(cfg, shipped, fingerprints);
 
   const locales: LocaleStatus[] = [];
@@ -56,8 +48,7 @@ export function status(
     let broken = 0;
     for (const [key, text] of Object.entries(catalog)) {
       if (!text) continue;
-      const from = sourceText[key];
-      const issues = [...validateMessage(text, locale), ...(from ? validatePair(from, text) : [])];
+      const issues = translationIssues(locale, text, sourceText[key]);
       if (issues.some((issue) => issue.severity === 'error')) broken += 1;
     }
     locales.push({

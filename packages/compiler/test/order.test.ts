@@ -84,7 +84,7 @@ describe('a catalog keeps the order the file already had', () => {
 
   // a file it cannot parse is not an order to preserve, and the old shape rule still applies
   it('falls back to sorted when the previous file is not valid JSON', () => {
-    const cfg = project({ en: '{ not json', es: '{}' });
+    const cfg = project({ en: '{}', es: '{ not json' });
     writeCatalog(cfg, 'es', { zebra: 'z', apple: 'a' });
     expect(keysOf(cfg, 'es')).toEqual(['apple', 'zebra']);
   });

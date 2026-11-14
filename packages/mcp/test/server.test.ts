@@ -767,6 +767,21 @@ describe('createVerbalyMcp: an agent never edits a catalog or the state by hand 
     expect(resultText(result)).toContain('"en" is not a language this project translates into');
   });
 
+  // Proved able to fail with the silent filter back: a typo answered "nothing to translate"
+  it('translate and drafts refuse a language the project does not have, naming the ones it has', async () => {
+    const client = await connect(keyed());
+    for (const name of ['verbaly_translate', 'verbaly_drafts']) {
+      const args =
+        name === 'verbaly_translate' ? { locales: ['ess'], dryRun: true } : { locales: ['ess'] };
+      const result = await client.callTool({ name, arguments: args });
+      expect(result.isError, name).toBe(true);
+      expect(resultText(result), name).toContain(
+        'locales names "ess", and this project has en, es',
+      );
+      expect(resultText(result), name).toContain('add ess to locales in your verbaly config');
+    }
+  });
+
   it('missing lists an outdated translation, and extract names a collision', async () => {
     const root = keyed();
     const client = await connect(root);

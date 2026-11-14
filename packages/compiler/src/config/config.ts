@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { RichLink, Routing, TrailingSlash } from 'verbaly';
+import { relativePath } from '../util/path';
 import { stripBom } from '../util/text';
 import { defaultTypesPath, detectHost, type Host } from './host';
 import { warnOnce } from '../util/warn';
@@ -12,8 +13,8 @@ import type { TranslateProvider } from '../exchange/translate';
 export type GlossaryEntry = string | Record<string, string>;
 
 // the extensions extract reads, shared by the default include and every pattern we suggest
-export const SOURCE_EXTENSIONS = '{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}';
-// the files a build hands to the transform: every extension above, and cjs and cts besides
+export const SOURCE_EXTENSIONS = '{js,jsx,ts,tsx,mjs,mts,cjs,cts,svelte,vue,astro}';
+// the files a build hands to the transform: the same list, or a rewritten text is never extracted
 export const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?|svelte|vue|astro)$/;
 
 // what verbaly pseudo writes by default, so discovery never takes it for a real language
@@ -76,6 +77,7 @@ export interface ResolvedConfig {
   locales: string[];
   localesDeclared: boolean;
   routing: Routing;
+  routingDeclared: boolean;
   icu: boolean | undefined;
   relative: boolean | undefined;
   include: string[];
@@ -115,6 +117,8 @@ export function resolveConfig(config: VerbalyConfig = {}): ResolvedConfig {
     localesDeclared,
     // the mode follows the surface: render is what builds a url tree per locale, so it is the tell
     routing: config.routing ?? (config.render ? 'prefix-except-source' : 'no-prefix'),
+    // a mode the project wrote is a choice, and one it left out was inferred: doctor says which
+    routingDeclared: config.routing !== undefined,
     // the catalogs decide on their own; these only force it for messages that land after the build
     icu: config.icu,
     relative: config.relative,
@@ -202,11 +206,28 @@ export function isModuleNotFound(error: unknown, name: string): boolean {
   );
 }
 
-// non-source locales a command may write to (optional CLI override, always config-bounded)
+// a name picks among the project's languages: a typo is never a language with nothing to do
+export function strangerLocales(
+  cfg: ResolvedConfig,
+  said: string,
+  named: string[],
+): string | undefined {
+  const unknown = named.filter((locale) => !cfg.locales.includes(locale));
+  if (unknown.length === 0) return undefined;
+  const dir = relativePath(cfg.root, cfg.dir);
+  const start = cfg.localesDeclared
+    ? `add ${unknown.join(', ')} to locales in your verbaly config`
+    : // an empty file would do: the line says what a catalog with no messages holds
+      `create ${unknown.map((locale) => `${dir}/${locale}.json`).join(', ')} holding {}`;
+  const names = unknown.map((locale) => `"${locale}"`).join(', ');
+  return `[verbaly] ${said} names ${names}, and this project has ${cfg.locales.join(', ')}\n    fix: check the spelling, or ${start} to start a new language`;
+}
+
+// non-source locales a command may write to; the ones a caller names have to be the project's
 export function targetLocales(cfg: ResolvedConfig, override?: string[]): string[] {
-  return (override ?? cfg.locales).filter(
-    (locale) => locale !== cfg.sourceLocale && cfg.locales.includes(locale),
-  );
+  const typo = override && strangerLocales(cfg, 'locales', override);
+  if (typo) throw new Error(typo);
+  return (override ?? cfg.locales).filter((locale) => locale !== cfg.sourceLocale);
 }
 
 // file config + inline overrides

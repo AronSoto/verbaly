@@ -20,7 +20,7 @@ export function registerTranslate(server: McpServer, ctx: ToolContext): void {
     {
       title: 'Machine-translate missing entries',
       description:
-        'Fill missing translations with the configured provider (what `verbaly translate` does). The default provider is Claude, which needs @anthropic-ai/sdk and ANTHROPIC_API_KEY. Every new translation is saved as a draft awaiting human review (`verbaly review`), which no tool here can approve. A batch the provider never answers is reported in failed and everything else stays written, so a retry only asks for what is left. dryRun lists what would be translated without calling the provider. To see what is missing first, use verbaly_missing; to save translations you wrote yourself, verbaly_write_drafts.',
+        'Fill missing translations with the configured provider (what `verbaly translate` does). The default provider is Claude, which needs @anthropic-ai/sdk and ANTHROPIC_API_KEY. Every new translation is saved as a draft awaiting human review (`verbaly review`), which no tool here can approve. A batch the provider never answers is reported in failed and everything else stays written, so a retry only asks for what is left. dryRun lists what would be translated without calling the provider. A locale the project does not have is an error that lists the ones it has, never an empty result. To see what is missing first, use verbaly_missing; to save translations you wrote yourself, verbaly_write_drafts.',
       inputSchema: {
         root: rootInput,
         locales: z.array(z.string()).optional().describe('Target locales (default: all)'),

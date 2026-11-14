@@ -1,7 +1,7 @@
 import { emptyCatalog, loadCatalogs } from '../catalog/catalog';
 import { recordTranslations, type TranslationWrite } from '../catalog/state';
 import { loadState, lockNews, stateFile, type LockEntry } from '../catalog/lock';
-import type { ResolvedConfig } from '../config/config';
+import { targetLocales, type ResolvedConfig } from '../config/config';
 import {
   mergeTranslations,
   resolveProvider,
@@ -41,6 +41,8 @@ export async function translateProject(
   cfg: ResolvedConfig,
   options: TranslateProjectOptions = {},
 ): Promise<TranslateProjectResult> {
+  // a name the project lacks is said first: before the state, the scan and a provider's key
+  if (options.locales) targetLocales(cfg, options.locales);
   const dryRun = options.dryRun === true;
   // a machine translation that lost its draft flag passes as reviewed: read the state first
   if (!dryRun) loadState(cfg);

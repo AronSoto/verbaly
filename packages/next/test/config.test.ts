@@ -62,7 +62,7 @@ describe('withVerbaly', { timeout: COMPILER_TIMEOUT }, () => {
         loader: '@verbaly/next/loader',
         options: {
           root,
-          include: ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}'],
+          include: ['{src,app}/**/*.{js,jsx,ts,tsx,mjs,mts,cjs,cts,svelte,vue,astro}'],
           exclude: ['**/node_modules/**', '**/dist/**'],
         },
       },

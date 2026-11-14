@@ -22,6 +22,19 @@ describe('extractProject', () => {
     expect(messages.has(stableKey('Ignorada'))).toBe(false);
     expect(registry.usedKeys().has('home.title')).toBe(true);
   });
+
+  // a server written in CommonJS keeps its t in src like any other file
+  it('finds a t in every module flavor of a script with the default include', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-extract-'));
+    made.push(root);
+    mkdirSync(join(root, 'src'), { recursive: true });
+    for (const extension of ['js', 'mjs', 'cjs', 'ts', 'mts', 'cts']) {
+      writeFileSync(join(root, 'src', `file.${extension}`), `const s = t\`From ${extension}\`;\n`);
+    }
+    const registry = await extractProject(resolveConfig({ root, sourceLocale: 'en' }));
+    const texts = [...registry.messages().values()].map((found) => found.message).sort();
+    expect(texts).toEqual(['From cjs', 'From cts', 'From js', 'From mjs', 'From mts', 'From ts']);
+  });
 });
 
 const made: string[] = [];

@@ -13,6 +13,50 @@ const errors = (issues: { severity: string; message: string }[]): string[] =>
 const warnings = (issues: { severity: string; message: string }[]): string[] =>
   issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.message);
 
+// only a noun changes with the count: no sentence here picks its verb from how many it names
+describe('a sentence of the gate reads the same for one thing and for several', () => {
+  it('names the params a translation lost or added', () => {
+    expect(errors(validatePair('Hi {name}', 'Hola'))).toEqual([
+      'the translation lost {name}, so the value never reaches the text',
+    ]);
+    expect(errors(validatePair('{a} {b} {c}', '{a}'))).toEqual([
+      'the translation lost {b} and {c}, so the value never reaches the text',
+    ]);
+    expect(errors(validatePair('Hi', 'Hola {x}'))).toEqual([
+      'the translation adds {x}, not in the source message, so the braces render as literal text',
+    ]);
+    expect(errors(validatePair('Hi', 'Hola {x} {y}'))).toEqual([
+      'the translation adds {x} and {y}, not in the source message, so the braces render as literal text',
+    ]);
+  });
+
+  it('names the tags a translation lost or added', () => {
+    expect(errors(validatePair('<em>a</em>', 'a'))).toEqual(['the translation lost <em>']);
+    expect(errors(validatePair('<em>a</em> <b>b</b>', 'a b'))).toEqual([
+      'the translation lost <b> and <em>',
+    ]);
+    expect(errors(validatePair('a', '<em>a</em>'))).toEqual([
+      'the translation adds <em>, not in the source message',
+    ]);
+  });
+
+  it('counts the exact cases a translation lost and the plural forms a language still needs', () => {
+    const source = '{count | =0: none | =1: one | one: an item | other: # items}';
+    expect(warnings(validatePair(source, '{count | =1: uno | one: un | other: #}'))).toEqual([
+      'the translation lost 1 exact case for {count} (=0), so "other" renders instead',
+    ]);
+    expect(warnings(validatePair(source, '{count | one: un | other: #}'))).toEqual([
+      'the translation lost 2 exact cases for {count} (=0 and =1), so "other" renders instead',
+    ]);
+    expect(
+      warnings(validateMessage('{count | one: 1 element | other: # elementow}', 'pl')),
+    ).toEqual(['pl needs 2 more plural forms for {count}: many and few']);
+    expect(warnings(validateMessage('{count | one: # | few: # | other: #}', 'pl'))).toEqual([
+      'pl needs 1 more plural form for {count}: many',
+    ]);
+  });
+});
+
 describe('validateMessage', () => {
   it('accepts a plain message and a complete plural block', () => {
     expect(validateMessage('Hello {name}', 'en')).toEqual([]);
@@ -124,7 +168,7 @@ describe('validatePair', () => {
     const dropped = errors(validatePair('<em>a</em>', 'a'));
     expect(dropped).toHaveLength(1);
     // the pair is named once: "</em> and <em>" would read like two separate problems
-    expect(dropped[0]).toBe('<em> is missing from the translation');
+    expect(dropped[0]).toBe('the translation lost <em>');
     expect(errors(validatePair('a', '<em>a</em>'))).toHaveLength(1);
   });
 

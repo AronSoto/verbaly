@@ -1,4 +1,5 @@
 import { parse, parseIcu, type MessageNode } from 'verbaly';
+import { counted } from '../util/text';
 
 // trees of the last gate pass, read again by the next rebuild: core's cache caps below a big app
 let remembered = new Map<string, MessageNode[]>();
@@ -187,7 +188,7 @@ export function validateMessage(message: string, locale?: string): StructureIssu
     if (missing.length > 0) {
       issues.push({
         severity: 'warning',
-        message: `${locale} also needs the ${list(missing)} plural ${missing.length > 1 ? 'forms' : 'form'} for {${name}}`,
+        message: `${locale} needs ${counted(missing.length, 'more plural form')} for {${name}}: ${list(missing)}`,
       });
     }
   }
@@ -203,13 +204,13 @@ export function validatePair(source: string, translated: string): StructureIssue
   if (lostParams.length > 0) {
     issues.push({
       severity: 'error',
-      message: `${list(lostParams.map((name) => `{${name}}`))} ${lostParams.length > 1 ? 'are' : 'is'} missing, so ${lostParams.length > 1 ? 'their values never reach' : 'its value never reaches'} the text`,
+      message: `the translation lost ${list(lostParams.map((name) => `{${name}}`))}, so the value never reaches the text`,
     });
   }
   if (newParams.length > 0) {
     issues.push({
       severity: 'error',
-      message: `${list(newParams.map((name) => `{${name}}`))} ${newParams.length > 1 ? 'are' : 'is'} not in the source message, so ${newParams.length > 1 ? 'they render' : 'it renders'} as literal text`,
+      message: `the translation adds ${list(newParams.map((name) => `{${name}}`))}, not in the source message, so the braces render as literal text`,
     });
   }
 
@@ -220,13 +221,13 @@ export function validatePair(source: string, translated: string): StructureIssue
   if (lostTags.length > 0) {
     issues.push({
       severity: 'error',
-      message: `${list(lostTags)} ${lostTags.length > 1 ? 'are' : 'is'} missing from the translation`,
+      message: `the translation lost ${list(lostTags)}`,
     });
   }
   if (newTags.length > 0) {
     issues.push({
       severity: 'error',
-      message: `${list(newTags)} ${newTags.length > 1 ? 'are' : 'is'} not in the source message`,
+      message: `the translation adds ${list(newTags)}, not in the source message`,
     });
   }
 
@@ -253,7 +254,7 @@ export function validatePair(source: string, translated: string): StructureIssue
     if (lostExact.length > 0) {
       issues.push({
         severity: 'warning',
-        message: `the ${list(lostExact)} ${lostExact.length > 1 ? 'cases' : 'case'} for {${name}} ${lostExact.length > 1 ? 'are' : 'is'} missing, so ${lostExact.length > 1 ? 'those counts' : 'that count'} falls back to "other"`,
+        message: `the translation lost ${counted(lostExact.length, 'exact case')} for {${name}} (${list(lostExact)}), so "other" renders instead`,
       });
     }
   }

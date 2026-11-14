@@ -2,10 +2,15 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { resolveConfig } from '../src/config/config';
+import { resolveConfig, SOURCE_FILE_RE } from '../src/config/config';
 import { extractProject } from '../src/scan/extract';
 import { stableKey } from '../src/util/key';
-import { runBuildGate, transformSource, writeBuildTypes } from '../src/emit/plugin';
+import {
+  createSourceFilter,
+  runBuildGate,
+  transformSource,
+  writeBuildTypes,
+} from '../src/emit/plugin';
 import { MessageRegistry } from '../src/scan/registry';
 
 const KEY = stableKey('Hola {name}');
@@ -20,6 +25,18 @@ describe('transformSource', () => {
     );
     expect(messages).toEqual({ [KEY]: 'Hola {name}' });
     expect(result?.code).toContain(JSON.stringify(KEY));
+  });
+
+  // the scope of a build is the scope of extract: a CommonJS file in src is rewritten like the rest
+  it('rewrites every module flavor of a script the default include scans', () => {
+    const cfg = resolveConfig({ root: mkdtempSync(join(tmpdir(), 'verbaly-flavor-')) });
+    const inScope = createSourceFilter(cfg);
+    for (const extension of ['js', 'mjs', 'cjs', 'ts', 'mts', 'cts']) {
+      const id = join(cfg.root, 'src', `server.${extension}`);
+      expect(inScope(id) && SOURCE_FILE_RE.test(id), extension).toBe(true);
+      const { result } = transformSource('const s = t`Hola ${name}`;', id, new MessageRegistry());
+      expect(result?.code, extension).toContain(`t(${JSON.stringify(KEY)}`);
+    }
   });
 
   it('registers the file so the gate sees it', () => {

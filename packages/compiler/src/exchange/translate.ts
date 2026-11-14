@@ -6,7 +6,7 @@ import {
   type Catalog,
   type Catalogs,
 } from '../catalog/catalog';
-import { targetLocales, type ResolvedConfig } from '../config/config';
+import { strangerLocales, targetLocales, type ResolvedConfig } from '../config/config';
 import { shippedCatalogs } from '../scan/sync';
 import type { MessageRegistry } from '../scan/registry';
 import { recordTranslations } from '../catalog/state';
@@ -251,10 +251,12 @@ export function writeDrafts(
   entries: DraftEntry[],
   options: WriteDraftsOptions = {},
 ): WriteDraftsResult {
-  const targets = targetLocales(cfg);
-  if (!targets.includes(locale)) {
+  const typo = strangerLocales(cfg, 'locale', [locale]);
+  if (typo) throw new Error(typo);
+  // one of the project's, so the only one left to refuse is the language the text is written in
+  if (locale === cfg.sourceLocale) {
     throw new Error(
-      `[verbaly] "${locale}" is not a language this project translates into (${targets.join(', ') || 'none yet'})`,
+      `[verbaly] "${locale}" is not a language this project translates into (${targetLocales(cfg).join(', ') || 'none yet'})`,
     );
   }
   // the draft flag is what keeps it from passing as reviewed: an unreadable state writes nothing

@@ -52,7 +52,7 @@
     "verbaly": "workspace:^"
   },
   "devDependencies": {
-    "astro": "^7.4.11",
+    "astro": "^7.4.12",
     "verbaly": "workspace:^"
   },
   "scripts": {

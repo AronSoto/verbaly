@@ -41,15 +41,6 @@ export interface DoctorResult {
 
 const PREVIEW = 5; // keys shown before "…"
 
-// a mode nobody wrote down was inferred, and doctor says which of the two it is reading
-function readRoutingChoice(root: string, configFile: string): boolean {
-  try {
-    return /\brouting["']?\s*[:=]/.test(readFileSync(join(root, configFile), 'utf8'));
-  } catch {
-    return false;
-  }
-}
-
 // the mode @verbaly/astro takes from Astro's i18n, read like the config above: no Astro to run
 function readAstroRouting(
   root: string,
@@ -299,7 +290,8 @@ function checkRouting(report: Report, cfg: ResolvedConfig, configFile: string | 
       'set routing to "prefix-except-source", the url tree render writes',
     );
   } else {
-    const named = configFile ? readRoutingChoice(cfg.root, configFile) : false;
+    // a mode nobody wrote down was inferred, and the config that was loaded knows which it is
+    const named = configFile !== undefined && cfg.routingDeclared;
     // the rule @verbaly/astro applies: Astro's i18n replaces no-prefix, a prefix mode stays
     const replaced = cfg.host === 'astro' && cfg.routing === 'no-prefix';
     const astro = replaced ? readAstroRouting(cfg.root, cfg.sourceLocale) : undefined;
@@ -363,6 +355,7 @@ function checkTypes(
   if (!existsSync(dtsPath)) {
     warn('types', `${shown} has not been generated`, regenerate);
   } else if (readFileSync(dtsPath, 'utf8').replace(/\r\n/g, '\n') !== expected) {
+    // on purpose under Astro and Nuxt too: the link exists, and only typegen adds the code's keys
     warn('types', `${shown} is stale`, 'run `npx verbaly typegen`');
   } else {
     ok('types', `${shown} is up to date`);

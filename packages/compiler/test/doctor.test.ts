@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadCatalogs } from '../src/catalog/catalog';
 import { generateDts, writeDts } from '../src/emit/codegen';
-import { resolveConfig } from '../src/config/config';
+import { loadConfig, resolveConfig } from '../src/config/config';
 import { doctor, type DoctorEntry } from '../src/project/doctor';
 import { extractProject } from '../src/scan/extract';
 import { shippedCatalogs } from '../src/scan/sync';
@@ -112,6 +112,14 @@ describe('doctor', () => {
     expect(result.ok).toBe(false);
     expect(entry(result.entries, 'locale en')?.message).toContain('not valid JSON');
     expect(entry(result.entries, 'locale pt')?.message).toContain('non-string value at "a"');
+  });
+
+  it('reads an empty catalog file as a language with nothing translated, never as corrupt', async () => {
+    const result = await doctor(
+      makeProject({ catalogs: { es: { [KEY]: 'Hola {name}' }, fr: '' }, dts: true }),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.entries.filter((e) => e.message.includes('not valid JSON'))).toEqual([]);
   });
 
   // Proved able to fail with doctor's own JSON.parse back: the BOM read as corrupt JSON, exit 1.
@@ -348,7 +356,9 @@ describe('doctor', () => {
     const outside = sources.find((e) => e.message.includes('outside include'));
     expect(outside?.level).toBe('warn');
     expect(outside?.message).toContain('components/save.ts');
-    expect(outside?.fix).toContain('"components/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}"');
+    expect(outside?.fix).toContain(
+      '"components/**/*.{js,jsx,ts,tsx,mjs,mts,cjs,cts,svelte,vue,astro}"',
+    );
   });
 
   it('reports broken translations, so it cannot call a failing build healthy', async () => {
@@ -471,10 +481,37 @@ describe('doctor: the url mode has a name now', () => {
 
   it('reads a mode the config names as a choice, not an inference', async () => {
     const root = makeProject();
-    writeFileSync(join(root.root, 'verbaly.config.json'), '{"routing":"prefix-all"}');
-    const entry = await routingOf({ ...root, routing: 'prefix-all' });
+    writeFileSync(
+      join(root.root, 'verbaly.config.json'),
+      '{"sourceLocale":"es","routing":"prefix-all"}',
+    );
+    const entry = await routingOf(await loadConfig(root.root));
     expect(entry?.message).toContain('prefix-all');
     expect(entry?.message).not.toContain('from your setup');
+  });
+
+  // Proved able to fail with the regex over the file back: a commented line read as a choice
+  it('never takes a routing written inside a comment for a choice', async () => {
+    const line = makeProject({ config: false });
+    writeFileSync(
+      join(line.root, 'verbaly.config.mjs'),
+      "// routing: 'prefix-all'\nexport default { sourceLocale: 'es' };\n",
+    );
+    const inferred = await routingOf(await loadConfig(line.root));
+    expect(inferred?.message).toContain('no-prefix (from your setup, no routing set)');
+
+    const block = makeProject({ config: false, pkg: { dependencies: { astro: '^7.0.0' } } });
+    writeFileSync(
+      join(block.root, 'astro.config.mjs'),
+      "export default { i18n: { defaultLocale: 'es', locales: ['es', 'en'] } };\n",
+    );
+    writeFileSync(
+      join(block.root, 'verbaly.config.mjs'),
+      "export default { sourceLocale: 'es' /* routing: 'no-prefix' */ };\n",
+    );
+    const followed = await routingOf(await loadConfig(block.root));
+    expect(followed?.level).toBe('ok');
+    expect(followed?.message).toContain("prefix-except-source (from Astro's i18n");
   });
 
   it('names the contradiction between no-prefix and a render section', async () => {
@@ -527,8 +564,11 @@ describe('doctor: the url mode has a name now', () => {
     // a prefix mode verbaly.config names stays, as the integration keeps it
     const chosen = makeProject(astro);
     writeFileSync(join(chosen.root, 'astro.config.mjs'), config("i18n: { defaultLocale: 'es' }"));
-    writeFileSync(join(chosen.root, 'verbaly.config.json'), '{"routing":"prefix-all"}');
-    const kept = await routingOf({ ...chosen, routing: 'prefix-all' });
+    writeFileSync(
+      join(chosen.root, 'verbaly.config.json'),
+      '{"sourceLocale":"es","routing":"prefix-all"}',
+    );
+    const kept = await routingOf(await loadConfig(chosen.root));
     expect(kept?.message).toMatch(/^prefix-all: /);
   });
 
@@ -538,8 +578,11 @@ describe('doctor: the url mode has a name now', () => {
       join(written.root, 'astro.config.mjs'),
       "export default { i18n: { defaultLocale: 'es', locales: ['es', 'en'] } };\n",
     );
-    writeFileSync(join(written.root, 'verbaly.config.json'), '{"routing":"no-prefix"}');
-    const entry = await routingOf({ ...written, routing: 'no-prefix' });
+    writeFileSync(
+      join(written.root, 'verbaly.config.json'),
+      '{"sourceLocale":"es","routing":"no-prefix"}',
+    );
+    const entry = await routingOf(await loadConfig(written.root));
     expect(entry?.level).toBe('warn');
     expect(entry?.message).toContain('@verbaly/astro uses prefix-except-source');
     expect(entry?.fix).toContain('remove routing');

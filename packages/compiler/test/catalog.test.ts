@@ -64,6 +64,17 @@ describe('catalogs', () => {
     expect(() => readCatalog(cfg, 'es')).toThrow(/not valid JSON/);
   });
 
+  // an empty file holds nothing an extract could wipe: an empty catalog, never a corrupt one
+  it('an empty file reads as an empty catalog, with spaces, line breaks or a BOM in it', () => {
+    const cfg = makeProject({ es: { hola: 'Hola' } });
+    const bom = String.fromCharCode(0xfeff);
+    for (const raw of ['', '\n', ' \r\n\t', bom, `${bom}\n`]) {
+      writeFileSync(join(cfg.dir, 'fr.json'), raw);
+      expect(readCatalog(cfg, 'fr')).toEqual({});
+      expect(parseCatalog(raw)).toEqual({});
+    }
+  });
+
   // Proved able to fail by trusting JSON.parse: the array read as no messages, then was rewritten.
   it('JSON that is not an object of messages fails loudly too, and the file stays as it was', () => {
     const cfg = makeProject({ es: {} });
@@ -116,6 +127,24 @@ describe('catalogs', () => {
     writeCatalog(cfg, 'pt', { 'hero.title': '' });
     expect(JSON.parse(readFileSync(catalogPath(cfg, 'pt'), 'utf8'))).toEqual({
       hero: { title: '' },
+    });
+  });
+
+  // Proved able to fail by asking the file: one with no keys has no shape, and wrote dotted keys
+  it('a locale file with no messages yet inherits it too, whatever the file holds', () => {
+    for (const raw of ['{}', '', '\n', '{\n}\n']) {
+      const cfg = makeProject({ es: { hero: { title: 'Hola' } } as never });
+      writeFileSync(catalogPath(cfg, 'pt'), raw);
+      writeCatalog(cfg, 'pt', { 'hero.title': '' });
+      expect(JSON.parse(readFileSync(catalogPath(cfg, 'pt'), 'utf8')), raw).toEqual({
+        hero: { title: '' },
+      });
+    }
+    // the source catalog has nobody to inherit from, so an empty one starts flat as before
+    const cfg = makeProject({ es: {} });
+    writeCatalog(cfg, 'es', { 'hero.title': 'Hola' });
+    expect(JSON.parse(readFileSync(catalogPath(cfg, 'es'), 'utf8'))).toEqual({
+      'hero.title': 'Hola',
     });
   });
 

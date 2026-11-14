@@ -149,6 +149,25 @@ describe('runCli: status', () => {
     expect(text).toContain('pt: 2/2 translated (100%) ✓');
   });
 
+  // what an editor leaves when it creates locales/fr.json: a language with nothing translated yet
+  it('reads an empty catalog file as a new language, in status, check and extract', async () => {
+    for (const raw of ['', '\n']) {
+      const root = makeProject({ en: { a: 'A' } }, "t('a');\n");
+      writeFileSync(join(root, 'locales', 'fr.json'), raw);
+      await runCli(['status', '--root', root]);
+      expect(process.exitCode).toBeUndefined();
+      expect(output(log)).toContain('fr: 0/1 translated (0%)');
+      await runCli(['check', '--root', root]);
+      expect(output(error)).toContain('fr');
+      expect(output(error)).not.toContain('not valid JSON');
+      process.exitCode = undefined;
+      await runCli(['extract', '--root', root]);
+      expect(readFileSync(join(root, 'locales', 'fr.json'), 'utf8')).toBe('{\n  "a": ""\n}\n');
+      log.mockClear();
+      error.mockClear();
+    }
+  });
+
   it('prints machine-readable coverage with --json', async () => {
     const root = makeProject({ en: { a: 'A' }, es: { a: '' } });
     await runCli(['status', '--root', root, '--json']);

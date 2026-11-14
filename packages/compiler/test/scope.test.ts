@@ -33,7 +33,7 @@ describe('a file outside include that writes t`…`', () => {
     const root = nextLayout();
     const cfg = resolveConfig({ root });
     const found = createOutsideCheck(cfg)(SAVE, join(root, 'components', 'save.tsx'));
-    expect(found?.pattern).toBe('components/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}');
+    expect(found?.pattern).toBe('components/**/*.{js,jsx,ts,tsx,mjs,mts,cjs,cts,svelte,vue,astro}');
     expect(formatOutside(cfg, found!)).toContain(
       'components/save.tsx uses t`…` outside the include of your verbaly config',
     );
@@ -104,7 +104,7 @@ describe('a file outside include that writes t`…`', () => {
       expect(paths.filter((path) => path.endsWith('/app/page.tsx'))).toEqual([]);
       expect(paths.filter((path) => path.endsWith('/stories/card.tsx'))).toEqual([]);
       expect(found.map((entry) => entry.pattern)).toEqual([
-        'components/**/*.{js,jsx,ts,tsx,mjs,mts,svelte,vue,astro}',
+        'components/**/*.{js,jsx,ts,tsx,mjs,mts,cjs,cts,svelte,vue,astro}',
       ]);
     } finally {
       read.mockRestore();

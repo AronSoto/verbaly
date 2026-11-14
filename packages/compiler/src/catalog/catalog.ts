@@ -91,6 +91,8 @@ export function parseCatalog(content: string): Catalog | undefined {
 // a byte order mark is legal in the file and illegal to JSON.parse: drop it by code, never by regex
 export function parseTree(content: string): unknown {
   const body = stripBom(content);
+  // what an editor leaves when it creates the file: no messages yet, and nothing to lose
+  if (body.trim() === '') return {};
   try {
     return JSON.parse(body) as unknown;
   } catch {
@@ -226,14 +228,15 @@ export function writeCatalog(cfg: ResolvedConfig, locale: string, catalog: Catal
   return serialized;
 }
 
-// the file's own shape, and for a locale that does not exist yet, the source catalog's
+// the file's own shape, and for a locale with no messages yet (no file, or no keys), the source's
 function shapeFor(
   cfg: ResolvedConfig,
   locale: string,
   existing: string | undefined,
   previous: MessageTree | undefined,
 ): MessageTree | undefined {
-  if (existing !== undefined) return previous;
+  const blank = previous !== undefined && Object.keys(previous).length === 0;
+  if (existing !== undefined && !blank) return previous;
   return locale === cfg.sourceLocale ? undefined : readTree(cfg, cfg.sourceLocale);
 }
 

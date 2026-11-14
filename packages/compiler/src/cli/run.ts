@@ -1,4 +1,4 @@
-import { loadConfig, type ResolvedConfig } from '../config/config';
+import { loadConfig, strangerLocales, type ResolvedConfig } from '../config/config';
 import { csv, parseCli, type CliValues } from './args';
 import { checkCommand } from './commands/check';
 import { doctorCommand } from './commands/doctor';
@@ -14,7 +14,6 @@ import { statusCommand } from './commands/status';
 import { translateCommand } from './commands/translate';
 import { typegenCommand } from './commands/typegen';
 import { wrapCommand } from './commands/wrap';
-import { relativePath } from '../util/path';
 
 const HELP = `verbaly · i18n compiler
 
@@ -116,8 +115,8 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
     // the languages before the flag narrows them: a typo is not a language with nothing to do
     const whole = await loadConfig(root, project);
     const typo = narrowed
-      ? strangers(whole, 'locales', narrowed)
-      : strangers(whole, 'locale', [values.locale!]);
+      ? strangerLocales(whole, '--locales', narrowed)
+      : strangerLocales(whole, '--locale', [values.locale!]);
     if (typo) {
       console.error(typo);
       process.exitCode = 1;
@@ -127,19 +126,6 @@ export async function runCli(args: string[] = process.argv.slice(2)): Promise<vo
 
   const cfg = await loadConfig(root, { ...project, locales: narrowed });
   return COMMANDS[command]!(cfg, values, positionals);
-}
-
-// a locale flag picks among the project's languages; only init starts one from a flag
-function strangers(cfg: ResolvedConfig, flag: string, named: string[]): string | undefined {
-  const unknown = named.filter((locale) => !cfg.locales.includes(locale));
-  if (unknown.length === 0) return undefined;
-  const dir = relativePath(cfg.root, cfg.dir);
-  const start = cfg.localesDeclared
-    ? `add ${unknown.join(', ')} to locales in your verbaly config`
-    : // an empty file is not a catalog: the line says what goes in it
-      `create ${unknown.map((locale) => `${dir}/${locale}.json`).join(', ')} holding {}`;
-  const names = unknown.map((locale) => `"${locale}"`).join(', ');
-  return `[verbaly] --${flag} names ${names}, and this project has ${cfg.locales.join(', ')}\n    fix: check the spelling, or ${start} to start a new language`;
 }
 
 // every compiler error already opens with [verbaly]: prefix only what does not

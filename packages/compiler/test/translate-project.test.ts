@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveConfig } from '../src/config/config';
+import { resolveConfig, targetLocales } from '../src/config/config';
 import { loadState, STATE_FILE } from '../src/catalog/lock';
 import type { TranslateProvider, TranslateRequest } from '../src/exchange/translate';
 import { writeDrafts } from '../src/exchange/translate';
@@ -89,6 +89,41 @@ describe('translateProject, the one translate run', () => {
     expect(seen).toEqual(['es:the api refused it']);
     expect(result.failed).toEqual([{ locale: 'es', keys: ['bye'], error: 'the api refused it' }]);
     expect(result.written).toEqual({});
+  });
+});
+
+// Proved able to fail with the silent filter back: a typo read as a language with nothing to do
+describe('a language the project does not have is an error, whoever names it', () => {
+  it('stops a translate run before the provider, dry or not, listing the languages it has', async () => {
+    let calls = 0;
+    const cfg = project(async (request) => {
+      calls += 1;
+      return echo(request);
+    });
+    for (const dryRun of [true, false]) {
+      await expect(translateProject(cfg, { locales: ['ess'], dryRun })).rejects.toThrow(
+        /locales names "ess", and this project has en, es\n {4}fix: check the spelling, or add ess to locales in your verbaly config to start a new language/,
+      );
+    }
+    expect(calls).toBe(0);
+    expect(existsSync(join(cfg.dir, 'ess.json'))).toBe(false);
+  });
+
+  it('gives writeDrafts the same answer, and keeps its own for the source language', () => {
+    const cfg = project();
+    expect(() => writeDrafts(cfg, 'ess', [{ key: 'bye', text: 'Adiós' }])).toThrow(
+      /locale names "ess", and this project has en, es\n {4}fix: check the spelling/,
+    );
+    expect(() => writeDrafts(cfg, 'en', [{ key: 'bye', text: 'Bye!' }])).toThrow(
+      '"en" is not a language this project translates into (es)',
+    );
+  });
+
+  it('is what targetLocales answers to a name, while the source language is only left out', () => {
+    const cfg = project();
+    expect(targetLocales(cfg)).toEqual(['es']);
+    expect(targetLocales(cfg, ['en', 'es'])).toEqual(['es']);
+    expect(() => targetLocales(cfg, ['es', 'fr'])).toThrow(/locales names "fr"/);
   });
 });
 

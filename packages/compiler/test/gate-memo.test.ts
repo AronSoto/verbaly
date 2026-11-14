@@ -83,7 +83,7 @@ describe('the gate between rebuilds', () => {
     const second = pass(broken);
     expect(second.broken).toEqual(first.broken);
     expect(second.broken.map((entry) => entry.issue)).toEqual([
-      '{count} is missing, so its value never reaches the text',
+      'the translation lost {count}, so the value never reaches the text',
     ]);
   });
 

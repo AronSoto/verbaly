@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveConfig } from '../src/config/config';
 import { renderHtml } from '../src/emit/render';
-import { renderSite } from '../src/emit/site';
+import { formatRenderWarnings, renderSite } from '../src/emit/site';
 
 const CATALOGS = {
   en: {
@@ -955,6 +955,28 @@ describe('renderSite: the head is half the page a search result shows', () => {
     );
     const result = await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
     expect(result.untranslatedHead).toEqual([]);
+  });
+
+  // Proved able to fail without the look: the folder was skipped and nothing said so
+  it('says so when a folder is named like the source locale, and leaves it where it is', async () => {
+    const page = '<html><head><title data-verbaly="home.hint">x</title></head><body></body></html>';
+    const root = site(page);
+    mkdirSync(join(root, 'dist', 'en', 'deep'), { recursive: true });
+    writeFileSync(join(root, 'dist', 'en', 'guide.html'), page);
+    writeFileSync(join(root, 'dist', 'en', 'deep', 'more.html'), page);
+    const result = await renderSite(resolveConfig({ root, sourceLocale: 'en' }));
+    expect(result.files).toBe(1);
+    expect(result.sourceFolder).toEqual({ folder: 'dist/en', pages: 2 });
+    expect(existsSync(join(root, 'dist', 'es', 'en'))).toBe(false);
+    expect(readFileSync(join(root, 'dist', 'en', 'guide.html'), 'utf8')).toBe(page);
+    expect(formatRenderWarnings(result, 'en')).toEqual([
+      '  dist/en/ is named like your source locale, so render does not mirror it (2 pages)',
+      '    fix: rename the folder if those pages are content, or delete it if an older run left it',
+    ]);
+    // a site without that folder hears nothing
+    const quiet = await renderSite(resolveConfig({ root: site(page), sourceLocale: 'en' }));
+    expect(quiet.sourceFolder).toBeUndefined();
+    expect(formatRenderWarnings(quiet, 'en')).toEqual([]);
   });
 
   it('stays quiet with one locale: there is no second title to disagree with', async () => {

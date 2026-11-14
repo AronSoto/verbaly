@@ -295,6 +295,15 @@ describe('the source file types', () => {
     expect(scanned.length).toBeGreaterThan(1);
     expect(scanned.filter((extension) => !SOURCE_FILE_RE.test(`page.${extension}`))).toEqual([]);
   });
+
+  // the other direction: a flavor the transform rewrites and extract never scans loses its texts
+  it('scans every module flavor of a script the transform reads, all three or none', () => {
+    const scanned = SOURCE_EXTENSIONS.slice(1, -1).split(',');
+    const flavors = ['js', 'mjs', 'cjs', 'ts', 'mts', 'cts'];
+    const read = flavors.filter((extension) => SOURCE_FILE_RE.test(`page.${extension}`));
+    expect(read).toEqual(flavors);
+    expect(flavors.filter((extension) => !scanned.includes(extension))).toEqual([]);
+  });
 });
 
 describe('resolveConfig defaults', () => {
@@ -340,6 +349,13 @@ describe('locale discovery', () => {
     const cfg = resolveConfig({ root });
     expect(cfg.locales).toEqual(['en', 'es']);
     expect(cfg.localesDeclared).toBe(false);
+  });
+
+  it('remembers whether routing was written or inferred, whatever the mode came out as', () => {
+    const root = makeRoot();
+    expect(resolveConfig({ root }).routingDeclared).toBe(false);
+    expect(resolveConfig({ root, render: {} }).routingDeclared).toBe(false);
+    expect(resolveConfig({ root, routing: 'no-prefix' }).routingDeclared).toBe(true);
   });
 
   it('never auto-adopts the pseudo QA catalog as a target', () => {

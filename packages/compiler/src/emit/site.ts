@@ -39,6 +39,8 @@ export interface RenderSiteResult {
   locales: string[];
   missing: Record<string, string[]>;
   untranslatedHead: string[];
+  // pages in a folder named like the source locale: no mirror of anything, and never mirrored
+  sourceFolder?: { folder: string; pages: number };
 }
 
 const TITLE_TAG = /<title\b([^>]*)>/i;
@@ -154,7 +156,17 @@ export async function renderSite(
 
   const missing = emptyCatalog<string[]>();
   for (const [locale, keys] of Object.entries(unfilled)) missing[locale] = [...keys];
-  return { files: files.length, locales: [...locales], missing, untranslatedHead };
+  const result: RenderSiteResult = {
+    files: files.length,
+    locales: [...locales],
+    missing,
+    untranslatedHead,
+  };
+  // /en/ would read as the source with a prefix, a url this mirror never writes: say it, once
+  const own = join(site, cfg.sourceLocale);
+  const left = (await glob('**/*.html', { cwd: own })).length;
+  if (left > 0) result.sourceFolder = { folder: relativePath(cfg.root, own), pages: left };
+  return result;
 }
 
 // the cli and @verbaly/astro both run the mirror, so what it warns about is written once
@@ -167,6 +179,13 @@ export function formatRenderWarnings(result: RenderSiteResult, sourceLocale: str
     lines.push(
       `  ${counted(result.untranslatedHead.length, 'page')} of ${result.files} ship the same <title> in every locale (${result.untranslatedHead[0]}), so search results read in ${sourceLocale}`,
       `    fix: bind the head too, <title data-verbaly="key"> and a meta through data-verbaly-attr`,
+    );
+  }
+  if (result.sourceFolder) {
+    const { folder, pages } = result.sourceFolder;
+    lines.push(
+      `  ${folder}/ is named like your source locale, so render does not mirror it (${counted(pages, 'page')})`,
+      `    fix: rename the folder if those pages are content, or delete it if an older run left it`,
     );
   }
   return lines;

@@ -57,8 +57,22 @@ describe('the install line of every README', () => {
   }
 });
 
-// npm shows no CI, no Scorecard and no peer range: the README of each package is where they live
+// npm shows no Scorecard and no peer range: the README of each package is where they live
 describe('the badges of every package README', () => {
+  const ci = 'https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?';
+
+  // CI is the state of the repository: its badge lives on the root README, never on an npm page
+  it('the repository README carries the CI badge', () => {
+    expect(readFileSync(join(repo, 'README.md'), 'utf8')).toContain(ci);
+  });
+
+  // with no version in its url the Socket badge reads the latest one, so no release edits it
+  it('the repository README names no version in its Socket badge', () => {
+    const text = readFileSync(join(repo, 'README.md'), 'utf8');
+    expect(text).toContain('https://badge.socket.dev/npm/package/verbaly"');
+    expect(text).not.toMatch(/badge\.socket\.dev\/npm\/package\/verbaly\/\d/);
+  });
+
   for (const folder of readdirSync(join(repo, 'packages'))) {
     const text = readFileSync(join(repo, 'packages', folder, 'README.md'), 'utf8');
     const pkg = JSON.parse(
@@ -73,7 +87,6 @@ describe('the badges of every package README', () => {
     it(`${folder} carries the family row in order, each badge naming its own package`, () => {
       const family = [
         `https://img.shields.io/npm/v/${pkg.name}?`,
-        'https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?',
         'https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge',
         `https://www.npmjs.com/package/${pkg.name}#provenance`,
         `https://img.shields.io/npm/l/${pkg.name}?`,
@@ -81,6 +94,10 @@ describe('the badges of every package README', () => {
       expect(family.filter((url) => !text.includes(url))).toEqual([]);
       const order = family.map((url) => text.indexOf(url));
       expect(order).toEqual([...order].sort((a, b) => a - b));
+    });
+
+    it(`${folder} leaves the CI badge to the repository README`, () => {
+      expect(text).not.toContain(ci);
     });
 
     // a badge shields fills from the registry reads this package, and a written one is true of it

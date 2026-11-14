@@ -5,6 +5,7 @@ import {
   loadCatalogs,
   loadState,
   shippedCatalogs,
+  targetLocales,
 } from '@verbaly/compiler';
 import { z } from 'zod';
 import { READS, reply, rootInput, type ToolContext } from './shared';
@@ -18,7 +19,10 @@ export function registerDrafts(server: McpServer, ctx: ToolContext): void {
         'Every machine translation still waiting for a human, each with the source text and what the provider wrote, so a person can read both and decide. Read-only. Approving is deliberately not a tool here and never will be: a machine translation is unreviewed by definition, so accepting one is `verbaly review --approve`, run by a human. For how many drafts each locale has, verbaly_status is enough; verbaly_missing lists them next to the gate.',
       inputSchema: {
         root: rootInput,
-        locales: z.array(z.string()).optional().describe('Target locales (default: all)'),
+        locales: z
+          .array(z.string())
+          .optional()
+          .describe('Target locales (default: all). One the project does not have is an error'),
       },
       outputSchema: {
         total: z.number(),
@@ -40,7 +44,8 @@ export function registerDrafts(server: McpServer, ctx: ToolContext): void {
       const shipped = shippedCatalogs(cfg, catalogs, await extractProject(cfg));
       const source = shipped[cfg.sourceLocale] ?? {};
       const pending = effectiveDrafts(loadState(cfg).drafts, catalogs);
-      const wanted = locales ?? cfg.locales;
+      // a name the project lacks is an error, never a language with nothing awaiting review
+      const wanted = targetLocales(cfg, locales);
       const entries = Object.entries(pending)
         .filter(([locale]) => wanted.includes(locale))
         .flatMap(([locale, keys]) =>

@@ -8,6 +8,60 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.84.0] · 2026-11-14
+
+**Starting a language is creating an empty file, and a mistyped language is said out loud.** The small gaps the last audit left open are closed: each one made Verbaly answer something that was not quite true. Breaking: nothing for a project. One change for code that calls the compiler: `targetLocales(cfg, names)` throws for a name the project does not have, where it used to drop it.
+
+### Highlights
+
+- **A new language starts with an empty file.** Creating `locales/fr.json` with nothing in it used to stop every command with an error. Now it is a language with nothing translated yet, and it is written in the same shape as your main translation file.
+- **A mistyped language is an error, not "nothing to do".** An AI assistant that asked to translate into `ess` instead of `es` was told there was nothing left to translate. It now gets the list of your languages and how to start a new one.
+- **Text in `.cjs` and `.cts` files is found.** A server written in CommonJS keeps its text in `src/` like any other file, and Verbaly used to skip those files.
+- **`verbaly render` says when it skips a folder.** A folder named like your main language, such as `dist/en/`, is never copied into the other languages, and until now nothing told you.
+- **Before you update:** if `src/` or `app/` hold `.cjs` or `.cts` files with text, that text is extracted from now on, so `verbaly check` asks for its translations.
+
+### Fixed
+
+- **An empty catalog file was an error (`@verbaly/compiler`, and the MCP server and Studio through it).** A file of zero bytes, or one holding only spaces or line breaks, with or without a byte order mark, stopped `check`, `status`, `extract` and `doctor` with "is not valid JSON, fix or delete the file". It is what an editor leaves when it creates `locales/fr.json`, and it holds nothing an `extract` could wipe, so `parseTree` reads it as a catalog with no messages. A file that holds something and is not valid JSON still throws.
+- **A locale file with no messages took a shape of its own (`@verbaly/compiler`).** With a nested source catalog, a `fr.json` that did not exist was written nested, and one that existed holding `{}` was written with flat dotted keys. A file with no keys has no shape, so it now takes the source catalog's, like a language that does not exist yet.
+- **A language the project does not have read as "nothing to translate" (`@verbaly/compiler`, `@verbaly/mcp`).** `targetLocales(cfg, names)` dropped an unknown name in silence, so `verbaly_translate` and `verbaly_drafts` answered a typo with an empty result. It now throws the sentence the CLI already printed for `--locales`: the name, the languages the project has, and how to start a new one. `translateProject` says it first, before the state file, the scan and the provider, and `writeDrafts` says it before its own answer for the source language.
+- **`doctor` took a `routing` written inside a comment for a choice (`@verbaly/compiler`).** It read the config file with a regex, so `// routing: 'prefix-all'` counted as written, and under Astro it asked to remove a `routing` that was not there. `resolveConfig` now remembers whether `routing` was written (`routingDeclared`, like `localesDeclared`), and `doctor` reads that.
+- **`.cjs` and `.cts` files were transformed if they arrived, and never scanned (`@verbaly/compiler`, and every plugin through it).** The default `include` did not list them, so a `t` in `src/server.cjs` was neither extracted nor rewritten. Both extensions are in `SOURCE_EXTENSIONS` now, and the pattern `doctor` suggests for a folder outside `include` carries them.
+- **`render` skipped a folder named like the source locale and said nothing (`@verbaly/compiler`, `@verbaly/astro`).** It still skips it: `/en/` reads as the source with a prefix, an address this mirror never writes. `renderSite` now returns `sourceFolder` (the folder and how many pages it holds), and `formatRenderWarnings` says so with what to do, in the CLI and in the Astro integration.
+
+### Changed
+
+- **The sentences of the gate (`@verbaly/compiler`).** Six of them picked their verb from how many things they named. They now keep one subject and only a noun changes with the count: "the translation lost {name}, so the value never reaches the text", "the translation adds {x}, not in the source message, so the braces render as literal text", "the translation lost `<em>`", "the translation adds `<em>`, not in the source message", "the translation lost 2 exact cases for {count} (=0 and =1), so "other" renders instead" and "pl needs 2 more plural forms for {count}: many and few". `check`, a build report, Studio's save and the MCP server print them.
+- **`ResolvedConfig` has `routingDeclared` and `RenderSiteResult` an optional `sourceFolder` (`@verbaly/compiler`).** Both are additions.
+- **The MCP server (`@verbaly/mcp`).** The description of `verbaly_translate` and the `locales` input of `verbaly_drafts` say that a language the project does not have is an error. `verbaly_write_drafts` answers an unknown language with the shared sentence, and keeps its own for the source language.
+- **The READMEs.** The CI badge left the thirteen package READMEs, the ones npm shows: it is the state of the repository, so it stays on the root README. The Socket badge of the root README names no version, so it reads the latest one and no release edits it. The build report shown in the compiler's README carries the new sentence.
+- **Dependencies, in the repository only:** `astro` 7.4.12, `preact-render-to-string` 6.8.3 and `eslint` 10.15.0.
+
+### Notes
+
+- **How this was found.** These are the rows the 0.82.0 audit left open because they change what a person reads or what a command answers, each decided before this release. The shape of a file with no keys was found while closing the empty file, and decided the same day.
+- **Sizes** (`pnpm --filter verbaly size`): unchanged, `createVerbaly` alone 3.35 KB, a real app 6.17 KB, the canary 8.01 KB, devtools 1.60 KB. The core is not in this diff.
+- **2 193 tests under `pnpm test`, 32 new** (0.83.0: 2 161). Compiler 1 175 plus 26 in its DOM config, MCP 52, Studio 214. **2 197 under `pnpm coverage`**, the benches included, with 97.51% of lines covered.
+- **Every pin that guards a change was seen red with its fix reverted**, through `.claude/sabotage.mjs`, on the final code: the empty file in the catalog, the CLI and `doctor`; the shape of a file with no keys; the two lists of extensions, the extraction and the transform of the six module flavors; the commented `routing` and `routingDeclared`; the unknown language in `translateProject`, `targetLocales`, `writeDrafts` and the two MCP tools; the source folder of `render`; three of the reworded sentences; the Socket badge and the CI badge of the root README. The CI badge was red on all thirteen package READMEs before it was removed.
+- **The review** (`/code-review`, the whole diff) reported eight findings. Two were fixed: nothing tested that a build rewrites a `.cjs` or a `.cts` file now that the default `include` scans them, and the warning of `render` only said to rename the folder, which is wrong for a mirror an older run left. Dismissed: `writeCatalog` on a file with no keys throws when the source catalog is corrupt, as it already did for a file that does not exist, and every path of the compiler reads the source first; an empty file also covers a catalog a crashed write truncated, which `status` and a build show as untranslated and git still holds; Studio resolves the provider before the language check, and its panel only sends the project's languages; the name check runs twice in a translate run, because the first has to come before the state and the provider; the plural forms a language needs are listed in the order the probe meets them (`many and few`), as before; and Studio's panel keeps its own copy of the gate's sentences, which belongs to the panel's design pass.
+- **The differential** (`.claude/diff-release.mjs`, 0.83.0 from npm against this build): nothing differs on verbaly-web (6 099 renders), the portfolio (758) and the fixture (35). None of them has a `.cjs` file, an empty catalog or a broken translation, so the differential says nothing about the changes above: their tests do.
+- **Bench:** 21.0x, 10.9x, 4.7x and 4.5x against i18next 27.1.1 (0.83.0: 23 to 25x, 9 to 11x, 4.7 to 5.1x and 4.6 to 4.7x); the core did not change. The build receipt at 200 modules +78 ms (1.80x), at 1 500 modules +519 ms (2.70x), with the scan at 272 ms.
+- **Dependencies:** `pnpm outdated -r` empty after them. `pnpm audit`: 1 low, ignored, as before.
+- **First contact** (`pnpm first-contact`, on this build): the four shapes green.
+- **The starters** (`pnpm starters`, on this checkout): the seven green in 155 s, with Vite 8.3.8, React 19.3.1, Vue 3.5.45, Svelte 5.57.3, SvelteKit 3.2.0, Next 16.4.6, Nuxt 4.6.4 and Astro 7.4.12.
+- **Canonical build and real consumers:** from the tarballs of a Linux build on Node 22: the size gate as above, publint "All good" on all thirteen, attw as `known-ok.md` expects, every tarball shipping only `dist/`, LICENSE and the README (plus `loader.d.cts` in Next), no `workspace:` left, no CI badge in a packed README, and the three bins still small loaders of a shared chunk. `pnpm starters --tarballs` on them: the seven green in 155 s. verbaly-web builds (28 pages) and passes its `check`, and the portfolio passes `verbaly check` and `next build`. The MCP bin, installed from its tarball, answers `initialize` and lists its tools in the cycle's order, and `mcp-tdqs` 0.2.0 keeps its 1 warning, the shadow guess between write_drafts and doctor. Through `@verbaly/unplugin`, webpack 5.112.2 and esbuild 0.28.2 build an app with a key and a tagged text, and both bundles run and print the Spanish.
+- **Left for later, on purpose.** Typing the AST and extending `gate-reach.test.ts` keep their own release with no behavior in it. The measured pass over the core (an ICU plural with `offset`, an ICU number style nobody knows, a fallback language with only a loader) waits for its bytes. Studio's panel restates the gate's sentences and writes "is" for a list of two.
+
+### Docs impact
+
+- **`releases.ts` and the three catalogs:** the 0.84.0 block with five highlights, the last one a "Before you update".
+- **`docs/reference/cli`:** `docs_cli.p_extract` lists the file types `extract` scans; `.cjs` and `.cts` join them (and `.mjs`, `.mts` if the sentence names them). Any sample output of `check` that quotes "is missing, so its value never reaches the text" takes the new sentence; `td_gate_param_why` ("the value never reaches the text") stays true.
+- **`docs/reference/config`:** the default of `include`, if the page spells the extensions.
+- **`docs/guide/translators` and wherever a page says how to add a language:** an empty `locales/fr.json` is enough, and it takes the shape of the source catalog.
+- **`docs/guide/agents`:** `verbaly_translate` and `verbaly_drafts` answer a language the project does not have with an error that lists the ones it has.
+- **`docs/guide/troubleshooting`:** the "is not valid JSON" entry no longer covers an empty file; and the pattern `doctor` suggests for a folder outside `include` now ends in `{js,jsx,ts,tsx,mjs,mts,cjs,cts,svelte,vue,astro}`.
+- **The static mirror page (`render`):** a folder named like the source locale is skipped, and the run says so.
+
 ## [0.83.0] · 2026-11-13
 
 **Faster on Windows, and the same site as before.** Verbaly's inside was reorganized so each part does one job, and every project it was checked against builds, checks and renders exactly as with 0.82.0. Breaking: nothing.

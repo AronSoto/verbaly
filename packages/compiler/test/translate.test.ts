@@ -262,6 +262,39 @@ describe('translateCatalogs: a batch that fails is a batch, not the run', () => 
     expect(seen.filter((entry) => entry.error).map((entry) => entry.error)).toEqual(['boom']);
   });
 
+  it('hands each language to onLocale once, after its last batch, with what translated', async () => {
+    const order: string[] = [];
+    const catalogs: Catalogs = {
+      en: { a: 'One', b: 'Two', c: 'Three' },
+      es: { a: '', b: '', c: '' },
+      pt: { a: '', b: '', c: 'Tres' },
+    };
+    const provider: TranslateProvider = (request) => {
+      order.push(`ask ${request.targetLocale}`);
+      return upper(request);
+    };
+    await translateCatalogs(cfg(['en', 'es', 'pt']), catalogs, provider, {
+      batchSize: 2,
+      concurrency: 1,
+      onLocale: (locale, keys) => order.push(`${locale}: ${keys.join(' ')}`),
+    });
+    expect(order).toEqual(['ask es', 'ask es', 'es: a b c', 'ask pt', 'pt: a b']);
+  });
+
+  it('turns a throw from onLocale into a failed entry for that language, and goes on', async () => {
+    const catalogs: Catalogs = { en: { a: 'One' }, es: { a: '' }, pt: { a: '' } };
+    const saved: string[] = [];
+    const result = await translateCatalogs(cfg(['en', 'es', 'pt']), catalogs, upper, {
+      concurrency: 1,
+      onLocale: (locale) => {
+        if (locale === 'es') throw new Error('disk full');
+        saved.push(locale);
+      },
+    });
+    expect(result.failed).toEqual([{ locale: 'es', keys: ['a'], error: 'disk full' }]);
+    expect(saved).toEqual(['pt']);
+  });
+
   it('formats one line per reason and names every key it cost', () => {
     const lines = formatTranslateFailures([
       { locale: 'es', keys: ['a'], error: '529 overloaded' },

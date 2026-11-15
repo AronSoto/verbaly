@@ -1129,6 +1129,19 @@ describe('runCli: export and import', () => {
     expect(readFileSync(join(root, 'locales', 'es.json'), 'utf8')).toBe(before);
   });
 
+  it('saves the mark of --draft before the text: a lock that cannot be written imports nothing', async () => {
+    const root = makeProject({ en: { greet: 'Hello' }, es: { greet: '' } });
+    writeFileSync(join(root, 'es.csv'), 'key,source,target\r\ngreet,Hello,Hola\r\n');
+    // a folder where the lock goes: it reads as no lock, and no save can write it
+    mkdirSync(join(root, 'verbaly.lock'));
+    const before = readFileSync(join(root, 'locales', 'es.json'), 'utf8');
+    const run = runCli(['import', join(root, 'es.csv'), '--root', root, '--draft']);
+    await expect(run).rejects.toThrow();
+    expect(readFileSync(join(root, 'locales', 'es.json'), 'utf8')).toBe(before);
+    // nothing was imported, so no line says it was
+    expect(output(log)).not.toContain('imported');
+  });
+
   it('says so when nothing lands', async () => {
     const root = makeProject({ en: { greet: 'Hello' }, es: { greet: '' } });
     writeFileSync(join(root, 'es.csv'), 'key,source,target\r\nghost,?,Fantasma\r\n');

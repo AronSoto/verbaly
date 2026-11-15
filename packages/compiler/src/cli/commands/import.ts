@@ -20,7 +20,7 @@ export async function importCommand(
     process.exitCode = 1;
     return;
   }
-  // the draft flags are written after the catalogs: an unreadable state writes neither
+  // an unreadable state writes nothing: a draft flag lost there would pass as reviewed
   if (!values['dry-run']) loadState(cfg);
   const registry = await extractProject(cfg);
   // checked against the text that ships, like check reads every translation
@@ -50,19 +50,27 @@ export async function importCommand(
   }
   // a person's file clears the draft flag unless --draft, stamped with the source it carried
   const writes: TranslationWrite[] = [];
-  for (const [locale, keys] of Object.entries(result.imported)) {
-    if (!values['dry-run']) {
+  if (!values['dry-run']) {
+    for (const [locale, keys] of Object.entries(result.imported)) {
       const catalog = catalogs[locale] ?? {};
-      writeCatalog(cfg, locale, catalog);
       const seen = result.sources[locale] ?? {};
       const entries = keys.map((key) => ({ key, text: catalog[key]!, source: seen[key] }));
       writes.push({ locale, entries, draft: values.draft === true });
     }
-    const verb = values['dry-run'] ? 'would import' : 'imported';
-    console.log(`  ${locale}: +${keys.length} ${verb}${values.draft ? ' (draft)' : ''}`);
   }
   const lockBefore = stateFile(cfg);
-  if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
+  const record = (): void => {
+    if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
+  };
+  // a mark goes in before its text and comes off after it: cut between, nothing passes as read
+  if (values.draft) record();
+  for (const { locale } of writes) writeCatalog(cfg, locale, catalogs[locale] ?? {});
+  if (!values.draft) record();
+  // said once it is on disk: a save that throws leaves no line claiming an import
+  const verb = values['dry-run'] ? 'would import' : 'imported';
+  for (const [locale, keys] of Object.entries(result.imported)) {
+    console.log(`  ${locale}: +${keys.length} ${verb}${values.draft ? ' (draft)' : ''}`);
+  }
   sayLockNews(cfg, lockBefore);
   for (const [locale, keys] of Object.entries(result.skipped)) {
     console.log(

@@ -42,6 +42,7 @@ export interface TranslateOptions {
   dryRun?: boolean;
   origins?: Record<string, string[]>;
   onProgress?: (progress: TranslateProgress) => void;
+  onLocale?: (locale: string, keys: string[]) => void;
 }
 
 // carries its reason, which the per-locale records cannot: a batch fails as a batch
@@ -129,6 +130,19 @@ export async function translateCatalogs(
   };
 
   const jobs: Batch[] = [];
+  const open = new Map<string, number>();
+  // a save that fails costs its language, like a batch that fails costs its keys: the run goes on
+  const settle = (locale: string): void => {
+    const left = open.get(locale)! - 1;
+    open.set(locale, left);
+    const keys = [...(result.translated[locale] ?? [])].sort();
+    if (left > 0 || keys.length === 0 || !options.onLocale) return;
+    try {
+      options.onLocale(locale, keys);
+    } catch (error) {
+      result.failed.push({ locale, keys, error: reason(error) });
+    }
+  };
   for (const locale of targets) {
     const catalog = (catalogs[locale] ??= emptyCatalog());
     const missing = Object.keys(source).filter((key) => source[key] && !own(catalog, key));
@@ -140,6 +154,7 @@ export async function translateCatalogs(
     }
 
     const batches = Math.ceil(missing.length / batchSize);
+    open.set(locale, batches);
     for (let i = 0; i < missing.length; i += batchSize) {
       const index = Math.floor(i / batchSize) + 1;
       jobs.push({ locale, index, batches, keys: missing.slice(i, i + batchSize) });
@@ -176,6 +191,7 @@ export async function translateCatalogs(
     } catch (error) {
       const message = reason(error);
       result.failed.push({ locale, keys, error: message });
+      settle(locale);
       options.onProgress?.({ ...progressOf(job), error: message });
       return;
     }
@@ -189,6 +205,7 @@ export async function translateCatalogs(
         (result.invalid[locale] ??= []).push(key);
       }
     }
+    settle(locale);
     options.onProgress?.(progressOf(job));
   });
 
@@ -203,25 +220,35 @@ function compare(a: string[], b: string[]): number {
   return byCodeUnit(a[0] ?? '', b[0] ?? '');
 }
 
-// a run takes minutes, so it writes onto the file as it is now: text a person added meanwhile stays
+// a run takes minutes, so it lands on the file as it is now: text a person added meanwhile stays
+export function mergePlan(
+  cfg: ResolvedConfig,
+  locale: string,
+  translated: Catalog,
+  keys: string[],
+): { current: Catalog; landed: string[] } {
+  const source = readCatalog(cfg, cfg.sourceLocale);
+  const current = readCatalog(cfg, locale);
+  const landed: string[] = [];
+  for (const key of keys) {
+    const text = own(translated, key);
+    // pruned meanwhile, or filled meanwhile: either way the file already says what it should
+    if (!source[key] || current[key] || !text) continue;
+    current[key] = text;
+    landed.push(key);
+  }
+  return { current, landed };
+}
+
 export function mergeTranslations(
   cfg: ResolvedConfig,
   locale: string,
   translated: Catalog,
   keys: string[],
 ): string[] {
-  const source = readCatalog(cfg, cfg.sourceLocale);
-  const current = readCatalog(cfg, locale);
-  const written: string[] = [];
-  for (const key of keys) {
-    const text = own(translated, key);
-    // pruned meanwhile, or filled meanwhile: either way the file already says what it should
-    if (!source[key] || current[key] || !text) continue;
-    current[key] = text;
-    written.push(key);
-  }
-  if (written.length > 0) writeCatalog(cfg, locale, current);
-  return written;
+  const { current, landed } = mergePlan(cfg, locale, translated, keys);
+  if (landed.length > 0) writeCatalog(cfg, locale, current);
+  return landed;
 }
 
 export interface DraftEntry {
@@ -279,10 +306,11 @@ export function writeDrafts(
     }
   }
   if (result.written.length > 0) {
-    writeCatalog(cfg, locale, current);
     const written = result.written.map((key) => ({ key, text: current[key]! }));
     const before = stateFile(cfg);
+    // the mark before the text: cut between the two, a mark with no text is nothing to review
     recordTranslations(cfg, source, [{ locale, entries: written, draft: true }]);
+    writeCatalog(cfg, locale, current);
     const lock = lockNews(cfg, before);
     if (lock) result.lock = lock;
   }

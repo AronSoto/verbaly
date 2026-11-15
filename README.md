@@ -109,19 +109,21 @@ Studio serves your project over localhost: what is missing, what is broken, what
 
 ## How it compares
 
-|                           | **Verbaly**           | i18next              | Lingui                 | Paraglide      | typesafe-i18n |
-| ------------------------- | --------------------- | -------------------- | ---------------------- | -------------- | ------------- |
-| Type-safe keys & params   | ✅ inferred from text | plugin/manual        | partial                | ✅             | ✅            |
-| Runtime size (gzip)       | **3.35KB, zero deps** | 13.6KB (19.0 +react) | 2.2KB (3.3 +react)     | compiled       | 1.2KB         |
-| Setup                     | 1 Vite plugin         | heavy config         | macros + Babel/SWC     | inlang project | generator     |
-| Key maintenance           | **none, extracted**   | by hand              | extract → compile step | by hand        | by hand       |
-| Dynamic / CMS content     | ✅ real runtime path  | ✅                   | ✅                     | ⚠️ weak        | ✅            |
-| Plain HTML (no framework) | ✅ DOM interpreter    | ❌                   | ❌                     | ❌             | ❌            |
-| Missing-translation gate  | ✅ fails CI only      | runtime warning      | CI step                | ✅             | ❌            |
-| Broken-translation gate   | ✅ fails CI only      | ❌                   | ❌                     | ❌             | ❌            |
-| Catalog format            | plain JSON            | JSON                 | PO/JSON                | inlang format  | TS files      |
+|                           | **Verbaly**                       | i18next                                 | Lingui                              | Paraglide                          | typesafe-i18n |
+| ------------------------- | --------------------------------- | --------------------------------------- | ----------------------------------- | ---------------------------------- | ------------- |
+| Type-safe keys & params   | ✅ inferred from text             | ✅ built in, from a declaration file    | ✅ text in code, no keys to mistype | ✅ a typed function per message    | ✅            |
+| Runtime size (gzip)       | **3.35KB, zero deps**             | 15.5KB (22.1 +react)                    | 2.3KB (4.4 +react)                  | compiled                           | 1.0KB         |
+| Setup                     | 1 Vite plugin                     | init config + modules                   | macros + Babel/SWC                  | inlang project                     | generator     |
+| Key maintenance           | **none, extracted**               | by hand, synced by its CLI              | extract → compile step              | by hand                            | by hand       |
+| Dynamic / CMS content     | ✅ real runtime path              | ✅                                      | ✅                                  | best with keys known at build time | ✅            |
+| Plain HTML (no framework) | ✅ DOM interpreter                | with a jQuery plugin                    | ❌                                  | ❌                                 | ❌            |
+| Missing-translation gate  | ✅ fails CI only                  | a CLI command, for CI                   | CI step                             | `inlang check`, in CI              | ❌            |
+| Broken-translation gate   | ✅ fails CI only                  | CLI lint, a warning by default          | syntax errors only                  | `inlang check`, in CI              | ❌            |
+| Catalog format            | plain JSON                        | JSON                                    | PO, JSON or CSV                     | inlang format, others by plugin    | TS files      |
+| Coding agents             | MCP server + skill                | skill, hosted MCP (Locize)              | skills + plugin                     | ❌                                 | ❌            |
+| Maturity & ecosystem      | pre-1.0: the API can still change | proven at scale, modules for everything | stable, standard PO for translators | stable, with the inlang tools      | stable, small |
 
-Sizes are min+gzip of each library's main entry with React external, measured with the same method on 2026-10-15.
+Every cell about another tool is the best true thing its own documentation says, read on 2026-11-15 (i18next 27.1.2, Lingui 6.12.0, Paraglide 3.2.2, typesafe-i18n 5.27.1). Sizes are min+gzip of what an app imports, with React external, measured the same day with the same method.
 
 ## Coding agents
 
@@ -129,7 +131,19 @@ Sizes are min+gzip of each library's main entry with React external, measured wi
 claude mcp add verbaly -- npx -y @verbaly/mcp
 ```
 
-The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx degit AronSoto/verbaly/skills/verbaly .claude/skills/verbaly`), and the docs publish [llms.txt](https://verbaly-web.vercel.app/llms.txt).
+In Claude Code, one plugin brings the server and the skill together:
+
+```bash
+claude plugin marketplace add AronSoto/verbaly
+```
+
+```bash
+claude plugin install verbaly@verbaly
+```
+
+Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/AronSoto/verbaly`.
+
+The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx skills add AronSoto/verbaly`, which copies it into the folder of each agent you use), and the docs publish [llms.txt](https://verbaly-web.vercel.app/llms.txt).
 
 ## Packages
 

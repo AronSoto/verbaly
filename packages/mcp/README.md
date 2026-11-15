@@ -25,7 +25,7 @@ Every tool answers with **structured output** as well as text, so an agent reads
 claude mcp add verbaly -- npx -y @verbaly/mcp
 ```
 
-Or in any MCP client config:
+Codex takes the same line (`codex mcp add verbaly -- npx -y @verbaly/mcp`), and VS Code asks for the command in **MCP: Add Server**. Any other client reads this entry from its own config, like `.cursor/mcp.json` or `.gemini/settings.json`:
 
 ```json
 {
@@ -34,6 +34,18 @@ Or in any MCP client config:
   }
 }
 ```
+
+In Claude Code, one plugin brings the server and the skill together:
+
+```bash
+claude plugin marketplace add AronSoto/verbaly
+```
+
+```bash
+claude plugin install verbaly@verbaly
+```
+
+Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/AronSoto/verbaly`. Both also bring the [Agent Skill](https://github.com/AronSoto/verbaly/blob/develop/skills/verbaly/SKILL.md), the rules that keep the cycle safe.
 
 The server reads the project from its working directory; pass `--root <path>` (or the per-tool `root` argument) to point elsewhere.
 

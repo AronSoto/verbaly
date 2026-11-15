@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -89,6 +89,112 @@ describe('translateProject, the one translate run', () => {
     expect(seen).toEqual(['es:the api refused it']);
     expect(result.failed).toEqual([{ locale: 'es', keys: ['bye'], error: 'the api refused it' }]);
     expect(result.written).toEqual({});
+  });
+});
+
+// one batch at a time, so es has landed before the provider is asked for pt
+function two(provider: TranslateProvider) {
+  const root = mkdtempSync(join(tmpdir(), 'verbaly-run-'));
+  mkdirSync(join(root, 'locales'));
+  const files = { en: { hi: 'Hi', bye: 'Bye' }, es: {}, pt: {} };
+  for (const [locale, messages] of Object.entries(files)) {
+    writeFileSync(join(root, 'locales', `${locale}.json`), JSON.stringify(messages, null, 2));
+  }
+  const translate = { provider, concurrency: 1 };
+  return resolveConfig({ root, locales: ['es', 'pt'], include: [], translate });
+}
+
+// Proved able to fail with one save at the end of the run, and with the text before its mark
+describe('translateProject saves a language as soon as it is whole', () => {
+  it('has es on disk, marked as drafts, while pt is still on its way', async () => {
+    let seen: unknown;
+    const cfg = two(async (request) => {
+      if (request.targetLocale === 'pt') {
+        seen = { es: catalog(cfg, 'es'), drafts: { ...loadState(cfg).drafts } };
+      }
+      return echo(request);
+    });
+    const result = await translateProject(cfg);
+    expect(seen).toEqual({ es: { bye: '[x] Bye', hi: '[x] Hi' }, drafts: { es: ['bye', 'hi'] } });
+    expect(result.written).toEqual({ es: ['bye', 'hi'], pt: ['bye', 'hi'] });
+    expect(result.lock).toEqual({ file: join(cfg.root, STATE_FILE) });
+  });
+
+  it('lists the languages in the order of the project, whichever answered first', async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((done) => (release = done));
+    const root = mkdtempSync(join(tmpdir(), 'verbaly-run-'));
+    mkdirSync(join(root, 'locales'));
+    for (const [locale, messages] of Object.entries({ en: { hi: 'Hi' }, es: {}, pt: {} })) {
+      writeFileSync(join(root, 'locales', `${locale}.json`), JSON.stringify(messages));
+    }
+    // es is held back on purpose until pt has landed
+    const provider: TranslateProvider = async (request) => {
+      if (request.targetLocale === 'es') await held;
+      return echo(request);
+    };
+    const cfg = resolveConfig({
+      root,
+      locales: ['es', 'pt'],
+      include: [],
+      translate: { provider },
+    });
+    const landed: string[] = [];
+    const result = await translateProject(cfg, {
+      onProgress: (progress) => {
+        landed.push(progress.locale);
+        release();
+      },
+    });
+    expect(landed).toEqual(['pt', 'es']);
+    expect(Object.keys(result.written)).toEqual(['es', 'pt']);
+  });
+
+  it('says nothing about a lock another process made while a run that saved nothing was out', async () => {
+    const cfg = project(async () => {
+      // someone else's save, while the provider works: the run itself will land nothing
+      writeFileSync(join(cfg.root, STATE_FILE), JSON.stringify({ version: 1, drafts: {} }));
+      throw Object.assign(new Error('the api refused it'), { status: 400 });
+    });
+    const result = await translateProject(cfg);
+    expect(result.written).toEqual({});
+    expect(existsSync(join(cfg.root, STATE_FILE))).toBe(true);
+    expect(result.lock).toBeUndefined();
+  });
+
+  it('reports a language whose file cannot be saved as failed, and the rest land as drafts', async () => {
+    const cfg = two(async (request) => {
+      // a folder where pt.json was: that write fails on every system, whoever runs the suite
+      if (request.targetLocale === 'pt') {
+        rmSync(join(cfg.dir, 'pt.json'));
+        mkdirSync(join(cfg.dir, 'pt.json'));
+      }
+      return echo(request);
+    });
+    const result = await translateProject(cfg);
+    expect(result.written).toEqual({ es: ['bye', 'hi'] });
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0]).toMatchObject({ locale: 'pt', keys: ['bye', 'hi'] });
+    expect(result.failed[0]!.error).toMatch(/^could not be saved: /);
+    expect(catalog(cfg, 'es')).toEqual({ bye: '[x] Bye', hi: '[x] Hi' });
+    expect(loadState(cfg).drafts.es).toEqual(['bye', 'hi']);
+  });
+
+  it('saves the draft mark before the text: a lock that cannot be written leaves no translation', async () => {
+    const cfg = project();
+    // a folder where the lock goes: it reads as no lock, and no save can write it
+    mkdirSync(join(cfg.root, STATE_FILE));
+    const result = await translateProject(cfg);
+    expect(result.written).toEqual({});
+    expect(result.failed).toMatchObject([{ locale: 'es', keys: ['bye'] }]);
+    expect(catalog(cfg, 'es').bye).toBe('');
+  });
+
+  it('gives writeDrafts the same order: no mark saved, no text written', () => {
+    const cfg = project();
+    mkdirSync(join(cfg.root, STATE_FILE));
+    expect(() => writeDrafts(cfg, 'es', [{ key: 'bye', text: 'Adiós' }])).toThrow();
+    expect(catalog(cfg, 'es').bye).toBe('');
   });
 });
 

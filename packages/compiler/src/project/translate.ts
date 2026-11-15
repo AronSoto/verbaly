@@ -1,9 +1,9 @@
-import { emptyCatalog, loadCatalogs } from '../catalog/catalog';
-import { recordTranslations, type TranslationWrite } from '../catalog/state';
+import { emptyCatalog, loadCatalogs, writeCatalog } from '../catalog/catalog';
+import { recordTranslations } from '../catalog/state';
 import { loadState, lockNews, stateFile, type LockEntry } from '../catalog/lock';
 import { targetLocales, type ResolvedConfig } from '../config/config';
 import {
-  mergeTranslations,
+  mergePlan,
   resolveProvider,
   translateCatalogs,
   type TranslateFailure,
@@ -31,6 +31,7 @@ export interface TranslateProjectResult {
   // written on disk by someone else while the provider worked, so left as they were
   kept: Record<string, string[]>;
   invalid: Record<string, string[]>;
+  // batches the provider never answered, and languages whose save failed
   failed: TranslateFailure[];
   // this run brought verbaly.lock into being, and the file belongs in git
   lock?: LockEntry;
@@ -50,6 +51,34 @@ export async function translateProject(
   // the provider reads the text that ships, which is the text its answer has to match
   const catalogs = shippedCatalogs(cfg, loadCatalogs(cfg), registry, { newKeys: false });
   const provider = options.provider ?? (await resolveProvider(cfg, options.model));
+  const source = catalogs[cfg.sourceLocale] ?? {};
+  const written: Record<string, string[]> = emptyCatalog();
+  const kept: Record<string, string[]> = emptyCatalog();
+  // where the state lived before this run's first save: a lock someone else made is not its news
+  let before: { file: string | undefined } | undefined;
+
+  // a language is saved when its last batch lands, so a run cut later keeps what it finished
+  const save = (locale: string, keys: string[]): void => {
+    const catalog = catalogs[locale] ?? {};
+    try {
+      // the file as it is now: what someone wrote while the provider worked is not overwritten
+      const { current, landed } = mergePlan(cfg, locale, catalog, keys);
+      if (landed.length > 0) {
+        const entries = landed.map((key) => ({ key, text: catalog[key]! }));
+        before ??= { file: stateFile(cfg) };
+        // the mark before the text: cut between the two, a mark with no text is nothing to review
+        recordTranslations(cfg, source, [{ locale, draft: true, entries }]);
+        writeCatalog(cfg, locale, current);
+        written[locale] = landed;
+      }
+      const left = keys.filter((key) => !landed.includes(key));
+      if (left.length > 0) kept[locale] = left;
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      throw new Error(`could not be saved: ${why}`, { cause: error });
+    }
+  };
+
   const run = await translateCatalogs(cfg, catalogs, provider, {
     locales: options.locales,
     batchSize: cfg.translate.batchSize,
@@ -59,6 +88,7 @@ export async function translateProject(
     // a dry run never calls the provider, so it sends no origins either
     origins: dryRun ? undefined : await collectOrigins(cfg, registry),
     onProgress: dryRun ? undefined : options.onProgress,
+    onLocale: dryRun ? undefined : save,
   });
   const result: TranslateProjectResult = {
     pending: run.pending,
@@ -69,25 +99,12 @@ export async function translateProject(
   };
   if (dryRun) return result;
 
-  // machine output is a draft until a human reviews it, stamped with the text it was made for
-  const writes: TranslationWrite[] = [];
-  for (const [locale, keys] of Object.entries(run.translated)) {
-    const catalog = catalogs[locale] ?? {};
-    // the file as it is now: what someone wrote while the provider worked is not overwritten
-    const landed = mergeTranslations(cfg, locale, catalog, keys);
-    const left = keys.filter((key) => !landed.includes(key));
-    if (left.length > 0) result.kept[locale] = left;
-    if (landed.length === 0) continue;
-    result.written[locale] = landed;
-    writes.push({
-      locale,
-      draft: true,
-      entries: landed.map((key) => ({ key, text: catalog[key]! })),
-    });
+  // languages finish in the order the provider answers: the report reads in the project's order
+  for (const locale of targetLocales(cfg, options.locales)) {
+    if (written[locale]) result.written[locale] = written[locale];
+    if (kept[locale]) result.kept[locale] = kept[locale];
   }
-  const before = stateFile(cfg);
-  if (writes.length > 0) recordTranslations(cfg, catalogs[cfg.sourceLocale] ?? {}, writes);
-  const lock = lockNews(cfg, before);
+  const lock = before && lockNews(cfg, before.file);
   if (lock) result.lock = lock;
   return result;
 }

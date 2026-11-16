@@ -1,0 +1,14 @@
+{
+  "name": "verbaly",
+  "displayName": "Verbaly",
+  "version": "0.85.0",
+  "description": "The Verbaly Agent Skill: the i18n cycle of a Verbaly project and the rules that keep it safe. Machine translations stay drafts until a person approves them.",
+  "author": {
+    "name": "Aron Soto",
+    "url": "https://github.com/AronSoto"
+  },
+  "homepage": "https://verbaly-web.vercel.app/docs/guide/agents",
+  "repository": "https://github.com/AronSoto/verbaly",
+  "license": "MIT",
+  "keywords": ["i18n", "localization", "translation", "skill"]
+}

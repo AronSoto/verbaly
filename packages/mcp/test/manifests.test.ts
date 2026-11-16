@@ -79,6 +79,12 @@ describe('the plugin for Anthropic directory, the skill alone', () => {
     expect(files.filter((file) => runs.test(file))).toEqual([]);
   });
 
+  it('links the support, privacy and terms pages its listing shows', () => {
+    for (const key of ['supportUrl', 'privacyPolicyUrl', 'termsOfServiceUrl']) {
+      expect(String(directory[key]).startsWith('https://')).toBe(true);
+    }
+  });
+
   it('says what it runs and how to add the server, in a README the directory accepts', () => {
     expect(proseWords(DIRECTORY)).toBeGreaterThanOrEqual(40);
     const readme = readFileSync(join(repo, DIRECTORY, 'README.md'), 'utf8');

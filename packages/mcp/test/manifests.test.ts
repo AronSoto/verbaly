@@ -89,6 +89,12 @@ describe('the plugin for Anthropic directory, the skill alone', () => {
     expect(proseWords(DIRECTORY)).toBeGreaterThanOrEqual(40);
     const readme = readFileSync(join(repo, DIRECTORY, 'README.md'), 'utf8');
     expect(readme).toContain(`claude mcp add verbaly -- npx -y ${pkg.name}`);
+    // the skill asks for a machine translation, so the README names where the texts go
+    const skill = readFileSync(join(repo, DIRECTORY, 'SKILL.md'), 'utf8');
+    if (skill.includes('verbaly translate')) {
+      expect(readme).toContain('npx verbaly translate');
+      expect(readme).toContain('ANTHROPIC_API_KEY');
+    }
   });
 
   it('brings the icon the directory takes once: a square PNG from 512 to 2048 px, under 2 MB', () => {

@@ -4,7 +4,9 @@ This plugin is the Verbaly Agent Skill. It teaches Claude the i18n cycle of a pr
 
 ## What it runs
 
-Nothing. This plugin only carries instructions (`SKILL.md`). It starts no server, installs no package and sends nothing anywhere.
+The plugin itself runs nothing. It only carries instructions (`SKILL.md`): it starts no server, installs no package and sends nothing anywhere.
+
+**What can leave your machine.** The skill can ask Claude, in Claude Code or Cowork, to run `npx verbaly translate` in your project. That command, not this plugin, sends the texts to translate to the provider your Verbaly config names: Claude by default, through your own `ANTHROPIC_API_KEY`. It runs only when asked, and every translation it writes stays a draft until a person approves it. Nothing else the skill asks for sends data anywhere.
 
 ## The tools, in Claude Code
 

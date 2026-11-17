@@ -1,6 +1,6 @@
 # Verbaly for coding agents
 
-This folder is the Verbaly Agent Skill, and also the Verbaly plugin for Claude Code. It teaches an agent the i18n cycle of a project that uses [Verbaly](https://github.com/AronSoto/verbaly): write the text in the code, extract it, check what is missing or broken, and translate. Machine translations are saved as drafts, and only a person can approve them.
+This folder is the Verbaly Agent Skill, and also the Verbaly plugin for Claude Code and for Cursor, with the same skill and the same server in both. It teaches an agent the i18n cycle of a project that uses [Verbaly](https://github.com/AronSoto/verbaly): write the text in the code, extract it, check what is missing or broken, and translate. Machine translations are saved as drafts, and only a person can approve them.
 
 ## What it runs
 
@@ -16,6 +16,8 @@ In Claude Code:
 claude plugin marketplace add AronSoto/verbaly
 claude plugin install verbaly@verbaly
 ```
+
+In Cursor, the plugin is described by `.cursor-plugin/plugin.json` in this folder, and it starts the server from `mcp.json`.
 
 The skill alone, for any agent: `npx skills add AronSoto/verbaly`. The full guide is at <https://verbaly-web.vercel.app/docs/guide/agents>.
 

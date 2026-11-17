@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "verbaly": {
+      "command": "npx",
+      "args": ["-y", "@verbaly/mcp@0.86.0"]
+    }
+  }
+}

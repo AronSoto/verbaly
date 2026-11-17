@@ -190,7 +190,8 @@ function reportGate(cfg: ResolvedConfig, found: CheckResult): void {
       now.add(key);
       return !before.has(key);
     });
-  const report = {
+  // every list gatePasses reads: one more that fails does not compile here without its id
+  const report: Parameters<typeof gatePasses>[0] = {
     broken: fresh(
       found.broken.filter((entry) => entry.severity === 'error'),
       (entry) => `broken:${entry.locale}:${entry.key}:${entry.issue}`,

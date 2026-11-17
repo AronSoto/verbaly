@@ -1,8 +1,17 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parse } from '@babel/parser';
+import type * as babel from '@babel/types';
 import MagicString from 'magic-string';
 import { glob } from 'tinyglobby';
-import { cleanJsxText, FUNCTIONS, isTReference, lineOf, walk, type AstNode } from './analyze';
+import {
+  cleanJsxText,
+  FUNCTIONS,
+  isTReference,
+  lineOf,
+  walk,
+  type AstNode,
+  type NodeOf,
+} from './analyze';
 import type { ResolvedConfig } from '../config/config';
 import { componentAdapters } from '../config/host';
 import { counted } from '../util/text';
@@ -122,13 +131,13 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
   const wrapped: WrapEntry[] = [];
   const skipped: WrapSkip[] = [];
 
-  let ast: AstNode;
+  let ast: NodeOf<'Program'>;
   try {
     ast = parse(code, {
       sourceType: 'module',
       errorRecovery: true,
       plugins: ['typescript', 'jsx'],
-    }).program as unknown as AstNode;
+    }).program as NodeOf<'Program'>;
   } catch {
     return { wrapped, skipped, hasT: false, client: false }; // unparseable file: leave it alone
   }
@@ -157,31 +166,31 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
     ? { code: s.toString(), wrapped, skipped, hasT, client }
     : { wrapped, skipped, hasT, client };
 
-  function processElement(node: AstNode): void {
+  function processElement(node: NodeOf<'JSXElement' | 'JSXFragment'>): void {
     visited.add(node);
 
     if (node.type === 'JSXElement') {
-      const opening = node.openingElement as AstNode;
-      const name = opening.name as AstNode;
+      const opening = node.openingElement;
+      const name = opening.name;
       // <Trans> children and data-verbaly subtrees are already message-managed
       if (name.type === 'JSXIdentifier' && name.name === 'Trans') return markSubtree(node);
       if (hasVerbalyAttr(opening)) return markSubtree(node);
-      if (name.type === 'JSXIdentifier' && CODE_TAGS.has(name.name as string)) {
+      if (name.type === 'JSXIdentifier' && CODE_TAGS.has(name.name)) {
         return markSubtree(node);
       }
       wrapAttributes(opening);
     }
 
-    const children = (node.children as AstNode[] | undefined) ?? [];
+    const children: AstNode[] = node.children ?? [];
     const hasElementChild = children.some(
       (c) => c.type === 'JSXElement' || c.type === 'JSXFragment',
     );
     const hasText = children.some(
       (c) =>
-        (c.type === 'JSXText' && LETTER.test(c.value as string)) ||
+        (c.type === 'JSXText' && LETTER.test(c.value)) ||
         (c.type === 'JSXExpressionContainer' &&
-          (c.expression as AstNode).type === 'StringLiteral' &&
-          LETTER.test((c.expression as AstNode).value as string)),
+          c.expression.type === 'StringLiteral' &&
+          LETTER.test(c.expression.value)),
     );
 
     if (hasElementChild && hasText) {
@@ -201,9 +210,8 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
   function wrapSegment(parent: AstNode, children: AstNode[]): void {
     const meaningful = children.filter(
       (c) =>
-        (c.type === 'JSXText' && (c.value as string).trim() !== '') ||
-        (c.type === 'JSXExpressionContainer' &&
-          (c.expression as AstNode).type !== 'JSXEmptyExpression'),
+        (c.type === 'JSXText' && c.value.trim() !== '') ||
+        (c.type === 'JSXExpressionContainer' && c.expression.type !== 'JSXEmptyExpression'),
     );
     if (meaningful.length === 0) return;
 
@@ -221,13 +229,13 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
     for (let i = children.indexOf(first); i <= children.indexOf(last); i++) {
       const child = children[i]!;
       if (child.type === 'JSXText') {
-        let value = cleanJsxText(child.value as string);
+        let value = cleanJsxText(child.value);
         if (child === first) value = value.trimStart();
         if (child === last) value = value.trimEnd();
         template += escapeTemplate(value);
         report += value;
       } else if (child.type === 'JSXExpressionContainer') {
-        const expr = child.expression as AstNode;
+        const expr = child.expression;
         if (expr.type === 'JSXEmptyExpression') continue;
         if (usesT(expr)) {
           skip(parent, snippet(children), 'already uses t: finish it by hand');
@@ -243,8 +251,8 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
           return;
         }
         if (expr.type === 'StringLiteral') {
-          template += escapeTemplate(expr.value as string);
-          report += expr.value as string;
+          template += escapeTemplate(expr.value);
+          report += expr.value;
         } else {
           const source = code.slice(expr.start, expr.end);
           template += '${' + source + '}';
@@ -257,22 +265,21 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
     if (!LETTER.test(report)) return;
     if (isIdentifierLike(report)) return;
 
-    const start =
-      first.type === 'JSXText' ? first.start + leadingWs(first.value as string) : first.start;
-    const end = last.type === 'JSXText' ? last.end - trailingWs(last.value as string) : last.end;
+    const start = first.type === 'JSXText' ? first.start + leadingWs(first.value) : first.start;
+    const end = last.type === 'JSXText' ? last.end - trailingWs(last.value) : last.end;
 
     write(start, end, template);
     wrapped.push({ file, line: lineOf(first), text: report, kind: 'text' });
   }
 
-  function wrapAttributes(opening: AstNode): void {
-    for (const attr of opening.attributes as AstNode[]) {
+  function wrapAttributes(opening: NodeOf<'JSXOpeningElement'>): void {
+    for (const attr of opening.attributes) {
       if (attr.type !== 'JSXAttribute') continue;
-      const name = attr.name as AstNode;
-      if (name.type !== 'JSXIdentifier' || !WRAP_ATTRS.has(name.name as string)) continue;
-      const value = attr.value as AstNode | null;
+      const name = attr.name;
+      if (name.type !== 'JSXIdentifier' || !WRAP_ATTRS.has(name.name)) continue;
+      const value = attr.value;
       if (value?.type !== 'StringLiteral') continue;
-      const raw = value.value as string;
+      const raw = value.value;
       if (!LETTER.test(raw) || isIdentifierLike(raw)) continue;
       write(value.start, value.end, escapeTemplate(raw));
       wrapped.push({
@@ -280,7 +287,7 @@ export function wrapCode(code: string, file: string): WrapCodeResult {
         line: lineOf(value),
         text: raw,
         kind: 'attribute',
-        attribute: name.name as string,
+        attribute: name.name,
       });
     }
   }
@@ -312,9 +319,9 @@ function isIdentifierLike(text: string): boolean {
 }
 
 // a directive is the only way a file states which side it renders on
-function hasDirective(program: AstNode, value: string): boolean {
-  const directives = (program.directives as AstNode[] | undefined) ?? [];
-  return directives.some((d) => ((d.value as AstNode | undefined)?.value as string) === value);
+function hasDirective(program: NodeOf<'Program'>, value: string): boolean {
+  const directives = program.directives ?? [];
+  return directives.some((d) => d.value?.value === value);
 }
 
 // a stretch of the file where t means one thing: verbaly's (bound), or a callback's own item
@@ -326,6 +333,10 @@ interface TScope {
 
 const CALLS = new Set(['CallExpression', 'NewExpression', 'OptionalCallExpression']);
 
+// what the two sets hold, for the fields a Set's answer cannot narrow to
+type FunctionNode = NodeOf<babel.Function['type']>;
+type CallNode = NodeOf<'CallExpression' | 'NewExpression' | 'OptionalCallExpression'>;
+
 // a t call written where nothing binds t does not compile, so wrap has to know before it writes
 function tScopes(program: AstNode): TScope[] {
   const scopes: TScope[] = [];
@@ -336,27 +347,27 @@ function tScopes(program: AstNode): TScope[] {
     let inner = scope;
     if (FUNCTIONS.has(node.type)) {
       inner = node;
-      if (node.type === 'FunctionDeclaration' && isTName((node.id as AstNode | null)?.name)) {
+      if (node.type === 'FunctionDeclaration' && isTName(node.id?.name)) {
         mark(scope, true);
       }
-      for (const param of (node.params as AstNode[] | undefined) ?? []) {
+      for (const param of (node as FunctionNode).params ?? []) {
         if (!bindsT(param)) continue;
         // tabs.map((t) => …): that t is a tab; a destructured { t } is a prop someone passed down
         mark(node, !(argument && namesT(param)));
       }
     } else if (node.type === 'ImportDeclaration') {
-      const locals = (node.specifiers as AstNode[]).map(
-        (spec) => spec.local as AstNode | undefined,
-      );
+      const locals = node.specifiers.map((spec) => spec.local);
       if (locals.some((local) => isTName(local?.name))) mark(program, true);
       return;
-    } else if (node.type === 'VariableDeclarator' && bindsT(node.id as AstNode)) {
+    } else if (node.type === 'VariableDeclarator' && bindsT(node.id)) {
       mark(scope, true);
     }
-    const args = CALLS.has(node.type) ? (node.arguments as AstNode[]) : undefined;
+    const args: AstNode[] | undefined = CALLS.has(node.type)
+      ? (node as CallNode).arguments
+      : undefined;
     for (const key in node) {
       if (key === 'loc' || key.endsWith('Comments') || key === 'extra') continue;
-      const value = node[key];
+      const value = (node as unknown as Record<string, unknown>)[key];
       for (const child of Array.isArray(value) ? value : [value]) {
         if (isAstNode(child)) visit(child, inner, args?.includes(child) ?? false);
       }
@@ -384,23 +395,21 @@ function isAstNode(value: unknown): value is AstNode {
 
 // the parameter itself is called t, with or without a default
 function namesT(param: AstNode): boolean {
-  const target = param.type === 'AssignmentPattern' ? (param.left as AstNode) : param;
+  const target = param.type === 'AssignmentPattern' ? param.left : param;
   return target.type === 'Identifier' && isTName(target.name);
 }
 
 function bindsT(pattern: AstNode | undefined): boolean {
   if (!pattern) return false;
   if (pattern.type === 'Identifier') return isTName(pattern.name);
-  if (pattern.type === 'AssignmentPattern') return bindsT(pattern.left as AstNode);
+  if (pattern.type === 'AssignmentPattern') return bindsT(pattern.left);
   if (pattern.type === 'ObjectPattern') {
-    return (pattern.properties as AstNode[]).some((prop) =>
-      prop.type === 'RestElement'
-        ? bindsT(prop.argument as AstNode)
-        : bindsT(prop.value as AstNode),
+    return pattern.properties.some((prop) =>
+      prop.type === 'RestElement' ? bindsT(prop.argument) : bindsT(prop.value),
     );
   }
   if (pattern.type === 'ArrayPattern') {
-    return (pattern.elements as (AstNode | null)[]).some((el) => bindsT(el ?? undefined));
+    return pattern.elements.some((el) => bindsT(el ?? undefined));
   }
   return false;
 }
@@ -409,11 +418,11 @@ function isTName(name: unknown): boolean {
   return typeof name === 'string' && T_NAMES.has(name);
 }
 
-function hasVerbalyAttr(opening: AstNode): boolean {
-  return (opening.attributes as AstNode[]).some((attr) => {
+function hasVerbalyAttr(opening: NodeOf<'JSXOpeningElement'>): boolean {
+  return opening.attributes.some((attr) => {
     if (attr.type !== 'JSXAttribute') return false;
-    const name = attr.name as AstNode;
-    return name.type === 'JSXIdentifier' && (name.name as string).startsWith('data-verbaly');
+    const name = attr.name;
+    return name.type === 'JSXIdentifier' && name.name.startsWith('data-verbaly');
   });
 }
 
@@ -421,10 +430,10 @@ function hasVerbalyAttr(opening: AstNode): boolean {
 function usesT(node: AstNode): boolean {
   let found = false;
   walk(node, (n) => {
-    if (n.type === 'TaggedTemplateExpression' && isTReference(n.tag as AstNode, T_NAMES)) {
+    if (n.type === 'TaggedTemplateExpression' && isTReference(n.tag, T_NAMES)) {
       found = true;
     }
-    if (n.type === 'CallExpression' && isTReference(n.callee as AstNode, T_NAMES)) found = true;
+    if (n.type === 'CallExpression' && isTReference(n.callee, T_NAMES)) found = true;
   });
   return found;
 }

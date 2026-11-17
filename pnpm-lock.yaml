@@ -191,6 +191,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^1.8.0
         version: 1.8.0(zod@4.6.7)
+      '@babel/types':
+        specifier: ^8.1.2
+        version: 8.1.2
       '@types/picomatch':
         specifier: ^4.0.3
         version: 4.0.3

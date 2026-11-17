@@ -632,6 +632,19 @@ describe('createVerbalyMcp: structured output', () => {
     expect(data.missing[0]!.source).toBe('Hello {name}');
   });
 
+  it('missing declares every list it answers with, so a new one of the gate has to be named', async () => {
+    const root = makeProject();
+    const client = await connect(root);
+    await client.callTool({ name: 'verbaly_extract', arguments: {} });
+    const { tools } = await client.listTools();
+    const schema = tools.find((tool) => tool.name === 'verbaly_missing')!.outputSchema!;
+    const declared = Object.keys(schema.properties ?? {});
+    const data = structured(await client.callTool({ name: 'verbaly_missing', arguments: {} }));
+
+    // the check result goes out whole: a list the schema lacks is one no agent was told about
+    expect(Object.keys(data as object).filter((key) => !declared.includes(key))).toEqual([]);
+  });
+
   it('extract answers with the counts and the keys it added', async () => {
     const root = makeProject();
     const client = await connect(root);

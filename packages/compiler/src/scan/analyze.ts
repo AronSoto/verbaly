@@ -1,4 +1,5 @@
 import { parse } from '@babel/parser';
+import type * as babel from '@babel/types';
 import { isAppModule } from '../util/ids';
 import { stableKey } from '../util/key';
 
@@ -66,13 +67,26 @@ export function parseErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+// the parser sets start and end on every node: babel's types leave them optional for built ones
+type Parsed<T> = T extends babel.Node
+  ? { [K in keyof T]: Parsed<T[K]> } & { start: number; end: number }
+  : T extends readonly (infer U)[]
+    ? Parsed<U>[]
+    : T;
+
 // exported for wrap.ts (module-internal reuse, not part of the package surface)
-export interface AstNode {
-  type: string;
-  start: number;
-  end: number;
-  [key: string]: unknown;
-}
+export type AstNode = Parsed<babel.Node>;
+
+// the node of one type, which is what a check of node.type leaves
+export type NodeOf<T extends AstNode['type']> = Extract<AstNode, { type: T }>;
+
+// what can load another module: an import, or an export that passes one on
+type Loading = NodeOf<'ImportDeclaration' | 'ExportNamedDeclaration' | 'ExportAllDeclaration'>;
+
+// the two fields that say types only, under babel's own names: a node has one of them or none
+type Kinds = { type: string } & Partial<
+  Pick<NodeOf<'ImportSpecifier'>, 'importKind'> & Pick<NodeOf<'ExportSpecifier'>, 'exportKind'>
+>;
 
 const SKIP_KEYS = new Set(['loc', 'leadingComments', 'trailingComments', 'innerComments', 'extra']);
 
@@ -92,7 +106,9 @@ export function analyze(code: string, file: string, options: AnalyzeOptions = {}
 }
 
 // a tagged template or a call on a name other than t, judged once every binding is known
-type Candidate = { kind: 'tag'; node: AstNode } | { kind: 'call'; name: string; key: string };
+type Candidate =
+  | { kind: 'tag'; node: NodeOf<'TaggedTemplateExpression'> }
+  | { kind: 'call'; name: string; key: string };
 
 // the analysis plus the names t was renamed to, which an SFC hands on to its markup
 export function analyzeScript(
@@ -105,7 +121,7 @@ export function analyzeScript(
     sourceType: 'module',
     errorRecovery: true,
     plugins: JSX_FILE_RE.test(file) ? ['typescript', 'jsx'] : ['typescript'],
-  });
+  }) as Parsed<babel.File>;
 
   const tagged: TaggedMessage[] = [];
   const usedKeys: UsedKey[] = [];
@@ -116,15 +132,15 @@ export function analyzeScript(
   let appImported = false;
 
   // an import or an `export … from`: a file that passes an adapter on loads it for its importers
-  const noteLoad = (node: AstNode): void => {
-    const source = (node.source as { value?: unknown } | null)?.value;
+  const noteLoad = (node: Loading): void => {
+    const source = node.source?.value;
     if (typeof source !== 'string' || !loadsAtRuntime(node)) return;
     if (isAppModule(source)) appImported = true;
     else if (ADAPTER_SOURCE.test(source)) adapterImport ??= node.start;
   };
 
   // imports are hoisted, and where a name came from decides what the rest of the file means
-  for (const node of ast.program.body as unknown as AstNode[]) {
+  for (const node of ast.program.body) {
     if (node.type === 'ImportDeclaration') {
       collectStrayImports(node, file, strayImports);
       bindings.addImport(node);
@@ -135,7 +151,7 @@ export function analyzeScript(
   }
   const ownTrans = !bindings.other(TRANS);
 
-  const program = ast.program as unknown as AstNode;
+  const program: AstNode = ast.program;
   // visited parents first, so the last function that holds a node is the one it sits in
   const functions: AstNode[] = [];
   const scopeOf = (node: AstNode): AstNode => {
@@ -150,13 +166,13 @@ export function analyzeScript(
     if (node.type === 'VariableDeclarator') {
       bindings.addDeclarator(node, scopeOf(node));
     } else if (node.type === 'TaggedTemplateExpression') {
-      const tag = node.tag as AstNode;
+      const tag = node.tag;
       const explicit = explicitId(tag, names);
       if (!explicit && !isTReference(tag, names)) {
         candidates.push({ kind: 'tag', node });
         return;
       }
-      const quasi = node.quasi as AstNode;
+      const quasi = node.quasi;
       const message = buildMessage(code, quasi, names);
       if (!message) return;
       tagged.push({
@@ -171,15 +187,16 @@ export function analyzeScript(
         file,
       });
     } else if (node.type === 'CallExpression') {
-      const callee = node.callee as AstNode;
-      const args = node.arguments as AstNode[];
+      const callee = node.callee;
+      const args = node.arguments;
       if (callee.type === 'Identifier' && callee.name === DEFINE_KEYS) {
         collectDeclaredKeys(args[0], file, usedKeys);
         return;
       }
       if (!isTReference(callee, names)) {
         const key = callee.type === 'Identifier' ? staticString(args[0]) : undefined;
-        if (key !== undefined) candidates.push({ kind: 'call', name: callee.name as string, key });
+        if (key !== undefined)
+          candidates.push({ kind: 'call', name: (callee as NodeOf<'Identifier'>).name, key });
         return;
       }
       const key = staticString(args[0]);
@@ -205,7 +222,7 @@ export function analyzeScript(
       continue;
     }
     const { node } = candidate;
-    const name = renamedTag(node.tag as AstNode, renamed);
+    const name = renamedTag(node.tag, renamed);
     if (!name) continue;
     missed.push({ name, file, start: node.start, line: lineOf(node) });
     // never extracted, yet its translation has to outlive prune until the binding is named t
@@ -223,15 +240,15 @@ export function analyzeScript(
 const ADAPTER_SOURCE = /^@verbaly\/(?:react|vue|svelte)(?:\/Trans\.svelte)?$/;
 
 // what survives compilation: not `import type`, not `export type`, and not `{ type X }` alone
-function loadsAtRuntime(node: AstNode): boolean {
+function loadsAtRuntime(node: Kinds & { specifiers?: Kinds[] }): boolean {
   if (node.importKind === 'type' || node.exportKind === 'type') return false;
-  const specifiers = (node.specifiers ?? []) as AstNode[];
+  const specifiers = node.specifiers ?? [];
   if (specifiers.length === 0) return true;
   return specifiers.some((spec) => spec.importKind !== 'type' && spec.exportKind !== 'type');
 }
 
 export function lineOf(node: AstNode): number {
-  const loc = node.loc as { start?: { line?: number } } | undefined;
+  const loc = node.loc;
   return loc?.start?.line ?? 1;
 }
 
@@ -277,34 +294,33 @@ class Bindings {
 
   constructor(private names: ReadonlySet<string>) {}
 
-  addImport(node: AstNode): void {
-    const source = (node.source as { value?: unknown }).value;
+  addImport(node: NodeOf<'ImportDeclaration'>): void {
+    const source = node.source.value;
     if (typeof source !== 'string') return;
-    for (const spec of node.specifiers as AstNode[]) {
-      const local = identifierName(spec.local as AstNode);
+    for (const spec of node.specifiers) {
+      const local = identifierName(spec.local);
       if (!local) continue;
-      const imported =
-        spec.type === 'ImportSpecifier' ? importedName(spec.imported as AstNode) : spec.type;
+      const imported = spec.type === 'ImportSpecifier' ? importedName(spec.imported) : spec.type;
       this.imports.set(local, { source, imported });
       if (isAppModule(source) && imported === 't') this.direct.add(local);
     }
   }
 
-  addDeclarator(node: AstNode, scope: AstNode): void {
-    const id = node.id as AstNode;
-    const init = node.init as AstNode | null;
+  addDeclarator(node: NodeOf<'VariableDeclarator'>, scope: AstNode): void {
+    const id = node.id;
+    const init = node.init;
     if (!init) return;
     if (id.type === 'Identifier') {
-      this.declared.push({ name: id.name as string, init, scope });
+      this.declared.push({ name: id.name, init, scope });
       return;
     }
     if (id.type !== 'ObjectPattern') return;
-    for (const property of id.properties as AstNode[]) {
+    for (const property of id.properties) {
       if (property.type !== 'ObjectProperty' || property.computed) continue;
-      if (identifierName(property.key as AstNode) !== 't') continue;
-      const value = property.value as AstNode;
+      if (identifierName(property.key) !== 't') continue;
+      const value = property.value;
       // { t: x = fallback } binds x all the same
-      const target = value.type === 'AssignmentPattern' ? (value.left as AstNode) : value;
+      const target = value.type === 'AssignmentPattern' ? value.left : value;
       const name = identifierName(target);
       if (name) this.destructured.push({ name, init, scope });
     }
@@ -323,8 +339,8 @@ class Bindings {
       if (bound !== name || at < scope.start || at >= scope.end) continue;
       if (scope.end - scope.start >= reach) continue;
       reach = scope.end - scope.start;
-      const inner = init.type === 'AwaitExpression' ? (init.argument as AstNode) : init;
-      const read = inner.type === 'CallExpression' ? (inner.callee as AstNode) : inner;
+      const inner = init.type === 'AwaitExpression' ? init.argument : init;
+      const read = inner.type === 'CallExpression' ? inner.callee : inner;
       theirs = this.other(identifierName(read));
     }
     return theirs;
@@ -347,9 +363,9 @@ class Bindings {
   // useT() or await getT(), imported from verbaly or not imported at all (a Nuxt auto-import)
   private handsOutT(init: AstNode): boolean {
     const awaited = init.type === 'AwaitExpression';
-    const call = awaited ? (init.argument as AstNode) : init;
+    const call = awaited ? init.argument : init;
     if (call.type !== 'CallExpression') return false;
-    const origin = this.origin(identifierName(call.callee as AstNode));
+    const origin = this.origin(identifierName(call.callee));
     if (origin.verbaly === false) return false;
     const how = T_FACTORIES.get(origin.imported);
     return how !== undefined && (how === 'await') === awaited;
@@ -357,8 +373,8 @@ class Bindings {
 
   // { t: x } reads from something verbaly handed out, or from an auto-imported instance factory
   private carriesT(init: AstNode): boolean {
-    const inner = init.type === 'AwaitExpression' ? (init.argument as AstNode) : init;
-    const read = inner.type === 'CallExpression' ? (inner.callee as AstNode) : inner;
+    const inner = init.type === 'AwaitExpression' ? init.argument : init;
+    const read = inner.type === 'CallExpression' ? inner.callee : inner;
     const name = identifierName(read);
     if (!name) return false;
     const origin = this.origin(name);
@@ -374,11 +390,11 @@ class Bindings {
 }
 
 function importedName(node: AstNode): string {
-  return node.type === 'StringLiteral' ? (node.value as string) : identifierName(node);
+  return node.type === 'StringLiteral' ? node.value : identifierName(node);
 }
 
 function identifierName(node: AstNode | null | undefined): string {
-  return node?.type === 'Identifier' ? (node.name as string) : '';
+  return node?.type === 'Identifier' ? node.name : '';
 }
 
 // x`…` or x.id('…')`…` where x is a renamed t
@@ -395,31 +411,35 @@ function renamedTag(tag: AstNode, renamed: ReadonlySet<string>): string | undefi
 // x.id('…'): what the id hangs from, and its key when the one argument is a literal
 function idCall(tag: AstNode): { object: AstNode; key: string | undefined } | undefined {
   if (tag.type !== 'CallExpression') return undefined;
-  const callee = tag.callee as AstNode;
+  const callee = tag.callee;
   if (callee.type !== 'MemberExpression' || callee.computed) return undefined;
-  if (identifierName(callee.property as AstNode) !== 'id') return undefined;
-  const args = tag.arguments as AstNode[];
+  if (identifierName(callee.property) !== 'id') return undefined;
+  const args = tag.arguments;
   return {
-    object: callee.object as AstNode,
+    object: callee.object,
     key: args.length === 1 ? staticString(args[0]) : undefined,
   };
 }
 
 // the key a tagged template on a renamed t would have had: its quoted id, or its text's hash
-function missedKey(code: string, node: AstNode, names: ReadonlySet<string>): string | undefined {
-  const tag = node.tag as AstNode;
+function missedKey(
+  code: string,
+  node: NodeOf<'TaggedTemplateExpression'>,
+  names: ReadonlySet<string>,
+): string | undefined {
+  const tag = node.tag;
   // a renamed tag that is a call is x.id('…'), the only call renamedTag lets through
   if (tag.type === 'CallExpression') return idCall(tag)?.key;
-  const message = buildMessage(code, node.quasi as AstNode, names);
+  const message = buildMessage(code, node.quasi, names);
   return message ? stableKey(message.text) : undefined;
 }
 
 // every string leaf is a key: the call is the author saying so, and '' still means untranslated
 function collectDeclaredKeys(node: AstNode | undefined, file: string, out: UsedKey[]): void {
   if (node?.type !== 'ObjectExpression') return;
-  for (const property of node.properties as AstNode[]) {
+  for (const property of node.properties) {
     if (property.type !== 'ObjectProperty') continue;
-    const value = property.value as AstNode;
+    const value = property.value;
     const key = staticString(value);
     if (key !== undefined) {
       if (key !== '') out.push({ key, file });
@@ -432,24 +452,28 @@ function collectDeclaredKeys(node: AstNode | undefined, file: string, out: UsedK
 // a key is a literal however it is spelled: '…', `…` with no ${}, or {'…'} in a JSX attribute
 function staticString(node: AstNode | null | undefined): string | undefined {
   if (!node) return undefined;
-  if (node.type === 'StringLiteral') return node.value as string;
-  if (node.type === 'TemplateLiteral' && (node.expressions as AstNode[]).length === 0) {
-    return cookedValue((node.quasis as AstNode[])[0]);
+  if (node.type === 'StringLiteral') return node.value;
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) {
+    return cookedValue(node.quasis[0]);
   }
-  if (node.type === 'JSXExpressionContainer') return staticString(node.expression as AstNode);
+  if (node.type === 'JSXExpressionContainer') return staticString(node.expression);
   return undefined;
 }
 
 // the most plausible onboarding error: only the bundler used to complain, and never about verbaly
-function collectStrayImports(node: AstNode, file: string, out: StrayImport[]): void {
-  const source = node.source as { value?: unknown };
+function collectStrayImports(
+  node: NodeOf<'ImportDeclaration'>,
+  file: string,
+  out: StrayImport[],
+): void {
+  const source = node.source;
   // every entry of a package, @verbaly/react/server too: verbaly/app is the project's and passes
   if (typeof source.value !== 'string' || !VERBALY_SOURCE.test(source.value)) return;
-  for (const spec of node.specifiers as AstNode[]) {
+  for (const spec of node.specifiers) {
     if (spec.type !== 'ImportSpecifier') continue;
-    const imported = spec.imported as AstNode;
+    const imported = spec.imported;
     if (imported.type !== 'Identifier') continue;
-    const name = imported.name as string;
+    const name = imported.name;
     // both come from verbaly/app, which is the project's module and never a package export
     if (name === 't' || name === DEFINE_KEYS) out.push({ name, source: source.value, file });
   }
@@ -457,19 +481,21 @@ function collectStrayImports(node: AstNode, file: string, out: StrayImport[]): v
 
 function handleTrans(
   code: string,
-  node: AstNode,
+  node: NodeOf<'JSXElement'>,
   file: string,
   tagged: TaggedMessage[],
   usedKeys: UsedKey[],
   names: ReadonlySet<string>,
 ): void {
-  const opening = node.openingElement as AstNode;
-  const nameNode = opening.name as AstNode;
+  const opening = node.openingElement;
+  const nameNode = opening.name;
   if (nameNode.type !== 'JSXIdentifier' || nameNode.name !== TRANS) return;
 
-  const attrs = opening.attributes as AstNode[];
-  const idAttr = attrs.find((a) => a.type === 'JSXAttribute' && (a.name as AstNode).name === 'id');
-  const children = node.children as AstNode[] | undefined;
+  const attrs = opening.attributes;
+  const idAttr = attrs.find(
+    (a): a is NodeOf<'JSXAttribute'> => a.type === 'JSXAttribute' && a.name.name === 'id',
+  );
+  const children: AstNode[] | undefined = node.children;
   const push = (key: string, built: BuiltTrans) =>
     tagged.push({
       key,
@@ -481,11 +507,11 @@ function handleTrans(
       tagStart: nameNode.start,
       tagEnd: nameNode.end,
       file,
-      jsx: { name: nameNode.name as string, components: built.components },
+      jsx: { name: nameNode.name, components: built.components },
     });
 
   if (idAttr) {
-    const value = idAttr.value as AstNode | null;
+    const value = idAttr.value;
     const id = staticString(value);
     if (id === undefined) return;
     // a fixed id + children → extract under the explicit key, however the id is spelled
@@ -539,12 +565,12 @@ function buildTransMessage(
     let text = '';
     for (const child of nodes) {
       if (child.type === 'JSXText') {
-        text += escapeText(cleanJsxText(child.value as string));
+        text += escapeText(cleanJsxText(child.value));
       } else if (child.type === 'JSXExpressionContainer') {
-        const expr = child.expression as AstNode;
+        const expr = child.expression;
         if (expr.type === 'JSXEmptyExpression') continue;
         if (expr.type === 'StringLiteral') {
-          text += escapeText(expr.value as string);
+          text += escapeText(expr.value);
           continue;
         }
         if (containsTaggedT(expr, names)) return undefined; // overlap hazard
@@ -553,16 +579,16 @@ function buildTransMessage(
         params.push({ name, start: expr.start, end: expr.end });
         text += `{${name}}`;
       } else if (child.type === 'JSXElement') {
-        const opening = child.openingElement as AstNode;
-        const nameNode = opening.name as AstNode;
+        const opening = child.openingElement;
+        const nameNode = opening.name;
         if (nameNode.type !== 'JSXIdentifier' || nameNode.name === 'Trans') return undefined;
         const source = selfClosedSource(code, opening);
-        const tag = uniqueName((nameNode.name as string).toLowerCase(), source, takenTags);
+        const tag = uniqueName(nameNode.name.toLowerCase(), source, takenTags);
         if (!components.some((c) => c.name === tag)) components.push({ name: tag, source });
         if (!child.closingElement) {
           text += `<${tag}/>`;
         } else {
-          const inner = walkChildren(child.children as AstNode[]);
+          const inner = walkChildren(child.children);
           if (inner === undefined) return undefined;
           text += `<${tag}>${inner}</${tag}>`;
         }
@@ -603,17 +629,17 @@ function containsTaggedT(node: AstNode, names: ReadonlySet<string>): boolean {
   let found = false;
   walk(node, (n) => {
     if (n.type !== 'TaggedTemplateExpression') return;
-    const tag = n.tag as AstNode;
+    const tag = n.tag;
     if (isTReference(tag, names) || explicitId(tag, names)) found = true;
   });
   return found;
 }
 
 export function isTReference(node: AstNode, names: ReadonlySet<string>): boolean {
-  if (node.type === 'Identifier') return names.has(node.name as string);
+  if (node.type === 'Identifier') return names.has(node.name);
   if (node.type === 'MemberExpression' && !node.computed) {
-    const prop = node.property as AstNode;
-    return prop.type === 'Identifier' && names.has(prop.name as string);
+    const prop = node.property;
+    return prop.type === 'Identifier' && names.has(prop.name);
   }
   return false;
 }
@@ -628,11 +654,11 @@ const BLOCK_TAIL = /^(?:\s*\|\s*[^\s|{}:]+\s*:|:[A-Za-z_][\w-]*)/;
 
 function buildMessage(
   code: string,
-  quasi: AstNode,
+  quasi: NodeOf<'TemplateLiteral'>,
   names: ReadonlySet<string>,
 ): BuiltMessage | undefined {
-  const quasis = quasi.quasis as AstNode[];
-  const expressions = quasi.expressions as AstNode[];
+  const quasis = quasi.quasis;
+  const expressions = quasi.expressions;
   const texts = quasis.map(cookedValue);
   const params: TaggedParam[] = [];
   const taken = new Map<string, string>();
@@ -712,9 +738,9 @@ function blockEnd(tokens: Token[], start: number, pairs: boolean): number | unde
   return undefined;
 }
 
-function cookedValue(element: AstNode | undefined): string {
+function cookedValue(element: NodeOf<'TemplateElement'> | undefined): string {
   if (!element) return '';
-  const value = element.value as { cooked?: string; raw: string };
+  const value = element.value;
   return value.cooked ?? value.raw;
 }
 
@@ -724,10 +750,10 @@ function escapeText(text: string): string {
 }
 
 function deriveName(expr: AstNode, index: number): string {
-  if (expr.type === 'Identifier') return expr.name as string;
+  if (expr.type === 'Identifier') return expr.name;
   if (expr.type === 'MemberExpression' && !expr.computed) {
-    const prop = expr.property as AstNode;
-    if (prop.type === 'Identifier') return prop.name as string;
+    const prop = expr.property;
+    if (prop.type === 'Identifier') return prop.name;
   }
   return `_${index}`;
 }
@@ -747,7 +773,7 @@ export function walk(node: AstNode, visit: (node: AstNode) => void): void {
   visit(node);
   for (const key in node) {
     if (SKIP_KEYS.has(key)) continue;
-    const value = node[key];
+    const value = (node as unknown as Record<string, unknown>)[key];
     if (Array.isArray(value)) {
       for (const item of value) {
         if (isNode(item)) walk(item, visit);

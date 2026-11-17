@@ -8,6 +8,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.86.0] · 2026-11-16
+
+**The same Verbaly, harder to break by accident.** Nothing changes in your project: this release adds checks on our side, so a mistake in Verbaly's own code is caught before it is published. Breaking: nothing.
+
+### Highlights
+
+- **Nothing changes in your project.** The code that reads your files is, byte for byte, the code of 0.85.0. You can update without checking anything.
+- **A change in the tool Verbaly reads your code with now stops us, not you.** Verbaly reads your files with a tool made by another team. If a new version of that tool renames something, Verbaly now fails to build on our side, where before it could have missed text in your project without saying so.
+- **A new kind of problem cannot be left out of a report.** `verbaly check`, your build, `verbaly doctor` and your AI assistant all list the same problems, and a test now fails when one of them forgets a kind the others report.
+
+### Changed
+
+- **The scanner reads the syntax tree through Babel's own types (`@verbaly/compiler`).** `analyze.ts` and `wrap.ts` walked the tree as `{ type, start, end, [key]: unknown }`, with a cast on almost every line that touched a node: a field name written wrong was `undefined` when it ran, never an error. A node is now `Parsed<babel.Node>`, Babel's type with `start` and `end` as numbers (the parser sets both on every node, and Babel's types leave them optional for nodes built by hand), and a check of `node.type` is what narrows it. A field that several kinds of node share (`importKind`, `exportKind`) is read through a `Pick` of Babel's own names. Types only: no line of the JavaScript that ships changed, and neither did the published declarations.
+- **The build report's memory is typed by the gate (`@verbaly/compiler`).** `reportGate`, which says each failure once while it lasts, builds its lists as the parameter of `gatePasses`, so a new kind of failure does not compile there until it has its memory id.
+- **Tests of the shape (repository only).** `gate-reach.test.ts` builds a real project for each kind of failure, checks it fails on that kind alone, asks `doctor` for a complaint a healthy project does not get, and runs two builds in a row to see the second one stay silent. The MCP suite asks `verbaly_missing` to declare, in its output schema, every list it answers with. Until now `doctor`, the memory of the build report and that tool followed a new failing category by hand.
+- **Dependencies, in the repository only:** `@babel/types` 8.1.2 as a dev dependency of the compiler (the version `@babel/parser` already brought, now declared so its types can be imported), `i18next` 27.1.2 for the bench, and two transitive ones, `yuku` 0.28.1 and `electron-to-chromium` 1.5.486.
+
+### Notes
+
+- **How this was found.** Both were left on purpose by 0.83.0, the release that split the files by job: the casts were counted there, and `gate-reach.test.ts` covered the four reports of the gate but not the other three places. They ship alone so the proof stays readable: nothing else is in the diff.
+- **The proof that nothing changed.** The six files of the compiler's `dist/` (the JavaScript and the declarations) have the same sha256 before and after, built on the same machine with the same tools, and two builds of the code before agree with each other. The stronger one: the thirteen tarballs of this release, from the Linux build, were compared file by file with what npm serves for 0.85.0, and each differs in one file, its `package.json` (the version, and the dev dependencies named above).
+- **What typing found.** No bug: every field the scanner read exists on the node it read it from. It did find that Babel's types say `start` and `end` may be missing, which would have traded each cast for a `!` on about 25 position reads; `Parsed<T>` (six lines, recursive, so a child of a node is located too) removes both. Of 115 casts 9 are left: the 2 calls of `parse`, the 2 loops that read a node key by key, the 2 guards that start from `unknown`, and 3 places where a `Set`'s answer or a ternary cannot narrow (`callee.name`, a function's `params`, a call's `arguments`). A few guards the types now call needless (`children?.length`, `directives ?? []`, `typeof source !== 'string'`) stay as they were, because removing them would change the JavaScript, and a file that does not parse cleanly is exactly where they may still matter.
+- **Sizes** (`pnpm --filter verbaly size`): unchanged, `createVerbaly` alone 3.35 KB, a real app 6.17 KB, the canary 8.01 KB, devtools 1.60 KB. The core is not in this diff.
+- **2 226 tests under `pnpm test`, 19 more than 0.85.0** (2 207): 13 from this release, and 6 on the store manifests that went out in the pushes with no version after it. Compiler 1 196 plus 26 in its DOM config, MCP 64, Studio 214. **2 230 under `pnpm coverage`**, the benches included, with 97.53% of lines covered.
+- **Every pin was seen red**, through `.claude/sabotage.mjs`, on the final code: `doctor` made silent about unknown keys, the collisions of a build reported with no memory, `outdated` taken out of the output schema of `verbaly_missing`, and the broken project of the test made healthy. The typed report was seen failing to compile with one list removed. The types were broken five ways by hand, and each is a compile error: a misspelled field, `importKind` renamed, a misspelled node type, a field read with no check of the type, and a position read as text.
+- **The review** was the whole diff read by zone, with no second agent. It found nothing to fix. One thing to keep in mind: `@babel/types` and `@babel/parser` move together, since the parser's output is typed by the copy it brings.
+- **The differential** (`.claude/diff-release.mjs`, 0.85.0 from npm against this build): nothing differs on verbaly-web (6 198 renders), the portfolio (638) and the fixture (35).
+- **Bench:** 24.8x, 11.1x, 5.5x and 4.9x against i18next 27.1.2 (0.85.0: 23.3x, 11.5x, 5.1x and 4.5x against 27.1.1); the core did not change. The build receipt at 200 modules +76 to +92 ms, at 1 500 modules +730 to +826 ms with the scan at 301 to 438 ms over three runs, against +516 ms in 0.85.0. That is the machine, with Docker Desktop running: the code before this release, measured back to back with this one, gives +800 ms against +747 ms, and it is the same JavaScript.
+- **Dependencies:** `pnpm outdated -r` empty, `pnpm audit` clean.
+- **First contact** (`pnpm first-contact`, on this build): the four shapes green.
+- **The starters** (`pnpm starters`, on this checkout): the seven green in 191 s, with Vite 8.3.8, React 19.3.1, Vue 3.5.45, Svelte 5.57.3, SvelteKit 3.2.0, Next 16.4.6, Nuxt 4.6.4 and Astro 7.4.12.
+- **Canonical build and real consumers:** from the tarballs of a Linux build on Node 22: the size gate as above, publint "All good" on all thirteen, attw as `known-ok.md` expects, every tarball shipping the same files as 0.85.0 (only `dist/`, LICENSE and the README, plus `loader.d.cts` in Next), no `workspace:` left, and the three bins still small loaders of a shared chunk. `pnpm starters --tarballs` on them: the seven green in 144 s. verbaly-web builds (28 pages) and passes its `check`, and the portfolio passes `verbaly check` and `next build`. The MCP bin, installed from its tarball, answers `tools/list` with the nine tools in the order of the cycle, and `mcp-tdqs lint` keeps its one warning (the cost-based shadow guess between `verbaly_write_drafts` and `verbaly_doctor`). webpack and esbuild through unplugin were not run again: the compiler's output is the same bytes.
+- **Found while opening this release, and left for the next one.** Two processes that write the same translation file at once lose translations, and it is now reproduced (`.claude/repro/race.mjs`: one process saving an agent's translations, another syncing in a loop, which is stress and not a real rate). There are two causes. One is the stale write: each process reads the file, changes it and writes all of it. The other is worse: a process that reads the file while the other is in the middle of writing it sees an empty file, takes it for a language with nothing translated yet (the rule of 0.84.0), fills every key with an empty text and saves, which wipes the whole language. That one reaches a dev server too. It changes behavior, so it gets its own release.
+
+### Docs impact
+
+- **`releases.ts` and the three catalogs:** the 0.86.0 block with three highlights.
+- No API, option, command or message changed: no docs page moves.
+
 ## [0.85.0] · 2026-11-15
 
 **A translation run that gets cut keeps what it finished, and Verbaly installs in your AI assistant with one command.** Until now a run that stopped halfway lost every answer it already had, and a file that could not be saved left machine translations looking reviewed. Breaking: nothing for a project. One change for code that calls the compiler: `translateProject` no longer rejects when a translation file cannot be saved, it reports that language in `failed` and goes on.

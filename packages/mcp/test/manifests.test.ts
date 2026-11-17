@@ -123,9 +123,16 @@ describe('the plugin for Cursor, in the same folder as the one for Claude Code',
     }
   });
 
-  it("shows the icon Anthropic's directory shows", () => {
+  it("shows the directory's icon on a plate: Cursor asks for a square logo with a background", () => {
     const logo = readFileSync(join(repo, CURSOR, cursor.logo));
-    expect(logo.equals(readFileSync(join(repo, DIRECTORY, '.claude-plugin/icon.png')))).toBe(true);
+    const icon = readFileSync(join(repo, DIRECTORY, '.claude-plugin/icon.png'));
+    expect(logo.subarray(1, 4).toString('latin1')).toBe('PNG');
+    // the same size as the icon it was made from, and RGB with no alpha: nothing shows through
+    expect([logo.readUInt32BE(16), logo.readUInt32BE(20)]).toEqual([
+      icon.readUInt32BE(16),
+      icon.readUInt32BE(20),
+    ]);
+    expect(logo[25]).toBe(2);
   });
 
   it("holds only what Cursor's schemas accept, in the form they accept", () => {

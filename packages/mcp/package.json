@@ -1,6 +1,6 @@
 {
   "name": "@verbaly/mcp",
-  "version": "0.86.1",
+  "version": "0.86.2",
   "description": "MCP server for Verbaly: diagnosis, onboarding, extraction, coverage and machine translation as tools for coding agents.",
   "mcpName": "io.github.verbaly-i18n/verbaly",
   "keywords": [

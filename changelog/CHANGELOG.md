@@ -8,6 +8,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.86.2] · 2026-11-20
+
+**Verbaly has its own home on GitHub: github.com/verbaly-i18n.** The project moves from a personal account to an organization with two maintainers, and every old link still works. Breaking: nothing.
+
+### Highlights
+
+- **The code lives at github.com/verbaly-i18n/verbaly.** The links on npm, in the READMEs and in your AI assistant's plugin now go there. Old links keep working: GitHub sends them to the new place.
+- **Two maintainers.** Verbaly is now looked after by two people, so releases, reviews and security reports no longer depend on one.
+- **A new name in the official MCP catalog.** The Verbaly server is listed as `io.github.verbaly-i18n/verbaly`, and the old entry points to it. The package you install, `@verbaly/mcp`, keeps its name.
+- **Nothing changes in your project.** The code you install is, byte for byte, the code of 0.86.1. You can update without checking anything.
+
+### Changed
+
+- **The repository moves from `AronSoto/verbaly` to `verbaly-i18n/verbaly` (all thirteen packages).** The `repository` and `bugs` of every `package.json`, the README of the root and of each package (the badges for CI, Codecov and Scorecard, the logo and the links), the `repository` of the three `plugin.json`, the install commands in the READMEs of the plugin and the skill, `SECURITY.md`, `CONTRIBUTING.md`, the issue template, and the link to this changelog in the body of each GitHub Release: 133 links in 38 files. GitHub redirects the old address, so every version published before this one still lands on the right page.
+- **The MCP Registry name becomes `io.github.verbaly-i18n/verbaly` (`@verbaly/mcp`).** The registry lets a workflow publish only under the namespace of its repository's owner, so the name follows the repository: `server.json` and the `mcpName` of `@verbaly/mcp`. The old entry, `io.github.AronSoto/verbaly`, stays at 0.86.1, marked as deprecated with a pointer to the new name.
+- **Two maintainers (repository only).** `AGENTS.md`, `CONTRIBUTING.md`, the pull request template, `SECURITY.md` and the code of conduct speak of "the maintainers"; the code of conduct names both, and `glama.json` lists both.
+
+### Notes
+
+- **Why a patch release.** npm's provenance requires each package's `repository.url` to match the repository that publishes it, and the MCP Registry name has to follow the repository's owner: both reach npm with the first release from the organization. Shipping it alone keeps 0.87.0 for the concurrent writes of row 63, as approved (Aron, 2026-11-20).
+- **The order of the move (2026-11-20).** The private workshop first, as a rehearsal; then `verbaly-web`, with Cloudflare Workers Builds reconnected through the organization's GitHub app and a test build from it; then this repository. The transfer kept the stars, the topics, the 90 tags, the releases, Dependabot and the protection of `develop`. It switched private vulnerability reporting off, which `SECURITY.md` relies on, and it was switched back on right after.
+- **The workflows ran in the organization before this release.** An empty commit (`fa021c7`) passed CI on Linux, Windows and macOS, CodeQL, Scorecard (8.9 for the new repository) and Codecov at its new path. Its `mcp-registry` job failed on purpose: the registry accepted the login for the new name and refused to list 0.86.1, whose package on npm still carries the old `mcpName`.
+- **npm Trusted Publishing was set up again for all thirteen.** A trusted publisher names the owner and the repository and cannot be edited, so each package got a new one for `verbaly-i18n/verbaly` and `release.yml`, created on the day of this release: one that publishes nothing expires after two days.
+- **The diff is only the address, the registry name and the wording about maintainers.** The changelog keeps the old address where it tells history, and the README of `@verbaly/mcp` keeps the Glama badge on its old listing until the listing for the new repository is claimed.
+- **The proof that nothing else changed.** The thirteen tarballs of a Linux build on Node 22 were compared file by file with what npm serves for 0.86.1: each differs only in its `package.json` (the version, the versions of its sibling packages, `repository`, `bugs`, and the `mcpName` of `@verbaly/mcp`) and its README (the links). No file was added or removed, so every line of JavaScript and every declaration is the one 0.86.1 published.
+- **Canonical build:** publint "All good" on all thirteen, attw as `known-ok.md` expects, no `workspace:` left in any tarball.
+- **Sizes** (`pnpm --filter verbaly size`): unchanged, `createVerbaly` alone 3.35 KB, a real app 6.17 KB, the canary 8.01 KB, devtools 1.60 KB.
+- **2 231 tests under `pnpm test`, as in 0.86.1:** compiler 1 222, core 395, Studio 214, MCP 69. `readme.test.ts` now pins the badges at the new address.
+- **Not run again, and why:** the bench, the differential, first contact, the starters and the real consumers from the tarballs. They test the JavaScript, which is the code they passed on for 0.86.0 and 0.86.1.
+- **Dependencies:** `pnpm audit` clean. The dev dependencies with a newer version still move with 0.87.0.
+- **The review** was the whole diff read by zone, with no second agent: it is the address, the name and the wording, and nothing else.
+
+### Docs impact
+
+- **`releases.ts` and the three catalogs:** the 0.86.2 block with four highlights.
+- **The repository address on the site:** `GITHUB_OWNER` in `src/constants/github.ts` becomes `verbaly-i18n`; the three install commands on `/docs/guide/agents` (`claude plugin marketplace add`, `gemini extensions install` and `npx skills add`); the issues link on `/docs/guide/troubleshooting`; and the README and `AGENTS.md`. The older entries of `releases.ts` and their catalog blocks keep the old address: they are history.
+- No API, option, command or message changed: no docs page moves.
+
 ## [0.86.1] · 2026-11-19
 
 **Verbaly has its own address: verbaly.dev.** The documentation moves there, and every old link still takes you to the same page. Breaking: nothing.

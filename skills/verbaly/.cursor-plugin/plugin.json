@@ -1,7 +1,7 @@
 {
   "name": "verbaly",
   "displayName": "Verbaly",
-  "version": "0.86.1",
+  "version": "0.86.2",
   "description": "Run the i18n cycle of a Verbaly project from your agent: the MCP server with the cycle as tools, and the skill with the rules that keep it safe. Machine translations stay drafts until a person approves them.",
   "author": {
     "name": "Aron Soto"

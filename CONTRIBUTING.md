@@ -18,7 +18,7 @@ cd verbaly
 pnpm install
 
 pnpm build       # tsdown, all packages
-pnpm test        # vitest, all packages
+pnpm test        # each package's suite (CI also runs pnpm coverage)
 pnpm typecheck   # TypeScript 7 native
 pnpm lint        # eslint
 ```
@@ -42,7 +42,7 @@ packages/
 
 - Target the `develop` branch.
 - **Every behavior change needs a test.** Suites run per package: `pnpm --filter verbaly test`.
-- **The core stays dependency-free, and its weight is gated.** `pnpm --filter verbaly size` measures four surfaces against budgets; a PR that adds a dependency to `verbaly` core won't be merged, and one that pushes a budget over needs a reason in the changelog.
+- **The core stays dependency-free, and its weight is gated.** `pnpm --filter verbaly size` measures what each entry ships against its budget; a PR that adds a dependency to `verbaly` core won't be merged, and one that pushes a budget over needs a reason in the changelog.
 - **Adapters stay thin.** `react`/`vue`/`svelte` only bridge the core's reactivity. If an adapter needs real logic, it probably belongs in core.
 - **Don't bump versions.** The thirteen packages release together; releases are cut by the maintainer.
 - Match the existing style: `pnpm format` before you push, since CI runs `pnpm format:check`, and `pnpm lint` (which CI runs too) keeps every comment to one line of at most 100 characters. Comments are sparse on purpose.

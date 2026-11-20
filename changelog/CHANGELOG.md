@@ -8,6 +8,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [0.86.1] · 2026-11-19
+
+**Verbaly has its own address: verbaly.dev.** The documentation moves there, and every old link still takes you to the same page. Breaking: nothing.
+
+### Highlights
+
+- **The documentation lives at verbaly.dev.** The links on npm, on GitHub and in your AI assistant's plugin now go there. Old links keep working: they take you to the same page at the new address.
+- **A plugin for Cursor.** The plugin that adds Verbaly to Claude Code now works in Cursor too, with the same tools and the same rules for your assistant.
+- **Nothing changes in your project.** The code you install is, byte for byte, the code of 0.86.0. You can update without checking anything.
+
+### Added
+
+- **The Cursor plugin (repository only).** `skills/verbaly/.cursor-plugin/plugin.json` and `skills/verbaly/mcp.json` make the folder of the Claude Code plugin a Cursor plugin as well, listed by `.cursor-plugin/marketplace.json` at the root, the layout of Cursor's own `cursor/plugins` repository, whose validator it passes. It starts `@verbaly/mcp` pinned to the release version, like the other two. `manifests.test.ts` holds it to that: the version, the server it starts and its logo. Submitted to Cursor's marketplace on 2026-11-17. It went out in the pushes with no version after 0.86.0.
+
+### Changed
+
+- **The site moves from `verbaly-web.vercel.app` to `verbaly.dev` (all thirteen packages).** The `homepage` of every package, the README of the root and of each package, the three `plugin.json` (the `homepage`, and the privacy and terms pages of the plugin in Anthropic's directory), both `SKILL.md` and the issue template: 71 links in 34 files. The old address answers with a permanent redirect (308) to the same path, so every version published before this one, whose `homepage` cannot change, still lands on the right page.
+
+### Notes
+
+- **Why a patch release.** The new address has to reach npm before the site can switch to it: the web's `check-homepages.mjs` compares each package's `homepage` with the site's own address. Shipping it alone keeps 0.87.0 for the concurrent writes of row 63, as approved (Aron, 2026-11-19).
+- **The diff is only the address.** Each of the 34 files equals its 0.86.0 text with the address replaced, checked file by file by a script that applies the replacement to `HEAD` and compares. The changelog keeps the old address where it tells history.
+- **The site moved host too.** It is now served by Cloudflare Workers from the same build, with the same pages byte for byte, measured against the Vercel deployment route by route. Two small differences, both on purpose: a path with a trailing slash redirects with 307 instead of 308, and a missing page under `/es` or `/pt` answers with the 404 page in that language.
+- **The proof that nothing else changed.** The thirteen tarballs of a Linux build on Node 22 were compared file by file with what npm serves for 0.86.0: each differs in its `package.json` (the version and the `homepage`) and its README (the links), and Studio, whose README has no link to the site, only in its `package.json`. No file was added or removed, so every line of JavaScript and every declaration is the one 0.86.0 published.
+- **Canonical build:** publint "All good" on all thirteen, attw as `known-ok.md` expects, no `workspace:` left in any tarball.
+- **Sizes** (`pnpm --filter verbaly size`, in that build): unchanged, `createVerbaly` alone 3.35 KB, a real app 6.17 KB, the canary 8.01 KB, devtools 1.60 KB.
+- **2 231 tests under `pnpm test`, 5 more than 0.86.0** (2 226): the Cursor plugin's checks in `manifests.test.ts`. Compiler 1 222, core 395, Studio 214, MCP 69. **2 235 under `pnpm coverage`**, with 97.53% of lines covered, as in 0.86.0.
+- **Not run again, and why:** the bench, the differential, first contact, the starters and the real consumers from the tarballs. They test the JavaScript, which is byte for byte the code they passed on for 0.86.0. The web's `check` runs in its half of the release, where `check-homepages.mjs` holds the new `homepage` of each package against the site's new address.
+- **Dependencies:** `pnpm audit` clean. `pnpm outdated -r` lists ten dev dependencies with a newer version (vitest, astro, svelte, @sveltejs/kit, i18next, @anthropic-ai/sdk among them). None ships, and they move with 0.87.0, so that this release changes no tool that builds the packages.
+- **Found while preparing this release, and left for later.** `render` writes `sitemap-i18n.xml` in the order the file system lists the pages, so the same commit gives the same 81 entries in three different orders on three machines. It does not matter to search engines, but the build is not reproducible byte for byte. It is a row in the plan.
+- **The review** was the whole diff read by zone, with no second agent: it is the address and nothing else.
+
+### Docs impact
+
+- **`releases.ts` and the three catalogs:** the 0.86.1 block with three highlights.
+- **The address, everywhere the site writes it:** `SITE_URL` in `src/constants/site.ts` becomes `https://verbaly.dev` (canonical, hreflang, Open Graph, both sitemaps, the RSS feed, `llms.txt` and the JSON-LD follow from it), plus the three files that repeat it literally: `public/robots.txt` (both sitemap lines), `baseUrl` in `verbaly.config.mjs`, and `SITE` in `scripts/check-homepages.mjs`.
+- **The privacy page:** `privacy.astro` and `privacy.third_host` in en, es and pt name Cloudflare as the host instead of Vercel. The promise stays the same: no cookies and no analytics.
+- **`vercel.json`:** only the permanent redirect, `/:path*` to `https://verbaly.dev/:path*`. It leaves the repository once Vercel is disconnected from Git.
+- **README, AGENTS and the comment in `astro.config.mjs`:** "Deployed on Cloudflare Workers" instead of Vercel.
+- No API, option, command or message changed: no docs page moves.
+
 ## [0.86.0] · 2026-11-16
 
 **The same Verbaly, harder to break by accident.** Nothing changes in your project: this release adds checks on our side, so a mistake in Verbaly's own code is caught before it is published. Breaking: nothing.

@@ -109,21 +109,20 @@ Studio serves your project over localhost: what is missing, what is broken, what
 
 ## How it compares
 
-|                           | **Verbaly**                       | i18next                                 | Lingui                              | Paraglide                          | typesafe-i18n |
-| ------------------------- | --------------------------------- | --------------------------------------- | ----------------------------------- | ---------------------------------- | ------------- |
-| Type-safe keys & params   | ✅ inferred from text             | ✅ built in, from a declaration file    | ✅ text in code, no keys to mistype | ✅ a typed function per message    | ✅            |
-| Runtime size (gzip)       | **3.35KB, zero deps**             | 15.5KB (22.1 +react)                    | 2.3KB (4.4 +react)                  | compiled                           | 1.0KB         |
-| Setup                     | 1 Vite plugin                     | init config + modules                   | macros + Babel/SWC                  | inlang project                     | generator     |
-| Key maintenance           | **none, extracted**               | by hand, synced by its CLI              | extract → compile step              | by hand                            | by hand       |
-| Dynamic / CMS content     | ✅ real runtime path              | ✅                                      | ✅                                  | best with keys known at build time | ✅            |
-| Plain HTML (no framework) | ✅ DOM interpreter                | with a jQuery plugin                    | ❌                                  | ❌                                 | ❌            |
-| Missing-translation gate  | ✅ fails CI only                  | a CLI command, for CI                   | CI step                             | `inlang check`, in CI              | ❌            |
-| Broken-translation gate   | ✅ fails CI only                  | CLI lint, a warning by default          | syntax errors only                  | `inlang check`, in CI              | ❌            |
-| Catalog format            | plain JSON                        | JSON                                    | PO, JSON or CSV                     | inlang format, others by plugin    | TS files      |
-| Coding agents             | MCP server + skill                | skill, hosted MCP (Locize)              | skills + plugin                     | ❌                                 | ❌            |
-| Maturity & ecosystem      | pre-1.0: the API can still change | proven at scale, modules for everything | stable, standard PO for translators | stable, with the inlang tools      | stable, small |
+|                           | **Verbaly**                                  | i18next                                 | Lingui                              | Paraglide                          |
+| ------------------------- | -------------------------------------------- | --------------------------------------- | ----------------------------------- | ---------------------------------- |
+| Type-safe keys & params   | ✅ Inferred from your text                   | Built in, from a declaration file       | Text in code, no keys to mistype    | A typed function per message       |
+| Runtime size (gzip)       | ✅ 3.35 KB, zero deps (6.17 with DOM + urls) | 15.5 KB (22.1 with React)               | 2.3 KB (4.4 with React)             | compiled, no shared runtime        |
+| Key maintenance           | ✅ None, auto-extracted                      | Written by hand, synced by its CLI      | Extract → compile step              | By hand                            |
+| Dynamic / CMS content     | ✅ Real runtime path                         | Yes                                     | Yes                                 | Best with keys known at build time |
+| Plain HTML (no framework) | ✅ DOM interpreter                           | With a jQuery plugin                    | ❌                                  | ❌                                 |
+| Missing translations      | ✅ Fails CI, every build lists it            | A CLI command, for CI                   | CI step                             | inlang check, in CI                |
+| Broken translations       | ✅ Fails CI, every build lists it            | CLI lint, a warning by default          | Syntax errors only                  | inlang check, in CI                |
+| Catalog format            | ✅ Plain JSON                                | JSON                                    | PO, JSON or CSV                     | inlang format, others by plugin    |
+| Coding agents             | ✅ MCP server + skill                        | Skill, hosted MCP (Locize)              | Skills + plugin                     | ❌                                 |
+| Maturity & ecosystem      | Pre-1.0: the API can still change            | Proven at scale, modules for everything | Stable, standard PO for translators | Stable, with the inlang tools      |
 
-Every cell about another tool is the best true thing its own documentation says, read on 2026-11-15 (i18next 27.1.2, Lingui 6.12.0, Paraglide 3.2.2, typesafe-i18n 5.27.1). Sizes are min+gzip of what an app imports, with React external, measured the same day with the same method.
+Every cell about another tool is the best true thing its own documentation says, read on 2026-11-15 (i18next 27.1.2, Lingui 6.12.0, Paraglide 3.2.2). Sizes are min+gzip of what an app imports, with React external, measured the same day with the same method. The same table is on [verbaly.dev](https://verbaly.dev/#compare).
 
 ## Coding agents
 

@@ -11,10 +11,10 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/verbaly"><img src="https://img.shields.io/npm/v/verbaly?logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/AronSoto/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
-  <a href="https://codecov.io/gh/AronSoto/verbaly"><img src="https://codecov.io/gh/AronSoto/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
+  <a href="https://github.com/verbaly-i18n/verbaly/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/verbaly-i18n/verbaly/ci.yml?logo=github&label=CI" alt="CI" /></a>
+  <a href="https://codecov.io/gh/verbaly-i18n/verbaly"><img src="https://codecov.io/gh/verbaly-i18n/verbaly/branch/develop/graph/badge.svg" alt="coverage" /></a>
   <a href="https://socket.dev/npm/package/verbaly"><img src="https://badge.socket.dev/npm/package/verbaly" alt="Socket supply chain security" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/verbaly-i18n/verbaly"><img src="https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/verbaly#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
   <img src="https://img.shields.io/badge/gzip-3.35KB-3fb950" alt="3.35KB gzip runtime" />
   <img src="https://img.shields.io/badge/dependencies-0-3fb950" alt="zero runtime dependencies" />
@@ -133,16 +133,16 @@ claude mcp add verbaly -- npx -y @verbaly/mcp
 In Claude Code, one plugin brings the server and the skill together:
 
 ```bash
-claude plugin marketplace add AronSoto/verbaly
+claude plugin marketplace add verbaly-i18n/verbaly
 ```
 
 ```bash
 claude plugin install verbaly@verbaly
 ```
 
-Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/AronSoto/verbaly`.
+Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/verbaly-i18n/verbaly`.
 
-The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx skills add AronSoto/verbaly`, which copies it into the folder of each agent you use), and the docs publish [llms.txt](https://verbaly.dev/llms.txt).
+The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx skills add verbaly-i18n/verbaly`, which copies it into the folder of each agent you use), and the docs publish [llms.txt](https://verbaly.dev/llms.txt).
 
 ## Packages
 
@@ -209,9 +209,9 @@ Verbaly is `0.x`: the API can still change between minor versions, and every cha
 
 ## Feedback
 
-- **Something broke or surprised you:** [open a bug](https://github.com/AronSoto/verbaly/issues/new?template=bug_report.yml). A minimal snippet is enough.
-- **Something felt like friction:** [tell us what](https://github.com/AronSoto/verbaly/issues/new?template=feature_request.yml). The roadmap follows real use.
-- **It just works:** a [star](https://github.com/AronSoto/verbaly) or a mention helps others find it.
+- **Something broke or surprised you:** [open a bug](https://github.com/verbaly-i18n/verbaly/issues/new?template=bug_report.yml). A minimal snippet is enough.
+- **Something felt like friction:** [tell us what](https://github.com/verbaly-i18n/verbaly/issues/new?template=feature_request.yml). The roadmap follows real use.
+- **It just works:** a [star](https://github.com/verbaly-i18n/verbaly) or a mention helps others find it.
 
 ## Sponsor
 

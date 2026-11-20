@@ -8,7 +8,7 @@
     "url": "https://github.com/AronSoto"
   },
   "homepage": "https://verbaly.dev/docs/guide/agents",
-  "repository": "https://github.com/AronSoto/verbaly",
+  "repository": "https://github.com/verbaly-i18n/verbaly",
   "license": "MIT",
   "keywords": ["i18n", "localization", "translation", "mcp"],
   "mcpServers": {

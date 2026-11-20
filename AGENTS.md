@@ -57,6 +57,6 @@ pnpm --filter <package> test   # one package
 
 ## Pull requests
 
-- Target `develop`. Don't bump versions: the thirteen packages are released together by the maintainer, who also writes the changelog entry.
+- Target `develop`. Don't bump versions: the thirteen packages are released together by the maintainers, who also write the changelog entry.
 - New dependencies: the latest stable (`npm view <package> version`), with the whole suite green, and never in what the core ships.
 - TypeScript runs side by side on purpose: `tsc` is TypeScript 7 native for the typecheck, and the `typescript` package is the TypeScript 6 API that eslint and tsdown need.

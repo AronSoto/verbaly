@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
+  <img src="https://raw.githubusercontent.com/verbaly-i18n/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
 <p align="center"><em>Verbaly for webpack, Rollup, esbuild and Rspack, powered by unplugin.</em></p>
@@ -7,14 +7,14 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/unplugin"><img src="https://img.shields.io/npm/v/@verbaly/unplugin?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://verbaly.dev/docs/frameworks/vite#unplugin"><img src="https://img.shields.io/badge/webpack-1C2B34?style=flat&logo=webpack&logoColor=8DD6F9" alt="webpack, Rollup, esbuild and Rspack" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/verbaly-i18n/verbaly"><img src="https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/@verbaly/unplugin#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/unplugin?color=blue" alt="MIT" /></a>
+  <a href="https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/unplugin?color=blue" alt="MIT" /></a>
 </p>
 
 ---
 
-[Verbaly](https://github.com/AronSoto/verbaly) beyond Vite: the same compiler (typed `verbaly/app` module, per-locale code-splitting and the **build report** of what `verbaly check` would fail on) wrapped with [unplugin](https://github.com/unjs/unplugin) so it runs on **webpack 5, Rollup, esbuild, Rspack** (and Vite, though [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) is richer there: live extraction + HMR).
+[Verbaly](https://github.com/verbaly-i18n/verbaly) beyond Vite: the same compiler (typed `verbaly/app` module, per-locale code-splitting and the **build report** of what `verbaly check` would fail on) wrapped with [unplugin](https://github.com/unjs/unplugin) so it runs on **webpack 5, Rollup, esbuild, Rspack** (and Vite, though [`@verbaly/vite`](https://www.npmjs.com/package/@verbaly/vite) is richer there: live extraction + HMR).
 
 ## 🚀 Install
 
@@ -68,4 +68,4 @@ npx verbaly extract --watch   # keep extracting as you code (dev loop)
 
 ## License
 
-[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE) © Aron Soto

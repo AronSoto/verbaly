@@ -2,7 +2,7 @@
   "name": "@verbaly/mcp",
   "version": "0.86.1",
   "description": "MCP server for Verbaly: diagnosis, onboarding, extraction, coverage and machine translation as tools for coding agents.",
-  "mcpName": "io.github.AronSoto/verbaly",
+  "mcpName": "io.github.verbaly-i18n/verbaly",
   "keywords": [
     "i18n",
     "mcp",
@@ -14,12 +14,12 @@
   "author": "Aron Soto",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AronSoto/verbaly.git",
+    "url": "git+https://github.com/verbaly-i18n/verbaly.git",
     "directory": "packages/mcp"
   },
   "homepage": "https://verbaly.dev/docs/guide/agents",
   "bugs": {
-    "url": "https://github.com/AronSoto/verbaly/issues"
+    "url": "https://github.com/verbaly-i18n/verbaly/issues"
   },
   "funding": {
     "type": "github",

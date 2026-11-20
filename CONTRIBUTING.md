@@ -13,7 +13,7 @@ Thanks for your interest! Verbaly is in early development (`0.x`): the API may s
 Requirements: Node 22.12 or newer and [pnpm](https://pnpm.io).
 
 ```bash
-git clone https://github.com/AronSoto/verbaly
+git clone https://github.com/verbaly-i18n/verbaly
 cd verbaly
 pnpm install
 
@@ -44,12 +44,12 @@ packages/
 - **Every behavior change needs a test.** Suites run per package: `pnpm --filter verbaly test`.
 - **The core stays dependency-free, and its weight is gated.** `pnpm --filter verbaly size` measures what each entry ships against its budget; a PR that adds a dependency to `verbaly` core won't be merged, and one that pushes a budget over needs a reason in the changelog.
 - **Adapters stay thin.** `react`/`vue`/`svelte` only bridge the core's reactivity. If an adapter needs real logic, it probably belongs in core.
-- **Don't bump versions.** The thirteen packages release together; releases are cut by the maintainer.
+- **Don't bump versions.** The thirteen packages release together; releases are cut by the maintainers.
 - Match the existing style: `pnpm format` before you push, since CI runs `pnpm format:check`, and `pnpm lint` (which CI runs too) keeps every comment to one line of at most 100 characters. Comments are sparse on purpose.
 - Using a coding agent? [AGENTS.md](AGENTS.md) holds the commands, the layout and the rules a change keeps.
 
 ## What makes a good first contribution
 
 - A failing-case test for a bug you found (even without the fix).
-- Docs fixes on [verbaly-web](https://github.com/AronSoto/verbaly-web).
+- Docs fixes on [verbaly-web](https://github.com/verbaly-i18n/verbaly-web).
 - Reproductions and feedback on real-world usage: the project is actively looking for early adopters.

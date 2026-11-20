@@ -4,5 +4,5 @@ contact_links:
     url: https://verbaly.dev/docs
     about: Guides, API and CLI reference. Your question may already be answered there.
   - name: 🔒 Security report
-    url: https://github.com/AronSoto/verbaly/security/advisories/new
+    url: https://github.com/verbaly-i18n/verbaly/security/advisories/new
     about: Please report vulnerabilities privately, never as a public issue.

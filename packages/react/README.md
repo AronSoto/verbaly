@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
+  <img src="https://raw.githubusercontent.com/verbaly-i18n/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
 <p align="center"><em>React bindings for Verbaly: hooks over the reactive core.</em></p>
@@ -7,14 +7,14 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/react"><img src="https://img.shields.io/npm/v/@verbaly/react?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://verbaly.dev/docs/frameworks/react"><img src="https://img.shields.io/npm/dependency-version/@verbaly/react/peer/react?logo=react&logoColor=61DAFB&label=React&color=20232A" alt="supported React versions" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/verbaly-i18n/verbaly"><img src="https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/@verbaly/react#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/react?color=blue" alt="MIT" /></a>
+  <a href="https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/react?color=blue" alt="MIT" /></a>
 </p>
 
 ---
 
-React hooks for [Verbaly](https://github.com/AronSoto/verbaly): a thin layer (React 18/19) over the reactive core via `useSyncExternalStore`.
+React hooks for [Verbaly](https://github.com/verbaly-i18n/verbaly): a thin layer (React 18/19) over the reactive core via `useSyncExternalStore`.
 
 **Preact works too**, through `preact/compat`, with no extra package and no configuration of ours: the test suite runs a second time with React resolved to `preact/compat` (hooks, locale switching, `<Trans>` and server rendering), so this is measured, not assumed.
 
@@ -112,4 +112,4 @@ In Next.js, `@verbaly/next/server` exports a `<Trans>` that finds the request's 
 
 ## License
 
-[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE) © Aron Soto

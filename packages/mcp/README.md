@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
+  <img src="https://raw.githubusercontent.com/verbaly-i18n/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
 <p align="center"><em>MCP server for Verbaly: setup, diagnosis, onboarding, extraction, coverage and machine translation as tools for coding agents, plus resources that let them read your catalogs.</em></p>
@@ -7,9 +7,9 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/mcp"><img src="https://img.shields.io/npm/v/@verbaly/mcp?logo=npm&color=cb3837" alt="npm version" /></a>
   <img src="https://img.shields.io/node/v/@verbaly/mcp?logo=nodedotjs&logoColor=white&color=5fa04e" alt="supported Node.js versions" />
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/verbaly-i18n/verbaly"><img src="https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/@verbaly/mcp#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/mcp?color=blue" alt="MIT" /></a>
+  <a href="https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/mcp?color=blue" alt="MIT" /></a>
   <a href="https://glama.ai/mcp/servers/AronSoto/verbaly"><img src="https://glama.ai/mcp/servers/AronSoto/verbaly/badges/score.svg" alt="verbaly MCP server on Glama" /></a>
 </p>
 
@@ -38,14 +38,14 @@ Codex takes the same line (`codex mcp add verbaly -- npx -y @verbaly/mcp`), and 
 In Claude Code, one plugin brings the server and the skill together:
 
 ```bash
-claude plugin marketplace add AronSoto/verbaly
+claude plugin marketplace add verbaly-i18n/verbaly
 ```
 
 ```bash
 claude plugin install verbaly@verbaly
 ```
 
-Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/AronSoto/verbaly`. Both also bring the [Agent Skill](https://github.com/AronSoto/verbaly/blob/develop/skills/verbaly/SKILL.md), the rules that keep the cycle safe.
+Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/verbaly-i18n/verbaly`. Both also bring the [Agent Skill](https://github.com/verbaly-i18n/verbaly/blob/develop/skills/verbaly/SKILL.md), the rules that keep the cycle safe.
 
 The server reads the project from its working directory; pass `--root <path>` (or the per-tool `root` argument) to point elsewhere.
 
@@ -84,4 +84,4 @@ Full guide: [verbaly.dev/docs/guide/agents](https://verbaly.dev/docs/guide/agent
 
 ## License
 
-[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE) © Aron Soto

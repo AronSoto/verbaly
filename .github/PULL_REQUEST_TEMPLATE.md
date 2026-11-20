@@ -14,4 +14,4 @@ Closes #
 - [ ] Behavior changes come with tests (`pnpm test` green)
 - [ ] `pnpm build && pnpm typecheck && pnpm lint` green
 - [ ] No new dependencies in `verbaly` core
-- [ ] No version bumps (releases are cut by the maintainer)
+- [ ] No version bumps (releases are cut by the maintainers)

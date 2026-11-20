@@ -59,7 +59,7 @@ describe('the install line of every README', () => {
 
 // npm shows no Scorecard and no peer range: the README of each package is where they live
 describe('the badges of every package README', () => {
-  const ci = 'https://img.shields.io/github/actions/workflow/status/AronSoto/verbaly/ci.yml?';
+  const ci = 'https://img.shields.io/github/actions/workflow/status/verbaly-i18n/verbaly/ci.yml?';
 
   // CI is the state of the repository: its badge lives on the root README, never on an npm page
   it('the repository README carries the CI badge', () => {
@@ -87,7 +87,7 @@ describe('the badges of every package README', () => {
     it(`${folder} carries the family row in order, each badge naming its own package`, () => {
       const family = [
         `https://img.shields.io/npm/v/${pkg.name}?`,
-        'https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge',
+        'https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge',
         `https://www.npmjs.com/package/${pkg.name}#provenance`,
         `https://img.shields.io/npm/l/${pkg.name}?`,
       ];

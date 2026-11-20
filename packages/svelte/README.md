@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
+  <img src="https://raw.githubusercontent.com/verbaly-i18n/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
 <p align="center"><em>Svelte bindings for Verbaly: stores over the reactive core.</em></p>
@@ -7,14 +7,14 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/svelte"><img src="https://img.shields.io/npm/v/@verbaly/svelte?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://verbaly.dev/docs/frameworks/svelte"><img src="https://img.shields.io/npm/dependency-version/@verbaly/svelte/peer/svelte?logo=svelte&logoColor=FF3E00&label=Svelte&color=2A1A14" alt="supported Svelte versions" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/verbaly-i18n/verbaly"><img src="https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/@verbaly/svelte#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/svelte?color=blue" alt="MIT" /></a>
+  <a href="https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/svelte?color=blue" alt="MIT" /></a>
 </p>
 
 ---
 
-Idiomatic Svelte 5 stores over the [Verbaly](https://github.com/AronSoto/verbaly) core: the `$` auto-subscription just works, re-rendering on every locale switch.
+Idiomatic Svelte 5 stores over the [Verbaly](https://github.com/verbaly-i18n/verbaly) core: the `$` auto-subscription just works, re-rendering on every locale switch.
 
 ## 🚀 Install
 
@@ -117,4 +117,4 @@ Uses the instance from `provideVerbaly` (or pass `instance={verbaly}` explicitly
 
 ## License
 
-[MIT](https://github.com/AronSoto/verbaly/blob/develop/LICENSE) © Aron Soto
+[MIT](https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE) © Aron Soto

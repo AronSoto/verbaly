@@ -13,12 +13,12 @@
   "author": "Aron Soto",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AronSoto/verbaly.git",
+    "url": "git+https://github.com/verbaly-i18n/verbaly.git",
     "directory": "packages/studio"
   },
   "homepage": "https://verbaly.dev/docs/guide/studio",
   "bugs": {
-    "url": "https://github.com/AronSoto/verbaly/issues"
+    "url": "https://github.com/verbaly-i18n/verbaly/issues"
   },
   "funding": {
     "type": "github",

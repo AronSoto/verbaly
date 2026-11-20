@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.AronSoto/verbaly",
+  "name": "io.github.verbaly-i18n/verbaly",
   "description": "i18n for coding agents: extract, check and translate an app's text, with drafts a person approves",
   "repository": {
-    "url": "https://github.com/AronSoto/verbaly",
+    "url": "https://github.com/verbaly-i18n/verbaly",
     "source": "github"
   },
   "version": "0.86.1",

@@ -117,7 +117,7 @@ jobs:
           {
             echo ""
             echo "---"
-            echo "_For the full details of this release, see the [repository changelog](https://github.com/AronSoto/verbaly/blob/develop/changelog/CHANGELOG.md)._"
+            echo "_For the full details of this release, see the [repository changelog](https://github.com/verbaly-i18n/verbaly/blob/develop/changelog/CHANGELOG.md)._"
           } >> /tmp/release-notes.md
           gh release create "v$V" --title "Release v$V" \
             --notes-file /tmp/release-notes.md --target "$GITHUB_SHA"
@@ -130,7 +130,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # OIDC: the registry's login for io.github.AronSoto/*
+      id-token: write # OIDC: the registry's login for io.github.verbaly-i18n/*
     env:
       # pinned on purpose, never releases/latest: the binary is checked against its sigstore bundle
       MCP_PUBLISHER_VERSION: v1.8.7

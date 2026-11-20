@@ -52,9 +52,9 @@ representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainer, [@AronSoto](https://github.com/AronSoto). Two
-routes work today: contact the maintainer through the links on that GitHub
-profile, or use GitHub's own [report abuse](https://github.com/contact/report-abuse)
+reported to the maintainers, [@AronSoto](https://github.com/AronSoto) and
+[@alamilladev](https://github.com/alamilladev). Two routes work today: contact a
+maintainer through the links on those GitHub profiles, or use GitHub's own [report abuse](https://github.com/contact/report-abuse)
 form, which reaches GitHub Support directly and does not depend on this project.
 
 All complaints will be reviewed and investigated promptly and fairly. The

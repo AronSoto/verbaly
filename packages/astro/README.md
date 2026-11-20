@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AronSoto/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
+  <img src="https://raw.githubusercontent.com/verbaly-i18n/verbaly/develop/assets/logo.png" alt="Verbaly" width="300" />
 </p>
 
 <p align="center"><em>Astro integration for Verbaly: write-in-source extraction for .astro files plus automatic per-locale static rendering.</em></p>
@@ -7,9 +7,9 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@verbaly/astro"><img src="https://img.shields.io/npm/v/@verbaly/astro?logo=npm&color=cb3837" alt="npm version" /></a>
   <a href="https://verbaly.dev/docs/frameworks/astro"><img src="https://img.shields.io/badge/Astro-17191E?style=flat&logo=astro&logoColor=FF5D01" alt="Astro" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/AronSoto/verbaly"><img src="https://api.scorecard.dev/projects/github.com/AronSoto/verbaly/badge" alt="OpenSSF Scorecard" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/verbaly-i18n/verbaly"><img src="https://api.scorecard.dev/projects/github.com/verbaly-i18n/verbaly/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://www.npmjs.com/package/@verbaly/astro#provenance"><img src="https://img.shields.io/badge/provenance-SLSA%20v1-3fb950?logo=npm" alt="published with npm provenance" /></a>
-  <a href="https://github.com/AronSoto/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/astro?color=blue" alt="MIT" /></a>
+  <a href="https://github.com/verbaly-i18n/verbaly/blob/develop/LICENSE"><img src="https://img.shields.io/npm/l/@verbaly/astro?color=blue" alt="MIT" /></a>
 </p>
 
 ---

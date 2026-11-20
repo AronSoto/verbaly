@@ -23,7 +23,7 @@ claude plugin marketplace add AronSoto/verbaly
 claude plugin install verbaly@verbaly
 ```
 
-The full guide, with a line for every coding agent, is at <https://verbaly-web.vercel.app/docs/guide/agents>.
+The full guide, with a line for every coding agent, is at <https://verbaly.dev/docs/guide/agents>.
 
 ## License
 

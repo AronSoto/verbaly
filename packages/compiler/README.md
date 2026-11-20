@@ -340,7 +340,7 @@ verbaly.addMessages(locale, extra.default);
 
 `verbaly pseudo` fills a QA catalog (`en-XA` by default, `--locale <id>` to change) from the source: accented letters, `⟦…⟧` markers and ~33% length padding reveal hardcoded strings, clipped layouts and concatenation bugs. Params, variant blocks and tags survive verbatim, with the same structural validation as `translate`.
 
-📖 Docs: **https://verbaly-web.vercel.app/docs/reference/cli**
+📖 Docs: **https://verbaly.dev/docs/reference/cli**
 
 > ⚠️ Early development (`0.x`): API not stable yet.
 

@@ -27,15 +27,15 @@
 </p>
 
 <p align="center">
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/react"><img src="https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB" alt="React" title="React" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/react#next"><img src="https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js" title="Next.js" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/vue"><img src="https://img.shields.io/badge/Vue-35495E?style=flat&logo=vuedotjs&logoColor=4FC08D" alt="Vue" title="Vue" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt"><img src="https://img.shields.io/badge/Nuxt-0B1E1A?style=flat&logo=nuxt&logoColor=00DC82" alt="Nuxt" title="Nuxt" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/svelte"><img src="https://img.shields.io/badge/Svelte-2A1A14?style=flat&logo=svelte&logoColor=FF3E00" alt="Svelte and SvelteKit" title="Svelte and SvelteKit" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/astro"><img src="https://img.shields.io/badge/Astro-17191E?style=flat&logo=astro&logoColor=FF5D01" alt="Astro" title="Astro" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/vite"><img src="https://img.shields.io/badge/Vite-1B1C2E?style=flat&logo=vite&logoColor=646CFF" alt="Vite" title="Vite" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin"><img src="https://img.shields.io/badge/webpack-1C2B34?style=flat&logo=webpack&logoColor=8DD6F9" alt="webpack, Rollup, esbuild and Rspack" title="webpack, Rollup, esbuild and Rspack" /></a>
-  <a href="https://verbaly-web.vercel.app/docs/frameworks/dom"><img src="https://img.shields.io/badge/HTML-2B1A16?style=flat&logo=html5&logoColor=E34F26" alt="Plain HTML, no framework" title="Plain HTML, no framework" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/react"><img src="https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB" alt="React" title="React" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/react#next"><img src="https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js" title="Next.js" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/vue"><img src="https://img.shields.io/badge/Vue-35495E?style=flat&logo=vuedotjs&logoColor=4FC08D" alt="Vue" title="Vue" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/vue#nuxt"><img src="https://img.shields.io/badge/Nuxt-0B1E1A?style=flat&logo=nuxt&logoColor=00DC82" alt="Nuxt" title="Nuxt" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/svelte"><img src="https://img.shields.io/badge/Svelte-2A1A14?style=flat&logo=svelte&logoColor=FF3E00" alt="Svelte and SvelteKit" title="Svelte and SvelteKit" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/astro"><img src="https://img.shields.io/badge/Astro-17191E?style=flat&logo=astro&logoColor=FF5D01" alt="Astro" title="Astro" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/vite"><img src="https://img.shields.io/badge/Vite-1B1C2E?style=flat&logo=vite&logoColor=646CFF" alt="Vite" title="Vite" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/vite#unplugin"><img src="https://img.shields.io/badge/webpack-1C2B34?style=flat&logo=webpack&logoColor=8DD6F9" alt="webpack, Rollup, esbuild and Rspack" title="webpack, Rollup, esbuild and Rspack" /></a>
+  <a href="https://verbaly.dev/docs/frameworks/dom"><img src="https://img.shields.io/badge/HTML-2B1A16?style=flat&logo=html5&logoColor=E34F26" alt="Plain HTML, no framework" title="Plain HTML, no framework" /></a>
 </p>
 
 ## The idea
@@ -78,7 +78,7 @@ t`Hello ${name}`;
 await setLocale('es'); // loads only the Spanish module
 ```
 
-`verbaly/app` is your project's own module: the plugin writes it from your config, with your languages and catalogs already in it. Next.js, Nuxt, SvelteKit and Astro have their own one-line setup: pick yours in the row above, or read the full docs at **https://verbaly-web.vercel.app/docs**.
+`verbaly/app` is your project's own module: the plugin writes it from your config, with your languages and catalogs already in it. Next.js, Nuxt, SvelteKit and Astro have their own one-line setup: pick yours in the row above, or read the full docs at **https://verbaly.dev/docs**.
 
 ## Why Verbaly
 
@@ -143,7 +143,7 @@ claude plugin install verbaly@verbaly
 
 Gemini CLI takes the same pair as an extension: `gemini extensions install https://github.com/AronSoto/verbaly`.
 
-The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx skills add AronSoto/verbaly`, which copies it into the folder of each agent you use), and the docs publish [llms.txt](https://verbaly-web.vercel.app/llms.txt).
+The MCP server gives your agent the whole cycle as tools, with structured output and resources to read your config and catalogs. Machine translations stay drafts until a person approves them (`verbaly review --approve`, or Studio): approving is deliberately not a tool. The [Agent Skill](skills/verbaly/SKILL.md) teaches the write, extract, check and translate cycle (`npx skills add AronSoto/verbaly`, which copies it into the folder of each agent you use), and the docs publish [llms.txt](https://verbaly.dev/llms.txt).
 
 ## Packages
 

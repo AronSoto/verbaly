@@ -80,7 +80,7 @@ Reading the project is an address, not a call, so these cost no tool invocation:
 
 ## 📚 Docs
 
-Full guide: [verbaly-web.vercel.app/docs/guide/agents](https://verbaly-web.vercel.app/docs/guide/agents)
+Full guide: [verbaly.dev/docs/guide/agents](https://verbaly.dev/docs/guide/agents)
 
 ## License
 

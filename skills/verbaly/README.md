@@ -19,7 +19,7 @@ claude plugin install verbaly@verbaly
 
 In Cursor, the plugin is described by `.cursor-plugin/plugin.json` in this folder, and it starts the server from `mcp.json`.
 
-The skill alone, for any agent: `npx skills add AronSoto/verbaly`. The full guide is at <https://verbaly-web.vercel.app/docs/guide/agents>.
+The skill alone, for any agent: `npx skills add AronSoto/verbaly`. The full guide is at <https://verbaly.dev/docs/guide/agents>.
 
 ## License
 

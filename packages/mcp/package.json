@@ -17,7 +17,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/mcp"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/guide/agents",
+  "homepage": "https://verbaly.dev/docs/guide/agents",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

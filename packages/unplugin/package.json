@@ -18,7 +18,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/unplugin"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin",
+  "homepage": "https://verbaly.dev/docs/frameworks/vite#unplugin",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

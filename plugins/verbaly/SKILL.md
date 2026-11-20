@@ -68,4 +68,4 @@ It also serves two **resources**, which is how you read the project without spen
 | Astro      | `verbaly()` from `@verbaly/astro` in `astro.config`         |
 | Plain HTML | `bindDom` + `data-verbaly` attributes                       |
 
-Full docs: https://verbaly-web.vercel.app/docs
+Full docs: https://verbaly.dev/docs

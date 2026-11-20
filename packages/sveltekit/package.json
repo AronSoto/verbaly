@@ -16,7 +16,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/sveltekit"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit",
+  "homepage": "https://verbaly.dev/docs/frameworks/svelte#sveltekit",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

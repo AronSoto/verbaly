@@ -15,7 +15,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/compiler"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/reference/cli",
+  "homepage": "https://verbaly.dev/docs/reference/cli",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

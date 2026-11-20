@@ -6,7 +6,7 @@
   "author": {
     "name": "Aron Soto"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/guide/agents",
+  "homepage": "https://verbaly.dev/docs/guide/agents",
   "repository": "https://github.com/AronSoto/verbaly",
   "license": "MIT",
   "logo": ".cursor-plugin/logo.png",

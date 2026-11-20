@@ -15,7 +15,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/react"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/react",
+  "homepage": "https://verbaly.dev/docs/frameworks/react",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

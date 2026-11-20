@@ -50,7 +50,7 @@ t`Hello ${name}`;
 await setLocale('es'); // loads only the Spanish module
 ```
 
-**Works with** [React](https://verbaly-web.vercel.app/docs/frameworks/react) · [Next.js](https://verbaly-web.vercel.app/docs/frameworks/react#next) · [Vue](https://verbaly-web.vercel.app/docs/frameworks/vue) · [Nuxt](https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt) · [Svelte](https://verbaly-web.vercel.app/docs/frameworks/svelte) · [SvelteKit](https://verbaly-web.vercel.app/docs/frameworks/svelte#sveltekit) · [Astro](https://verbaly-web.vercel.app/docs/frameworks/astro) · [webpack, Rollup, esbuild, Rspack](https://verbaly-web.vercel.app/docs/frameworks/vite#unplugin) · [plain HTML](https://verbaly-web.vercel.app/docs/frameworks/dom), and on its own for text that comes from a CMS.
+**Works with** [React](https://verbaly.dev/docs/frameworks/react) · [Next.js](https://verbaly.dev/docs/frameworks/react#next) · [Vue](https://verbaly.dev/docs/frameworks/vue) · [Nuxt](https://verbaly.dev/docs/frameworks/vue#nuxt) · [Svelte](https://verbaly.dev/docs/frameworks/svelte) · [SvelteKit](https://verbaly.dev/docs/frameworks/svelte#sveltekit) · [Astro](https://verbaly.dev/docs/frameworks/astro) · [webpack, Rollup, esbuild, Rspack](https://verbaly.dev/docs/frameworks/vite#unplugin) · [plain HTML](https://verbaly.dev/docs/frameworks/dom), and on its own for text that comes from a CMS.
 
 ## Why
 
@@ -61,7 +61,7 @@ await setLocale('es'); // loads only the Spanish module
 
 ## Learn more
 
-📖 [Docs](https://verbaly-web.vercel.app/docs) · 🧩 [API reference](https://verbaly-web.vercel.app/docs/reference/api) · 🔁 [Coming from i18next](https://verbaly-web.vercel.app/docs/guide/migrate) · ⭐ [GitHub](https://github.com/AronSoto/verbaly)
+📖 [Docs](https://verbaly.dev/docs) · 🧩 [API reference](https://verbaly.dev/docs/reference/api) · 🔁 [Coming from i18next](https://verbaly.dev/docs/guide/migrate) · ⭐ [GitHub](https://github.com/AronSoto/verbaly)
 
 All packages share one version number. Verbaly is `0.x`, and every change is in the [changelog](https://github.com/AronSoto/verbaly/blob/develop/changelog/CHANGELOG.md).
 

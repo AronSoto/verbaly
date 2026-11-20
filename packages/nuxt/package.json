@@ -17,7 +17,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/nuxt"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/vue#nuxt",
+  "homepage": "https://verbaly.dev/docs/frameworks/vue#nuxt",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

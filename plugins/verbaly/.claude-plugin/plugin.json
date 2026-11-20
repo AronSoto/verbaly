@@ -7,11 +7,11 @@
     "name": "Aron Soto",
     "url": "https://github.com/AronSoto"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/guide/agents",
+  "homepage": "https://verbaly.dev/docs/guide/agents",
   "repository": "https://github.com/AronSoto/verbaly",
   "license": "MIT",
   "supportUrl": "https://github.com/AronSoto/verbaly/issues",
-  "privacyPolicyUrl": "https://verbaly-web.vercel.app/privacy",
-  "termsOfServiceUrl": "https://verbaly-web.vercel.app/terms",
+  "privacyPolicyUrl": "https://verbaly.dev/privacy",
+  "termsOfServiceUrl": "https://verbaly.dev/terms",
   "keywords": ["i18n", "localization", "translation", "skill"]
 }

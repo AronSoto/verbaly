@@ -17,7 +17,7 @@
     "url": "git+https://github.com/AronSoto/verbaly.git",
     "directory": "packages/astro"
   },
-  "homepage": "https://verbaly-web.vercel.app/docs/frameworks/astro",
+  "homepage": "https://verbaly.dev/docs/frameworks/astro",
   "bugs": {
     "url": "https://github.com/AronSoto/verbaly/issues"
   },

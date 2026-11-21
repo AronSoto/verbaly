@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Verbaly" width="320" />
+  <a href="https://verbaly.dev#gh-light-mode-only"><img src="assets/lockup-light.svg" alt="Verbaly" height="64" /></a><a href="https://verbaly.dev#gh-dark-mode-only"><img src="assets/lockup-dark.svg" alt="Verbaly" height="64" /></a>
 </p>
 
 <h3 align="center">Write your text in the code. Ship it in every language.</h3>
